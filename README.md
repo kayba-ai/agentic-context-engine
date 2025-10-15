@@ -217,15 +217,41 @@ We welcome contributions! Feel free to:
 
 ## Citation
 
-If you use ACE in your research or project, please cite:
+If you use ACE in your research or project, please cite the original papers:
 
+### ACE Paper (Primary Reference)
 ```bibtex
-@article{ace2024,
+@article{zhang2024ace,
   title={Agentic Context Engineering: Evolving Contexts for Self-Improving Language Models},
-  author={Zhang, Qizheng and others},
+  author={Zhang, Qizheng and Hu, Changran and Upasani, Shubhangi and Ma, Boyuan and Hong, Fenglu and
+          Kamanuru, Vamsidhar and Rainton, Jay and Wu, Chen and Ji, Mengmeng and Li, Hanchen and
+          Thakker, Urmish and Zou, James and Olukotun, Kunle},
   journal={arXiv preprint arXiv:2510.04618},
   year={2024}
 }
+```
+
+### Dynamic Cheatsheet (Foundation Work)
+ACE builds upon the adaptive memory concepts from Dynamic Cheatsheet:
+
+```bibtex
+@article{suzgun2025dynamiccheatsheet,
+  title={Dynamic Cheatsheet: Test-Time Learning with Adaptive Memory},
+  author={Suzgun, Mirac and Yuksekgonul, Mert and Bianchi, Federico and Jurafsky, Dan and Zou, James},
+  year={2025},
+  eprint={2504.07952},
+  archivePrefix={arXiv},
+  primaryClass={cs.LG},
+  url={https://arxiv.org/abs/2504.07952}
+}
+```
+
+### This Implementation
+If you use this specific implementation, you can also reference:
+
+```
+This repository: https://github.com/yourusername/agentic-context-engine
+Based on the open reproduction at: https://github.com/sci-m-wang/ACE-open
 ```
 
 ## License
@@ -234,6 +260,6 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ---
 
-**Note**: This is an unofficial implementation of the ACE paper. We'll link to the official implementation once it's released.
+**Note**: This is an independent implementation based on the ACE paper (arXiv:2510.04618) and builds upon concepts from Dynamic Cheatsheet. For the original reproduction scaffold, see [sci-m-wang/ACE-open](https://github.com/sci-m-wang/ACE-open).
 
-Made with ❤️ by the open-source community
+Made with ❤️ by [Kayba](https://kayba.ai) and the open-source community
