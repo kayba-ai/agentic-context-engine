@@ -75,3 +75,4 @@ DEMO_TODO.md
 *.egg-info/
 reports/
 docs/method_outline.md
+logs/
