@@ -157,42 +157,6 @@ pip install -r requirements.txt
 pip install -e .
 ```
 
----
-
-## For Contributors: Dependency Management
-
-This project uses **pip-tools** for automatic dependency locking to ensure reproducible builds and prevent version conflicts.
-
-### Quick Start for Contributors
-```bash
-# Clone and set up development environment
-git clone https://github.com/kayba-ai/agentic-context-engine
-cd agentic-context-engine
-pip install -r requirements.txt
-pip install -e .
-
-# Run the demo
-python examples/kayba_ace_test.py
-```
-
-### Managing Dependencies
-```bash
-# Install pip-tools
-pip install pip-tools
-
-# Update dependencies: edit requirements.in, then:
-pip-compile requirements.in
-
-# Sync your environment to match lock file exactly
-pip-sync requirements.txt
-```
-
-**Files:**
-- `requirements.in` - High-level dependencies (edit this to add/update)
-- `requirements.txt` - Locked versions with complete dependency tree (auto-generated)
-
----
-
 ## Configuration
 
 ACE works with any LLM provider through LiteLLM:
