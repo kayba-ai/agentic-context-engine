@@ -152,10 +152,18 @@ class AdapterBase:
 
         sample_id = sample.metadata.get('sample_id', f'sample_{step}')
 
-        # Calculate performance score
+        # Calculate performance score from success/quality metrics only
         performance_score = 0.0
         if environment_result.metrics:
-            performance_score = sum(environment_result.metrics.values()) / len(environment_result.metrics)
+            # Only use boolean/probability metrics that represent success/quality (0-1 range)
+            score_metrics = []
+            for key, value in environment_result.metrics.items():
+                if key in ['correct', 'efficient', 'success', 'accuracy', 'score', 'syntax_valid', 'contains_required']:
+                    if isinstance(value, (int, float, bool)):
+                        score_metrics.append(float(value))
+
+            if score_metrics:
+                performance_score = sum(score_metrics) / len(score_metrics)
 
         # Track adaptation metrics with Opik
         self.opik_integration.log_adaptation_metrics(
