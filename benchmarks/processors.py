@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Dict, List, Iterator, Any, Tuple
 
-from .base import BenchmarkSample
+from ace import Sample
 
 
 class FiNERProcessor:
@@ -32,7 +32,7 @@ class FiNERProcessor:
             6: 'I-ORG',  # Inside Organization
         }
 
-    def process_token_stream(self, token_stream: Iterator[Dict[str, Any]]) -> Iterator[BenchmarkSample]:
+    def process_token_stream(self, token_stream: Iterator[Dict[str, Any]]) -> Iterator[Sample]:
         """
         Process token stream and yield sentence-level samples.
 
@@ -40,7 +40,7 @@ class FiNERProcessor:
             token_stream: Iterator yielding individual token dictionaries
 
         Yields:
-            BenchmarkSample objects for each sentence
+            Sample objects for each sentence
         """
         # Group tokens by document and sentence
         doc_sentences = defaultdict(lambda: defaultdict(list))
@@ -69,19 +69,9 @@ class FiNERProcessor:
                 sentence_text = self._reconstruct_sentence(tokens)
                 entities = self._extract_entities(tokens, labels)
 
-                yield BenchmarkSample(
-                    sample_id=f"finer_doc{doc_idx}_sent{sent_idx}",
-                    benchmark_name="finer_ord",
+                yield Sample(
                     question=f"Identify named entities in the following financial text:\n\n{sentence_text}",
-                    ground_truth=self._format_entities_as_string(entities),
-                    metadata={
-                        'doc_idx': doc_idx,
-                        'sent_idx': sent_idx,
-                        'tokens': tokens,
-                        'bio_labels': labels,
-                        'entities': entities,
-                        'sentence_text': sentence_text
-                    }
+                    ground_truth=self._format_entities_as_string(entities)
                 )
 
                 sample_id += 1
@@ -206,18 +196,15 @@ class FiNERProcessor:
 class XBRLMathProcessor:
     """Processor for XBRL-Math dataset - handles numerical reasoning problems."""
 
-    def process_samples(self, sample_stream: Iterator[Dict[str, Any]]) -> Iterator[BenchmarkSample]:
+    def process_samples(self, sample_stream: Iterator[Dict[str, Any]]) -> Iterator[Sample]:
         """Process XBRL-Math samples - may need restructuring based on actual format."""
         sample_id = 0
 
         for sample_data in sample_stream:
-            yield BenchmarkSample(
-                sample_id=f"xbrl_math_{sample_id:04d}",
-                benchmark_name="xbrl_math",
+            yield Sample(
                 question=sample_data.get('question', ''),
                 context=sample_data.get('context', ''),
-                ground_truth=str(sample_data.get('answer', '')),
-                metadata=sample_data
+                ground_truth=str(sample_data.get('answer', ''))
             )
             sample_id += 1
 
@@ -225,16 +212,13 @@ class XBRLMathProcessor:
 class AppWorldProcessor:
     """Processor for AppWorld dataset - handles agent tasks."""
 
-    def process_tasks(self, task_stream: Iterator[Dict[str, Any]]) -> Iterator[BenchmarkSample]:
+    def process_tasks(self, task_stream: Iterator[Dict[str, Any]]) -> Iterator[Sample]:
         """Process AppWorld tasks."""
         for task_data in task_stream:
-            yield BenchmarkSample(
-                sample_id=task_data["task_id"],
-                benchmark_name="appworld",
+            yield Sample(
                 question=task_data["instruction"],
                 context=f"Available APIs: {task_data['api_docs']}",
-                ground_truth="Task completion successful",
-                metadata=task_data
+                ground_truth="Task completion successful"
             )
 
 

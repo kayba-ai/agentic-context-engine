@@ -1,0 +1,25 @@
+task: simple_qa
+version: 1.0
+data:
+  source: huggingface
+  dataset_path: squad
+  split: validation
+  limit: 200
+preprocessing:
+  question_template: "Context: {context}\n\nQuestion: {question}\n\nAnswer:"
+  ground_truth_field: answers
+  input_field: question
+  context_field: context
+metrics:
+  - name: exact_match
+    weight: 1.0
+  - name: f1
+    weight: 0.8
+  - name: accuracy
+    weight: 0.6
+metadata:
+  description: "Simple Question Answering - basic QA for testing ACE framework"
+  domain: general
+  task_type: qa
+  evaluation_type: text_match
+  examples_for_testing: true

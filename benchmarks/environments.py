@@ -13,6 +13,7 @@ from typing import Dict, List, Set, Any
 
 from ace import EnvironmentResult
 
+from ace import Sample
 from .base import BenchmarkConfig, BenchmarkEnvironment, BenchmarkSample
 
 
@@ -24,7 +25,7 @@ class GenericBenchmarkEnvironment(BenchmarkEnvironment):
     Can be used for most text-based benchmarks with straightforward evaluation.
     """
 
-    def evaluate(self, sample: BenchmarkSample, generator_output) -> EnvironmentResult:
+    def evaluate(self, sample: Sample, generator_output) -> EnvironmentResult:
         """Evaluate generator output using configured metrics."""
         prediction = generator_output.final_answer or ""
         ground_truth = sample.ground_truth or ""
@@ -58,7 +59,7 @@ class FiNEREnvironment(BenchmarkEnvironment):
     token-level and entity-level evaluation metrics.
     """
 
-    def evaluate(self, sample: BenchmarkSample, generator_output) -> EnvironmentResult:
+    def evaluate(self, sample: Sample, generator_output) -> EnvironmentResult:
         """Evaluate NER predictions with entity-level metrics."""
         prediction = generator_output.final_answer or ""
 
@@ -78,7 +79,7 @@ class FiNEREnvironment(BenchmarkEnvironment):
             metrics=metrics
         )
 
-    def _extract_entities(self, prediction: str, sample: BenchmarkSample) -> Set[tuple]:
+    def _extract_entities(self, prediction: str, sample: Sample) -> Set[tuple]:
         """Extract entities from model prediction."""
         entities = set()
 
@@ -123,7 +124,7 @@ class FiNEREnvironment(BenchmarkEnvironment):
 
         return entities
 
-    def _extract_gold_entities(self, sample: BenchmarkSample) -> Set[tuple]:
+    def _extract_gold_entities(self, sample: Sample) -> Set[tuple]:
         """Extract gold entities from sample metadata."""
         entities = set()
 
@@ -227,7 +228,7 @@ class XBRLMathEnvironment(BenchmarkEnvironment):
     focusing on accuracy of calculations and understanding of financial relationships.
     """
 
-    def evaluate(self, sample: BenchmarkSample, generator_output) -> EnvironmentResult:
+    def evaluate(self, sample: Sample, generator_output) -> EnvironmentResult:
         """Evaluate numerical reasoning for financial calculations."""
         prediction = generator_output.final_answer or ""
         ground_truth = sample.ground_truth or ""
@@ -339,7 +340,7 @@ class AppWorldEnvironment(BenchmarkEnvironment):
     API interactions, task completion, and execution success metrics.
     """
 
-    def evaluate(self, sample: BenchmarkSample, generator_output) -> EnvironmentResult:
+    def evaluate(self, sample: Sample, generator_output) -> EnvironmentResult:
         """Evaluate agent execution in AppWorld environment."""
         # AppWorld evaluation is typically done through the world.execute() method
         # This environment focuses on analyzing the execution results
@@ -361,7 +362,7 @@ class AppWorldEnvironment(BenchmarkEnvironment):
             metrics=metrics
         )
 
-    def _extract_execution_results(self, sample: BenchmarkSample) -> Dict[str, Any]:
+    def _extract_execution_results(self, sample: Sample) -> Dict[str, Any]:
         """Extract execution results from sample metadata."""
         if not sample.metadata:
             return {"success": False, "error": "No execution results available"}

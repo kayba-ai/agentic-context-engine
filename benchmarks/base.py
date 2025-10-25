@@ -40,13 +40,9 @@ class BenchmarkConfig:
         )
 
 
-@dataclass
-class BenchmarkSample(Sample):
-    """Extended Sample class for benchmark-specific data."""
-
-    sample_id: str = ""
-    benchmark_name: str = ""
-    metadata: Optional[Dict[str, Any]] = None
+# Note: BenchmarkSample is now just an alias for Sample for simplicity
+# Legacy code can still use BenchmarkSample, but new code should use Sample directly
+BenchmarkSample = Sample
 
 
 class DataLoader(ABC):
@@ -71,7 +67,7 @@ class BenchmarkEnvironment(TaskEnvironment):
         self.metrics_config = {m["name"]: m for m in config.metrics}
 
     @abstractmethod
-    def evaluate(self, sample: BenchmarkSample, generator_output) -> EnvironmentResult:
+    def evaluate(self, sample: Sample, generator_output) -> EnvironmentResult:
         """Evaluate generator output against benchmark criteria."""
         pass
 

@@ -1,0 +1,26 @@
+task: finer_ord
+version: 1.0
+data:
+  source: huggingface
+  dataset_path: gtfintechlab/finer-ord
+  split: test
+  limit: 100  # Optional: limit for testing
+preprocessing:
+  question_template: "Extract named entities from the following financial text:\n\n{text}\n\nIdentify and classify all entities (PERSON, ORGANIZATION, LOCATION, FINANCIAL terms)."
+  ground_truth_field: entities
+  input_field: text
+metrics:
+  - name: f1
+    weight: 1.0
+  - name: precision
+    weight: 0.5
+  - name: recall
+    weight: 0.5
+  - name: exact_match
+    weight: 0.2
+metadata:
+  description: "Financial Named Entity Recognition - identify entities in financial documents"
+  paper: "https://arxiv.org/abs/2302.11533"
+  domain: finance
+  task_type: ner
+  evaluation_type: entity_level

@@ -8,9 +8,20 @@ task discovery, and benchmark instantiation following lm-evaluation-harness patt
 from __future__ import annotations
 
 import os
+import sys
 import yaml
 from pathlib import Path
 from typing import Dict, List, Optional, Type
+
+# Try to import tomllib (Python 3.11+) or tomli for TOML support
+try:
+    if sys.version_info >= (3, 11):
+        import tomllib
+    else:
+        import tomli as tomllib
+    TOML_AVAILABLE = True
+except ImportError:
+    TOML_AVAILABLE = False
 
 from .base import BenchmarkConfig, BenchmarkEnvironment, DataLoader
 from .loaders.huggingface import HuggingFaceLoader
@@ -64,18 +75,30 @@ class BenchmarkTaskManager:
         self._discover_configs()
 
     def _discover_configs(self) -> None:
-        """Scan tasks directory for YAML configuration files."""
+        """Scan tasks directory for YAML and TOML configuration files."""
         if not self.tasks_dir.exists():
             self.tasks_dir.mkdir(parents=True, exist_ok=True)
             return
 
+        # Load YAML configs
         for yaml_file in self.tasks_dir.rglob("*.yaml"):
             try:
                 config_dict = yaml.safe_load(yaml_file.read_text())
                 config = BenchmarkConfig.from_dict(config_dict)
                 self._configs[config.task] = config
             except Exception as e:
-                print(f"Warning: Failed to load config from {yaml_file}: {e}")
+                print(f"Warning: Failed to load YAML config from {yaml_file}: {e}")
+
+        # Load TOML configs if available
+        if TOML_AVAILABLE:
+            for toml_file in self.tasks_dir.rglob("*.toml"):
+                try:
+                    config_dict = tomllib.loads(toml_file.read_text())
+                    config = BenchmarkConfig.from_dict(config_dict)
+                    # TOML configs take precedence over YAML if same task name
+                    self._configs[config.task] = config
+                except Exception as e:
+                    print(f"Warning: Failed to load TOML config from {toml_file}: {e}")
 
     def list_benchmarks(self) -> List[str]:
         """Return list of available benchmark task names."""
@@ -114,11 +137,21 @@ class BenchmarkTaskManager:
         data_config = config.data.copy()  # Make a copy to avoid modifying original
         source = data_config["source"]
 
+        # Extract limit and remove from loader args
+        limit = data_config.pop("limit", None)
+
         # Add benchmark name for processor selection
         data_config["benchmark_name"] = task_name
 
         loader = self.get_data_loader(source)
-        return loader.load(**data_config)
+        data_iter = loader.load(**data_config)
+
+        # Apply limit if specified in config
+        if limit:
+            import itertools
+            data_iter = itertools.islice(data_iter, limit)
+
+        return data_iter
 
     def _get_environment_class(self, config: BenchmarkConfig) -> Type[BenchmarkEnvironment]:
         """

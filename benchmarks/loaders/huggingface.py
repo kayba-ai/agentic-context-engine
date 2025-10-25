@@ -130,12 +130,11 @@ class HuggingFaceLoader(DataLoader):
 
             # Use processor to convert tokens to sentences
             for processed_sample in processor.process_token_stream(token_stream):
-                # Convert BenchmarkSample back to dict for compatibility
+                # Convert Sample back to dict for compatibility
                 yield {
-                    'sample_id': processed_sample.sample_id,
                     'question': processed_sample.question,
                     'ground_truth': processed_sample.ground_truth,
-                    'metadata': processed_sample.metadata
+                    'context': getattr(processed_sample, 'context', '')
                 }
         else:
             # Standard processing for other datasets

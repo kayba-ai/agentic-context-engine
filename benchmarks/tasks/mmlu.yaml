@@ -1,0 +1,34 @@
+task: mmlu
+version: "1.0"
+
+data:
+  source: huggingface
+  dataset_path: cais/mmlu
+  subset: all
+  split: test
+  limit: 500
+
+preprocessing:
+  question_template: |
+    Question: {question}
+
+    A) {choices[0]}
+    B) {choices[1]}
+    C) {choices[2]}
+    D) {choices[3]}
+
+    Answer with just the letter (A, B, C, or D).
+  ground_truth_field: answer
+  input_field: question
+
+metrics:
+  - name: exact_match
+    weight: 1.0
+  - name: accuracy
+    weight: 1.0
+
+metadata:
+  description: "Massive Multitask Language Understanding benchmark"
+  domain: "general_knowledge"
+  task_type: "multiple_choice"
+  num_choices: 4

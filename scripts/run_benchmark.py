@@ -37,7 +37,8 @@ from ace import (
     Playbook,
 )
 from ace.llm_providers import LiteLLMClient
-from benchmarks import BenchmarkTaskManager, BenchmarkSample
+from ace import Sample
+from benchmarks import BenchmarkTaskManager
 
 # Suppress LiteLLM debug messages
 import litellm
@@ -157,8 +158,8 @@ def create_llm_client(args: argparse.Namespace) -> LiteLLMClient:
     )
 
 
-def load_benchmark_data(args: argparse.Namespace, manager: BenchmarkTaskManager) -> List[BenchmarkSample]:
-    """Load and convert benchmark data to BenchmarkSample format."""
+def load_benchmark_data(args: argparse.Namespace, manager: BenchmarkTaskManager) -> List[Sample]:
+    """Load and convert benchmark data to Sample format."""
     if not args.quiet:
         print(f"Loading {args.benchmark} data (split: {args.split})...")
 
@@ -176,59 +177,117 @@ def load_benchmark_data(args: argparse.Namespace, manager: BenchmarkTaskManager)
     if not args.quiet:
         print(f"Loaded {len(raw_data)} samples")
 
-    # Convert to BenchmarkSample format
+    # Convert to Sample format
     samples = []
 
     for i, data in enumerate(raw_data):
         if args.benchmark == "appworld":
             # AppWorld has special handling
-            sample = BenchmarkSample(
-                sample_id=f"{args.benchmark}_{i:04d}",
-                benchmark_name=args.benchmark,
+            sample = Sample(
                 question=data["instruction"],
                 context=f"Available APIs: {data['api_docs']}",
-                ground_truth="Task completion successful",
-                metadata=data
+                ground_truth="Task completion successful"
             )
         elif args.benchmark == "finer_ord":
             # FiNER now comes pre-processed from the loader
-            sample = BenchmarkSample(
-                sample_id=data.get('sample_id', f"{args.benchmark}_{i:04d}"),
-                benchmark_name=args.benchmark,
+            sample = Sample(
                 question=data['question'],
                 ground_truth=data['ground_truth'],
-                metadata=data.get('metadata', {})
+                context=data.get('context', '')
             )
         elif args.benchmark == "xbrl_math":
             # XBRL-Math handling
-            sample = BenchmarkSample(
-                sample_id=f"{args.benchmark}_{i:04d}",
-                benchmark_name=args.benchmark,
+            sample = Sample(
                 question=data.get('question', ''),
                 context=data.get('context', ''),
-                ground_truth=str(data.get('answer', '')),
-                metadata=data
+                ground_truth=str(data.get('answer', ''))
+            )
+        elif args.benchmark == "simple_qa":
+            # Squad/SQuAD handling - answers is a dict with text list
+            answers = data.get('answers', {})
+            if isinstance(answers, dict) and 'text' in answers:
+                ground_truth = answers['text'][0] if answers['text'] else ''
+            else:
+                ground_truth = str(answers) if answers else ''
+
+            sample = Sample(
+                question=data['question'],
+                ground_truth=ground_truth,
+                context=data.get('context', '')
+            )
+        elif args.benchmark == "hellaswag":
+            # HellaSwag handling - format multiple choice and convert label
+            choices = data['endings']
+            question = f"""Context: {data['ctx']}
+
+Which ending makes the most sense?
+
+A) {choices[0]}
+B) {choices[1]}
+C) {choices[2]}
+D) {choices[3]}
+
+Answer with just the letter (A, B, C, or D)."""
+
+            # Convert numeric label to letter
+            label_map = {'0': 'A', '1': 'B', '2': 'C', '3': 'D'}
+            ground_truth = label_map.get(str(data['label']), 'A')
+
+            sample = Sample(
+                question=question,
+                ground_truth=ground_truth
+            )
+        elif args.benchmark in ["arc_easy", "arc_challenge"]:
+            # ARC handling - format multiple choice
+            choices = data['choices']['text']
+            question = f"""Question: {data['question']}
+
+A) {choices[0]}
+B) {choices[1]}
+C) {choices[2]}
+D) {choices[3]}
+
+Answer with just the letter (A, B, C, or D)."""
+
+            sample = Sample(
+                question=question,
+                ground_truth=data['answerKey']
+            )
+        elif args.benchmark == "mmlu":
+            # MMLU handling - format multiple choice
+            choices = data['choices']
+            question = f"""Question: {data['question']}
+
+A) {choices[0]}
+B) {choices[1]}
+C) {choices[2]}
+D) {choices[3]}
+
+Answer with just the letter (A, B, C, or D)."""
+
+            # Convert numeric answer to letter
+            answer_map = {0: 'A', 1: 'B', 2: 'C', 3: 'D'}
+            ground_truth = answer_map.get(data['answer'], 'A')
+
+            sample = Sample(
+                question=question,
+                ground_truth=ground_truth
             )
         else:
             # Generic handling - check if already processed
-            if 'sample_id' in data and 'question' in data:
+            if 'question' in data:
                 # Already processed by a processor
-                sample = BenchmarkSample(
-                    sample_id=data['sample_id'],
-                    benchmark_name=args.benchmark,
+                sample = Sample(
                     question=data['question'],
                     ground_truth=data.get('ground_truth', ''),
-                    context=data.get('context', ''),
-                    metadata=data.get('metadata', {})
+                    context=data.get('context', '')
                 )
             else:
                 # Raw data - use generic handling
-                sample = BenchmarkSample(
-                    sample_id=f"{args.benchmark}_{i:04d}",
-                    benchmark_name=args.benchmark,
+                sample = Sample(
                     question=str(data.get('question', data.get('input', ''))),
                     ground_truth=str(data.get('answer', data.get('output', ''))),
-                    metadata=data
+                    context=str(data.get('context', ''))
                 )
 
         samples.append(sample)
@@ -238,7 +297,7 @@ def load_benchmark_data(args: argparse.Namespace, manager: BenchmarkTaskManager)
 
 def run_evaluation(
     args: argparse.Namespace,
-    samples: List[BenchmarkSample],
+    samples: List[Sample],
     manager: BenchmarkTaskManager
 ) -> Dict[str, Any]:
     """Run benchmark evaluation with ACE."""
@@ -271,7 +330,7 @@ def run_evaluation(
             env_result = environment.evaluate(sample, output)
 
             results.append({
-                "sample_id": sample.sample_id,
+                "sample_id": f"{args.benchmark}_{i:04d}",
                 "question": sample.question,
                 "prediction": output.final_answer,
                 "ground_truth": sample.ground_truth,
@@ -289,16 +348,16 @@ def run_evaluation(
             reflector=reflector,
             curator=curator,
             max_refinement_rounds=args.max_refinement_rounds,
-            enable_explainability=True  # Enable explainability tracking
+            enable_observability=True  # Enable observability tracking
         )
 
         # Run adaptation
         adaptation_results = adapter.run(samples, environment, epochs=args.epochs)
 
         # Convert to results format
-        for step in adaptation_results:
+        for step_idx, step in enumerate(adaptation_results):
             results.append({
-                "sample_id": step.sample.sample_id,
+                "sample_id": f"{args.benchmark}_{step_idx:04d}",
                 "question": step.sample.question,
                 "prediction": step.generator_output.final_answer,
                 "ground_truth": step.sample.ground_truth,
@@ -308,14 +367,10 @@ def run_evaluation(
                 "curator_output": step.curator_output.raw if hasattr(step.curator_output, 'raw') else None
             })
 
-        # Export explainability data if available
-        explainability_data = None
-        if hasattr(adapter, 'evolution_tracker') and adapter.evolution_tracker:
-            explainability_data = {
-                "evolution": adapter.evolution_tracker.get_timeline_data(),
-                "attribution": adapter.attribution_analyzer.generate_attribution_report() if hasattr(adapter, 'attribution_analyzer') and adapter.attribution_analyzer else None,
-                "interactions": adapter.interaction_tracer.generate_interaction_report() if hasattr(adapter, 'interaction_tracer') and adapter.interaction_tracer else None
-            }
+        # Export observability data if available
+        observability_data = None
+        if hasattr(adapter, 'observability_data'):
+            observability_data = adapter.observability_data
 
     result_dict = {
         "benchmark": args.benchmark,
@@ -325,9 +380,9 @@ def run_evaluation(
         "summary": compute_summary_metrics(results)
     }
 
-    # Add explainability data if available
-    if 'explainability_data' in locals() and explainability_data:
-        result_dict["explainability"] = explainability_data
+    # Add observability data if available
+    if 'observability_data' in locals() and observability_data:
+        result_dict["observability"] = observability_data
 
     return result_dict
 
