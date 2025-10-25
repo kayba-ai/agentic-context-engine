@@ -61,6 +61,7 @@ class DomainCheckEnvironment(TaskEnvironment):
 
         return EnvironmentResult(
             feedback=feedback,
+            ground_truth=None,  # No ground truth available for domain checking
             metrics={
                 "correct": correct,
                 "efficient": efficient,
