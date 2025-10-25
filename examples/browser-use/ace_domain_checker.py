@@ -45,6 +45,8 @@ class DomainCheckEnvironment(TaskEnvironment):
         # Get strategy from generator
         strategy = generator_output.final_answer
 
+        print(f"🔍 Checking domain: {domain}")
+
         # Run browser automation
         result = asyncio.run(self._check_domain(domain, strategy))
 
@@ -66,8 +68,10 @@ class DomainCheckEnvironment(TaskEnvironment):
                 "correct": correct,
                 "efficient": efficient,
                 "steps": result['steps'],
+                "total_steps": result.get('total_steps', result['steps']),
                 "status": result['status'],
-                "attempt": result.get('attempt', 1)
+                "attempt": result.get('attempt', 1),
+                "attempt_details": result.get('attempt_details', [])
             }
         )
 
@@ -75,8 +79,11 @@ class DomainCheckEnvironment(TaskEnvironment):
         """Execute browser automation to check domain with retry logic."""
         max_retries = 3
         last_error = None
+        total_steps = 0
+        attempt_details = []
 
         for attempt in range(max_retries):
+            print(f"   ⏳ Attempt {attempt + 1}/{max_retries}...")
             browser = None
             try:
                 # Start browser
@@ -112,6 +119,10 @@ ERROR: <reason>"""
                 output = history.final_result() if hasattr(history, "final_result") else ""
                 steps = len(history.action_names()) if hasattr(history, "action_names") and history.action_names() else 0
 
+                # Add steps to total and track attempt
+                total_steps += steps
+                attempt_details.append(f"attempt {attempt + 1}: {steps} steps")
+
                 # Determine status
                 status = "ERROR"
                 output_upper = output.upper()
@@ -122,16 +133,20 @@ ERROR: <reason>"""
                 elif f"TAKEN: {domain_upper}" in output_upper:
                     status = "TAKEN"
 
-                # If successful, return immediately
+                # If successful, return immediately with cumulative data
                 if status != "ERROR":
+                    print(f"   ✅ Success! {status} ({steps} steps)")
                     return {
                         "status": status,
-                        "steps": steps,
+                        "steps": steps,  # Steps from final attempt
+                        "total_steps": total_steps,  # Cumulative steps
                         "output": output,
-                        "attempt": attempt + 1
+                        "attempt": attempt + 1,
+                        "attempt_details": attempt_details
                     }
 
                 # Store error for potential retry
+                print(f"   ❌ Failed ({steps} steps) - retrying...")
                 last_error = f"Failed to get valid result: {output}"
 
             except asyncio.TimeoutError:
@@ -140,6 +155,10 @@ ERROR: <reason>"""
                     steps = history.number_of_steps() if 'history' in locals() and hasattr(history, "number_of_steps") else 0
                 except:
                     steps = 20  # max_steps if we can't determine
+
+                total_steps += steps
+                attempt_details.append(f"attempt {attempt + 1}: {steps} steps (timeout)")
+                print(f"   ⏱️ Timeout ({steps} steps) - retrying...")
                 last_error = f"Timeout on attempt {attempt + 1}"
 
             except Exception as e:
@@ -148,6 +167,10 @@ ERROR: <reason>"""
                     steps = history.number_of_steps() if 'history' in locals() and hasattr(history, "number_of_steps") else 0
                 except:
                     steps = 0
+
+                total_steps += steps
+                attempt_details.append(f"attempt {attempt + 1}: {steps} steps (error)")
+                print(f"   💥 Error ({steps} steps) - retrying...")
                 last_error = f"Error on attempt {attempt + 1}: {str(e)}"
 
             finally:
@@ -161,8 +184,10 @@ ERROR: <reason>"""
         return {
             "status": "ERROR",
             "steps": steps if 'steps' in locals() else 0,
+            "total_steps": total_steps,
             "error": f"Failed after {max_retries} attempts. Last error: {last_error}",
-            "attempt": max_retries
+            "attempt": max_retries,
+            "attempt_details": attempt_details
         }
 
 
@@ -216,7 +241,7 @@ def main():
 
     # Create all samples
     samples = []
-    for domain in domains:
+    for i, domain in enumerate(domains, 1):
         samples.append(Sample(
             question=f"Check if domain {domain} is available",
             ground_truth="AVAILABLE or TAKEN",
@@ -224,6 +249,7 @@ def main():
         ))
 
     # Run OnlineAdapter - it processes samples one by one and learns after each!
+    print(f"\n📋 Processing {len(domains)} domains...")
     results = adapter.run(samples, environment)
 
     # Show results
@@ -234,18 +260,35 @@ def main():
         metrics = result.environment_result.metrics
         status = metrics.get('status', 'UNKNOWN')
         steps = metrics.get('steps', 0)
+        total_steps = metrics.get('total_steps', steps)
         correct = metrics.get('correct', False)
         attempt = metrics.get('attempt', 1)
+        attempt_details = metrics.get('attempt_details', [])
 
-        print(f"[{i}] {domain}: {status} ({'✓' if correct else '✗'}) - {steps} steps (attempt {attempt})")
+        # Show detailed step breakdown for multiple attempts
+        step_info = f"{total_steps} steps"
+        if attempt > 1:
+            step_info += f" total ({', '.join(attempt_details)})"
+        else:
+            step_info += f" (1 attempt)"
 
-    # Summary
+        print(f"[{i}] {domain}: {status} ({'✓' if correct else '✗'}) - {step_info}")
+
+    # Enhanced Summary
     successful = sum(1 for r in results if r.environment_result.metrics.get('correct', False))
-    total_steps = sum(r.environment_result.metrics.get('steps', 0) for r in results)
-    avg_steps = total_steps / len(results) if results else 0
+    total_steps = sum(r.environment_result.metrics.get('total_steps', r.environment_result.metrics.get('steps', 0)) for r in results)
+    domains_with_retries = sum(1 for r in results if r.environment_result.metrics.get('attempt', 1) > 1)
+    total_attempts = sum(r.environment_result.metrics.get('attempt', 1) for r in results)
+
+    avg_steps_per_domain = total_steps / len(results) if results else 0
+    avg_steps_per_success = total_steps / successful if successful > 0 else 0
 
     print(f"\n✅ Success rate: {successful}/{len(results)} ({100*successful/len(results):.1f}%)")
-    print(f"⚡ Average steps: {avg_steps:.1f}")
+    print(f"⚡ Total steps: {total_steps} across all attempts")
+    print(f"📈 Average steps per domain: {avg_steps_per_domain:.1f}")
+    print(f"🎯 Average steps per success: {avg_steps_per_success:.1f}")
+    print(f"🔄 Domains needing retries: {domains_with_retries}/{len(results)}")
+    print(f"🔢 Total attempts made: {total_attempts}")
     print(f"🧠 Strategies learned: {len(adapter.playbook.bullets())}")
 
     # Show learned strategies
