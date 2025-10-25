@@ -166,20 +166,26 @@ class AdapterBase:
                 performance_score = sum(score_metrics) / len(score_metrics)
 
         # Track adaptation metrics with Opik
-        self.opik_integration.log_adaptation_metrics(
-            epoch=epoch,
-            step=step,
-            performance_score=performance_score,
-            bullet_count=len(self.playbook.bullets()),
-            successful_predictions=1 if performance_score > 0.5 else 0,
-            total_predictions=1,
-            metadata={
-                'sample_id': sample_id,
-                'question': sample.question[:100] + "..." if len(sample.question) > 100 else sample.question,
-                'bullet_ids_used': generator_output.bullet_ids,
-                'environment_metrics': environment_result.metrics
-            }
-        )
+        try:
+            self.opik_integration.log_adaptation_metrics(
+                epoch=epoch,
+                step=step,
+                performance_score=performance_score,
+                bullet_count=len(self.playbook.bullets()),
+                successful_predictions=1 if performance_score > 0.5 else 0,
+                total_predictions=1,
+                metadata={
+                    'sample_id': sample_id,
+                    'question': sample.question[:100] + "..." if len(sample.question) > 100 else sample.question,
+                    'bullet_ids_used': generator_output.bullet_ids,
+                    'environment_metrics': environment_result.metrics
+                }
+            )
+        except Exception as e:
+            # Log observability errors in debug mode but don't interrupt main flow
+            import logging
+            logging.debug(f"Opik observability error (non-critical): {e}")
+            pass
 
     def get_observability_data(self) -> Dict[str, Any]:
         """Get observability data (if available through Opik integration)."""
@@ -289,18 +295,6 @@ class AdapterBase:
             )
 
         self.playbook.apply_delta(curator_output.delta)
-
-        # Create bullet metadata for explainability
-        bullet_metadata = {}
-        if self.enable_explainability:
-            for bullet in self.playbook.bullets():
-                bullet_metadata[bullet.id] = {
-                    'section': bullet.section,
-                    'content': bullet.content,
-                    'helpful': bullet.helpful,
-                    'harmful': bullet.harmful,
-                    'neutral': bullet.neutral
-                }
 
         return AdapterStepResult(
             sample=sample,
