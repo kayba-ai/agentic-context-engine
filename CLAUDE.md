@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is an implementation scaffold for reproducing the Agentic Context Engineering (ACE) method from the paper "Agentic Context Engineering: Evolving Contexts for Self-Improving Language Models" (arXiv:2510.04618).
 
+The framework enables AI agents to learn from their execution feedback through three collaborative roles: Generator (produces answers), Reflector (analyzes performance), and Curator (updates the knowledge base called a "playbook").
+
 ## Development Commands
 
 ### Package Installation
@@ -73,6 +75,24 @@ python -m unittest tests.test_adaptation
 
 # Run with verbose output
 python -m unittest discover -s tests -v
+
+# Using pytest (with dev dependencies)
+uv run pytest                        # Run all tests
+uv run pytest tests/test_adaptation.py  # Run specific test file
+uv run pytest -v                     # Verbose output
+```
+
+### Code Quality
+```bash
+# Format code with Black
+uv run black ace/ tests/ examples/
+
+# Type checking with MyPy
+uv run mypy ace/
+
+# Run all quality checks (when available in dev dependencies)
+uv run black --check ace/ tests/ examples/
+uv run mypy ace/
 ```
 
 ### Running Examples
@@ -91,6 +111,12 @@ python examples/playbook_persistence.py
 # Compare prompt versions
 python examples/compare_v1_v2_prompts.py
 python examples/advanced_prompts_v2.py
+
+# Browser automation demos (requires browser-use dependencies)
+uv run python examples/browser-use/baseline_domain_checker.py    # Baseline automation
+uv run python examples/browser-use/ace_domain_checker.py         # ACE-enhanced automation
+uv run python examples/browser-use/baseline_form_filler.py       # Baseline form filling
+uv run python examples/browser-use/ace_form_filler.py            # ACE-enhanced form filling
 ```
 
 ### Development Scripts (Research Only)
@@ -137,6 +163,9 @@ python scripts/explain_ace_performance.py
 - `interaction_tracer.py`: Trace role interactions and dependencies
 - `visualizer.py`: Visualization tools for explainability analysis
 
+**ace/observability/** - Production monitoring and observability:
+- Integration with Opik for enterprise-grade monitoring and tracking
+
 **benchmarks/** - Benchmark framework:
 - `base.py`: Base benchmark classes and interfaces
 - `environments.py`: Task environment implementations
@@ -146,7 +175,10 @@ python scripts/explain_ace_performance.py
 
 **tests/** - Test suite using unittest framework
 
-**examples/** - Production-ready example scripts
+**examples/** - Production-ready example scripts:
+- Basic usage examples with various LLM providers
+- Browser automation demos comparing baseline vs ACE-enhanced approaches
+- Advanced prompt engineering examples
 
 **scripts/** - Research and development scripts (not in PyPI package)
 
@@ -178,7 +210,18 @@ python scripts/explain_ace_performance.py
 ## Python Requirements
 - Python 3.11+ (developed with 3.12)
 - Dependencies managed via UV (see pyproject.toml/uv.lock)
-- Core: Pydantic, Python-dotenv
-- Production LLM: LiteLLM (optional but recommended)
-- Local models: transformers, torch (optional)
-- LangChain: langchain-litellm (optional)
+- Core: Pydantic, Python-dotenv, LiteLLM, tenacity
+- Optional dependencies available for:
+  - `demos`: Browser automation with browser-use, rich UI, datasets
+  - `observability`: Opik integration for production monitoring
+  - `langchain`: LangChain integration
+  - `transformers`: Local model support with transformers, torch
+  - `dev`: Development tools (pytest, black, mypy)
+  - `all`: All optional dependencies combined
+
+## Environment Setup
+Set your LLM API key for examples and demos:
+```bash
+export OPENAI_API_KEY="your-api-key"
+# Or use other providers: ANTHROPIC_API_KEY, GOOGLE_API_KEY, etc.
+```
