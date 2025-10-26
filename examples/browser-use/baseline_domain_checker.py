@@ -93,18 +93,23 @@ ERROR: <reason>"""
             elif f"TAKEN: {domain_upper}" in output_upper:
                 status = "TAKEN"
 
-            # If successful, return immediately with cumulative data
+            # If we got a valid status, return with success based on correctness
             if status != "ERROR":
-                # Evaluate efficiency (same logic as ACE version)
-                efficient = steps <= 8
+                # For testing purposes, we need to determine what's actually correct
+                # Since these are test domains, we'll assume they're AVAILABLE unless we can verify otherwise
+                # In a real scenario, you'd check against a known ground truth
+                expected_status = "AVAILABLE"  # Test domains should be available
+                correct = (status == expected_status)
+
                 return {
                     "domain": domain,
                     "status": status,
                     "steps": steps,  # Steps from final attempt
                     "total_steps": total_steps,  # Cumulative steps
                     "output": output,
-                    "success": True,
-                    "efficient": efficient,
+                    "success": True,  # Successfully got a result
+                    "correct": correct,  # Whether the result was accurate
+                    "expected": expected_status,
                     "attempt": attempt + 1,
                     "attempt_details": attempt_details
                 }
@@ -161,7 +166,8 @@ ERROR: <reason>"""
         "total_steps": total_steps,
         "error": f"Failed after {max_retries} attempts. Last error: {last_error}",
         "success": False,
-        "efficient": False,
+        "correct": False,
+        "expected": "AVAILABLE",
         "attempt": max_retries,
         "attempt_details": attempt_details
     }
@@ -207,13 +213,20 @@ def main():
         else:
             step_info += f" (1 attempt)"
 
-        success_indicator = '✓' if success else '✗'
-        print(f"   📊 Result: {status} ({success_indicator}) - {step_info}")
+        correct = result.get('correct', False)
+        accuracy_indicator = '✓' if correct else '✗'
+        expected = result.get('expected', 'UNKNOWN')
+        print(f"   📊 Result: {status} ({accuracy_indicator}) - {step_info}")
+        if not correct and success:
+            print(f"       Expected: {expected}, Got: {status}")
         print()
 
     # Show final results
-    print("=" * 50)
-    print("📊 Results:")
+    print("\n" + "=" * 80)
+    print("📊 RESULTS")
+    print("=" * 80)
+    print(f"{'#':<3} {'Domain':<25} {'Status':<10} {'Acc':<4} {'Steps':<8} {'Details'}")
+    print("-" * 80)
 
     for i, result in enumerate(results, 1):
         domain = result['domain']
@@ -225,17 +238,19 @@ def main():
         attempt_details = result.get('attempt_details', [])
 
         # Show detailed step breakdown for multiple attempts
-        step_info = f"{total_steps} steps"
         if attempt > 1:
-            step_info += f" total ({', '.join(attempt_details)})"
+            step_details = f"({', '.join(attempt_details)})"
         else:
-            step_info += f" (1 attempt)"
+            step_details = "(1 attempt)"
 
-        success_indicator = '✓' if success else '✗'
-        print(f"[{i}] {domain}: {status} ({success_indicator}) - {step_info}")
+        correct = result.get('correct', False)
+        accuracy_indicator = '✓' if correct else '✗'
+
+        print(f"{i:<3} {domain:<25} {status:<10} {accuracy_indicator:<4} {total_steps:<8} {step_details}")
 
     # Enhanced Summary
     successful = sum(1 for r in results if r['success'])
+    correct = sum(1 for r in results if r.get('correct', False))
     total_steps = sum(r.get('total_steps', r['steps']) for r in results)
     domains_with_retries = sum(1 for r in results if r.get('attempt', 1) > 1)
     total_attempts = sum(r.get('attempt', 1) for r in results)
@@ -243,16 +258,16 @@ def main():
     avg_steps_per_domain = total_steps / len(results) if results else 0
     avg_steps_per_success = total_steps / successful if successful > 0 else 0
 
-    print(f"\n✅ Success rate: {successful}/{len(results)} ({100*successful/len(results):.1f}%)")
-    print(f"📊 Total steps: {total_steps} across all attempts")
-    print(f"📈 Average steps per domain: {avg_steps_per_domain:.1f}")
-    print(f"🎯 Average steps per success: {avg_steps_per_success:.1f}")
-    print(f"🔄 Domains needing retries: {domains_with_retries}/{len(results)}")
-    print(f"🔢 Total attempts made: {total_attempts}")
-    print(f"🚫 No learning - same performance every time")
-
-    print(f"\n💡 Compare with: python examples/browser-use/ace_domain_checker.py")
-    print(f"   ACE learns and improves after each domain check!")
+    print("\n" + "=" * 80)
+    print("📈 SUMMARY")
+    print("=" * 80)
+    print(f"✅ Success rate:         {successful:>2}/{len(results)} ({100*successful/len(results):>5.1f}%)")
+    print(f"🎯 Accuracy rate:        {correct:>2}/{len(results)} ({100*correct/len(results):>5.1f}%)")
+    print(f"📊 Total steps:          {total_steps:>6} across all attempts")
+    print(f"📈 Avg steps/domain:     {avg_steps_per_domain:>6.1f}")
+    print(f"🔄 Domains w/ retries:   {domains_with_retries:>2}/{len(results)}")
+    print(f"🔢 Total attempts:       {total_attempts:>6}")
+    print("=" * 80)
 
 
 if __name__ == "__main__":

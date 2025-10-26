@@ -51,16 +51,27 @@ class DomainCheckEnvironment(TaskEnvironment):
         result = asyncio.run(self._check_domain(domain, strategy))
 
         # Evaluate correctness and efficiency
-        correct = result['status'] != "ERROR"
+        status_success = result['status'] != "ERROR"
+
+        # For testing purposes, assume test domains should be AVAILABLE
+        expected_status = "AVAILABLE"
+        correct = (result['status'] == expected_status) if status_success else False
         efficient = result['steps'] <= 8  # Simple threshold for feedback context
 
-        feedback = f"Domain check {'succeeded' if correct else 'failed'}. "
+        feedback = f"Domain check {'succeeded' if status_success else 'failed'}. "
         feedback += f"Took {result['steps']} steps. "
-        if correct and not efficient:
-            feedback += f"Analyze what made this attempt take more steps (target: ≤8 steps). "
-        elif correct:
-            feedback += f"Analyze what made this attempt efficient. "
-        if result['status'] == "ERROR":
+
+        if status_success:
+            if result['status'] == expected_status:
+                feedback += f"Correctly identified domain as {result['status']}. "
+            else:
+                feedback += f"Incorrectly identified domain as {result['status']} (expected: {expected_status}). "
+
+            if correct and not efficient:
+                feedback += f"Analyze what made this attempt take more steps (target: ≤8 steps). "
+            elif correct:
+                feedback += f"Analyze what made this attempt efficient. "
+        else:
             feedback += f"Error: {result.get('error', 'Unknown error')}. "
 
         return EnvironmentResult(
@@ -68,10 +79,12 @@ class DomainCheckEnvironment(TaskEnvironment):
             ground_truth=None,  # No ground truth available for domain checking
             metrics={
                 "correct": correct,
+                "status_success": status_success,
                 "efficient": efficient,
                 "steps": result['steps'],
                 "total_steps": result.get('total_steps', result['steps']),
                 "status": result['status'],
+                "expected": expected_status,
                 "attempt": result.get('attempt', 1),
                 "attempt_details": result.get('attempt_details', [])
             }
@@ -269,8 +282,11 @@ def main():
     results = adapter.run(samples, environment)
 
     # Show results
-    print("\n" + "=" * 50)
-    print("📊 Results:")
+    print("\n" + "=" * 80)
+    print("📊 RESULTS")
+    print("=" * 80)
+    print(f"{'#':<3} {'Domain':<25} {'Status':<10} {'Acc':<4} {'Steps':<8} {'Details'}")
+    print("-" * 80)
 
     for i, (domain, result) in enumerate(zip(domains, results), 1):
         metrics = result.environment_result.metrics
@@ -282,31 +298,35 @@ def main():
         attempt_details = metrics.get('attempt_details', [])
 
         # Show detailed step breakdown for multiple attempts
-        step_info = f"{total_steps} steps"
         if attempt > 1:
-            step_info += f" total ({', '.join(attempt_details)})"
+            step_details = f"({', '.join(attempt_details)})"
         else:
-            step_info += f" (1 attempt)"
+            step_details = "(1 attempt)"
 
-        success_indicator = '✓' if correct else '✗'
-        print(f"[{i}] {domain}: {status} ({success_indicator}) - {step_info}")
+        accuracy_indicator = '✓' if correct else '✗'
+
+        print(f"{i:<3} {domain:<25} {status:<10} {accuracy_indicator:<4} {total_steps:<8} {step_details}")
 
     # Enhanced Summary
-    successful = sum(1 for r in results if r.environment_result.metrics.get('correct', False))
+    status_successful = sum(1 for r in results if r.environment_result.metrics.get('status_success', False))
+    correct = sum(1 for r in results if r.environment_result.metrics.get('correct', False))
     total_steps = sum(r.environment_result.metrics.get('total_steps', r.environment_result.metrics.get('steps', 0)) for r in results)
     domains_with_retries = sum(1 for r in results if r.environment_result.metrics.get('attempt', 1) > 1)
     total_attempts = sum(r.environment_result.metrics.get('attempt', 1) for r in results)
 
     avg_steps_per_domain = total_steps / len(results) if results else 0
-    avg_steps_per_success = total_steps / successful if successful > 0 else 0
+    avg_steps_per_correct = total_steps / correct if correct > 0 else 0
 
-    print(f"\n✅ Success rate: {successful}/{len(results)} ({100*successful/len(results):.1f}%)")
-    print(f"📊 Total steps: {total_steps} across all attempts")
-    print(f"📈 Average steps per domain: {avg_steps_per_domain:.1f}")
-    print(f"🎯 Average steps per success: {avg_steps_per_success:.1f}")
-    print(f"🔄 Domains needing retries: {domains_with_retries}/{len(results)}")
-    print(f"🔢 Total attempts made: {total_attempts}")
-    print(f"🧠 Strategies learned: {len(adapter.playbook.bullets())}")
+    print("\n" + "=" * 80)
+    print("📈 SUMMARY")
+    print("=" * 80)
+    print(f"✅ Success rate:         {status_successful:>2}/{len(results)} ({100*status_successful/len(results):>5.1f}%)")
+    print(f"🎯 Accuracy rate:        {correct:>2}/{len(results)} ({100*correct/len(results):>5.1f}%)")
+    print(f"📊 Total steps:          {total_steps:>6} across all attempts")
+    print(f"📈 Avg steps/domain:     {avg_steps_per_domain:>6.1f}")
+    print(f"🔄 Domains w/ retries:   {domains_with_retries:>2}/{len(results)}")
+    print(f"🔢 Total attempts:       {total_attempts:>6}")
+    print("=" * 80)
 
     # Show learned strategies
     if adapter.playbook.bullets():
