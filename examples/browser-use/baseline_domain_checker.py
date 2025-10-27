@@ -87,9 +87,9 @@ ERROR: <reason>"""
             output = history.final_result() if hasattr(history, "final_result") else ""
             steps = len(history.action_names()) if hasattr(history, "action_names") and history.action_names() else 0
 
-            # Add steps to total
+            # Add steps to total and track attempt
             total_steps += steps
-
+            attempt_details.append(f"attempt {attempt + 1}: {steps} steps")
 
             # Determine status
             status = "ERROR"
@@ -109,9 +109,6 @@ ERROR: <reason>"""
                 expected_status = "AVAILABLE"  # Test domains should be available
                 correct = (status == expected_status)
 
-                # Add successful attempt to details
-                attempt_details.append(f"attempt {attempt + 1}: {steps} steps")
-
                 return {
                     "domain": domain,
                     "status": status,
@@ -127,7 +124,6 @@ ERROR: <reason>"""
                 }
 
             # Store error for potential retry
-            attempt_details.append(f"attempt {attempt + 1}: {steps} steps")
             last_error = f"Failed to get valid result: {output}"
 
         except asyncio.TimeoutError:
