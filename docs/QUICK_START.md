@@ -62,7 +62,11 @@ reflector = Reflector(client)
 curator = Curator(client)
 
 # Create an adapter to orchestrate everything
-adapter = OfflineAdapter(generator, reflector, curator)
+adapter = OfflineAdapter(
+    generator=generator,
+    reflector=reflector,
+    curator=curator
+)
 
 # Set up the environment (evaluates answers)
 environment = SimpleEnvironment()
