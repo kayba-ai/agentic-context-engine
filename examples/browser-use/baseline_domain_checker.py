@@ -25,15 +25,15 @@ def get_test_domains() -> List[str]:
     """Get list of test domains to check."""
     return [
         "testdomain123456.com",
-        #"myuniquedomain789.net",
-        #"brandnewstartup2024.io",
-        #"innovativetech555.org",
-        #"creativesolutions999.co",
-        #"digitalagency2024.biz",
-        #"techstartup123.app",
-        #"newcompany456.info",
-        #"uniquebusiness789.online",
-        #"moderntech2024.dev"
+        "myuniquedomain789.net",
+        "brandnewstartup2024.io",
+        "innovativetech555.org",
+        "creativesolutions999.co",
+        "digitalagency2024.biz",
+        "techstartup123.app",
+        "newcompany456.info",
+        "uniquebusiness789.online",
+        "moderntech2024.dev"
     ]
 
 
@@ -105,13 +105,49 @@ ERROR: <reason>"""
             elif f"TAKEN: {domain_upper}" in output_upper:
                 status = "TAKEN"
 
-            # If we got a valid status, return with success based on correctness
+            # If we got a valid status, collect tokens before returning
             if status != "ERROR":
                 # For testing purposes, we need to determine what's actually correct
                 # Since these are test domains, we'll assume they're AVAILABLE unless we can verify otherwise
                 # In a real scenario, you'd check against a known ground truth
                 expected_status = "AVAILABLE"  # Test domains should be available
                 correct = (status == expected_status)
+
+                # Collect tokens from this successful attempt
+                attempt_tokens = 0
+
+                # Method 1: Try to get tokens from history (works after successful completion)
+                if 'history' in locals() and history and hasattr(history, "usage"):
+                    try:
+                        usage = history.usage
+                        if usage:
+                            # Try different ways to extract total tokens
+                            if hasattr(usage, 'total_tokens'):
+                                attempt_tokens = usage.total_tokens
+                            elif isinstance(usage, dict) and 'total_tokens' in usage:
+                                attempt_tokens = usage['total_tokens']
+                            elif hasattr(usage, 'input_tokens') and hasattr(usage, 'output_tokens'):
+                                attempt_tokens = usage.input_tokens + usage.output_tokens
+                            elif isinstance(usage, dict) and 'input_tokens' in usage and 'output_tokens' in usage:
+                                attempt_tokens = usage['input_tokens'] + usage['output_tokens']
+                    except Exception as e:
+                        print(f"   ⚠️ Could not get tokens from history: {e}")
+
+                # Method 2: Try agent.token_cost_service (works even during partial execution)
+                if attempt_tokens == 0 and 'agent' in locals() and agent:
+                    try:
+                        if hasattr(agent, 'token_cost_service'):
+                            usage_summary = await agent.token_cost_service.get_usage_summary()
+                            if usage_summary:
+                                if isinstance(usage_summary, dict) and 'total_tokens' in usage_summary:
+                                    attempt_tokens = usage_summary['total_tokens']
+                                elif hasattr(usage_summary, 'total_tokens'):
+                                    attempt_tokens = usage_summary.total_tokens
+                    except Exception as e:
+                        print(f"   ⚠️ Could not get tokens from agent service: {e}")
+
+                total_browseruse_tokens += attempt_tokens
+                print(f"   🤖 Attempt {attempt + 1} tokens: {attempt_tokens} (total: {total_browseruse_tokens})")
 
                 return {
                     "domain": domain,
@@ -251,7 +287,7 @@ def main():
         print(f"🔍 [{i}/{len(domains)}] Checking domain: {domain}")
 
         # Run check
-        result = asyncio.run(check_domain(domain, headless=True))
+        result = asyncio.run(check_domain(domain, headless=False))
         results.append(result)
 
         # Show what happened

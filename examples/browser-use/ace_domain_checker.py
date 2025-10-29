@@ -86,7 +86,7 @@ class DomainCheckEnvironment(TaskEnvironment):
         # For testing purposes, assume test domains should be AVAILABLE
         expected_status = "AVAILABLE"
         correct = (result['status'] == expected_status) if status_success else False
-        efficient = result['steps'] <= 8  # Simple threshold for feedback context
+        efficient = result['steps'] <= 7  # Simple threshold for feedback context
 
         feedback = f"Domain check {'succeeded' if status_success else 'failed'}. "
         feedback += f"Took {result['steps']} steps. "
@@ -98,7 +98,7 @@ class DomainCheckEnvironment(TaskEnvironment):
                 feedback += f"Incorrectly identified domain as {result['status']} (expected: {expected_status}). "
 
             if correct and not efficient:
-                feedback += f"Analyze what made this attempt take more steps (target: ≤8 steps). "
+                feedback += f"Analyze what made this attempt take more steps (target: ≤7 steps). "
             elif correct:
                 feedback += f"Analyze what made this attempt efficient. "
         else:
@@ -310,9 +310,46 @@ ERROR: <reason>
                 elif f"TAKEN: {domain_upper}" in output_upper:
                     status = "TAKEN"
 
-                # If successful, return immediately with cumulative data
+                # If successful, collect tokens before returning
                 if status != "ERROR":
                     print(f"   ✅ Success! {status} ({steps} steps)")
+
+                    # Collect tokens from this successful attempt
+                    attempt_tokens = 0
+
+                    # Method 1: Try to get tokens from history (works after successful completion)
+                    if 'history' in locals() and history and hasattr(history, "usage"):
+                        try:
+                            usage = history.usage
+                            if usage:
+                                # Try different ways to extract total tokens
+                                if hasattr(usage, 'total_tokens'):
+                                    attempt_tokens = usage.total_tokens
+                                elif isinstance(usage, dict) and 'total_tokens' in usage:
+                                    attempt_tokens = usage['total_tokens']
+                                elif hasattr(usage, 'input_tokens') and hasattr(usage, 'output_tokens'):
+                                    attempt_tokens = usage.input_tokens + usage.output_tokens
+                                elif isinstance(usage, dict) and 'input_tokens' in usage and 'output_tokens' in usage:
+                                    attempt_tokens = usage['input_tokens'] + usage['output_tokens']
+                        except Exception as e:
+                            print(f"   ⚠️ Could not get tokens from history: {e}")
+
+                    # Method 2: Try agent.token_cost_service (works even during partial execution)
+                    if attempt_tokens == 0 and 'agent' in locals() and agent:
+                        try:
+                            if hasattr(agent, 'token_cost_service'):
+                                usage_summary = await agent.token_cost_service.get_usage_summary()
+                                if usage_summary:
+                                    if isinstance(usage_summary, dict) and 'total_tokens' in usage_summary:
+                                        attempt_tokens = usage_summary['total_tokens']
+                                    elif hasattr(usage_summary, 'total_tokens'):
+                                        attempt_tokens = usage_summary.total_tokens
+                        except Exception as e:
+                            print(f"   ⚠️ Could not get tokens from agent service: {e}")
+
+                    total_browseruse_tokens += attempt_tokens
+                    print(f"   🤖 Attempt {attempt + 1} tokens: {attempt_tokens} (total: {total_browseruse_tokens})")
+
                     return {
                         "status": status,
                         "steps": steps,  # Steps from final attempt
@@ -423,14 +460,14 @@ def get_test_domains() -> List[str]:
     return [
         "testdomain123456.com",
         "myuniquedomain789.net",
-        #"brandnewstartup2024.io",
-        #"innovativetech555.org",
-        #"creativesolutions999.co",
-        #"digitalagency2024.biz",
-        #"techstartup123.app",
-        #"newcompany456.info",
-        #"uniquebusiness789.online",
-        #"moderntech2024.dev"
+        "brandnewstartup2024.io",
+        "innovativetech555.org",
+        "creativesolutions999.co",
+        "digitalagency2024.biz",
+        "techstartup123.app",
+        "newcompany456.info",
+        "uniquebusiness789.online",
+        "moderntech2024.dev"
     ]
 
 
@@ -474,7 +511,7 @@ def main():
 
     # Create environment
     environment = DomainCheckEnvironment(
-        headless=True,  # Using headless mode for better stability
+        headless=False,  # Using headless mode for better stability
         model="gpt-4o",
         run_start_time=run_start_time  # Pass start time for trace filtering
     )
@@ -525,7 +562,7 @@ def main():
         accuracy_indicator = '✓' if correct else '✗'
         browseruse_tokens = metrics.get('browseruse_tokens', 0)
 
-        print(f"{i:<3} {domain:<25} {status:<10} {accuracy_indicator:<4} {total_steps:<8} {browseruse_tokens:<12} {step_details}")
+        print(f"{i:<3} {domain:<25} {status:<10} {accuracy_indicator:<4} {total_steps:<7} {browseruse_tokens:<12} {step_details}")
 
     # Enhanced Summary
     status_successful = sum(1 for r in results if r.environment_result.metrics.get('status_success', False))
@@ -575,8 +612,8 @@ def main():
     adapter.playbook.save_to_file(str(playbook_path))
     print(f"\n💾 Playbook saved to {playbook_path}")
     
-    traces = client.search_traces()
-    print("Collected trace IDs:", [trace.id for trace in traces])
+    #traces = client.search_traces()
+    #print("Collected trace IDs:", [trace.id for trace in traces])
 
 
 
