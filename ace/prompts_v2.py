@@ -484,7 +484,7 @@ Before ADD operations:
 
 ## Output Format
 
-Return ONLY a valid JSON object:
+Return ONLY a valid JSON object for each generated bullet:
 
 {{
   "reasoning": "<analysis of what updates are needed and why>",
