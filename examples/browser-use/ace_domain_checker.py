@@ -15,7 +15,7 @@ load_dotenv()
 
 # Import browser-use
 from ace.prompts_v2_1 import PromptManager
-from browser_use import Agent, Browser, ChatOpenAI
+from browser_use import Agent, Browser, ChatAnthropic
 
 # Import common utilities
 from common import (
@@ -47,7 +47,7 @@ client = opik.Opik()
 class DomainCheckEnvironment(TaskEnvironment):
     """Environment that evaluates domain checking performance."""
 
-    def __init__(self, headless: bool = True, model: str = "gpt-4o", run_start_time = None):
+    def __init__(self, headless: bool = True, model: str = "claude-sonnet-4-5-20250929", run_start_time = None):
         self.headless = headless
         self.model = model
         self.run_start_time = run_start_time
@@ -85,29 +85,29 @@ class DomainCheckEnvironment(TaskEnvironment):
         browseruse_tokens = result.get('browseruse_tokens', 0)
         print(f"   📊 Browser tokens: {browseruse_tokens}")
 
-        # Evaluate correctness and efficiency
+        # Evaluate correctness
         status_success = result['status'] != "ERROR"
 
         # For testing purposes, assume test domains should be AVAILABLE
         expected_status = "AVAILABLE"
         correct = (result['status'] == expected_status) if status_success else False
-        efficient = result['steps'] <= 7  # Simple threshold for feedback context
 
         feedback = f"Domain check {'succeeded' if status_success else 'failed'}. "
-        feedback += f"Took {result['steps']} steps. "
 
         if status_success:
             if result['status'] == expected_status:
                 feedback += f"Correctly identified domain as {result['status']}. "
             else:
                 feedback += f"Incorrectly identified domain as {result['status']} (expected: {expected_status}). "
-
-            if correct and not efficient:
-                feedback += f"Analyze what made this attempt take more steps (target: ≤7 steps). "
-            elif correct:
-                feedback += f"Analyze what made this attempt efficient. "
         else:
             feedback += f"Error: {result.get('error', 'Unknown error')}. "
+
+        # Add detailed execution logs for ACE Reflector to analyze
+        execution_logs = result.get('execution_logs', [])
+        if execution_logs:
+            feedback += f"\n\n=== BROWSER EXECUTION DETAILS ===\n"
+            feedback += "\n".join(execution_logs)
+            feedback += f"\n=== END EXECUTION DETAILS ===\n"
 
         return EnvironmentResult(
             feedback=feedback,
@@ -115,7 +115,6 @@ class DomainCheckEnvironment(TaskEnvironment):
             metrics={
                 "correct": correct,
                 "status_success": status_success,
-                "efficient": efficient,
                 "steps": result['steps'],
                 "total_steps": result.get('total_steps', result['steps']),
                 "status": result['status'],
@@ -263,12 +262,20 @@ class DomainCheckEnvironment(TaskEnvironment):
                 await browser.start()
                 print(f"   ✅ Browser started successfully")
 
-                # Create agent with ChatOpenAI (will log to browser-use project via env var)
-                llm = ChatOpenAI(model=self.model, temperature=0.0)
-                print(f"   🤖 Created ChatOpenAI for browser-use project: {self.model}")
+                # Create agent with ChatAnthropic (will log to browser-use project via env var)
+                llm = ChatAnthropic(model=self.model, temperature=0.0)
+                print(f"   🤖 Created ChatAnthropic for browser-use project: {self.model}")
 
                 task = f"""
-You are a domain availability checking agent. Check if the domain "{domain}" is available.
+You are a browser agent. For every step, first think, then act.
+Use exactly this format:
+Thought: describe what you want to do next
+Action: <browser-use-tool with JSON args>
+I will reply with Observation: … after each action.
+Repeat Thought → Action → Observation until you can answer.
+When you are done, write Final: with the result.
+
+Task: Check if the domain "{domain}" is available.
 
   IMPORTANT: Do NOT navigate to {domain} directly. Instead:
   1. Go to a domain checking website
@@ -280,7 +287,8 @@ AVAILABLE: {domain}
 TAKEN: {domain}
 ERROR: <reason>
 
-{strategy}"""
+{strategy}
+"""
 
                 print(f"   🎯 Creating agent with task...")
                 agent = Agent(
@@ -304,6 +312,39 @@ ERROR: <reason>
                 # Add steps to total and track attempt
                 total_steps += steps
                 attempt_details.append(f"attempt {attempt + 1}: {steps} steps")
+
+                # Extract detailed execution logs for ACE Reflector
+                execution_logs = []
+                try:
+                    # Get action history with results
+                    if hasattr(history, 'action_history') and history.action_history():
+                        for i, action in enumerate(history.action_history(), 1):
+                            action_log = f"Step {i}: {action}"
+                            execution_logs.append(action_log)
+
+                    # Get action results (outcomes of each action)
+                    if hasattr(history, 'action_results') and history.action_results():
+                        execution_logs.append("\nAction Results:")
+                        for i, result in enumerate(history.action_results(), 1):
+                            result_log = f"Result {i}: {result}"
+                            execution_logs.append(result_log)
+
+                    # Get URLs visited
+                    if hasattr(history, 'urls') and history.urls():
+                        execution_logs.append(f"\nURLs visited: {history.urls()}")
+
+                    # Get any errors
+                    if hasattr(history, 'errors') and history.errors():
+                        execution_logs.append(f"\nErrors encountered: {history.errors()}")
+
+                    # Get model thoughts/reasoning
+                    if hasattr(history, 'model_thoughts') and history.model_thoughts():
+                        execution_logs.append("\nAgent reasoning:")
+                        for i, thought in enumerate(history.model_thoughts(), 1):
+                            execution_logs.append(f"Thought {i}: {thought}")
+
+                except Exception as e:
+                    execution_logs.append(f"Error extracting logs: {e}")
 
                 # Determine status
                 status = "ERROR"
@@ -362,7 +403,8 @@ ERROR: <reason>
                         "output": output,
                         "attempt": attempt + 1,
                         "attempt_details": attempt_details,
-                        "browseruse_tokens": total_browseruse_tokens
+                        "browseruse_tokens": total_browseruse_tokens,
+                        "execution_logs": execution_logs  # Detailed browser execution logs
                     }
 
                 # Store error for potential retry
@@ -456,7 +498,8 @@ ERROR: <reason>
             "error": f"Failed after {max_retries} attempts. Last error: {last_error}",
             "attempt": max_retries,
             "attempt_details": attempt_details,
-            "browseruse_tokens": total_browseruse_tokens
+            "browseruse_tokens": total_browseruse_tokens,
+            "execution_logs": execution_logs if 'execution_logs' in locals() else []
         }
 
 
@@ -501,7 +544,7 @@ def main():
         print(f"  {i}. {domain}")
 
     # Create ACE components with OnlineAdapter (using LiteLLM for ACE roles)
-    llm = LiteLLMClient(model="gpt-4o", temperature=0.7)
+    llm = LiteLLMClient(model="claude-sonnet-4-5-20250929", temperature=0.2, max_tokens=2048)
 
     # Create prompt manager
     manager = PromptManager()
@@ -516,8 +559,8 @@ def main():
 
     # Create environment
     environment = DomainCheckEnvironment(
-        headless=False,  # Using headless mode for better stability
-        model="gpt-4o",
+        headless=False,  # Using headless mode false for better performance
+        model="claude-sonnet-4-5-20250929",
         run_start_time=run_start_time  # Pass start time for trace filtering
     )
 
@@ -529,7 +572,7 @@ def main():
         samples.append(Sample(
             question=f"Check if domain {domain} is available",
             ground_truth="AVAILABLE or TAKEN",
-            context="Use domain lookup websites efficiently. Avoid CAPTCHAs."
+            context="Achieve the best performance by optimising for accuracy and efficiency."
         ))
 
     # Run OnlineAdapter - it processes samples one by one and learns after each!

@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from browser_use import Agent, Browser, ChatOpenAI
+from browser_use import Agent, Browser, ChatAnthropic
 from common import (
     calculate_timeout_steps,
     get_test_domains,
@@ -25,7 +25,7 @@ from common import (
 )
 
 
-async def check_domain(domain: str, model: str = "gpt-4o", headless: bool = True):
+async def check_domain(domain: str, model: str = "claude-sonnet-4-5-20250929", headless: bool = True):
     """Check domain availability without any learning, with retry logic."""
     max_retries = 3
     last_error = None
@@ -47,7 +47,7 @@ async def check_domain(domain: str, model: str = "gpt-4o", headless: bool = True
             await browser.start()
 
             # Create agent with basic task (no learning, no strategy optimization)
-            llm = ChatOpenAI(model=model, temperature=0.0)
+            llm = ChatAnthropic(model=model, temperature=0.0)
 
 
             # Use common template

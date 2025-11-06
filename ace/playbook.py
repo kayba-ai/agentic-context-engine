@@ -234,8 +234,11 @@ class Playbook:
         elif op_type == "TAG":
             if operation.bullet_id is None:
                 return
+            # Only apply valid tag names as defensive measure
+            valid_tags = {"helpful", "harmful", "neutral"}
             for tag, increment in operation.metadata.items():
-                self.tag_bullet(operation.bullet_id, tag, increment)
+                if tag in valid_tags:
+                    self.tag_bullet(operation.bullet_id, tag, increment)
         elif op_type == "REMOVE":
             if operation.bullet_id is None:
                 return

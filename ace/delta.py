@@ -21,6 +21,13 @@ class DeltaOperation:
 
     @classmethod
     def from_json(cls, payload: Dict[str, object]) -> "DeltaOperation":
+        # Filter metadata for TAG operations to only include valid tags
+        metadata = payload.get("metadata") or {}
+        if str(payload["type"]).upper() == "TAG":
+            # Only include valid tag names for TAG operations
+            valid_tags = {"helpful", "harmful", "neutral"}
+            metadata = {k: v for k, v in metadata.items() if str(k) in valid_tags}
+
         return cls(
             type=str(payload["type"]),
             section=str(payload.get("section", "")),
@@ -28,7 +35,7 @@ class DeltaOperation:
             bullet_id=payload.get("bullet_id")
             and str(payload.get("bullet_id")),  # type: ignore[arg-type]
             metadata={
-                str(k): int(v) for k, v in (payload.get("metadata") or {}).items()
+                str(k): int(v) for k, v in metadata.items()
             },
         )
 

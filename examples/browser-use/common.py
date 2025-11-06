@@ -219,12 +219,20 @@ STEPS_PER_SECOND = 1 / 12  # 1 step per 12 seconds
 
 # Common prompts and templates
 DOMAIN_CHECKER_TEMPLATE = """
-You are a domain availability checking agent. Check if the domain "{domain}" is available.
+You are a browser agent. For every step, first think, then act.
+Use exactly this format:
+Thought: describe what you want to do next
+Action: <browser-use-tool with JSON args>
+I will reply with Observation: … after each action.
+Repeat Thought → Action → Observation until you can answer.
+When you are done, write Final: with the result.
 
-IMPORTANT: Do NOT navigate to {domain} directly. Instead:
-1. Go to a domain checking website (like namecheap.com, godaddy.com, or similar)
-2. Use their domain search feature to check "{domain}"
-3. Read the availability status from the results
+Task: Check if the domain "{domain}" is available.
+
+  IMPORTANT: Do NOT navigate to {domain} directly. Instead:
+  1. Go to a domain checking website
+  2. In the search bar type "{domain}" on that website
+  3. Read the availability status from the results
 
 Output format (exactly one of these):
 AVAILABLE: {domain}

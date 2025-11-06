@@ -42,6 +42,12 @@ def _safe_json_loads(text: str) -> Dict[str, Any]:
     try:
         data = json.loads(text)
     except json.JSONDecodeError as exc:
+        # Check if this looks like incomplete JSON (truncated response)
+        if "Unterminated string" in str(exc) or "Expecting" in str(exc):
+            # Try to detect if this is a truncation issue
+            if text.count('{') > text.count('}') or text.rstrip().endswith('"'):
+                raise ValueError(f"LLM response appears to be truncated JSON. This may indicate the response was cut off mid-generation. Original error: {exc}\nPartial text: {text[:200]}...") from exc
+
         debug_path = Path("logs/json_failures.log")
         debug_path.parent.mkdir(parents=True, exist_ok=True)
         with debug_path.open("a", encoding="utf-8") as fh:
@@ -594,7 +600,7 @@ class Curator:
         prompt_template: str = CURATOR_PROMPT,
         *,
         max_retries: int = 3,
-        retry_prompt: str = "\n\nIMPORTANT: Return ONLY a single valid JSON object. Escape all quotes properly or use single quotes. Do not include any additional text outside the JSON.",
+        retry_prompt: str = "\n\nIMPORTANT: Return ONLY a single valid JSON object. The JSON must be complete with ALL required fields:\n- reasoning (string)\n- deduplication_check (object)\n- operations (array)\n- quality_metrics (object with avg_atomicity, operations_count, estimated_impact)\nEscape all quotes properly and ensure the JSON is complete and well-formed.",
     ) -> None:
         self.llm = llm
         self.prompt_template = prompt_template

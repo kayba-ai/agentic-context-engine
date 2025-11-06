@@ -44,6 +44,29 @@ SKIP this protocol when:
 ✗ Question is outside domain expertise
 ✗ Conflicting strategies with equal confidence
 
+## 🚫 EMPTY PLAYBOOK PROTOCOL
+
+CRITICAL: If playbook is empty or contains no bullets:
+- REQUIRED: Return exact JSON format below
+- MANDATORY: Set final_answer to "no_applicable_strategies"
+- FORBIDDEN: Generate strategies from training data
+- FORBIDDEN: Create generic solutions
+
+Empty playbook response format:
+{{
+  "reasoning": "No strategic knowledge available in playbook to apply to this problem.",
+  "bullet_ids": [],
+  "confidence_scores": {{}},
+  "step_validations": [],
+  "final_answer": "no_applicable_strategies",
+  "answer_confidence": 0.0,
+  "quality_check": {{
+    "addresses_question": false,
+    "reasoning_complete": true,
+    "citations_provided": false
+  }}
+}}
+
 ## PLAYBOOK APPLICATION PROTOCOL
 
 ### Available Strategic Knowledge
@@ -64,6 +87,15 @@ Additional Context: {context}
 - CRITICAL: Only proceed with bullets scoring > 0.7
 - FORBIDDEN: Never apply bullets below threshold
 
+### CRITICAL Step 1a: Statistical Evidence Prioritization
+- PRIMARY: Use helpful/harmful ratios as main selection criteria
+- REQUIRED: Calculate success rate = helpful/(helpful+harmful) for each bullet
+- MANDATORY: Prioritize bullets with >70% success rates (helpful>harmful)
+- SECONDARY: Consider recent learning as context, not absolute disqualifier
+- CRITICAL: One recent failure does NOT invalidate statistically successful bullets
+- RECOMMENDED: Try high-statistical-evidence bullets first, adapt if blocked
+- FORBIDDEN: Avoid statistically successful bullets due to single recent failures
+
 ### CRITICAL Step 2: Reasoning Construction
 Follow this EXACT sequence:
 1. **Problem Decomposition**
@@ -77,30 +109,54 @@ Follow this EXACT sequence:
    - CRITICAL: Apply strategies in logical sequence
    - FORBIDDEN: Mix unrelated strategies
 
-3. **Step-by-Step Execution**
+3. **Strategy Formulation**
    - REQUIRED: Number every reasoning step
-   - MANDATORY: Show ALL intermediate calculations
-   - CRITICAL: Validate each step before proceeding
-   - FORBIDDEN: Skip "obvious" steps
+   - MANDATORY: Show strategic thinking process
+   - CRITICAL: Focus on methodology, not execution
+   - FORBIDDEN: Execute the task or provide final results
 
-4. **Answer Synthesis**
-   - Combine results from all reasoning steps
-   - Ensure answer directly addresses original question
-   - Verify factual accuracy and completeness
+4. **Strategy Output**
+   - CRITICAL: Include exact bullet content VERBATIM from cited bullets
+   - REQUIRED: Concatenate applicable bullet text directly without modification
+   - FORBIDDEN: Paraphrase, summarize, interpret, or rewrite bullet content
+   - FORBIDDEN: Add implementation details not in original bullets
+   - Format: "Bullet1Content. Bullet2Content. Bullet3Content."
+   - Focus on strategy guidance, not task completion
 
 ## ⚠️ CRITICAL REQUIREMENTS
+
+### SPECIFICITY CONSTRAINTS (NEW SECTION)
+CRITICAL: When playbook says "use [option/tool/service]":
+✓ Valid: "use a [option/tool/service] like those mentioned in instructions"
+❌ Invalid: "use [option/tool/service] specifically" (unless bullet explicitly recommends that tool)
+
+MANDATORY: Default to generic implementation unless:
+- Playbook explicitly recommends specific tool/method/service
+- Evidence shows one option is superior to alternatives
 
 ### MANDATORY Actions
 ✓ Include complete reasoning chain with numbered steps
 ✓ Cite specific bullet IDs when applying strategies
-✓ Show every calculation and logical step
-✓ Validate answer addresses the question
+✓ Show strategic thinking process
+✓ Copy exact bullet text VERBATIM into final_answer
+✓ Concatenate multiple bullets with period separation: "Bullet1. Bullet2."
 ✓ Assign confidence scores to all assertions
 
 ### FORBIDDEN Actions
+✗ Paraphrase, summarize, or rewrite bullet content
+✗ Interpret bullet meaning rather than copying exact text
+✗ Add words, details, or modifications to bullet content
+✗ Combine bullet concepts into new sentences
+✗ Specify particular tools/services/methods unless explicitly in playbook bullets
+✗ Add implementation details not supported by cited strategies
+✗ Choose specific options without evidence they work better than alternatives
+✗ Fabricate preferences between equivalent tools/methods/approaches
+✗ Over-specify when general guidance is sufficient
 ✗ Say "based on the playbook" without bullet citations
-✗ Provide partial or incomplete answers
-✗ Skip intermediate steps or calculations
+✗ Execute the actual task or provide final results
+✗ Answer the question directly - provide strategy instead
+✗ Include specific data from the question (names, numbers, URLs) in final_answer
+✗ Repeat question parameters in the strategy output
 ✗ Include meta-commentary like "I will now..."
 ✗ Guess or fabricate information
 
@@ -113,7 +169,7 @@ CRITICAL: Return a SINGLE valid JSON object with this EXACT schema:
   "bullet_ids": ["<id1>", "<id2>"],
   "confidence_scores": {{"<id1>": 0.85, "<id2>": 0.92}},
   "step_validations": ["<validation1>", "<validation2>"],
-  "final_answer": "<complete, direct answer to the question>",
+  "final_answer": "<strategy/methodology for how to approach the problem>",
   "answer_confidence": 0.95,
   "quality_check": {{
     "addresses_question": true,
@@ -122,15 +178,17 @@ CRITICAL: Return a SINGLE valid JSON object with this EXACT schema:
   }}
 }}
 
-## ✅ GOOD Example
+## ✅ GOOD Example (Verbatim Bullet Usage)
+
+Playbook contains: [bullet_023] "Use domain registrar search tools to check availability efficiently"
 
 {{
-  "reasoning": "1. Problem: Calculate 15 × 24. 2. Applying bullet_023 (decomposition): 15 × 24 = 15 × (20 + 4). 3. Step 3a: 15 × 20 = 300 (verified: 15×2=30, ×10=300). 4. Step 3b: 15 × 4 = 60 (verified: 15×4=60). 5. Final: 300 + 60 = 360.",
+  "reasoning": "1. Problem: Domain availability check needed. 2. Applying bullet_023 which provides methodology for domain checking. 3. Strategy selection: bullet_023 matches the domain checking requirement perfectly. 4. Output: Include exact bullet content verbatim.",
   "bullet_ids": ["bullet_023"],
   "confidence_scores": {{"bullet_023": 0.95}},
-  "step_validations": ["Decomposition valid", "Arithmetic verified"],
-  "final_answer": "360",
-  "answer_confidence": 1.0,
+  "step_validations": ["Bullet applies to domain checking", "High confidence match"],
+  "final_answer": "Use domain registrar search tools to check availability efficiently",
+  "answer_confidence": 0.95,
   "quality_check": {{
     "addresses_question": true,
     "reasoning_complete": true,
@@ -138,12 +196,12 @@ CRITICAL: Return a SINGLE valid JSON object with this EXACT schema:
   }}
 }}
 
-## ❌ BAD Example (FORBIDDEN)
+## ❌ BAD Example (FORBIDDEN - Executes Task Instead of Providing Strategy)
 
 {{
   "reasoning": "Using the playbook strategies, the answer is clear.",
   "bullet_ids": [],
-  "final_answer": "360"
+  "final_answer": "The task result is X"
 }}
 
 ## 🔧 ERROR RECOVERY PROTOCOL
@@ -227,12 +285,15 @@ WHEN: correct strategy but execution failed
 WHEN: inappropriate strategy for problem type
 → REQUIRED: Explain strategy-problem mismatch
 → MANDATORY: Identify correct strategy type
+→ CONSIDER: Was specific tool/method choice the root cause?
+→ EVALUATE: If strategy recommended specific approach, assess if that approach is consistently problematic
 → Tag as "harmful" for this context
 
 ### Priority 5: MISSING_STRATEGY_DETECTED
 WHEN: no applicable strategy existed
 → REQUIRED: Define missing capability precisely
 → MANDATORY: Describe strategy that would help
+→ CONSIDER: If failure involved tool/method choice, note which approaches to avoid vs recommend
 → Mark for curator to create
 
 ## 🎯 EXPERIENCE-DRIVEN CONCRETE EXTRACTION
@@ -256,6 +317,13 @@ From environment feedback, extract:
 
 ✅ GOOD: "API rate limit hit after 60 requests/minute"
 ❌ BAD: "Hit rate limits"
+
+### CHOICE-OUTCOME PATTERN RECOGNITION (NEW)
+CONSIDER when relevant: Choice-outcome relationships
+- What specific tool/method/approach was selected?
+- Did the choice contribute to success or failure?
+- Are there patterns suggesting some options work better than others?
+- Would a different choice have likely prevented this failure?
 
 ## 📊 ATOMICITY SCORING
 
@@ -401,6 +469,26 @@ FORBIDDEN - Skip updates when:
 ✗ Strategy already exists (>70% similar)
 ✗ Learning lacks concrete evidence
 ✗ Atomicity score below 40%
+
+## NEGATIVE LEARNING SYSTEM
+
+### HARMFUL STRATEGY MARKING (NEW SECTION)
+When Reflector identifies consistently problematic choices:
+- MARK strategies as harmful rather than removing them
+- CREATE new avoidance strategies: "Avoid [specific option/tool/service] - causes [specific problem type]"
+- TRACK patterns of failure for specific approaches across contexts
+
+### CHOICE-CONSEQUENCE ANALYSIS (NEW SECTION)
+When processing Reflector feedback about option/tool/service selection:
+- IDENTIFY: Which specific choice contributed to success/failure?
+- PATTERN: Are there repeated outcomes with the same approach?
+- ACTION: Create evidence-based recommendations or mark harmful patterns
+
+### STRATEGY SPECIFICITY RULES (NEW SECTION)
+- GENERIC strategies: "Use [category] approaches" (when no clear evidence)
+- SPECIFIC strategies: "Use [specific option] for [task type]" (only when evidence shows superiority)
+- AVOIDANCE strategies: "Avoid [specific option] - causes [problem type]" (when evidence shows consistent issues)
+- HARMFUL marking: Tag existing strategies that evidence shows are problematic
 
 ## PLAYBOOK MANAGEMENT CONTEXT
 
