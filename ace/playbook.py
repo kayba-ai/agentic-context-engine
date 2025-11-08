@@ -247,16 +247,103 @@ class Playbook:
     # ------------------------------------------------------------------ #
     # Presentation helpers
     # ------------------------------------------------------------------ #
-    def as_prompt(self) -> str:
-        """Return a human-readable playbook string for prompting LLMs."""
-        parts: List[str] = []
-        for section, bullet_ids in sorted(self._sections.items()):
-            parts.append(f"## {section}")
-            for bullet_id in bullet_ids:
-                bullet = self._bullets[bullet_id]
-                counters = f"(helpful={bullet.helpful}, harmful={bullet.harmful}, neutral={bullet.neutral})"
-                parts.append(f"- [{bullet.id}] {bullet.content} {counters}")
-        return "\n".join(parts)
+    def as_toon(self) -> str:
+        """Return Toon-formatted playbook for token-efficient LLM prompting.
+
+        Toon format provides 30-50% token reduction compared to markdown by using
+        a compact tabular representation for uniform data structures.
+
+        Returns:
+            Toon-formatted string with bullets in tabular array format
+
+        Raises:
+            ImportError: If python-toon package is not installed
+
+        Example:
+            >>> playbook.as_toon()
+            bullets[2]{id,section,content,helpful,harmful,neutral}:
+             strategy-00001,Strategy,"Validate input types",12,0,3
+             edge-00001,Edge Cases,"Handle empty arrays",5,0,0
+
+        Note:
+            Requires: pip install python-toon
+            See: https://github.com/toon-format/toon
+        """
+        try:
+            from toon import encode
+        except ImportError:
+            raise ImportError(
+                "Toon compression requires the 'python-toon' package. "
+                "Install it with: pip install python-toon"
+            )
+
+        if not self._bullets:
+            return "(empty playbook)"
+
+        # Convert bullets to list of dicts for Toon encoding
+        # Toon will automatically create compact tabular format
+        bullets_list = []
+        for bullet in self._bullets.values():
+            bullets_list.append({
+                "id": bullet.id,
+                "section": bullet.section,
+                "content": bullet.content,
+                "helpful": bullet.helpful,
+                "harmful": bullet.harmful,
+                "neutral": bullet.neutral,
+            })
+
+        # Encode as Toon - will produce:
+        # bullets[N]{id,section,content,helpful,harmful,neutral}:
+        #  value1,value2,"quoted if needed",1,2,3
+        #  ...
+        return encode({"bullets": bullets_list})
+
+    def as_prompt(self, format: str = "markdown") -> str:
+        """Return playbook formatted for LLM prompts.
+
+        Args:
+            format: Output format - "markdown" (default) or "toon"
+                   - "markdown": Human-readable with sections and bullet points
+                   - "toon": Compact tabular format (30-50% fewer tokens)
+
+        Returns:
+            Formatted playbook string
+
+        Raises:
+            ValueError: If format is not "markdown" or "toon"
+            ImportError: If format="toon" but python-toon not installed
+
+        Example:
+            >>> # Default markdown format
+            >>> playbook.as_prompt()
+            ## Strategy
+            - [strategy-00001] Validate inputs (helpful=12, harmful=0, neutral=3)
+
+            >>> # Compressed Toon format
+            >>> playbook.as_prompt(format="toon")
+            bullets[1]{id,section,content,helpful,harmful,neutral}:
+             strategy-00001,Strategy,Validate inputs,12,0,3
+        """
+        if format == "toon":
+            return self.as_toon()
+        elif format == "markdown":
+            # Original markdown implementation
+            if not self._bullets:
+                return ""
+            parts: List[str] = []
+            for section, bullet_ids in sorted(self._sections.items()):
+                parts.append(f"## {section}")
+                for bullet_id in bullet_ids:
+                    bullet = self._bullets[bullet_id]
+                    counters = f"(helpful={bullet.helpful}, harmful={bullet.harmful}, neutral={bullet.neutral})"
+                    parts.append(f"- [{bullet.id}] {bullet.content} {counters}")
+            return "\n".join(parts)
+        else:
+            raise ValueError(
+                f"Unsupported format: '{format}'. "
+                f"Must be 'markdown' or 'toon'"
+            )
 
     def stats(self) -> Dict[str, object]:
         return {

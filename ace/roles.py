@@ -117,11 +117,13 @@ class Generator:
         *,
         max_retries: int = 3,
         retry_prompt: str = "\n\nIMPORTANT: Return ONLY a single valid JSON object. Escape all quotes properly or use single quotes. Do not include any additional text outside the JSON.",
+        playbook_format: str = "markdown",
     ) -> None:
         self.llm = llm
         self.prompt_template = prompt_template
         self.max_retries = max_retries
         self.retry_prompt = retry_prompt
+        self.playbook_format = playbook_format
 
     @maybe_track(
         name="generator_generate",
@@ -168,7 +170,7 @@ class Generator:
             GeneratorOutput with reasoning, final_answer, and bullet_ids used
         """
         base_prompt = self.prompt_template.format(
-            playbook=playbook.as_prompt() or "(empty playbook)",
+            playbook=playbook.as_prompt(format=self.playbook_format) or "(empty playbook)",
             reflection=_format_optional(reflection),
             question=question,
             context=_format_optional(context),
@@ -601,11 +603,13 @@ class Curator:
         *,
         max_retries: int = 3,
         retry_prompt: str = "\n\nIMPORTANT: Return ONLY a single valid JSON object. The JSON must be complete with ALL required fields:\n- reasoning (string)\n- deduplication_check (object)\n- operations (array)\n- quality_metrics (object with avg_atomicity, operations_count, estimated_impact)\nEscape all quotes properly and ensure the JSON is complete and well-formed.",
+        playbook_format: str = "markdown",
     ) -> None:
         self.llm = llm
         self.prompt_template = prompt_template
         self.max_retries = max_retries
         self.retry_prompt = retry_prompt
+        self.playbook_format = playbook_format
 
     @maybe_track(
         name="curator_curate",
@@ -658,7 +662,7 @@ class Curator:
             progress=progress,
             stats=json.dumps(playbook.stats()),
             reflection=json.dumps(reflection.raw, ensure_ascii=False, indent=2),
-            playbook=playbook.as_prompt() or "(empty playbook)",
+            playbook=playbook.as_prompt(format=self.playbook_format) or "(empty playbook)",
             question_context=question_context,
         )
         prompt = base_prompt

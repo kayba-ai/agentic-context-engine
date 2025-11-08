@@ -68,12 +68,16 @@ transformers = [
     "torch>=2.0.0",
     "accelerate>=0.20.0",
 ]
+compression = [
+    "python-toon>=0.1.0",
+]
 dev = [
     "pytest>=7.0.0",
     "pytest-asyncio>=0.21.0",
     "black>=23.0.0",
     "mypy>=1.0.0",
     "git-changelog>=2.5.0",
+    "python-toon>=0.1.0",
 ]
 all = [
     "opik>=1.8.0",
@@ -88,6 +92,7 @@ all = [
     "transformers>=4.30.0",
     "torch>=2.0.0",
     "accelerate>=0.20.0",
+    "python-toon>=0.1.0",
 ]
 
 [project.urls]

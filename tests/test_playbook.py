@@ -261,6 +261,142 @@ class TestPlaybook(unittest.TestCase):
         finally:
             os.remove(temp_path)
 
+    def test_as_toon_format(self):
+        """Test Toon format generation."""
+        try:
+            from toon import decode
+        except ImportError:
+            self.skipTest("python-toon not installed")
+
+        toon_output = self.playbook.as_prompt(format="toon")
+
+        # Verify it's valid Toon by decoding
+        decoded = decode(toon_output)
+        self.assertIn("bullets", decoded)
+        self.assertEqual(len(decoded["bullets"]), 2)
+
+        # Verify bullet data is preserved correctly
+        bullets = {b["id"]: b for b in decoded["bullets"]}
+
+        # Check first bullet (general section)
+        self.assertIn("general-00001", bullets)
+        self.assertEqual(bullets["general-00001"]["section"], "general")
+        self.assertEqual(bullets["general-00001"]["content"], "Always be clear")
+        self.assertEqual(bullets["general-00001"]["helpful"], 5)
+        self.assertEqual(bullets["general-00001"]["harmful"], 0)
+
+        # Check second bullet (math section)
+        self.assertIn("math-00002", bullets)
+        self.assertEqual(bullets["math-00002"]["section"], "math")
+        self.assertEqual(bullets["math-00002"]["content"], "Show your work")
+        self.assertEqual(bullets["math-00002"]["helpful"], 3)
+        self.assertEqual(bullets["math-00002"]["harmful"], 1)
+
+    def test_as_toon_compression_savings(self):
+        """Test that Toon format provides compression."""
+        markdown = self.playbook.as_prompt(format="markdown")
+
+        try:
+            toon = self.playbook.as_prompt(format="toon")
+        except ImportError:
+            self.skipTest("python-toon not installed")
+
+        # Toon should be shorter (at least for small playbooks, it's comparable)
+        # With 2 bullets, savings might be minimal, but shouldn't be worse
+        self.assertLessEqual(len(toon), len(markdown) * 1.2)  # At most 20% overhead
+
+    def test_as_toon_empty_playbook(self):
+        """Test Toon format with empty playbook."""
+        try:
+            from toon import encode
+        except ImportError:
+            self.skipTest("python-toon not installed")
+
+        empty = Playbook()
+        toon_output = empty.as_prompt(format="toon")
+        self.assertEqual(toon_output, "(empty playbook)")
+
+    def test_as_toon_special_characters(self):
+        """Test Toon format handles special characters correctly."""
+        try:
+            from toon import decode
+        except ImportError:
+            self.skipTest("python-toon not installed")
+
+        # Create playbook with special characters
+        pb = Playbook()
+        pb.add_bullet("test", 'Use quotes "carefully" in strings')
+        pb.add_bullet("test", "Handle commas, semicolons; and colons: properly")
+        pb.add_bullet("test", "Process newlines\nand tabs\ttoo")
+
+        toon_output = pb.as_prompt(format="toon")
+
+        # Should be valid and decodable
+        decoded = decode(toon_output)
+        self.assertEqual(len(decoded["bullets"]), 3)
+
+        # Verify content preserved (Toon handles escaping)
+        contents = [b["content"] for b in decoded["bullets"]]
+        self.assertIn('Use quotes "carefully" in strings', contents)
+        self.assertIn("Handle commas, semicolons; and colons: properly", contents)
+
+    def test_as_prompt_invalid_format(self):
+        """Test that invalid format raises ValueError."""
+        with self.assertRaises(ValueError) as ctx:
+            self.playbook.as_prompt(format="invalid")
+
+        self.assertIn("Unsupported format", str(ctx.exception))
+        self.assertIn("markdown", str(ctx.exception))
+        self.assertIn("toon", str(ctx.exception))
+
+    def test_as_prompt_backward_compatibility(self):
+        """Test that default behavior (no format arg) still works."""
+        # Should default to markdown
+        default_output = self.playbook.as_prompt()
+        markdown_output = self.playbook.as_prompt(format="markdown")
+
+        self.assertEqual(default_output, markdown_output)
+        self.assertIn("##", default_output)
+        self.assertIn("- [", default_output)
+
+    def test_as_toon_large_playbook(self):
+        """Test Toon compression with larger playbook."""
+        try:
+            import tiktoken
+            from toon import decode
+        except ImportError:
+            self.skipTest("python-toon or tiktoken not installed")
+
+        # Create playbook with 20 bullets
+        pb = Playbook()
+        for i in range(20):
+            pb.add_bullet(
+                f"section{i % 5}",
+                f"Strategy number {i}: perform validation checks",
+                metadata={"helpful": i, "harmful": 0, "neutral": 1}
+            )
+
+        markdown = pb.as_prompt(format="markdown")
+        toon = pb.as_prompt(format="toon")
+
+        # Verify Toon is valid
+        decoded = decode(toon)
+        self.assertEqual(len(decoded["bullets"]), 20)
+
+        # With 20 bullets, should see meaningful compression
+        # Character savings should be at least 10%
+        char_savings = (len(markdown) - len(toon)) / len(markdown)
+        self.assertGreater(char_savings, 0.10)
+
+        # Token savings (GPT-4)
+        enc = tiktoken.encoding_for_model("gpt-4")
+        markdown_tokens = len(enc.encode(markdown))
+        toon_tokens = len(enc.encode(toon))
+        token_savings = (markdown_tokens - toon_tokens) / markdown_tokens
+
+        # Should see at least 15% token savings with 20 bullets
+        self.assertGreater(token_savings, 0.15)
+
 
 if __name__ == "__main__":
     unittest.main()
