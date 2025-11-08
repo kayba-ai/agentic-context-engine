@@ -20,13 +20,13 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from common import (
+from shared import (
     calculate_timeout_steps,
     format_result_output,
     MAX_RETRIES,
     DEFAULT_TIMEOUT_SECONDS,
 )
-from utils import print_history_details
+from debug import print_history_details
 
 # Import domain-specific utilities from local module
 from domain_utils import (

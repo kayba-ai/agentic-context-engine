@@ -22,14 +22,14 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from common import (
+from shared import (
     calculate_timeout_steps,
     format_result_output,
     save_results_to_file,
     MAX_RETRIES,
     DEFAULT_TIMEOUT_SECONDS,
 )
-from utils import print_history_details
+from debug import print_history_details
 
 # Import domain-specific utilities from local module
 from domain_utils import parse_domain_checker_output, get_test_domains

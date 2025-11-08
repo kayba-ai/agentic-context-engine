@@ -7,7 +7,7 @@ Uses OnlineAdapter for incremental learning after each form.
 """
 
 import asyncio
-from typing import List, Dict
+from typing import Dict
 from dotenv import load_dotenv
 
 from browser_use import Agent, Browser, ChatOpenAI
@@ -24,6 +24,9 @@ from ace import (
     Playbook,
 )
 from ace.observability import configure_opik
+
+# Import form-specific utilities
+from form_utils import get_test_forms
 
 load_dotenv()
 
@@ -153,32 +156,6 @@ ERROR: <reason>"""
                     await browser.stop()
                 except:
                     pass
-
-
-def get_test_forms() -> List[Dict]:
-    """Get list of test forms to fill."""
-    return [
-        {
-            "name": "Contact Form",
-            "data": {
-                "name": "John Doe",
-                "email": "john@example.com",
-                "message": "Hello, this is a test message.",
-            },
-        },
-        {
-            "name": "Newsletter Signup",
-            "data": {"email": "jane@example.com", "name": "Jane Smith"},
-        },
-        {
-            "name": "User Registration",
-            "data": {
-                "username": "testuser123",
-                "email": "test@example.com",
-                "password": "SecurePass123",
-            },
-        },
-    ]
 
 
 def main():

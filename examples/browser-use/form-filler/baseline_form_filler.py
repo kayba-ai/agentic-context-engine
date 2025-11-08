@@ -7,38 +7,15 @@ Compare this with ace_form_filler.py to see ACE's value.
 """
 
 import asyncio
-from typing import List, Dict
+from typing import Dict
 from dotenv import load_dotenv
 
 from browser_use import Agent, Browser, ChatOpenAI
 
+# Import form-specific utilities
+from form_utils import get_test_forms
+
 load_dotenv()
-
-
-def get_test_forms() -> List[Dict]:
-    """Get list of test forms to fill."""
-    return [
-        {
-            "name": "Contact Form",
-            "data": {
-                "name": "John Doe",
-                "email": "john@example.com",
-                "message": "Hello, this is a test message.",
-            },
-        },
-        {
-            "name": "Newsletter Signup",
-            "data": {"email": "jane@example.com", "name": "Jane Smith"},
-        },
-        {
-            "name": "User Registration",
-            "data": {
-                "username": "testuser123",
-                "email": "test@example.com",
-                "password": "SecurePass123",
-            },
-        },
-    ]
 
 
 async def fill_form(form_data: Dict, model: str = "gpt-4o-mini", headless: bool = True):

@@ -15,12 +15,12 @@ from pathlib import Path
 
 load_dotenv()
 
-# Import utils from parent directory
+# Import utilities from parent directory
 import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from utils import print_history_details
+from debug import print_history_details
 
 
 async def run_browser_task(

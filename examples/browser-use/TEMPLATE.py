@@ -38,6 +38,10 @@ from browser_use import Agent, Browser, ChatOpenAI
 # Optional: Use v2.1 prompts for best performance
 # from ace.prompts_v2_1 import PromptManager
 
+# Optional: Import shared utilities (see shared.py for available functions)
+# from shared import calculate_timeout_steps, MAX_RETRIES
+# from debug import print_history_details  # For debugging
+
 
 class MyTaskEnvironment(TaskEnvironment):
     """

@@ -18,17 +18,24 @@ ACE enables browser automation agents to **learn from their execution feedback**
 examples/browser-use/
 ├── README.md              # Getting started guide (you are here!)
 ├── TEMPLATE.py            # Clean template for your own use cases
-├── common.py              # Generic utilities (domain-agnostic)
-├── utils.py               # Debug/inspection utilities
-├── domain-checker/        # Domain availability examples (see README inside)
-└── form-filler/           # Form filling examples (see README inside)
+├── shared.py              # Generic utilities (domain-agnostic)
+├── debug.py               # Debug/inspection utilities
+├── domain-checker/        # Domain availability examples
+│   ├── ace_domain_checker.py
+│   ├── baseline_domain_checker.py
+│   └── domain_utils.py
+└── form-filler/           # Form filling examples
+    ├── ace_form_filler.py         # Simple ACE example
+    ├── baseline_form_filler.py    # Simple baseline
+    ├── ace_browser_use.py         # Advanced ACE example
+    ├── baseline_browser_use.py    # Advanced baseline
+    └── form_utils.py
 ```
 
 Each example folder contains:
 - ACE version (WITH learning)
 - Baseline version (WITHOUT learning for comparison)
-- Local README with detailed documentation
-- Example-specific utilities and task files
+- Example-specific utilities (*_utils.py)
 
 ## 🚀 Quick Start
 
@@ -57,9 +64,6 @@ export OPENAI_API_KEY="your-api-key"
 ```bash
 # Domain checker WITH ACE (learns after each domain)
 uv run python examples/browser-use/domain-checker/ace_domain_checker.py
-
-# Domain checker WITHOUT ACE (baseline for comparison)
-uv run python examples/browser-use/domain-checker/baseline_domain_checker.py
 
 # Form filler WITH ACE
 uv run python examples/browser-use/form-filler/ace_form_filler.py
@@ -160,36 +164,47 @@ Your `TaskEnvironment` bridges ACE with browser-use:
 
 1. **Start Simple**: Begin with baseline demo, then compare with ACE version
 2. **Headless Mode**: Set `headless=True` for faster execution (no GUI)
-3. **Debug Mode**: Use `utils.print_history_details()` to inspect browser actions
+3. **Debug Mode**: Use `debug.print_history_details()` to inspect browser actions
 4. **Cost Tracking**: Enable Opik observability to monitor token usage
 5. **Prompt Versions**: Use v2.1 prompts for best performance (see CLAUDE.md)
 
 ## 📝 Common Utilities
 
-### `common.py` - Generic Utilities
+### `shared.py` - Generic Utilities
+
+Contains utilities shared across all examples. Functions marked as:
+- ✅ **USED**: Actively used in current examples
+- 📝 **TEMPLATE**: Reference/template for your own code
 
 ```python
-from common import (
-    calculate_timeout_steps,  # Convert timeout to step count
+from shared import (
+    # ✅ USED functions
+    calculate_timeout_steps,   # Convert timeout to step count
+    MAX_RETRIES,               # Retry constants
+    DEFAULT_TIMEOUT_SECONDS,
+
+    # 📝 TEMPLATE functions (useful reference)
     format_result_output,      # Pretty-print results
     save_results_to_file,      # Save to JSON
-    get_browser_config,        # Browser settings
-    get_llm_config,            # LLM settings
-    MAX_RETRIES,               # Retry constants
-    DEFAULT_TIMEOUT_SECONDS
+    get_browser_config,        # Browser settings reference
 )
 ```
 
-### `utils.py` - Debug Utilities
+### `debug.py` - Debug Utilities
 
 ```python
-from utils import print_history_details
+from debug import print_history_details
 
 # Print comprehensive browser execution details
 history = await agent.run()
 print_history_details(history)
 # Shows: actions, results, URLs, errors, thoughts, timing, etc.
 ```
+
+### Example-Specific Utilities
+
+- `domain-checker/domain_utils.py` - Domain checking utilities
+- `form-filler/form_utils.py` - Form data and utilities
 
 ## 🤝 Contributing
 
@@ -198,13 +213,13 @@ Have a cool browser automation use case? Add a new example folder!
 1. Create `your-use-case/` folder
 2. Add `ace_*.py` and `baseline_*.py` files
 3. Create local `README.md` and `*_utils.py`
-4. Keep `common.py` generic (no use-case-specific code)
+4. Keep `shared.py` generic (no use-case-specific code)
 
 ## 🐛 Troubleshooting
 
 **Import errors after restructuring?**
 - Files in subfolders use `sys.path.insert()` to import from parent
-- Check that `common.py` and `utils.py` are in `browser-use/` root
+- Check that `shared.py` and `debug.py` are in `browser-use/` root
 
 **Browser not starting?**
 - Install playwright: `playwright install chromium`
