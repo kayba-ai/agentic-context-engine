@@ -5,6 +5,17 @@ All notable changes to ACE Framework will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Toon Compression for Token-Efficient Playbooks**
+  - Optional Toon format support for 15-16% token reduction in playbook representations
+  - New `playbook_format` parameter in Generator and Curator roles
+  - Graceful fallback with clear error if python-toon not installed
+  - Comprehensive test suite with 7 new tests
+  - Real-world demo showing cost savings at scale
+  - New optional dependency group `compression` for python-toon
+
 ## [0.4.0] - 2025-10-26
 
 ### Added
