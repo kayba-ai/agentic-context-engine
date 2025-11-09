@@ -89,11 +89,12 @@ class MyTaskEnvironment(TaskEnvironment):
         # Evaluate the result
         success = result.get("success", False)
         steps = result.get("steps", 0)
+        output = result.get("output", "")
         error = result.get("error", None)
 
         # TODO: Customize feedback for your task
         if success:
-            feedback = f"Task completed successfully in {steps} steps."
+            feedback = f"Task completed successfully in {steps} steps. Output: {output[:100]}..."
         else:
             feedback = f"Task failed after {steps} steps. Error: {error}"
 
@@ -141,20 +142,55 @@ class MyTaskEnvironment(TaskEnvironment):
             # Run with timeout
             history = await asyncio.wait_for(agent.run(), timeout=180.0)
 
-            # TODO: Customize success criteria
-            success = (
-                history.is_successful() if hasattr(history, "is_successful") else False
-            )
-            steps = (
-                history.number_of_steps() if hasattr(history, "number_of_steps") else 0
+            # TODO: Customize success criteria based on your task output
+            # Parse the agent's output for success indicators
+            output = (
+                history.final_result()
+                if hasattr(history, "final_result")
+                else str(history)
             )
 
-            return {"success": success, "steps": steps, "error": None}
+            # Check for success (customize this based on your expected output)
+            # Example patterns you might look for:
+            # success = "SUCCESS" in output or "COMPLETED" in output
+            # success = "result found" in output.lower()
+            success = len(output) > 0  # Basic check - customize this!
+
+            # Get step count
+            steps = (
+                len(history.action_names())
+                if hasattr(history, "action_names") and history.action_names()
+                else (
+                    history.number_of_steps()
+                    if hasattr(history, "number_of_steps")
+                    else 0
+                )
+            )
+
+            return {"success": success, "steps": steps, "output": output, "error": None}
 
         except asyncio.TimeoutError:
-            return {"success": False, "steps": 15, "error": "Timeout"}
+            # Try to get actual steps even on timeout
+            try:
+                steps = (
+                    history.number_of_steps()
+                    if "history" in locals() and hasattr(history, "number_of_steps")
+                    else 15  # max_steps if we can't determine
+                )
+            except:
+                steps = 15
+            return {"success": False, "steps": steps, "output": "", "error": "Timeout"}
         except Exception as e:
-            return {"success": False, "steps": 0, "error": str(e)}
+            # Try to get actual steps even on error
+            try:
+                steps = (
+                    history.number_of_steps()
+                    if "history" in locals() and hasattr(history, "number_of_steps")
+                    else 0
+                )
+            except:
+                steps = 0
+            return {"success": False, "steps": steps, "output": "", "error": str(e)}
         finally:
             if browser:
                 try:

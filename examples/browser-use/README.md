@@ -4,7 +4,17 @@ This folder demonstrates how to integrate the **ACE (Agentic Context Engineering
 
 ## 🎯 What is This?
 
-ACE enables browser automation agents to **learn from their execution feedback** and improve over time. Instead of static prompts, ACE agents:
+ACE enables browser automation agents to **learn from their execution feedback** and improve over time.
+
+**How it works:**
+```
+Sample → [Generator] → Strategy → [Browser-Use] → Result
+            ↑                                        ↓
+        Playbook ← [Curator] ← [Reflector] ← Feedback
+        (learns)
+```
+
+Instead of static prompts, ACE agents:
 
 1. **Generate** strategies for browser tasks
 2. **Execute** them using browser-use
@@ -21,15 +31,7 @@ examples/browser-use/
 ├── shared.py              # Generic utilities (domain-agnostic)
 ├── debug.py               # Debug/inspection utilities
 ├── domain-checker/        # Domain availability examples
-│   ├── ace_domain_checker.py
-│   ├── baseline_domain_checker.py
-│   └── domain_utils.py
 └── form-filler/           # Form filling examples
-    ├── ace_form_filler.py         # Simple ACE example
-    ├── baseline_form_filler.py    # Simple baseline
-    ├── ace_browser_use.py         # Advanced ACE example
-    ├── baseline_browser_use.py    # Advanced baseline
-    └── form_utils.py
 ```
 
 Each example folder contains:
@@ -81,26 +83,6 @@ uv run python examples/browser-use/form-filler/ace_form_filler.py
 - Learns efficient patterns
 - Adapts strategies based on feedback
 - Builds reusable playbook
-
-### Example Output
-
-```
-🚀 ACE + Browser-Use Domain Checker
-🧠 Learns after each domain check!
-==================================================
-
-#   Domain                    Status      Acc  Steps    Browser-Tokens
---------------------------------------------------------------------------------
-1   testdomain123456.com      AVAILABLE   ✓    12       8,234
-2   myuniquedomain789.net     AVAILABLE   ✓    8        6,721    (improved!)
-3   brandnewstartup2024.io    AVAILABLE   ✓    6        5,892    (improved!)
-...
-
-🎯 Learned Strategies:
-  1. Use GoDaddy domain checker for fastest results
-  2. Wait for search results to fully load before reading
-  3. Look for "available" badge in green color
-```
 
 ## 🛠️ Create Your Own Use Case
 
@@ -166,27 +148,27 @@ Your `TaskEnvironment` bridges ACE with browser-use:
 2. **Headless Mode**: Set `headless=True` for faster execution (no GUI)
 3. **Debug Mode**: Use `debug.print_history_details()` to inspect browser actions
 4. **Cost Tracking**: Enable Opik observability to monitor token usage
-5. **Prompt Versions**: Use v2.1 prompts for best performance (see CLAUDE.md)
+5. **Prompt Versions**: Use v2.1 prompts for best performance - they include MCP-inspired enhancements for better reasoning and error handling
 
 ## 📝 Common Utilities
 
-### `shared.py` - Generic Utilities
+### `shared.py` - Common Utilities
 
-Contains utilities shared across all examples. Functions marked as:
-- ✅ **USED**: Actively used in current examples
-- 📝 **TEMPLATE**: Reference/template for your own code
+Contains helper functions and constants used across browser automation examples:
 
 ```python
 from shared import (
-    # ✅ USED functions
-    calculate_timeout_steps,   # Convert timeout to step count
-    MAX_RETRIES,               # Retry constants
-    DEFAULT_TIMEOUT_SECONDS,
+    # Timeout and retry handling
+    calculate_timeout_steps,   # Convert timeout duration to estimated step count
+    MAX_RETRIES,              # Default retry attempts (3)
+    DEFAULT_TIMEOUT_SECONDS,   # Default browser timeout (180s)
 
-    # 📝 TEMPLATE functions (useful reference)
-    format_result_output,      # Pretty-print results
-    save_results_to_file,      # Save to JSON
-    get_browser_config,        # Browser settings reference
+    # Output formatting and storage
+    format_result_output,      # Pretty-print browser results
+    save_results_to_file,      # Save results to JSON
+
+    # Browser configuration
+    get_browser_config,        # Standard browser settings
 )
 ```
 
@@ -222,19 +204,11 @@ Have a cool browser automation use case? Add a new example folder!
 - Check that `shared.py` and `debug.py` are in `browser-use/` root
 
 **Browser not starting?**
-- Install playwright: `playwright install chromium`
-- Check browser-use installation: `pip install browser-use`
+- Browser-use automatically downloads Chromium via Playwright on first run
+- If issues persist, check browser-use installation: `pip install browser-use`
 
 **LLM API errors?**
 - Verify API key is set: `echo $OPENAI_API_KEY`
 - Check LiteLLM supported models: https://docs.litellm.ai/docs/
-
-## 📚 Next Steps
-
-1. ✅ Run domain-checker example
-2. ✅ Compare baseline vs ACE performance
-3. ✅ Copy `TEMPLATE.py` and customize
-4. ✅ Read `domain-checker/README.md` for detailed walkthrough
-5. ✅ Explore advanced features (Opik, v2.1 prompts, checkpoints)
 
 Happy automating! 🤖✨

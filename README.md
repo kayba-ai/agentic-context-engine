@@ -138,6 +138,11 @@ A real-world comparison where both Browser Use agents check 10 domains for avail
 
 ![Browser Use Demo Results](examples/browser-use/Browseruse_domain_demo_results.png)
 
+**How ACE + Browser-Use Works:**
+- **ACE learns strategies**: "Click search box, then type domain name"
+- **Browser-Use executes**: Actually controls the browser (clicking, typing, etc.)
+- **ACE improves**: Learns from failures like "search box was hidden, scroll first"
+
 **Default Agent Behavior:**
 - Repeats failed actions throughout all runs
 - 30% success rate (3/10 runs)
@@ -157,12 +162,14 @@ A real-world comparison where both Browser Use agents check 10 domains for avail
 
 Try it yourself:
 ```bash
-# Run baseline version
+# Run baseline version (no learning)
 uv run python examples/browser-use/baseline_domain_checker.py
 
-# Run ACE-enhanced version
+# Run ACE-enhanced version (learns and improves)
 uv run python examples/browser-use/ace_domain_checker.py
 ```
+
+**Note:** Browser-Use automatically installs Chromium via Playwright on first run.
 
 ---
 
@@ -170,10 +177,19 @@ uv run python examples/browser-use/ace_domain_checker.py
 
 *Based on the [ACE research framework](https://arxiv.org/abs/2510.04618) from Stanford & SambaNova.*
 
+```
+Sample → [Generator] → Strategy → [Browser-Use] → Result
+            ↑                                        ↓
+        Playbook ← [Curator] ← [Reflector] ← Feedback
+        (learns)
+```
+
 ACE uses three specialized roles that work together:
-1. **🎯 Generator** - Executes tasks using learned strategies from the playbook
-2. **🔍 Reflector** - Analyzes what worked and what didn't after each execution
+1. **🎯 Generator** - Creates strategies using learned patterns from the playbook
+2. **🔍 Reflector** - Analyzes what worked and what didn't after execution
 3. **📝 Curator** - Updates the playbook with new strategies based on reflection
+
+**Important:** The three ACE roles are different specialized prompts using the same language model, not separate models.
 
 ACE teaches your agent and internalises:
 - **✅ Successes** → Extract patterns that work

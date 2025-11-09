@@ -247,7 +247,7 @@ def main():
     from pathlib import Path
 
     playbook_path = Path("ace_form_playbook.json")
-    adapter.playbook.to_file(str(playbook_path))
+    adapter.playbook.save_to_file(str(playbook_path))
     print(f"\n💾 Playbook saved to {playbook_path}")
 
 
