@@ -748,8 +748,8 @@ def main():
         if playbook.bullets():
             print("📋 Existing strategies:")
             for i, bullet in enumerate(playbook.bullets(), 1):
-                helpful_score = bullet.helpful_count
-                harmful_score = bullet.harmful_count
+                helpful_score = bullet.helpful
+                harmful_score = bullet.harmful
                 net_score = helpful_score - harmful_score
                 effectiveness = (
                     "+++"
@@ -835,8 +835,8 @@ def main():
         print(f"\n🎯 LEARNED SHOPPING STRATEGIES:")
         print("-" * 50)
         for i, bullet in enumerate(adapter.playbook.bullets(), 1):
-            helpful_score = bullet.helpful_count
-            harmful_score = bullet.harmful_count
+            helpful_score = bullet.helpful
+            harmful_score = bullet.harmful
             net_score = helpful_score - harmful_score
             effectiveness = (
                 "+++"
