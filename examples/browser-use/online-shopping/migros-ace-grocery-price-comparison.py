@@ -14,7 +14,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import List
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.append(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
 
 from dotenv import load_dotenv
 
@@ -40,6 +42,7 @@ from ace.observability import configure_opik
 
 # Import common utilities from parent directory
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from shared import (
@@ -52,6 +55,7 @@ from debug import print_history_details
 
 try:
     import opik
+
     client = opik.Opik()
 except:
     client = None
@@ -129,9 +133,12 @@ class GroceryShoppingEnvironment(TaskEnvironment):
         try:
             if client:
                 from opik import opik_context
+
                 trace_data = opik_context.get_current_trace_data()
                 trace_id = trace_data.id if trace_data else None
-                print(f"   🆔 Captured trace ID: {trace_id[:8] if trace_id else 'None'}...")
+                print(
+                    f"   🆔 Captured trace ID: {trace_id[:8] if trace_id else 'None'}..."
+                )
         except Exception as e:
             print(f"   ⚠️ Failed to get trace ID: {e}")
 
@@ -152,63 +159,14 @@ class GroceryShoppingEnvironment(TaskEnvironment):
         total_price = result.get("total_price", 0)
         steps_taken = result["steps"]
 
-        # Create comprehensive feedback for ACE Reflector
-        feedback = f"Shopping execution {'succeeded' if success else 'failed'}. "
-
-        # Success details
-        if success:
-            feedback += f"Found {items_found}/{target_items} items ({item_completion*100:.1f}%). "
-            feedback += f"Total basket: CHF {total_price:.2f}. "
-            feedback += f"Completed in {steps_taken} steps. "
-
-            if item_completion >= 1.0:
-                feedback += "Excellent: Found all required items. "
-            elif item_completion >= 0.8:
-                feedback += "Good: Found most required items. "
-            else:
-                feedback += "Needs improvement: Missing several items. "
-        else:
-            feedback += f"Error: {result.get('error', 'Unknown shopping error')}. "
-            feedback += f"Only found {items_found} items before failure. "
-
-        # Efficiency analysis
-        if steps_taken <= 20:
-            feedback += "Very efficient navigation. "
-        elif steps_taken <= 35:
-            feedback += "Reasonable efficiency. "
-        else:
-            feedback += "Could be more efficient - took many steps. "
-
-        # Performance context
-        feedback += f"Strategy used: {strategy[:100]}... " if len(strategy) > 100 else f"Strategy used: {strategy}"
-        feedback += f"Browser tokens consumed: {browseruse_tokens}. "
-
-        # Add scenario context for learning
-        feedback += f"Scenario focus: {scenario}. "
-
-        # Shopping-specific insights
-        if total_price > 0:
-            avg_price_per_item = total_price / max(items_found, 1)
-            feedback += f"Average price per item: CHF {avg_price_per_item:.2f}. "
-            if avg_price_per_item < 3:
-                feedback += "Good budget shopping. "
-            elif avg_price_per_item > 6:
-                feedback += "Higher-end selections. "
-
-        if steps_taken > 0:
-            steps_per_item = steps_taken / max(items_found, 1)
-            feedback += f"Steps per item found: {steps_per_item:.1f}. "
-            if steps_per_item < 8:
-                feedback += "Efficient item discovery. "
-            elif steps_per_item > 15:
-                feedback += "Could improve item discovery speed. "
-
-        # Add detailed execution logs for ACE Reflector analysis
+        # Pass ONLY raw browser-use execution logs to the reflector
+        # No interpretation, analysis, or additional context - just the raw logs
         execution_logs = result.get("execution_logs", [])
         if execution_logs:
-            feedback += f"\n\n=== SHOPPING EXECUTION DETAILS ===\n"
-            feedback += "\n".join(execution_logs)
-            feedback += f"\n=== END EXECUTION DETAILS ===\n"
+            feedback = "\n".join(execution_logs)
+        else:
+            # Fallback: minimal execution info if logs unavailable
+            feedback = f"Browser execution completed with {steps_taken} steps. Success: {success}."
 
         return EnvironmentResult(
             feedback=feedback,
@@ -220,7 +178,9 @@ class GroceryShoppingEnvironment(TaskEnvironment):
                 "total_price": total_price,
                 "steps": steps_taken,
                 "browseruse_tokens": browseruse_tokens,
-                "efficiency_score": max(0, 1 - (steps_taken - 15) / 25),  # Efficiency based on steps
+                "efficiency_score": max(
+                    0, 1 - (steps_taken - 15) / 25
+                ),  # Efficiency based on steps
             },
         )
 
@@ -250,7 +210,9 @@ class GroceryShoppingEnvironment(TaskEnvironment):
                     .isoformat()
                     .replace("+00:00", "Z")
                 )
-                print(f"   🕐 Searching for traces since: {recent_time} (fallback: last 10 minutes)")
+                print(
+                    f"   🕐 Searching for traces since: {recent_time} (fallback: last 10 minutes)"
+                )
 
             all_traces = []
 
@@ -262,7 +224,9 @@ class GroceryShoppingEnvironment(TaskEnvironment):
                         filter_string=f'start_time >= "{recent_time}"',
                         max_results=50,
                     )
-                    print(f"   📊 Found {len(traces)} recent traces in '{project}' project")
+                    print(
+                        f"   📊 Found {len(traces)} recent traces in '{project}' project"
+                    )
                     all_traces.extend(traces)
                 except Exception as e:
                     print(f"   ⚠️ Failed to search '{project}' project: {e}")
@@ -277,7 +241,10 @@ class GroceryShoppingEnvironment(TaskEnvironment):
                 trace_name = getattr(trace, "name", "unknown")
                 trace_name_lower = trace_name.lower()
 
-                if any(role in trace_name_lower for role in ["generator", "reflector", "curator"]):
+                if any(
+                    role in trace_name_lower
+                    for role in ["generator", "reflector", "curator"]
+                ):
                     total_tokens = 0
 
                     if trace.usage:
@@ -355,7 +322,11 @@ Remember: Use the strategy above to guide your approach, but adapt as needed for
                 steps = 0
 
             # Get the final result text
-            output = history.final_result() if hasattr(history, "final_result") else "No output captured"
+            output = (
+                history.final_result()
+                if hasattr(history, "final_result")
+                else "No output captured"
+            )
 
             # Extract browser-use token usage (same as baseline)
             # Method 1: Try to get tokens from history
@@ -367,10 +338,18 @@ Remember: Use the strategy above to guide your approach, but adapt as needed for
                             browseruse_tokens = usage.total_tokens
                         elif isinstance(usage, dict) and "total_tokens" in usage:
                             browseruse_tokens = usage["total_tokens"]
-                        elif hasattr(usage, "input_tokens") and hasattr(usage, "output_tokens"):
+                        elif hasattr(usage, "input_tokens") and hasattr(
+                            usage, "output_tokens"
+                        ):
                             browseruse_tokens = usage.input_tokens + usage.output_tokens
-                        elif isinstance(usage, dict) and "input_tokens" in usage and "output_tokens" in usage:
-                            browseruse_tokens = usage["input_tokens"] + usage["output_tokens"]
+                        elif (
+                            isinstance(usage, dict)
+                            and "input_tokens" in usage
+                            and "output_tokens" in usage
+                        ):
+                            browseruse_tokens = (
+                                usage["input_tokens"] + usage["output_tokens"]
+                            )
                 except Exception as e:
                     print(f"⚠️ Could not get tokens from history: {e}")
 
@@ -378,9 +357,14 @@ Remember: Use the strategy above to guide your approach, but adapt as needed for
             if browseruse_tokens == 0 and agent:
                 try:
                     if hasattr(agent, "token_cost_service"):
-                        usage_summary = await agent.token_cost_service.get_usage_summary()
+                        usage_summary = (
+                            await agent.token_cost_service.get_usage_summary()
+                        )
                         if usage_summary:
-                            if isinstance(usage_summary, dict) and "total_tokens" in usage_summary:
+                            if (
+                                isinstance(usage_summary, dict)
+                                and "total_tokens" in usage_summary
+                            ):
                                 browseruse_tokens = usage_summary["total_tokens"]
                             elif hasattr(usage_summary, "total_tokens"):
                                 browseruse_tokens = usage_summary.total_tokens
@@ -390,69 +374,49 @@ Remember: Use the strategy above to guide your approach, but adapt as needed for
             # Parse shopping results
             shopping_results = self._parse_shopping_results(output)
 
-            # Extract comprehensive execution logs for ACE Reflector analysis
+            # Extract RAW execution logs from browser-use agent ONLY
+            # No analysis, no interpretation, no metrics - just the raw logs
             execution_logs = []
             try:
-                # Basic execution summary
-                execution_logs.append(f"=== BROWSER EXECUTION SUMMARY ===")
-                execution_logs.append(f"Total steps completed: {steps}")
-                execution_logs.append(f"Final output: {output[:200]}...")
+                # Final output from agent
+                execution_logs.append(f"FINAL OUTPUT:\n{output}")
 
                 # Action history - step by step actions taken
                 if hasattr(history, "action_history") and history.action_history():
-                    execution_logs.append(f"\n=== ACTION SEQUENCE ===")
+                    execution_logs.append(f"\nACTION HISTORY:")
                     for i, action in enumerate(history.action_history(), 1):
-                        execution_logs.append(f"Step {i}: {action}")
+                        execution_logs.append(f"{i}. {action}")
 
                 # Action results - outcomes of each action
                 if hasattr(history, "action_results") and history.action_results():
-                    execution_logs.append(f"\n=== ACTION RESULTS ===")
+                    execution_logs.append(f"\nACTION RESULTS:")
                     for i, result in enumerate(history.action_results(), 1):
-                        execution_logs.append(f"Result {i}: {result}")
+                        execution_logs.append(f"{i}. {result}")
 
                 # URLs visited during execution
                 if hasattr(history, "urls") and history.urls():
-                    execution_logs.append(f"\n=== NAVIGATION HISTORY ===")
-                    execution_logs.append(f"URLs visited: {history.urls()}")
+                    execution_logs.append(f"\nURLs VISITED:")
+                    execution_logs.append(f"{history.urls()}")
 
                 # Error details
                 if hasattr(history, "errors") and history.errors():
-                    execution_logs.append(f"\n=== ERRORS ENCOUNTERED ===")
-                    execution_logs.append(f"Errors: {history.errors()}")
+                    execution_logs.append(f"\nERRORS:")
+                    execution_logs.append(f"{history.errors()}")
 
                 # Model thoughts/reasoning (if available)
                 if hasattr(history, "model_thoughts") and history.model_thoughts():
-                    execution_logs.append(f"\n=== AGENT REASONING ===")
+                    execution_logs.append(f"\nAGENT THOUGHTS:")
                     for i, thought in enumerate(history.model_thoughts(), 1):
-                        execution_logs.append(f"Thought {i}: {thought}")
+                        execution_logs.append(f"{i}. {thought}")
 
                 # Action names (high-level action types)
                 if hasattr(history, "action_names") and history.action_names():
-                    execution_logs.append(f"\n=== ACTION TYPES USED ===")
+                    execution_logs.append(f"\nACTION NAMES:")
                     action_names = history.action_names()
-                    execution_logs.append(f"Actions: {', '.join(action_names)}")
-                    action_counts = {action: action_names.count(action) for action in set(action_names)}
-                    execution_logs.append(f"Action count breakdown: {action_counts}")
-
-                # Browser state information
-                if hasattr(history, "browser_state"):
-                    execution_logs.append(f"\n=== FINAL BROWSER STATE ===")
-                    execution_logs.append(f"Browser state available: Yes")
-
-                # Performance metrics
-                execution_logs.append(f"\n=== PERFORMANCE METRICS ===")
-                execution_logs.append(f"Steps per item: {steps/5:.1f}")
-                execution_logs.append(f"Items found: {shopping_results['items_found']}/5")
-                execution_logs.append(f"Success rate: {shopping_results['items_found']/5*100:.1f}%")
-                execution_logs.append(f"Total price found: CHF {shopping_results['total_price']}")
-
-                # Token usage
-                execution_logs.append(f"Browser automation tokens: {browseruse_tokens}")
+                    execution_logs.append(f"{action_names}")
 
             except Exception as e:
-                execution_logs.append(f"Error extracting comprehensive logs: {e}")
-                # Fallback to basic logging
-                execution_logs.append(f"Basic fallback - Steps: {steps}, Output length: {len(output)}")
+                execution_logs.append(f"Error extracting logs: {e}")
 
             return {
                 "success": True,
@@ -486,10 +450,10 @@ Remember: Use the strategy above to guide your approach, but adapt as needed for
 
         # Look for item patterns like "1. milk", "- eggs", etc.
         item_patterns = [
-            r'\d+\.\s+\*\*[^:]+:\*\*',  # Numbered items with bold formatting
-            r'-\s*\*\*[^:]+:\*\*',      # Bullet points with bold formatting
-            r'\d+\.\s+[A-Za-z]',         # Simple numbered items
-            r'-\s*[A-Za-z]',             # Simple bullet points
+            r"\d+\.\s+\*\*[^:]+:\*\*",  # Numbered items with bold formatting
+            r"-\s*\*\*[^:]+:\*\*",  # Bullet points with bold formatting
+            r"\d+\.\s+[A-Za-z]",  # Simple numbered items
+            r"-\s*[A-Za-z]",  # Simple bullet points
         ]
 
         for pattern in item_patterns:
@@ -498,9 +462,9 @@ Remember: Use the strategy above to guide your approach, but adapt as needed for
 
         # Look for total price patterns
         total_patterns = [
-            r'\*\*TOTAL:\s*CHF\s*(\d+(?:\.\d{2})?)\*\*',
-            r'TOTAL:\s*CHF\s*(\d+(?:\.\d{2})?)',
-            r'CHF\s*(\d+(?:\.\d{2})?)\s*total',
+            r"\*\*TOTAL:\s*CHF\s*(\d+(?:\.\d{2})?)\*\*",
+            r"TOTAL:\s*CHF\s*(\d+(?:\.\d{2})?)",
+            r"CHF\s*(\d+(?:\.\d{2})?)\s*total",
         ]
 
         for pattern in total_patterns:
@@ -517,6 +481,7 @@ Remember: Use the strategy above to guide your approach, but adapt as needed for
             "total_price": total_price,
         }
 
+
 def parse_basket_data_legacy(output_text):
     """Parse basket data from agent output to extract exact items and prices."""
     import re
@@ -525,7 +490,7 @@ def parse_basket_data_legacy(output_text):
 
     # Look for the final basket summary - the agent uses "# MIGROS BASKET - SHOPPING COMPLETE"
     # Then look for the "**MIGROS BASKET:**" section within that
-    basket_pattern = r'(?i)\*?\*?MIGROS\s+BASKET:\*?\*?\s*(.*?)(?=---|\*?\*?TOTAL|$)'
+    basket_pattern = r"(?i)\*?\*?MIGROS\s+BASKET:\*?\*?\s*(.*?)(?=---|\*?\*?TOTAL|$)"
     match = re.search(basket_pattern, output_text, re.DOTALL)
 
     if match:
@@ -535,7 +500,7 @@ def parse_basket_data_legacy(output_text):
         total_value = None
 
         # Parse numbered items like "1. **1L milk:** Valflora IP-SUISSE Whole milk HOCH PAST 3.5% Fat - **CHF 1.40**"
-        item_pattern = r'(\d+)\.\s+\*\*([^:]+):\*\*\s+([^-]+)\s+-\s+\*\*CHF\s+(\d+(?:\.\d{2})?)\*\*\s*(?:\([^)]+\))?'
+        item_pattern = r"(\d+)\.\s+\*\*([^:]+):\*\*\s+([^-]+)\s+-\s+\*\*CHF\s+(\d+(?:\.\d{2})?)\*\*\s*(?:\([^)]+\))?"
         item_matches = re.findall(item_pattern, basket_section)
 
         for item_match in item_matches:
@@ -544,29 +509,31 @@ def parse_basket_data_legacy(output_text):
             items.append(item_str)
 
         # Look for total - pattern like "## **TOTAL: CHF 15.75**"
-        total_pattern = r'(?i)\*?\*?TOTAL:\s*CHF\s*(\d+(?:\.\d{2})?)\*?\*?'
+        total_pattern = r"(?i)\*?\*?TOTAL:\s*CHF\s*(\d+(?:\.\d{2})?)\*?\*?"
         total_match = re.search(total_pattern, output_text)
         if total_match:
             total_value = float(total_match.group(1))
             total = f"TOTAL: CHF {total_value}"
 
-        stores_data['MIGROS'] = {
-            'items': items,
-            'total': total,
-            'total_value': total_value
+        stores_data["MIGROS"] = {
+            "items": items,
+            "total": total,
+            "total_value": total_value,
         }
 
     return stores_data
+
 
 def parse_basket_data(output_text):
     """Parse basket data from agent output to extract exact items and prices."""
     return parse_basket_data_legacy(output_text)
 
+
 def print_results_summary(output_text):
     """Print a formatted summary showing exact basket items and prices per store."""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("🛒 GROCERY PRICE COMPARISON RESULTS")
-    print("="*80)
+    print("=" * 80)
     print(f"📅 Completed: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"🏪 Store: Migros (Test Run)")
     print(f"📦 Items: 5 essential grocery items")
@@ -575,15 +542,15 @@ def print_results_summary(output_text):
     stores_data = parse_basket_data(output_text)
 
     print("\n📋 BASKET ITEMS & PRICES:")
-    print("="*80)
+    print("=" * 80)
 
     if stores_data:
         for store_name, basket_info in stores_data.items():
             print(f"\n🏪 {store_name} BASKET:")
             print("-" * 50)
 
-            if basket_info['items']:
-                for i, item in enumerate(basket_info['items'], 1):
+            if basket_info["items"]:
+                for i, item in enumerate(basket_info["items"], 1):
                     print(f"  {i}. {item}")
                 print(f"\n  💰 {basket_info['total']}")
             else:
@@ -591,7 +558,11 @@ def print_results_summary(output_text):
                 print("  📝 Check detailed output below for manual review")
 
         # Price comparison if we have totals
-        totals_available = [(store, info['total_value']) for store, info in stores_data.items() if info['total_value'] is not None]
+        totals_available = [
+            (store, info["total_value"])
+            for store, info in stores_data.items()
+            if info["total_value"] is not None
+        ]
 
         if len(totals_available) >= 2:
             print(f"\n🏆 PRICE COMPARISON:")
@@ -602,29 +573,33 @@ def print_results_summary(output_text):
             savings = most_expensive[1] - winner[1]
 
             print(f"  🥇 Cheapest: {winner[0]} - CHF {winner[1]:.2f}")
-            print(f"  🥉 Most expensive: {most_expensive[0]} - CHF {most_expensive[1]:.2f}")
+            print(
+                f"  🥉 Most expensive: {most_expensive[0]} - CHF {most_expensive[1]:.2f}"
+            )
             print(f"  💸 You save: CHF {savings:.2f} by choosing {winner[0]}")
         elif len(totals_available) == 1:
-            print(f"\n⚠️ Only one store total found: {totals_available[0][0]} - CHF {totals_available[0][1]:.2f}")
+            print(
+                f"\n⚠️ Only one store total found: {totals_available[0][0]} - CHF {totals_available[0][1]:.2f}"
+            )
         else:
             print(f"\n⚠️ Could not extract store totals for comparison")
     else:
         print("\n⚠️ Could not parse basket data from output")
 
-    print("="*80)
+    print("=" * 80)
 
 
 def print_single_run_results(result, total_ace_tokens, role_breakdown):
     """Print results summary for single ACE run."""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("🛒 ACE GROCERY SHOPPING RESULTS")
-    print("="*80)
+    print("=" * 80)
     print(f"📅 Completed: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"🏪 Store: Migros (ACE Enhanced)")
     print(f"📦 Mode: Single run with learning")
 
     print("\n📋 SHOPPING RESULTS:")
-    print("="*80)
+    print("=" * 80)
 
     metrics = result.environment_result.metrics
     success = "✓" if metrics.get("success", False) else "✗"
@@ -642,9 +617,9 @@ def print_single_run_results(result, total_ace_tokens, role_breakdown):
 
     generator_tokens, reflector_tokens, curator_tokens = role_breakdown
 
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("📊 PERFORMANCE METRICS")
-    print("="*80)
+    print("=" * 80)
     print(f"{'🤖 Browser-Use Tokens:':<25} {browseruse_tokens:>6}")
     print(f"{'🧠 ACE Learning Tokens:':<25} {total_ace_tokens:>6}")
     print()
@@ -654,7 +629,7 @@ def print_single_run_results(result, total_ace_tokens, role_breakdown):
     print(f"   📝 Curator:        {curator_tokens:>6} tokens  (strategy updates)")
     print(f"   {'─' * 40}")
     print(f"   🧠 Total ACE:      {total_ace_tokens:>6} tokens")
-    print("="*80)
+    print("=" * 80)
 
 
 async def run_grocery_shopping_legacy():
@@ -678,7 +653,11 @@ async def run_grocery_shopping_legacy():
             steps = 0
 
         # Get the final result text
-        result_text = history.final_result() if hasattr(history, "final_result") else "No output captured"
+        result_text = (
+            history.final_result()
+            if hasattr(history, "final_result")
+            else "No output captured"
+        )
 
         # Extract browser-use token usage
         # Method 1: Try to get tokens from history
@@ -690,10 +669,18 @@ async def run_grocery_shopping_legacy():
                         browseruse_tokens = usage.total_tokens
                     elif isinstance(usage, dict) and "total_tokens" in usage:
                         browseruse_tokens = usage["total_tokens"]
-                    elif hasattr(usage, "input_tokens") and hasattr(usage, "output_tokens"):
+                    elif hasattr(usage, "input_tokens") and hasattr(
+                        usage, "output_tokens"
+                    ):
                         browseruse_tokens = usage.input_tokens + usage.output_tokens
-                    elif isinstance(usage, dict) and "input_tokens" in usage and "output_tokens" in usage:
-                        browseruse_tokens = usage["input_tokens"] + usage["output_tokens"]
+                    elif (
+                        isinstance(usage, dict)
+                        and "input_tokens" in usage
+                        and "output_tokens" in usage
+                    ):
+                        browseruse_tokens = (
+                            usage["input_tokens"] + usage["output_tokens"]
+                        )
             except Exception as e:
                 print(f"⚠️ Could not get tokens from history: {e}")
 
@@ -703,7 +690,10 @@ async def run_grocery_shopping_legacy():
                 if hasattr(agent, "token_cost_service"):
                     usage_summary = await agent.token_cost_service.get_usage_summary()
                     if usage_summary:
-                        if isinstance(usage_summary, dict) and "total_tokens" in usage_summary:
+                        if (
+                            isinstance(usage_summary, dict)
+                            and "total_tokens" in usage_summary
+                        ):
                             browseruse_tokens = usage_summary["total_tokens"]
                         elif hasattr(usage_summary, "total_tokens"):
                             browseruse_tokens = usage_summary.total_tokens
@@ -714,7 +704,7 @@ async def run_grocery_shopping_legacy():
             "result_text": str(result_text),
             "steps": steps,
             "browseruse_tokens": browseruse_tokens,
-            "success": True
+            "success": True,
         }
 
     except Exception as e:
@@ -723,14 +713,16 @@ async def run_grocery_shopping_legacy():
             "result_text": f"Shopping failed: {str(e)}",
             "steps": steps,
             "browseruse_tokens": browseruse_tokens,
-            "success": False
+            "success": False,
         }
+
 
 def main():
     """Main function - ACE online learning for grocery shopping."""
 
     # Capture start time for trace filtering
     import datetime
+
     run_start_time = datetime.datetime.now(datetime.timezone.utc)
 
     # Configure Opik if available
@@ -759,15 +751,24 @@ def main():
                 helpful_score = bullet.helpful_count
                 harmful_score = bullet.harmful_count
                 net_score = helpful_score - harmful_score
-                effectiveness = "+++" if net_score >= 2 else "++" if net_score >= 1 else "+" if net_score >= 0 else "-"
+                effectiveness = (
+                    "+++"
+                    if net_score >= 2
+                    else "++" if net_score >= 1 else "+" if net_score >= 0 else "-"
+                )
                 print(f"  {i}. [{effectiveness:>3}] {bullet.content}")
     else:
         print(f"🆕 Creating new playbook (will save to {playbook_path})")
         playbook = Playbook()
 
     # Create ACE components with OnlineAdapter (using LiteLLM for ACE roles)
-    llm = LiteLLMClient(
-        model="claude-haiku-4-5-20251001", temperature=0.2
+    llm = LiteLLMClient(model="claude-haiku-4-5-20251001", temperature=0.2)
+
+    # Create separate LLM client for Reflector with higher max_tokens to handle large raw logs
+    reflector_llm = LiteLLMClient(
+        model="claude-haiku-4-5-20251001",
+        temperature=0.2,
+        max_tokens=8192,  # Increased from default 512 to handle verbose browser-use logs
     )
 
     # Create prompt manager for enhanced prompts
@@ -776,7 +777,9 @@ def main():
     adapter = OnlineAdapter(
         playbook=playbook,  # Use loaded playbook instead of empty one
         generator=Generator(llm, prompt_template=manager.get_generator_prompt()),
-        reflector=Reflector(llm, prompt_template=manager.get_reflector_prompt()),
+        reflector=Reflector(
+            reflector_llm, prompt_template=manager.get_reflector_prompt()
+        ),
         curator=Curator(llm, prompt_template=manager.get_curator_prompt()),
         max_refinement_rounds=2,
     )
@@ -804,6 +807,7 @@ def main():
     # Query ACE tokens after learning completed
     print(f"\n💰 Querying ACE token usage after shopping and learning...")
     import time
+
     time.sleep(5)  # Wait for Opik to index final traces
     (
         total_ace_tokens,
@@ -816,7 +820,7 @@ def main():
     print_single_run_results(
         result,
         total_ace_tokens,
-        (total_generator_tokens, total_reflector_tokens, total_curator_tokens)
+        (total_generator_tokens, total_reflector_tokens, total_curator_tokens),
     )
 
     # Show learned strategies
@@ -827,13 +831,21 @@ def main():
             helpful_score = bullet.helpful_count
             harmful_score = bullet.harmful_count
             net_score = helpful_score - harmful_score
-            effectiveness = "+++" if net_score >= 2 else "++" if net_score >= 1 else "+" if net_score >= 0 else "-"
+            effectiveness = (
+                "+++"
+                if net_score >= 2
+                else "++" if net_score >= 1 else "+" if net_score >= 0 else "-"
+            )
             print(f"  {i}. [{effectiveness:>3}] {bullet.content}")
         print()
-        print("Legend: +++ Very Effective, ++ Effective, + Helpful, - Needs Improvement")
+        print(
+            "Legend: +++ Very Effective, ++ Effective, + Helpful, - Needs Improvement"
+        )
     else:
         print(f"\n💡 No new strategies learned in this run")
-        print("   Strategies are learned from execution feedback and saved for future runs")
+        print(
+            "   Strategies are learned from execution feedback and saved for future runs"
+        )
 
     # Save playbook for future use in the same directory
     adapter.playbook.save_to_file(str(playbook_path))
@@ -850,9 +862,10 @@ async def main_legacy():
     print(f"🔄 Steps taken: {result['steps']}")
     print(f"🤖 Browser-use tokens: {result['browseruse_tokens']}")
     print(f"✅ Shopping success: {'Yes' if result['success'] else 'No'}")
-    input('\n📱 Press Enter to close the browser...')
+    input("\n📱 Press Enter to close the browser...")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     # Run ACE learning version (comment out for legacy version)
     main()
 
