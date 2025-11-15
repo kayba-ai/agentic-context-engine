@@ -132,7 +132,42 @@ Try it yourself:
 python examples/kayba_ace_test.py
 ```
 
-### 🌐 Browser Use Automation A/B Test
+### 🌐 Browser Use Automation Demos
+
+#### 🛒 Online Shopping Demo
+
+A comprehensive grocery shopping automation comparison where both agents shop for 5 essential items at Migros online store. The ACE agent learns optimal shopping strategies while the baseline agent repeats the same mistakes.
+
+![Online Shopping Demo Results](examples/browser-use/online-shopping/results-online-shopping-brwoser-use.png)
+
+**Task**: Shop for 5 essential items (milk, eggs, bananas, butter, bread) and find the cheapest options while adding them to the basket.
+
+**ACE Performance**:
+- **29.8% fewer steps** on average (57.2 vs 81.5)
+- **49.0% reduction** in browser-use tokens (595k vs 1,166k)
+- **42.6% total cost reduction** even when including ACE learning overhead
+
+**Key Results**:
+- **ACE Agent**: Learns efficient product search patterns and UI navigation strategies
+- **Baseline Agent**: Struggles with inconsistent website interactions and search failures
+- **Learning Advantage**: ACE adapts to website quirks and develops reliable shopping workflows
+
+Try it yourself:
+```bash
+# Run baseline version (no learning)
+uv run python examples/browser-use/online-shopping/baseline-online-shopping.py
+
+# Run ACE-enhanced version (learns and improves)
+uv run python examples/browser-use/online-shopping/ace-online-shopping.py
+```
+
+**Setup for Online Shopping Demo:**
+- Requires `browser-use` dependencies: `pip install ace-framework[demos]`
+- Browser-Use automatically installs Chromium via Playwright on first run
+- Demo uses Migros.ch online store (no account required)
+
+
+#### 🌐 Domain Availability Checker Demo
 
 A real-world comparison where both Browser Use agents check 10 domains for availability using browser automation. Same prompt, same Browser Use setup—but the ACE agent autonomously generates strategies from execution feedback.
 
@@ -169,7 +204,10 @@ uv run python examples/browser-use/baseline_domain_checker.py
 uv run python examples/browser-use/ace_domain_checker.py
 ```
 
-**Note:** Browser-Use automatically installs Chromium via Playwright on first run.
+**Setup for Domain Checker Demo:**
+- Requires `browser-use` dependencies: `pip install ace-framework[demos]`
+- Browser-Use automatically installs Chromium via Playwright on first run
+- Demo checks domain availability using automated web searches
 
 ---
 
