@@ -276,27 +276,16 @@ class ACEAgent:
             if hasattr(history, "model_thoughts"):
                 thoughts = history.model_thoughts()
                 if thoughts:
-                    # Keep first 3 and last 3 thoughts to avoid token overflow
-                    if len(thoughts) <= 6:
-                        trace_data["thoughts"] = [
-                            {
-                                "thinking": t.thinking,
-                                "evaluation": t.evaluation_previous_goal,
-                                "memory": t.memory,
-                                "next_goal": t.next_goal,
-                            }
-                            for t in thoughts
-                        ]
-                    else:
-                        trace_data["thoughts"] = [
-                            {
-                                "thinking": t.thinking,
-                                "evaluation": t.evaluation_previous_goal,
-                                "memory": t.memory,
-                                "next_goal": t.next_goal,
-                            }
-                            for t in (thoughts[:3] + thoughts[-3:])
-                        ]
+                    # Keep ALL thoughts - no filtering
+                    trace_data["thoughts"] = [
+                        {
+                            "thinking": t.thinking,
+                            "evaluation": t.evaluation_previous_goal,
+                            "memory": t.memory,
+                            "next_goal": t.next_goal,
+                        }
+                        for t in thoughts
+                    ]
         except Exception as e:
             trace_data["thoughts_error"] = str(e)  # type: ignore[assignment]
 
@@ -305,11 +294,8 @@ class ACEAgent:
             if hasattr(history, "model_actions"):
                 actions = history.model_actions()
                 if actions:
-                    # Keep first 5 and last 5 actions
-                    if len(actions) <= 10:
-                        trace_data["actions"] = actions
-                    else:
-                        trace_data["actions"] = actions[:5] + actions[-5:]
+                    # Keep ALL actions - no filtering
+                    trace_data["actions"] = actions
         except Exception as e:
             trace_data["actions_error"] = str(e)  # type: ignore[assignment]
 
@@ -317,7 +303,7 @@ class ACEAgent:
         try:
             if hasattr(history, "urls"):
                 urls = history.urls()
-                trace_data["urls"] = list(filter(None, urls[:10]))  # First 10 URLs
+                trace_data["urls"] = list(filter(None, urls))  # ALL URLs
         except Exception as e:
             trace_data["urls_error"] = str(e)  # type: ignore[assignment]
 
@@ -327,7 +313,7 @@ class ACEAgent:
                 errors = history.errors()
                 step_errors = [e for e in errors if e]
                 if step_errors:
-                    trace_data["step_errors"] = step_errors[:5]  # First 5 errors
+                    trace_data["step_errors"] = step_errors  # ALL errors
         except Exception as e:
             trace_data["errors_error"] = str(e)  # type: ignore[assignment]
 
@@ -336,21 +322,15 @@ class ACEAgent:
             if hasattr(history, "action_results"):
                 results = history.action_results()
                 if results:
-                    # Extract key info from results
+                    # Extract key info from ALL results - no filtering
                     trace_data["action_results"] = [
                         {
                             "is_done": r.is_done,
                             "success": r.success,
                             "error": r.error,
-                            "extracted_content": (
-                                r.extracted_content[:100]
-                                if r.extracted_content
-                                else None
-                            ),
+                            "extracted_content": r.extracted_content,  # Full content
                         }
-                        for r in (
-                            results[:5] + results[-5:] if len(results) > 10 else results
-                        )
+                        for r in results
                     ]
         except Exception as e:
             trace_data["action_results_error"] = str(e)  # type: ignore[assignment]
