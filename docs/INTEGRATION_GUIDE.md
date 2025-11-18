@@ -122,6 +122,69 @@ curator_output = curator.curate(
 playbook.apply_delta(curator_output.delta)
 ```
 
+### 4. Rich Feedback for External Agents
+
+When integrating with agents that provide detailed execution traces (like browser-use), ACE can extract and use this information for better learning.
+
+**Example: Browser-Use Integration**
+
+The browser-use `AgentHistoryList` object provides:
+- `model_thoughts()` - Agent's reasoning at each step
+- `model_actions()` - Actions taken with parameters
+- `action_results()` - Detailed results for each action
+- `urls()` - URLs visited during execution
+- `errors()` - Per-step error information
+- `total_duration_seconds()` - Execution timing
+
+**Building Rich Feedback:**
+
+```python
+def build_rich_feedback(history, success, error=None):
+    """Extract comprehensive trace from agent history."""
+    feedback_parts = []
+
+    # Basic info
+    steps = history.number_of_steps()
+    feedback_parts.append(f"Task {'succeeded' if success else 'failed'} in {steps} steps")
+
+    # Agent reasoning
+    if hasattr(history, 'model_thoughts'):
+        thoughts = history.model_thoughts()
+        feedback_parts.append("\nAgent Reasoning:")
+        for i, thought in enumerate(thoughts[:3], 1):  # First 3 steps
+            feedback_parts.append(f"  Step {i}: {thought.next_goal}")
+
+    # Actions taken
+    if hasattr(history, 'model_actions'):
+        actions = history.model_actions()
+        action_names = [list(a.keys())[0] for a in actions[:5]]
+        feedback_parts.append(f"\nActions: {', '.join(action_names)}")
+
+    # URLs and errors
+    if hasattr(history, 'urls'):
+        urls = history.urls()
+        feedback_parts.append(f"URLs: {', '.join(filter(None, urls[:3]))}")
+
+    return "\n".join(feedback_parts)
+
+# Use in Reflector
+feedback = build_rich_feedback(history, success=True)
+reflection = reflector.reflect(
+    question=task,
+    generator_output=generator_output,
+    playbook=playbook,
+    feedback=feedback  # Rich feedback enables better learning
+)
+```
+
+**Benefits of Rich Feedback:**
+- Learns action sequencing patterns ("Wait after goto")
+- Understands timing requirements ("Page loads slowly")
+- Recognizes error patterns ("Element not visible before scroll")
+- Captures domain-specific knowledge ("news.ycombinator.com requires 2s wait")
+
+**See also:** `ace/integrations/browser_use.py` for complete implementation.
+
 ---
 
 ## Wrapper Class Pattern

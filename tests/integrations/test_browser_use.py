@@ -248,6 +248,157 @@ class TestACEAgentRunMethod:
         assert task_to_use == "Override task"
 
 
+class TestRichFeedbackBuilder:
+    """Test rich feedback extraction from browser-use history."""
+
+    def test_build_rich_feedback_with_no_history(self):
+        """Should handle None history gracefully."""
+        from browser_use import ChatBrowserUse
+
+        agent = ACEAgent(llm=ChatBrowserUse())
+        result = agent._build_rich_feedback(None, success=False, error="Test error")
+
+        assert "feedback" in result
+        assert "raw_trace" in result
+        assert "steps" in result
+        assert "output" in result
+        assert result["steps"] == 0
+        assert "Test error" in result["feedback"]
+
+    def test_build_rich_feedback_extracts_basic_info(self):
+        """Should extract basic information from history."""
+        from browser_use import ChatBrowserUse
+        from unittest.mock import MagicMock
+
+        agent = ACEAgent(llm=ChatBrowserUse())
+
+        # Mock history object
+        mock_history = MagicMock()
+        mock_history.final_result.return_value = "Test output"
+        mock_history.number_of_steps.return_value = 5
+
+        result = agent._build_rich_feedback(mock_history, success=True)
+
+        assert result["output"] == "Test output"
+        assert result["steps"] == 5
+        assert "succeeded" in result["feedback"]
+        assert "5 steps" in result["feedback"]
+
+    def test_build_rich_feedback_extracts_urls(self):
+        """Should extract URLs from history."""
+        from browser_use import ChatBrowserUse
+        from unittest.mock import MagicMock
+
+        agent = ACEAgent(llm=ChatBrowserUse())
+
+        # Mock history with URLs
+        mock_history = MagicMock()
+        mock_history.final_result.return_value = "Output"
+        mock_history.number_of_steps.return_value = 3
+        mock_history.urls.return_value = [
+            "https://example.com",
+            "https://test.com",
+            None,
+        ]
+
+        result = agent._build_rich_feedback(mock_history, success=True)
+
+        assert "urls" in result["raw_trace"]
+        assert "https://example.com" in result["raw_trace"]["urls"]
+        assert "https://test.com" in result["raw_trace"]["urls"]
+        assert "URLs visited" in result["feedback"]
+
+    def test_build_rich_feedback_extracts_errors(self):
+        """Should extract step errors from history."""
+        from browser_use import ChatBrowserUse
+        from unittest.mock import MagicMock
+
+        agent = ACEAgent(llm=ChatBrowserUse())
+
+        # Mock history with errors
+        mock_history = MagicMock()
+        mock_history.final_result.return_value = "Output"
+        mock_history.number_of_steps.return_value = 3
+        mock_history.errors.return_value = [None, "Click failed", "Element not found"]
+
+        result = agent._build_rich_feedback(mock_history, success=False, error="Failed")
+
+        assert "step_errors" in result["raw_trace"]
+        assert "Click failed" in result["raw_trace"]["step_errors"]
+        assert "Errors encountered" in result["feedback"]
+
+    def test_build_rich_feedback_extracts_actions(self):
+        """Should extract actions from history."""
+        from browser_use import ChatBrowserUse
+        from unittest.mock import MagicMock
+
+        agent = ACEAgent(llm=ChatBrowserUse())
+
+        # Mock history with actions
+        mock_history = MagicMock()
+        mock_history.final_result.return_value = "Output"
+        mock_history.number_of_steps.return_value = 3
+        mock_history.model_actions.return_value = [
+            {"goto": {"url": "https://example.com"}},
+            {"click": {"index": 5}},
+            {"extract": {"data": "text"}},
+        ]
+
+        result = agent._build_rich_feedback(mock_history, success=True)
+
+        assert "actions" in result["raw_trace"]
+        assert len(result["raw_trace"]["actions"]) == 3
+        assert "Actions taken" in result["feedback"]
+        assert "goto" in result["feedback"]
+
+    def test_build_rich_feedback_extracts_thoughts(self):
+        """Should extract agent thoughts from history."""
+        from browser_use import ChatBrowserUse
+        from unittest.mock import MagicMock
+
+        agent = ACEAgent(llm=ChatBrowserUse())
+
+        # Mock history with thoughts
+        mock_thought = MagicMock()
+        mock_thought.thinking = "Planning to search"
+        mock_thought.evaluation_previous_goal = "Navigated successfully"
+        mock_thought.memory = "On homepage"
+        mock_thought.next_goal = "Search for product"
+
+        mock_history = MagicMock()
+        mock_history.final_result.return_value = "Output"
+        mock_history.number_of_steps.return_value = 2
+        mock_history.model_thoughts.return_value = [mock_thought]
+
+        result = agent._build_rich_feedback(mock_history, success=True)
+
+        assert "thoughts" in result["raw_trace"]
+        assert len(result["raw_trace"]["thoughts"]) == 1
+        assert result["raw_trace"]["thoughts"][0]["next_goal"] == "Search for product"
+        assert "Agent Reasoning" in result["feedback"]
+
+    def test_build_rich_feedback_handles_exceptions(self):
+        """Should handle exceptions when extracting trace data."""
+        from browser_use import ChatBrowserUse
+        from unittest.mock import MagicMock
+
+        agent = ACEAgent(llm=ChatBrowserUse())
+
+        # Mock history that raises exceptions
+        mock_history = MagicMock()
+        mock_history.final_result.return_value = "Output"
+        mock_history.number_of_steps.return_value = 2
+        mock_history.urls.side_effect = Exception("URL error")
+        mock_history.errors.side_effect = Exception("Error extraction failed")
+
+        result = agent._build_rich_feedback(mock_history, success=True)
+
+        # Should still return valid result with error indicators
+        assert "urls_error" in result["raw_trace"]
+        assert "errors_error" in result["raw_trace"]
+        assert result["feedback"]  # Should still have feedback
+
+
 @pytest.mark.integration
 class TestACEAgentIntegration:
     """Integration tests for ACEAgent (requires actual browser-use execution)."""

@@ -225,6 +225,193 @@ class ACEAgent:
                 )
             raise
 
+    def _build_rich_feedback(
+        self, history: Any, success: bool, error: Optional[str] = None
+    ) -> dict:
+        """
+        Extract comprehensive trace information from browser-use history.
+
+        Returns dict with:
+        - feedback: formatted feedback string for Reflector
+        - raw_trace: structured trace data for GeneratorOutput.raw
+        - steps: number of steps executed
+        - output: final output from execution
+        """
+        if not history:
+            return {
+                "feedback": (
+                    f"Task failed: {error}" if error else "No execution history"
+                ),
+                "raw_trace": {},
+                "steps": 0,
+                "output": "",
+            }
+
+        # Extract basic info
+        try:
+            output = (
+                history.final_result() if hasattr(history, "final_result") else ""
+            ) or ""
+        except:
+            output = ""
+
+        try:
+            steps = (
+                history.number_of_steps() if hasattr(history, "number_of_steps") else 0
+            )
+        except:
+            steps = 0
+
+        # Extract rich trace data
+        trace_data = {}
+
+        # 1. Agent thoughts (reasoning at each step)
+        try:
+            if hasattr(history, "model_thoughts"):
+                thoughts = history.model_thoughts()
+                if thoughts:
+                    # Keep first 3 and last 3 thoughts to avoid token overflow
+                    if len(thoughts) <= 6:
+                        trace_data["thoughts"] = [
+                            {
+                                "thinking": t.thinking,
+                                "evaluation": t.evaluation_previous_goal,
+                                "memory": t.memory,
+                                "next_goal": t.next_goal,
+                            }
+                            for t in thoughts
+                        ]
+                    else:
+                        trace_data["thoughts"] = [
+                            {
+                                "thinking": t.thinking,
+                                "evaluation": t.evaluation_previous_goal,
+                                "memory": t.memory,
+                                "next_goal": t.next_goal,
+                            }
+                            for t in (thoughts[:3] + thoughts[-3:])
+                        ]
+        except Exception as e:
+            trace_data["thoughts_error"] = str(e)  # type: ignore[assignment]
+
+        # 2. Actions taken
+        try:
+            if hasattr(history, "model_actions"):
+                actions = history.model_actions()
+                if actions:
+                    # Keep first 5 and last 5 actions
+                    if len(actions) <= 10:
+                        trace_data["actions"] = actions
+                    else:
+                        trace_data["actions"] = actions[:5] + actions[-5:]
+        except Exception as e:
+            trace_data["actions_error"] = str(e)  # type: ignore[assignment]
+
+        # 3. URLs visited
+        try:
+            if hasattr(history, "urls"):
+                urls = history.urls()
+                trace_data["urls"] = list(filter(None, urls[:10]))  # First 10 URLs
+        except Exception as e:
+            trace_data["urls_error"] = str(e)  # type: ignore[assignment]
+
+        # 4. Errors encountered
+        try:
+            if hasattr(history, "errors"):
+                errors = history.errors()
+                step_errors = [e for e in errors if e]
+                if step_errors:
+                    trace_data["step_errors"] = step_errors[:5]  # First 5 errors
+        except Exception as e:
+            trace_data["errors_error"] = str(e)  # type: ignore[assignment]
+
+        # 5. Action results
+        try:
+            if hasattr(history, "action_results"):
+                results = history.action_results()
+                if results:
+                    # Extract key info from results
+                    trace_data["action_results"] = [
+                        {
+                            "is_done": r.is_done,
+                            "success": r.success,
+                            "error": r.error,
+                            "extracted_content": (
+                                r.extracted_content[:100]
+                                if r.extracted_content
+                                else None
+                            ),
+                        }
+                        for r in (
+                            results[:5] + results[-5:] if len(results) > 10 else results
+                        )
+                    ]
+        except Exception as e:
+            trace_data["action_results_error"] = str(e)  # type: ignore[assignment]
+
+        # 6. Duration
+        try:
+            if hasattr(history, "total_duration_seconds"):
+                trace_data["duration_seconds"] = round(
+                    history.total_duration_seconds(), 2
+                )
+        except:
+            pass
+
+        # Build comprehensive feedback string
+        feedback_parts = []
+
+        # Overall status
+        status = "succeeded" if success else "failed"
+        feedback_parts.append(f"Browser task {status} in {steps} steps")
+
+        # Add duration if available
+        if "duration_seconds" in trace_data:
+            feedback_parts.append(f"Duration: {trace_data['duration_seconds']}s")
+
+        # Add thought summary
+        if "thoughts" in trace_data and trace_data["thoughts"]:
+            feedback_parts.append("\nAgent Reasoning:")
+            for i, thought in enumerate(trace_data["thoughts"][:3], 1):  # First 3
+                goal = thought.get("next_goal", "")[:100]
+                if goal:
+                    feedback_parts.append(f"  Step {i}: {goal}")
+
+        # Add action summary
+        if "actions" in trace_data and trace_data["actions"]:
+            action_summary = ", ".join(
+                list(action.keys())[0] for action in trace_data["actions"][:5] if action
+            )
+            feedback_parts.append(f"\nActions taken: {action_summary}")
+
+        # Add URLs
+        if "urls" in trace_data and trace_data["urls"]:
+            feedback_parts.append(
+                f"URLs visited: {', '.join(trace_data['urls'][:3])}"  # type: ignore[arg-type]
+            )
+
+        # Add errors
+        if "step_errors" in trace_data:
+            feedback_parts.append(
+                f"\nErrors encountered: {'; '.join(trace_data['step_errors'][:2])}"  # type: ignore[arg-type]
+            )
+
+        # Add final output
+        if output:
+            output_preview = output[:150] + ("..." if len(output) > 150 else "")
+            feedback_parts.append(f"\nFinal output: {output_preview}")
+
+        # Add error if failed
+        if error:
+            feedback_parts.append(f"\nFailure reason: {error}")
+
+        return {
+            "feedback": "\n".join(feedback_parts),
+            "raw_trace": trace_data,
+            "steps": steps,
+            "output": output,
+        }
+
     async def _learn_from_execution(
         self, task: str, history: Any, success: bool, error: Optional[str] = None
     ):
@@ -234,50 +421,25 @@ class ACEAgent:
         Flow: Reflector → Curator → Update Playbook
         (No Generator - browser-use already executed)
         """
-        # Extract execution details
-        if history:
-            try:
-                output = (
-                    history.final_result()
-                    if hasattr(history, "final_result")
-                    else str(history)
-                )
-            except:
-                output = ""
-
-            try:
-                steps = (
-                    history.number_of_steps()
-                    if hasattr(history, "number_of_steps")
-                    else (
-                        len(history.action_names())
-                        if hasattr(history, "action_names") and history.action_names()
-                        else 0
-                    )
-                )
-            except:
-                steps = 0
-        else:
-            output = ""
-            steps = 0
+        # Extract rich trace information
+        trace_info = self._build_rich_feedback(history, success, error)
 
         # Create GeneratorOutput (browser executed, not ACE Generator)
         # This is a "fake" output to satisfy Reflector's interface
         generator_output = GeneratorOutput(
             reasoning=f"Browser automation task: {task}",
-            final_answer=output,
+            final_answer=trace_info["output"],
             bullet_ids=[],  # Browser-use didn't use Generator
-            raw={"steps": steps, "success": success, "execution_mode": "browser-use"},
+            raw={
+                "steps": trace_info["steps"],
+                "success": success,
+                "execution_mode": "browser-use",
+                "trace": trace_info["raw_trace"],  # Include full trace
+            },
         )
 
-        # Build feedback
-        if success:
-            feedback = (
-                f"Browser task completed successfully in {steps} steps.\n"
-                f"Output: {output[:200]}{'...' if len(output) > 200 else ''}"
-            )
-        else:
-            feedback = f"Browser task failed after {steps} steps.\n" f"Error: {error}"
+        # Use rich feedback
+        feedback = trace_info["feedback"]
 
         # Run Reflector
         reflection = self.reflector.reflect(
@@ -288,7 +450,7 @@ class ACEAgent:
             feedback=feedback,
         )
 
-        # Run Curator
+        # Run Curator with enriched context
         curator_output = self.curator.curate(
             reflection=reflection,
             playbook=self.playbook,
@@ -296,7 +458,8 @@ class ACEAgent:
                 f"task: {task}\n"
                 f"feedback: {feedback}\n"
                 f"success: {success}\n"
-                f"steps: {steps}"
+                f"steps: {trace_info['steps']}\n"
+                f"duration: {trace_info['raw_trace'].get('duration_seconds', 'N/A')}s"
             ),
             progress=f"Browser task: {task}",
         )
