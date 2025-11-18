@@ -43,6 +43,7 @@ dependencies = [
     "litellm>=1.78.0",
     "pydantic>=2.0.0",
     "python-dotenv>=1.0.0",
+    "python-toon>=0.1.0",
     "tenacity>=8.0.0",
 ]
 

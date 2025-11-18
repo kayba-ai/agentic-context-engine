@@ -54,10 +54,15 @@ class Playbook:
         return f"Playbook(bullets={len(self._bullets)}, sections={list(self._sections.keys())})"
 
     def __str__(self) -> str:
-        """Human-readable representation showing actual playbook content."""
+        """
+        Human-readable representation showing actual playbook content.
+
+        Uses markdown format for readability (not TOON) since this is
+        typically used for debugging/inspection, not LLM prompts.
+        """
         if not self._bullets:
             return "Playbook(empty)"
-        return self.as_prompt()
+        return self._as_markdown_debug()
 
     # ------------------------------------------------------------------ #
     # CRUD utils
@@ -253,7 +258,52 @@ class Playbook:
     # Presentation helpers
     # ------------------------------------------------------------------ #
     def as_prompt(self) -> str:
-        """Return a human-readable playbook string for prompting LLMs."""
+        """
+        Return TOON-encoded playbook for LLM prompts.
+
+        Uses tab delimiters and excludes internal metadata (created_at, updated_at)
+        for maximum token efficiency (~16-62% savings vs markdown).
+
+        Returns:
+            TOON-formatted string with bullets array
+
+        Raises:
+            ImportError: If python-toon is not installed
+        """
+        try:
+            from toon import encode
+        except ImportError:
+            raise ImportError(
+                "TOON compression requires python-toon. "
+                "Install with: pip install python-toon>=0.1.0"
+            )
+
+        # Only include LLM-relevant fields (exclude created_at, updated_at)
+        bullets_data = [
+            {
+                "id": b.id,
+                "section": b.section,
+                "content": b.content,
+                "helpful": b.helpful,
+                "harmful": b.harmful,
+                "neutral": b.neutral,
+            }
+            for b in self.bullets()
+        ]
+
+        # Use tab delimiter for 5-10% better compression than comma
+        return encode({"bullets": bullets_data}, {"delimiter": "\t"})
+
+    def _as_markdown_debug(self) -> str:
+        """
+        Human-readable markdown format for debugging/inspection only.
+
+        This format is more readable than TOON but uses more tokens.
+        Use for debugging, logging, or human inspection - not for LLM prompts.
+
+        Returns:
+            Markdown-formatted playbook string
+        """
         parts: List[str] = []
         for section, bullet_ids in sorted(self._sections.items()):
             parts.append(f"## {section}")

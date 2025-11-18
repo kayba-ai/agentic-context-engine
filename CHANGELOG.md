@@ -7,13 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### ⚠️ Breaking Changes
+- **Playbook format changed to TOON (Token-Oriented Object Notation)**
+  - `Playbook.as_prompt()` now returns TOON format instead of markdown
+  - **Reason**: 16-62% token savings for improved scalability and reduced inference costs
+  - **Migration**: No action needed if using playbook with Generator/Curator/Reflector
+  - **Debugging**: Use `playbook._as_markdown_debug()` or `str(playbook)` for human-readable output
+  - **Details**: Uses tab delimiters and excludes internal metadata (created_at, updated_at)
+
 ### Added
+- **TOON compression for playbooks** - 16-62% token reduction vs markdown
+  - Tab-delimited format for maximum compression efficiency
+  - Automatic filtering of LLM-irrelevant fields (created_at, updated_at)
+  - `_as_markdown_debug()` method for human-readable debugging
+  - `python-toon>=0.1.0` now a required dependency
 - Citation-based strategy tracking - strategies cited inline in reasoning with `[section-00001]` format
 - Enhanced browser trace feedback - Reflector now receives detailed execution logs (thoughts, actions, results, URLs, errors)
 - Comprehensive test coverage for core LLM interfaces (17 new tests)
 - `extract_cited_bullet_ids()` utility for parsing strategy citations from text
 
 ### Changed
+- `Playbook.__str__()` now uses markdown format for readability (not TOON)
 - Generator no longer requires `bullet_ids` in JSON output - extracted from reasoning automatically
 - ACEAgent passes full browser execution trace to Reflector for improved learning
 - Test coverage improved from 28% to 70%
