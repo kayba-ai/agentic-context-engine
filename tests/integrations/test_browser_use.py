@@ -7,7 +7,7 @@ import tempfile
 # Skip all tests if browser-use not available
 pytest.importorskip("browser_use")
 
-from ace.browser_use_integration import (
+from ace.integrations import (
     ACEAgent,
     wrap_playbook_context,
     BROWSER_USE_AVAILABLE,
