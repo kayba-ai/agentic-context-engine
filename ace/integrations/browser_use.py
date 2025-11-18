@@ -4,8 +4,14 @@ Browser-use integration for ACE framework.
 This module provides ACEAgent, a drop-in replacement for browser-use Agent
 that automatically learns from execution feedback.
 
+This is the reference implementation for ACE integrations with external agentic
+frameworks. It demonstrates the pattern:
+1. External framework (browser-use) executes task
+2. ACE injects playbook context beforehand
+3. ACE learns from execution afterward (Reflector + Curator)
+
 Example:
-    from ace.browser_use_integration import ACEAgent
+    from ace.integrations import ACEAgent
     from browser_use import ChatBrowserUse
 
     agent = ACEAgent(llm=ChatBrowserUse())
@@ -26,52 +32,10 @@ except ImportError:
     Agent = None
     Browser = None
 
-from .llm_providers import LiteLLMClient
-from .playbook import Playbook
-from .roles import Reflector, Curator, GeneratorOutput
-
-
-def wrap_playbook_context(playbook: Playbook) -> str:
-    """
-    Wrap playbook bullets with explanation for external agents.
-
-    Extracted from Generator prompt - same explanation used by ACE Generator
-    so that external agents (browser-use, custom agents) understand how to
-    apply learned strategies.
-
-    Args:
-        playbook: Playbook with learned strategies
-
-    Returns:
-        Formatted text explaining playbook and listing strategies
-    """
-    bullets = playbook.bullets()
-
-    if not bullets:
-        return ""
-
-    # Get formatted bullets from playbook
-    bullet_text = playbook.as_prompt()
-
-    # Wrap with explanation (extracted from Generator v2.1 prompt)
-    wrapped = f"""
-## 📚 Available Strategic Knowledge (Learned from Experience)
-
-The following strategies have been learned from previous task executions.
-Each bullet shows its success rate based on helpful/harmful feedback:
-
-{bullet_text}
-
-**How to use these strategies:**
-- Review bullets relevant to your current task
-- Prioritize strategies with high success rates (helpful > harmful)
-- Apply strategies when they match your context
-- Adapt general strategies to your specific situation
-- Learn from both successful patterns and failure avoidance
-
-**Important:** These are learned patterns, not rigid rules. Use judgment.
-"""
-    return wrapped
+from ..llm_providers import LiteLLMClient
+from ..playbook import Playbook
+from ..roles import Reflector, Curator, GeneratorOutput
+from .base import wrap_playbook_context
 
 
 class ACEAgent:
@@ -356,5 +320,5 @@ class ACEAgent:
         return wrap_playbook_context(self.playbook)
 
 
-# Export helper for custom agents
-__all__ = ["ACEAgent", "wrap_playbook_context", "BROWSER_USE_AVAILABLE"]
+# Export for integration module
+__all__ = ["ACEAgent", "BROWSER_USE_AVAILABLE"]

@@ -102,7 +102,7 @@ pip install ace-framework[browser-use]
 ```
 
 ```python
-from ace import ACEAgent
+from ace.integrations import ACEAgent  # or: from ace import ACEAgent
 from browser_use import ChatBrowserUse
 import asyncio
 
@@ -122,6 +122,13 @@ async def main():
     agent.save_playbook("hn_expert.json")
 
 asyncio.run(main())
+```
+
+**Reuse learned knowledge:**
+```python
+# Load existing playbook to start with pre-trained strategies
+agent = ACEAgent(llm=ChatBrowserUse(), playbook_path="hn_expert.json")
+await agent.run(task="New task")  # Starts smart!
 ```
 
 **Key Features:**

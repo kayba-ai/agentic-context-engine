@@ -54,9 +54,9 @@ else:
     LiteLLMClient: Optional[type] = None  # type: ignore
     LITELLM_AVAILABLE = False
 
-# Import browser-use integration if available
+# Import integrations (browser-use, etc.) if available
 try:
-    from .browser_use_integration import (
+    from .integrations import (
         ACEAgent as _ACEAgent,
         wrap_playbook_context as _wrap_playbook_context,
         BROWSER_USE_AVAILABLE as _BROWSER_USE_AVAILABLE,
