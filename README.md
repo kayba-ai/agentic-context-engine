@@ -103,7 +103,7 @@ Wrap any LangChain chain/agent with learning:
 from ace import ACELangChain
 
 ace_chain = ACELangChain(runnable=your_langchain_chain)
-result = ace_chain.invoke({"input": "Your task"})  # Learns automatically
+result = ace_chain.invoke({"question": "Your task"})  # Learns automatically
 ```
 
 **Best for:** Multi-step workflows, tool-using agents, LangChain orchestration
