@@ -804,4 +804,4 @@ except Exception as e:
 
 - [Integration Guide](INTEGRATION_GUIDE.md) - Comprehensive integration documentation
 - [ACE Browser-Use Integration](../ace/integrations/browser_use.py) - Reference implementation
-- **Out-of-Box Integrations:** ACELiteLLM, ACEAgent, ACELangChain
+- **Out-of-Box Integrations:** ACELiteLLM, ACEAgent (browser-use), ACELangChain

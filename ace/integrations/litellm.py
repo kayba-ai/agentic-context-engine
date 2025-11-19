@@ -11,7 +11,7 @@ When to Use ACELiteLLM:
 - No framework needed: Direct LLM usage with learning
 
 When NOT to Use ACELiteLLM:
-- Browser automation → Use ACEAgent
+- Browser automation → Use ACEAgent (browser-use)
 - LangChain chains/agents → Use ACELangChain
 - Custom agentic system → Use integration pattern (see docs/INTEGRATION_GUIDE.md)
 
@@ -61,7 +61,7 @@ class ACELiteLLM:
     - Learning without external frameworks
 
     For other use cases:
-    - ACEAgent: Browser automation with learning
+    - ACEAgent (browser-use): Browser automation with learning
     - ACELangChain: LangChain chains/agents with learning
     - Integration pattern: Custom agent systems (see docs)
 

@@ -110,7 +110,7 @@ answer = agent.ask("What is 2+2?")  # Uses learned strategies
 
 **Best for:** Q&A, classification, reasoning tasks
 
-### **ACEAgent** - Browser Automation 🌐
+### **ACEAgent (browser-use)** - Browser Automation 🌐
 
 Self-improving browser agents with [browser-use](https://github.com/browser-use/browser-use):
 

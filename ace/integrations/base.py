@@ -93,7 +93,7 @@ playbook.save_to_file("learned.json")
 
 - Reference implementation: ace/integrations/browser_use.py
 - Full integration guide: docs/INTEGRATION_GUIDE.md
-- Out-of-box wrappers: ACELiteLLM, ACEAgent, ACELangChain
+- Out-of-box wrappers: ACELiteLLM, ACEAgent (browser-use), ACELangChain
 """
 
 from ..playbook import Playbook
