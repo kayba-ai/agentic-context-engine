@@ -167,7 +167,7 @@ ACE enables agents to learn from execution feedback: what works, what doesn't, a
 
 A challenge where LLMs often hallucinate that a seahorse emoji exists (it doesn't).
 
-![Kayba Test Demo](kayba_test_demo.gif)
+![Seahorse Emoji ACE Demo](examples/seahorse-emoji-ace.gif)
 
 In this example:
 - **Round 1**: The agent incorrectly outputs 🐴 (horse emoji)
