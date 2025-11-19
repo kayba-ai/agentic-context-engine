@@ -101,6 +101,10 @@ uv run mypy ace/
 # Run all quality checks (when available in dev dependencies)
 uv run black --check ace/ tests/ examples/
 uv run mypy ace/
+
+# Pre-commit hooks (auto-runs Black + MyPy on git commit)
+uv run pre-commit install           # One-time setup
+uv run pre-commit run --all-files   # Manual run
 ```
 
 ### Running Examples
@@ -134,9 +138,11 @@ CUDA_VISIBLE_DEVICES=2,3 python scripts/run_questions.py
 CUDA_VISIBLE_DEVICES=2,3 python scripts/run_local_adapter.py
 python scripts/run_questions_direct.py
 
-# Benchmarking
-python scripts/run_benchmark.py
-python scripts/compare_baseline_vs_ace.py
+# Benchmarking - Scientific evaluation framework
+uv run python scripts/run_benchmark.py simple_qa --limit 50              # ACE with train/test split
+uv run python scripts/run_benchmark.py simple_qa --limit 50 --compare    # Baseline vs ACE comparison
+uv run python scripts/run_benchmark.py finer_ord --limit 100 --epochs 3  # Multi-epoch training
+python scripts/compare_baseline_vs_ace.py                                # Analysis scripts
 python scripts/analyze_ace_results.py
 python scripts/explain_ace_performance.py
 ```
@@ -145,27 +151,37 @@ python scripts/explain_ace_performance.py
 
 ### Core Concepts
 - **Playbook**: Structured context store containing bullets (strategy entries) with helpful/harmful counters
+  - Uses TOON (Token-Oriented Object Notation) format for 16-62% token savings
+  - `playbook.as_prompt()` returns TOON format (for LLM consumption)
+  - `str(playbook)` returns markdown format (for human debugging)
 - **Delta Operations**: Incremental updates to the playbook (ADD, UPDATE, TAG, REMOVE)
 - **Three Agentic Roles** sharing the same base LLM:
   - **Generator**: Produces answers using the current playbook
   - **Reflector**: Analyzes errors and classifies bullet contributions
   - **Curator**: Emits delta operations to update the playbook
+- **Two Architecture Patterns**:
+  - **Full ACE Pipeline**: Generator+Reflector+Curator (for new agents)
+  - **Integration Pattern**: Reflector+Curator only (for existing systems like browser-use, LangChain)
 
 ### Module Structure
 
 **ace/** - Core library modules:
-- `playbook.py`: Bullet and Playbook classes for context storage
+- `playbook.py`: Bullet and Playbook classes for context storage (TOON format)
 - `delta.py`: DeltaOperation and DeltaBatch for incremental updates
 - `roles.py`: Generator, Reflector, Curator implementations
 - `adaptation.py`: OfflineAdapter and OnlineAdapter orchestration loops
 - `llm.py`: LLMClient interface with DummyLLMClient and TransformersLLMClient
-- `prompts.py`: Default prompt templates for each role (v1.0 - simple)
-- `prompts_v2.py`: Enhanced prompt templates (v2.0 - **DEPRECATED**, use v2.1)
+- `prompts.py`: Default prompt templates (v1.0 - simple, for tutorials)
 - `prompts_v2_1.py`: State-of-the-art prompts with MCP enhancements (v2.1 - **RECOMMENDED**)
 - `features.py`: Centralized optional dependency detection
 - `llm_providers/`: Production LLM client implementations
   - `litellm_client.py`: LiteLLM integration (100+ model providers)
   - `langchain_client.py`: LangChain integration
+- `integrations/`: Wrappers for external agentic frameworks (**key pattern**)
+  - `base.py`: Base integration pattern and utilities
+  - `browser_use.py`: ACEAgent - browser automation with learning
+  - `langchain.py`: ACELangChain - wrap LangChain chains/agents
+  - `litellm.py`: ACELiteLLM - simple conversational agent
 
 **ace/observability/** - Production monitoring and observability:
 - `opik_integration.py`: Enterprise-grade monitoring with Opik
@@ -191,24 +207,32 @@ python scripts/explain_ace_performance.py
 
 ### Key Implementation Patterns
 
-1. **Adaptation Flow**:
+1. **Full ACE Pipeline** (for new agents):
    - Sample → Generator (produces answer) → Environment (evaluates) → Reflector (analyzes) → Curator (updates playbook)
    - Offline: Multiple epochs over training samples
    - Online: Sequential processing of test samples
+   - Use when: Building new agent from scratch, Q&A tasks, classification
 
-2. **LLM Integration**:
+2. **Integration Pattern** (for existing agents):
+   - External agent executes task → Reflector analyzes → Curator updates playbook
+   - No ACE Generator - external framework handles execution
+   - Three steps: INJECT context (optional) → EXECUTE with external agent → LEARN from results
+   - Use when: Wrapping browser-use, LangChain, CrewAI, or custom agents
+   - See `ace/integrations/base.py` for detailed explanation
+
+3. **LLM Integration**:
    - Implement `LLMClient` subclass for your model API
    - LiteLLMClient supports 100+ providers (OpenAI, Anthropic, Google, etc.)
    - LangChainClient provides LangChain integration
    - TransformersLLMClient for local model deployment
    - All roles share the same LLM instance
 
-3. **Task Environment**:
+4. **Task Environment**:
    - Extend `TaskEnvironment` abstract class
    - Implement `evaluate()` to provide execution feedback
    - Return `EnvironmentResult` with feedback and optional ground truth
 
-4. **Observability Integration**:
+5. **Observability Integration**:
    - Automatic tracing with Opik when installed
    - Token usage and cost tracking for all LLM calls
    - Real-time monitoring of Generator, Reflector, and Curator interactions
@@ -269,11 +293,10 @@ results = adapter.run(
 - Early stopping based on validation metrics
 
 #### Prompt Version Guidance
-The framework includes three prompt versions (see `docs/PROMPTS.md`):
+The framework includes two prompt versions (see `docs/PROMPTS.md`):
 
-1. **v1.0** (`prompts.py`): Simple, minimal, good for tutorials
-2. **v2.0** (`prompts_v2.py`): **DEPRECATED** - use v2.1 instead
-3. **v2.1** (`prompts_v2_1.py`): **RECOMMENDED** for production
+1. **v1.0** (`prompts.py`): Simple, minimal - use for tutorials and learning
+2. **v2.1** (`prompts_v2_1.py`): **RECOMMENDED** for production (+17% success rate)
 
 ```python
 from ace.prompts_v2_1 import PromptManager
@@ -283,8 +306,6 @@ generator = Generator(llm, prompt_template=prompt_mgr.get_generator_prompt())
 reflector = Reflector(llm, prompt_template=prompt_mgr.get_reflector_prompt())
 curator = Curator(llm, prompt_template=prompt_mgr.get_curator_prompt())
 ```
-
-**Performance**: v2.1 shows +17% success rate vs v1.0 in benchmarks
 
 #### Feature Detection
 Check which optional dependencies are available:
