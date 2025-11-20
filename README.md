@@ -44,8 +44,8 @@ from ace import ACELiteLLM
 
 agent = ACELiteLLM(model="gpt-4o-mini")
 
-answer = agent.ask("What is the capital of France?")
-print(answer)  # Paris
+answer = agent.ask("What does Kayba's ACE framework do?")
+print(answer)  # "ACE allows AI agents to remember and learn from experience!"
 ```
 
 🎉 **Done! Your agent learns automatically from each interaction.**
