@@ -311,6 +311,47 @@ class TestPlaybook(unittest.TestCase):
         finally:
             os.remove(temp_path)
 
+    def test_as_prompt_returns_valid_toon(self):
+        """Test that as_prompt() returns valid TOON format."""
+        from toon import decode
+
+        # Get TOON output
+        toon_output = self.playbook.as_prompt()
+
+        # Should be valid TOON - decode it
+        decoded = decode(toon_output)
+
+        # Verify structure
+        self.assertIn("bullets", decoded)
+        self.assertEqual(len(decoded["bullets"]), 2)
+
+        # Verify bullet IDs are preserved
+        bullet_ids = {b["id"] for b in decoded["bullets"]}
+        self.assertIn("general-00001", bullet_ids)
+        self.assertIn("math-00002", bullet_ids)
+
+    def test_as_prompt_empty_playbook(self):
+        """Test that empty playbook is handled gracefully."""
+        empty = Playbook()
+
+        # Should not crash
+        result = empty.as_prompt()
+
+        # Should return valid TOON for empty bullets array
+        self.assertIsInstance(result, str)
+        self.assertGreater(len(result), 0)
+
+    def test_markdown_debug_method(self):
+        """Test that _as_markdown_debug() provides human-readable format."""
+        markdown = self.playbook._as_markdown_debug()
+
+        # Should be markdown format
+        self.assertIn("##", markdown)  # Section headers
+        self.assertIn("- [", markdown)  # Bullet points
+        self.assertIn("general", markdown)  # Section name
+        self.assertIn("Always be clear", markdown)  # Content
+        self.assertIn("helpful=5", markdown)  # Counters
+
 
 if __name__ == "__main__":
     unittest.main()
