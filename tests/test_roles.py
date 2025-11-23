@@ -778,5 +778,91 @@ class TestStructuredOutputSupport(unittest.TestCase):
         self.assertEqual(output.final_answer, "42")
 
 
+@pytest.mark.unit
+class TestAdapterStepResultSuccess(unittest.TestCase):
+    """Test AdapterStepResult.success property."""
+
+    def test_success_property_with_correct_metric(self):
+        """Test success property returns True when correct=1.0."""
+        from ace import Sample, EnvironmentResult, AdapterStepResult
+        from ace.roles import GeneratorOutput, ReflectorOutput, CuratorOutput
+        from ace.delta import DeltaBatch
+
+        result = AdapterStepResult(
+            sample=Sample(question="test", ground_truth="42"),
+            generator_output=GeneratorOutput("reasoning", "42", [], {}),
+            environment_result=EnvironmentResult(
+                feedback="Correct!", ground_truth="42", metrics={"correct": 1.0}
+            ),
+            reflection=ReflectorOutput(
+                reasoning="analysis",
+                error_identification="",
+                root_cause_analysis="",
+                correct_approach="approach",
+                key_insight="insight",
+                bullet_tags=[],
+                raw={}
+            ),
+            curator_output=CuratorOutput(DeltaBatch([]), {}),
+            playbook_snapshot="",
+        )
+
+        self.assertTrue(result.success)
+
+    def test_success_property_with_success_metric(self):
+        """Test success property returns True when success=True."""
+        from ace import Sample, EnvironmentResult, AdapterStepResult
+        from ace.roles import GeneratorOutput, ReflectorOutput, CuratorOutput
+        from ace.delta import DeltaBatch
+
+        result = AdapterStepResult(
+            sample=Sample(question="test"),
+            generator_output=GeneratorOutput("reasoning", "answer", [], {}),
+            environment_result=EnvironmentResult(
+                feedback="Success!", ground_truth=None, metrics={"success": True}
+            ),
+            reflection=ReflectorOutput(
+                reasoning="analysis",
+                error_identification="",
+                root_cause_analysis="",
+                correct_approach="approach",
+                key_insight="insight",
+                bullet_tags=[],
+                raw={}
+            ),
+            curator_output=CuratorOutput(DeltaBatch([]), {}),
+            playbook_snapshot="",
+        )
+
+        self.assertTrue(result.success)
+
+    def test_success_property_false_when_failed(self):
+        """Test success property returns False when metrics indicate failure."""
+        from ace import Sample, EnvironmentResult, AdapterStepResult
+        from ace.roles import GeneratorOutput, ReflectorOutput, CuratorOutput
+        from ace.delta import DeltaBatch
+
+        result = AdapterStepResult(
+            sample=Sample(question="test", ground_truth="42"),
+            generator_output=GeneratorOutput("reasoning", "wrong", [], {}),
+            environment_result=EnvironmentResult(
+                feedback="Incorrect", ground_truth="42", metrics={"correct": 0.0}
+            ),
+            reflection=ReflectorOutput(
+                reasoning="analysis",
+                error_identification="",
+                root_cause_analysis="",
+                correct_approach="approach",
+                key_insight="insight",
+                bullet_tags=[],
+                raw={}
+            ),
+            curator_output=CuratorOutput(DeltaBatch([]), {}),
+            playbook_snapshot="",
+        )
+
+        self.assertFalse(result.success)
+
+
 if __name__ == "__main__":
     unittest.main()

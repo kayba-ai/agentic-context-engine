@@ -144,6 +144,22 @@ class AdapterStepResult:
     step: int = 0
     performance_score: float = 0.0
 
+    @property
+    def success(self) -> bool:
+        """
+        Check if this adaptation step was successful.
+
+        Returns True if the environment metrics indicate success.
+        Checks for common success indicators: "correct" or "success" metrics.
+
+        Example:
+            >>> results = adapter.run(samples, environment)
+            >>> successful = [r for r in results if r.success]
+        """
+        metrics = self.environment_result.metrics
+        # Check common success metrics
+        return bool(metrics.get("correct", False) or metrics.get("success", False))
+
 
 class AdapterBase:
     """Shared orchestration logic for offline and online ACE adaptation."""
