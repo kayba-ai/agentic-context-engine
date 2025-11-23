@@ -410,6 +410,10 @@ class LiteLLMClient(LLMClient):
         if kwargs.get("top_k") is not None:
             merged_params["top_k"] = kwargs.get("top_k")
 
+        # Add response_format for structured output (JSON mode)
+        if kwargs.get("response_format") is not None:
+            merged_params["response_format"] = kwargs.get("response_format")
+
         # Apply single-point parameter resolution for Claude models
         call_params = self._resolve_sampling_params(
             merged_params, self.config.model, self.config.sampling_priority
@@ -533,6 +537,10 @@ class LiteLLMClient(LLMClient):
             merged_params["top_p"] = kwargs.get("top_p", self.config.top_p)
         if kwargs.get("top_k") is not None:
             merged_params["top_k"] = kwargs.get("top_k")
+
+        # Add response_format for structured output (JSON mode)
+        if kwargs.get("response_format") is not None:
+            merged_params["response_format"] = kwargs.get("response_format")
 
         # Apply single-point parameter resolution for Claude models
         call_params = self._resolve_sampling_params(

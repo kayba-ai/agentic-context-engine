@@ -724,5 +724,59 @@ class TestExtractCitedBulletIds(unittest.TestCase):
         self.assertEqual(result, ["setup-001", "process-042"])
 
 
+@pytest.mark.unit
+class TestStructuredOutputSupport(unittest.TestCase):
+    """Test structured output (response_format) parameter support."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        from tests.conftest import MockLLMClient
+
+        self.mock_llm = MockLLMClient()
+        self.playbook = Playbook()
+
+    def test_generator_accepts_response_format(self):
+        """Test Generator accepts and passes response_format to LLM."""
+        self.mock_llm.set_response(
+            '{"reasoning": "Test reasoning", "final_answer": "42", "bullet_ids": []}'
+        )
+
+        response_format = {"type": "json_object"}
+        generator = Generator(self.mock_llm, response_format=response_format)
+        output = generator.generate(
+            question="What is 2+2?",
+            context="",
+            playbook=self.playbook,
+        )
+
+        # Verify response_format was passed to LLM
+        self.assertEqual(len(self.mock_llm.call_history), 1)
+        self.assertIn("response_format", self.mock_llm.call_history[0]["kwargs"])
+        self.assertEqual(
+            self.mock_llm.call_history[0]["kwargs"]["response_format"],
+            response_format
+        )
+        self.assertEqual(output.final_answer, "42")
+
+    def test_generator_without_response_format(self):
+        """Test Generator works without response_format (backward compatible)."""
+        self.mock_llm.set_response(
+            '{"reasoning": "Test reasoning", "final_answer": "42", "bullet_ids": []}'
+        )
+
+        # Should work without response_format parameter
+        generator = Generator(self.mock_llm)
+        output = generator.generate(
+            question="What is 2+2?",
+            context="",
+            playbook=self.playbook,
+        )
+
+        # Verify no response_format was passed
+        self.assertEqual(len(self.mock_llm.call_history), 1)
+        self.assertNotIn("response_format", self.mock_llm.call_history[0]["kwargs"])
+        self.assertEqual(output.final_answer, "42")
+
+
 if __name__ == "__main__":
     unittest.main()

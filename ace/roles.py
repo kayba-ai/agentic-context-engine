@@ -160,11 +160,13 @@ class Generator:
         *,
         max_retries: int = 3,
         retry_prompt: str = "\n\nIMPORTANT: Return ONLY a single valid JSON object. Escape all quotes properly or use single quotes. Do not include any additional text outside the JSON.",
+        response_format: Optional[Dict[str, Any]] = None,
     ) -> None:
         self.llm = llm
         self.prompt_template = prompt_template
         self.max_retries = max_retries
         self.retry_prompt = retry_prompt
+        self.response_format = response_format
 
     @maybe_track(
         name="generator_generate",
@@ -221,6 +223,10 @@ class Generator:
 
         # Filter out non-LLM kwargs (like 'sample' used for ReplayGenerator)
         llm_kwargs = {k: v for k, v in kwargs.items() if k != "sample"}
+
+        # Add response_format if configured
+        if self.response_format is not None:
+            llm_kwargs["response_format"] = self.response_format
 
         for attempt in range(self.max_retries):
             response = self.llm.complete(prompt, **llm_kwargs)
@@ -488,11 +494,13 @@ class Reflector:
         *,
         max_retries: int = 3,
         retry_prompt: str = "\n\nIMPORTANT: Return ONLY a single valid JSON object. Escape all quotes properly or use single quotes. Do not include any additional text outside the JSON.",
+        response_format: Optional[Dict[str, Any]] = None,
     ) -> None:
         self.llm = llm
         self.prompt_template = prompt_template
         self.max_retries = max_retries
         self.retry_prompt = retry_prompt
+        self.response_format = response_format
 
     @maybe_track(
         name="reflector_reflect",
@@ -551,6 +559,10 @@ class Reflector:
 
         # Filter out non-LLM kwargs (like 'sample' used for ReplayGenerator)
         llm_kwargs = {k: v for k, v in kwargs.items() if k != "sample"}
+
+        # Add response_format if configured
+        if self.response_format is not None:
+            llm_kwargs["response_format"] = self.response_format
 
         for round_idx in range(max_refinement_rounds):
             prompt = base_prompt
@@ -660,11 +672,13 @@ class Curator:
         *,
         max_retries: int = 3,
         retry_prompt: str = "\n\nIMPORTANT: Return ONLY a single valid JSON object. The JSON must be complete with ALL required fields:\n- reasoning (string)\n- deduplication_check (object)\n- operations (array)\n- quality_metrics (object with avg_atomicity, operations_count, estimated_impact)\nEscape all quotes properly and ensure the JSON is complete and well-formed.",
+        response_format: Optional[Dict[str, Any]] = None,
     ) -> None:
         self.llm = llm
         self.prompt_template = prompt_template
         self.max_retries = max_retries
         self.retry_prompt = retry_prompt
+        self.response_format = response_format
 
     @maybe_track(
         name="curator_curate",
@@ -725,6 +739,10 @@ class Curator:
 
         # Filter out non-LLM kwargs (like 'sample' used for ReplayGenerator)
         llm_kwargs = {k: v for k, v in kwargs.items() if k != "sample"}
+
+        # Add response_format if configured
+        if self.response_format is not None:
+            llm_kwargs["response_format"] = self.response_format
 
         for attempt in range(self.max_retries):
             response = self.llm.complete(prompt, **llm_kwargs)

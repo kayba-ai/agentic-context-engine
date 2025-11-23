@@ -69,7 +69,8 @@ def main():
         max_tokens=1024,
         temperature=0.2,
         is_learning=True,
-        playbook_path=str(playbook_path) if playbook_path.exists() else None
+        playbook_path=str(playbook_path) if playbook_path.exists() else None,
+        enable_structured_output=True  # ← Enables reliable JSON output for small models
     )
 
 
@@ -89,7 +90,7 @@ def main():
 
     # 4. Run learning
     print("\n🚀 Running ACE learning with Ollama...")
-    print("⚠️  Note: Small models like Gemma 1B may have issues with structured JSON output")
+    print("💡 Using structured output enforcement for reliable JSON with small models")
     environment = SimpleEnvironment()
 
     try:
@@ -98,7 +99,7 @@ def main():
         print(f"✅ Successfully processed {successful_samples}/{len(results)} samples")
     except Exception as e:
         print(f"❌ Learning failed: {e}")
-        print("💡 Try using a larger model like 'ollama pull llama2:7b' for better JSON generation")
+        print("💡 Try using a larger model or check your Ollama connection")
         results = []
 
     # 5. Check results

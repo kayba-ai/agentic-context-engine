@@ -96,6 +96,7 @@ class ACELiteLLM:
         temperature: float = 0.0,
         playbook_path: Optional[str] = None,
         is_learning: bool = True,
+        enable_structured_output: bool = True,
     ):
         """
         Initialize ACELiteLLM agent.
@@ -107,6 +108,7 @@ class ACELiteLLM:
             temperature: Sampling temperature (default: 0.0)
             playbook_path: Path to existing playbook (optional)
             is_learning: Enable/disable learning (default: True)
+            enable_structured_output: Enable structured output enforcement (default: True)
 
         Raises:
             ImportError: If LiteLLM is not installed
@@ -153,14 +155,24 @@ class ACELiteLLM:
 
         # Create ACE components with v2.1 prompts
         prompt_mgr = PromptManager()
+
+        # Set up structured output if enabled
+        response_format = {"type": "json_object"} if enable_structured_output else None
+
         self.generator = Generator(
-            self.llm, prompt_template=prompt_mgr.get_generator_prompt()
+            self.llm,
+            prompt_template=prompt_mgr.get_generator_prompt(),
+            response_format=response_format
         )
         self.reflector = Reflector(
-            self.llm, prompt_template=prompt_mgr.get_reflector_prompt()
+            self.llm,
+            prompt_template=prompt_mgr.get_reflector_prompt(),
+            response_format=response_format
         )
         self.curator = Curator(
-            self.llm, prompt_template=prompt_mgr.get_curator_prompt()
+            self.llm,
+            prompt_template=prompt_mgr.get_curator_prompt(),
+            response_format=response_format
         )
 
     def ask(self, question: str, context: str = "") -> str:
