@@ -75,11 +75,6 @@ def has_playwright() -> bool:
     return _check_import("playwright")
 
 
-def has_instructor() -> bool:
-    """Check if Instructor library for structured outputs is available."""
-    return _check_import("instructor")
-
-
 def get_available_features() -> Dict[str, bool]:
     """
     Get a dictionary of all available features.
@@ -100,7 +95,6 @@ def get_available_features() -> Dict[str, bool]:
         "torch": has_torch(),
         "browser_use": has_browser_use(),
         "playwright": has_playwright(),
-        "instructor": has_instructor(),
     }
 
 
