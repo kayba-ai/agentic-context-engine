@@ -13,7 +13,7 @@ The framework enables AI agents to learn from their execution feedback through t
 ### Package Installation
 ```bash
 # Install from PyPI (end users)
-pip install ace-framework
+pip install ace-framework  # Includes Instructor for robust JSON parsing
 
 # Install with optional dependencies
 pip install ace-framework[all]           # All optional features
@@ -311,20 +311,42 @@ curator = Curator(llm, prompt_template=prompt_mgr.get_curator_prompt())
 Check which optional dependencies are available:
 
 ```python
-from ace.features import has_opik, has_litellm, get_available_features
+from ace.features import has_opik, has_litellm, has_instructor, get_available_features
 
 if has_opik():
     print("Opik observability available")
 
+if has_instructor():
+    print("Instructor structured output support available")
+
 # Or check all features at once
 features = get_available_features()
-# {'opik': True, 'litellm': True, 'langchain': False, ...}
+# {'opik': True, 'litellm': True, 'instructor': True, 'langchain': False, ...}
 ```
+
+#### Instructor Integration for Robust Structured Outputs (Default in v0.5.0)
+ACE includes Instructor by default for more reliable JSON parsing:
+
+```python
+from ace.llm_providers.litellm_client import LiteLLMClient
+from ace.llm_providers.instructor_client import wrap_with_instructor
+
+# Enable automatic Pydantic validation for better reliability
+llm = wrap_with_instructor(LiteLLMClient(model="ollama/gemma3:1b"))
+generator = Generator(llm)  # Auto-validates GeneratorOutput
+
+# Or use LiteLLMClient directly for standard behavior
+llm = LiteLLMClient(model="gpt-4")
+generator = Generator(llm)  # Manual JSON parsing (existing behavior)
+```
+
+**Benefits**: Field validation, type coercion, intelligent retry (~15% fewer parsing errors)
+**Recommended for**: Small models (Ollama, Gemma, Phi) with JSON formatting issues
 
 ## Python Requirements
 - Python 3.11+ (developed with 3.12)
 - Dependencies managed via UV (see pyproject.toml/uv.lock)
-- Core (~100MB): LiteLLM (required for Reflector/Curator), Pydantic, Python-dotenv, tenacity
+- Core (~105MB): LiteLLM, Pydantic, Instructor, Python-dotenv, tenacity
 - Optional dependencies available for:
   - `observability`: Opik integration for production monitoring and **automatic token/cost tracking**
   - `langchain`: LangChain integration (enterprise - langchain-openai + langchain-litellm)
