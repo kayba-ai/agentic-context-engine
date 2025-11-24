@@ -2,15 +2,29 @@
 """
 Run all Ollama agent demos sequentially.
 
-This script runs all 5 real-world use case agents to demonstrate
+This script runs all 10 real-world use case agents to demonstrate
 ACE learning capabilities across different domains.
 
 Agents demonstrated:
+Development & DevOps:
 1. Code Review Agent - Security and best practices
-2. Data Analysis Agent - Insights and patterns
+2. Test Case Generator - Unit test generation
 3. SQL Query Generator - Natural language to SQL
-4. Troubleshooting Assistant - System diagnostics
-5. Technical Writer - Documentation generation
+4. Git Commit Message Generator - Conventional commits
+5. Troubleshooting Assistant - System diagnostics
+
+Operations & Support:
+6. Email/Ticket Classifier - Support automation
+7. Bug Report Analyzer - Issue triage
+
+Data & Analytics:
+8. Data Analysis Agent - Insights and patterns
+
+Security:
+9. Security Log Analyzer - Threat detection
+
+Documentation:
+10. Technical Writer - Documentation generation
 
 Prerequisites:
 - Ollama installed and running
@@ -24,6 +38,7 @@ from pathlib import Path
 
 
 DEMOS = [
+    # Development & DevOps
     {
         "name": "Code Review Agent",
         "script": "code_review_agent.py",
@@ -31,10 +46,10 @@ DEMOS = [
         "emoji": "🔍"
     },
     {
-        "name": "Data Analysis Agent",
-        "script": "data_analysis_agent.py",
-        "description": "Analyzes data and generates insights",
-        "emoji": "📊"
+        "name": "Test Case Generator",
+        "script": "test_generator_agent.py",
+        "description": "Generates comprehensive unit tests from code",
+        "emoji": "🧪"
     },
     {
         "name": "SQL Query Generator",
@@ -43,11 +58,45 @@ DEMOS = [
         "emoji": "🗄️"
     },
     {
+        "name": "Git Commit Message Generator",
+        "script": "commit_message_agent.py",
+        "description": "Generates conventional commit messages from diffs",
+        "emoji": "📝"
+    },
+    {
         "name": "Troubleshooting Assistant",
         "script": "troubleshooting_agent.py",
         "description": "Diagnoses system issues and suggests fixes",
         "emoji": "🔧"
     },
+    # Operations & Support
+    {
+        "name": "Email/Ticket Classifier",
+        "script": "email_classifier_agent.py",
+        "description": "Categorizes and routes support tickets",
+        "emoji": "📧"
+    },
+    {
+        "name": "Bug Report Analyzer",
+        "script": "bug_report_agent.py",
+        "description": "Parses bug reports and extracts structured information",
+        "emoji": "🐛"
+    },
+    # Data & Analytics
+    {
+        "name": "Data Analysis Agent",
+        "script": "data_analysis_agent.py",
+        "description": "Analyzes data and generates insights",
+        "emoji": "📊"
+    },
+    # Security
+    {
+        "name": "Security Log Analyzer",
+        "script": "security_log_agent.py",
+        "description": "Analyzes security logs and detects threats",
+        "emoji": "🔐"
+    },
+    # Documentation
     {
         "name": "Technical Writer Agent",
         "script": "technical_writer_agent.py",
@@ -97,8 +146,8 @@ def run_demo(demo: dict) -> bool:
 def main():
     print("🚀 ACE Framework - Ollama Agent Demos")
     print("=" * 70)
-    print("Running all 5 real-world use case agents sequentially")
-    print("This will take approximately 10-15 minutes")
+    print("Running all 10 real-world use case agents sequentially")
+    print("This will take approximately 20-30 minutes")
     print("=" * 70)
 
     # Check Ollama

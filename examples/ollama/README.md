@@ -19,7 +19,9 @@ ollama list
 
 ## Available Agents
 
-### 1. 🔍 Code Review Agent (`code_review_agent.py`)
+### Development & DevOps Agents
+
+#### 1. 🔍 Code Review Agent (`code_review_agent.py`)
 Reviews code for bugs, security issues, and best practices. Learns from feedback.
 
 **Use Cases:**
@@ -32,33 +34,20 @@ Reviews code for bugs, security issues, and best practices. Learns from feedback
 uv run python examples/ollama/code_review_agent.py
 ```
 
-### 2. 📊 Data Analysis Agent (`data_analysis_agent.py`)
-Analyzes CSV/JSON data and generates insights. Learns what types of analysis are valuable.
+#### 2. 🧪 Test Case Generator (`test_generator_agent.py`)
+Generates comprehensive unit tests from code. Learns testing patterns and edge cases.
 
 **Use Cases:**
-- Automated data profiling
-- Anomaly detection
-- Business metrics analysis
-- Learning domain-specific patterns
+- Generate tests for legacy code
+- Suggest missing test scenarios
+- Learn project-specific test patterns
+- Improve test quality over time
 
 ```bash
-uv run python examples/ollama/data_analysis_agent.py
+uv run python examples/ollama/test_generator_agent.py
 ```
 
-### 3. 📝 Technical Writer Agent (`technical_writer_agent.py`)
-Converts technical content between formats (code→docs, API→guide). Learns writing styles.
-
-**Use Cases:**
-- Generate README files from code
-- Convert API specs to tutorials
-- Create release notes from commits
-- Learn company documentation style
-
-```bash
-uv run python examples/ollama/technical_writer_agent.py
-```
-
-### 4. 🗄️ SQL Query Generator (`sql_query_agent.py`)
+#### 3. 🗄️ SQL Query Generator (`sql_query_agent.py`)
 Generates SQL queries from natural language. Learns from execution results.
 
 **Use Cases:**
@@ -71,7 +60,20 @@ Generates SQL queries from natural language. Learns from execution results.
 uv run python examples/ollama/sql_query_agent.py
 ```
 
-### 5. 🔧 Troubleshooting Assistant (`troubleshooting_agent.py`)
+#### 4. 📝 Git Commit Message Generator (`commit_message_agent.py`)
+Generates conventional commit messages from diffs. Learns project conventions.
+
+**Use Cases:**
+- Enforce commit standards
+- Generate release notes
+- Improve commit history quality
+- Learn from past commits
+
+```bash
+uv run python examples/ollama/commit_message_agent.py
+```
+
+#### 5. 🔧 Troubleshooting Assistant (`troubleshooting_agent.py`)
 Diagnoses system issues and suggests fixes. Learns from resolution outcomes.
 
 **Use Cases:**
@@ -82,6 +84,79 @@ Diagnoses system issues and suggests fixes. Learns from resolution outcomes.
 
 ```bash
 uv run python examples/ollama/troubleshooting_agent.py
+```
+
+### Operations & Support Agents
+
+#### 6. 📧 Email/Ticket Classifier (`email_classifier_agent.py`)
+Categorizes and routes support tickets. Learns routing rules and priorities.
+
+**Use Cases:**
+- Customer support automation
+- Bug report triage
+- Feature request categorization
+- Email inbox organization
+
+```bash
+uv run python examples/ollama/email_classifier_agent.py
+```
+
+#### 7. 🐛 Bug Report Analyzer (`bug_report_agent.py`)
+Parses bug reports and extracts structured information. Learns severity classification.
+
+**Use Cases:**
+- GitHub issue triage
+- JIRA ticket validation
+- Duplicate bug detection
+- Severity/priority assignment
+
+```bash
+uv run python examples/ollama/bug_report_agent.py
+```
+
+### Data & Analytics Agents
+
+#### 8. 📊 Data Analysis Agent (`data_analysis_agent.py`)
+Analyzes CSV/JSON data and generates insights. Learns what types of analysis are valuable.
+
+**Use Cases:**
+- Automated data profiling
+- Anomaly detection
+- Business metrics analysis
+- Learning domain-specific patterns
+
+```bash
+uv run python examples/ollama/data_analysis_agent.py
+```
+
+### Security Agents
+
+#### 9. 🔐 Security Log Analyzer (`security_log_agent.py`)
+Analyzes security logs and detects threats. Learns attack patterns and reduces false positives.
+
+**Use Cases:**
+- SIEM log analysis
+- Intrusion detection
+- Anomaly detection
+- Automated incident response
+
+```bash
+uv run python examples/ollama/security_log_agent.py
+```
+
+### Documentation Agents
+
+#### 10. 📝 Technical Writer Agent (`technical_writer_agent.py`)
+Converts technical content between formats (code→docs, API→guide). Learns writing styles.
+
+**Use Cases:**
+- Generate README files from code
+- Convert API specs to tutorials
+- Create release notes from commits
+- Learn company documentation style
+
+```bash
+uv run python examples/ollama/technical_writer_agent.py
 ```
 
 ## Model Recommendations
