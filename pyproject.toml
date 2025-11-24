@@ -45,6 +45,7 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "python-toon>=0.1.0",
     "tenacity>=8.0.0",
+    "instructor>=1.0.0",
 ]
 
 [project.optional-dependencies]

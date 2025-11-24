@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
+
+from pydantic import BaseModel, ConfigDict, Field
 
 from .delta import DeltaBatch
 from .llm import LLMClient
@@ -107,12 +108,19 @@ def extract_cited_bullet_ids(text: str) -> List[str]:
     return list(dict.fromkeys(matches))
 
 
-@dataclass
-class GeneratorOutput:
-    reasoning: str
-    final_answer: str
-    bullet_ids: List[str]
-    raw: Dict[str, Any]
+class GeneratorOutput(BaseModel):
+    """Output from the Generator role containing reasoning and answer."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    reasoning: str = Field(..., description="Step-by-step reasoning process")
+    final_answer: str = Field(..., description="The final answer to the question")
+    bullet_ids: List[str] = Field(
+        default_factory=list, description="IDs of strategies cited in reasoning"
+    )
+    raw: Dict[str, Any] = Field(
+        default_factory=dict, description="Raw LLM response data"
+    )
 
 
 class Generator:
@@ -216,11 +224,21 @@ class Generator:
             question=question,
             context=_format_optional(context),
         )
-        prompt = base_prompt
-        last_error: Optional[Exception] = None
 
         # Filter out non-LLM kwargs (like 'sample' used for ReplayGenerator)
         llm_kwargs = {k: v for k, v in kwargs.items() if k != "sample"}
+
+        # Use Instructor if available for automatic validation
+        if hasattr(self.llm, "complete_structured"):
+            output = self.llm.complete_structured(
+                base_prompt, GeneratorOutput, **llm_kwargs
+            )
+            output.bullet_ids = extract_cited_bullet_ids(output.reasoning)
+            return output
+
+        # Manual JSON parsing with retry (backward compatibility)
+        prompt = base_prompt
+        last_error: Optional[Exception] = None
 
         for attempt in range(self.max_retries):
             response = self.llm.complete(prompt, **llm_kwargs)
@@ -433,21 +451,39 @@ class ReplayGenerator:
         )
 
 
-@dataclass
-class BulletTag:
-    id: str
-    tag: str
+class BulletTag(BaseModel):
+    """Classification tag for a bullet strategy (helpful/harmful/neutral)."""
+
+    id: str = Field(..., description="The bullet ID being tagged")
+    tag: str = Field(
+        ..., description="Classification: 'helpful', 'harmful', or 'neutral'"
+    )
 
 
-@dataclass
-class ReflectorOutput:
-    reasoning: str
-    error_identification: str
-    root_cause_analysis: str
-    correct_approach: str
-    key_insight: str
-    bullet_tags: List[BulletTag]
-    raw: Dict[str, Any]
+class ReflectorOutput(BaseModel):
+    """Output from the Reflector role containing analysis and bullet classifications."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    reasoning: str = Field(..., description="Overall reasoning about the outcome")
+    error_identification: str = Field(
+        default="", description="Description of what went wrong (if applicable)"
+    )
+    root_cause_analysis: str = Field(
+        default="", description="Analysis of why errors occurred"
+    )
+    correct_approach: str = Field(
+        ..., description="What the correct approach should be"
+    )
+    key_insight: str = Field(
+        ..., description="The main lesson learned from this iteration"
+    )
+    bullet_tags: List[BulletTag] = Field(
+        default_factory=list, description="Classifications of strategy effectiveness"
+    )
+    raw: Dict[str, Any] = Field(
+        default_factory=dict, description="Raw LLM response data"
+    )
 
 
 class Reflector:
@@ -545,12 +581,20 @@ class Reflector:
             feedback=_format_optional(feedback),
             playbook_excerpt=playbook_context,
         )
-        result: Optional[ReflectorOutput] = None
-        prompt = base_prompt
-        last_error: Optional[Exception] = None
 
         # Filter out non-LLM kwargs (like 'sample' used for ReplayGenerator)
         llm_kwargs = {k: v for k, v in kwargs.items() if k != "sample"}
+
+        # Use Instructor if available for automatic validation
+        if hasattr(self.llm, "complete_structured"):
+            return self.llm.complete_structured(
+                base_prompt, ReflectorOutput, **llm_kwargs
+            )
+
+        # Manual JSON parsing with retry (backward compatibility)
+        result: Optional[ReflectorOutput] = None
+        prompt = base_prompt
+        last_error: Optional[Exception] = None
 
         for round_idx in range(max_refinement_rounds):
             prompt = base_prompt
@@ -600,10 +644,17 @@ class Reflector:
         return result
 
 
-@dataclass
-class CuratorOutput:
-    delta: DeltaBatch
-    raw: Dict[str, Any]
+class CuratorOutput(BaseModel):
+    """Output from the Curator role containing playbook update operations."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    delta: DeltaBatch = Field(
+        ..., description="Batch of delta operations to apply to playbook"
+    )
+    raw: Dict[str, Any] = Field(
+        default_factory=dict, description="Raw LLM response data"
+    )
 
 
 class Curator:
@@ -720,11 +771,19 @@ class Curator:
             playbook=playbook.as_prompt() or "(empty playbook)",
             question_context=question_context,
         )
-        prompt = base_prompt
-        last_error: Optional[Exception] = None
 
         # Filter out non-LLM kwargs (like 'sample' used for ReplayGenerator)
         llm_kwargs = {k: v for k, v in kwargs.items() if k != "sample"}
+
+        # Use Instructor if available for automatic validation
+        if hasattr(self.llm, "complete_structured"):
+            return self.llm.complete_structured(
+                base_prompt, CuratorOutput, **llm_kwargs
+            )
+
+        # Manual JSON parsing with retry (backward compatibility)
+        prompt = base_prompt
+        last_error: Optional[Exception] = None
 
         for attempt in range(self.max_retries):
             response = self.llm.complete(prompt, **llm_kwargs)
