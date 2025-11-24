@@ -8,7 +8,6 @@ Replaces custom explainability with production-ready Opik platform.
 from __future__ import annotations
 
 import logging
-import os
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 from dataclasses import asdict
@@ -49,11 +48,6 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-def _should_skip_opik() -> bool:
-    """Check if Opik should be disabled via environment variable."""
-    return os.environ.get("OPIK_DISABLED", "").lower() in ("true", "1", "yes")
-
-
 class OpikIntegration:
     """
     Main integration class for ACE + Opik observability.
@@ -86,12 +80,10 @@ class OpikIntegration:
                 opik.configure(use_local=True)
                 logger.info(f"Opik configured locally for project: {project_name}")
             except Exception as e:
-                logger.debug(f"Opik configuration skipped: {e}")
+                logger.warning(f"Failed to configure Opik: {e}")
                 self.enabled = False
         elif not OPIK_AVAILABLE:
-            logger.debug(
-                "Opik not available. Install with: pip install ace-framework[observability]"
-            )
+            logger.warning("Opik not available. Install with: pip install opik")
 
     def log_bullet_evolution(
         self,
@@ -343,12 +335,7 @@ def get_integration() -> OpikIntegration:
     """Get or create global Opik integration instance."""
     global _global_integration
     if _global_integration is None:
-        if _should_skip_opik():
-            # Return disabled integration
-            _global_integration = OpikIntegration(enable_auto_config=False)
-            _global_integration.enabled = False
-        else:
-            _global_integration = OpikIntegration()
+        _global_integration = OpikIntegration()
     return _global_integration
 
 
