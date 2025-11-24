@@ -23,12 +23,15 @@ def check_lm_studio_running():
         response = requests.get("http://localhost:1234/v1/models", timeout=5)
         if response.status_code == 200:
             models = response.json()
-            if models.get('data'):
-                return True, models['data'][0]['id']  # Return first available model
+            if models.get("data"):
+                return True, models["data"][0]["id"]  # Return first available model
             return False, "No models loaded in LM Studio"
         return False, f"LM Studio responded with status {response.status_code}"
     except requests.ConnectionError:
-        return False, "Cannot connect to LM Studio. Make sure it's running on port 1234."
+        return (
+            False,
+            "Cannot connect to LM Studio. Make sure it's running on port 1234.",
+        )
     except Exception as e:
         return False, f"Error checking LM Studio: {e}"
 
@@ -54,6 +57,7 @@ def main():
 
     # LM Studio configuration for LiteLLM
     import os
+
     os.environ["LM_STUDIO_API_BASE"] = "http://localhost:1234/v1"
 
     agent = ACELiteLLM(
@@ -61,7 +65,7 @@ def main():
         max_tokens=1024,
         temperature=0.2,
         is_learning=True,
-        playbook_path=str(playbook_path) if playbook_path.exists() else None
+        playbook_path=str(playbook_path) if playbook_path.exists() else None,
     )
 
     # 2. Try asking questions before learning
@@ -106,7 +110,7 @@ def main():
         "What is 3+3?",
         "What color is grass?",
         "What is the capital of Italy?",
-        "Which planet is closest to the Sun?"
+        "Which planet is closest to the Sun?",
     ]
 
     for question in test_questions:
@@ -125,7 +129,11 @@ def main():
             helpful = bullet.helpful
             harmful = bullet.harmful
             score = f"(+{helpful}/-{harmful})"
-            content_preview = bullet.content[:80] + "..." if len(bullet.content) > 80 else bullet.content
+            content_preview = (
+                bullet.content[:80] + "..."
+                if len(bullet.content) > 80
+                else bullet.content
+            )
             print(f"  {i}. {content_preview} {score}")
 
     # 7. Save learned knowledge for future use

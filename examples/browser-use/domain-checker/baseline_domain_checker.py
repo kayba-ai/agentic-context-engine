@@ -18,10 +18,12 @@ from browser_use import Agent, Browser, ChatBrowserUse
 # Import common utilities from parent directory
 import sys
 
+
 # Utility function for timeout calculation
 def calculate_timeout_steps(timeout_seconds: float) -> int:
     """Calculate steps for timeout based on 1 step per 12 seconds."""
     return int(timeout_seconds // 12)
+
 
 # Import domain-specific utilities from local module
 from domain_utils import (
@@ -68,7 +70,6 @@ async def check_domain(domain: str, headless: bool = True):
 
             # Run with timeout
             history = await asyncio.wait_for(agent.run(), timeout=180.0)
-
 
             # Parse result (back to original working logic)
             output = history.final_result() if hasattr(history, "final_result") else ""

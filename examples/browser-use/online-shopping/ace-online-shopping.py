@@ -19,6 +19,7 @@ sys.path.append(
 )
 
 from dotenv import load_dotenv
+
 load_dotenv()
 
 # Import Opik for token tracking
@@ -32,7 +33,10 @@ from ace import ACEAgent
 from ace.observability import configure_opik
 from browser_use import ChatBrowserUse
 
-def get_ace_token_usage(run_start_time: datetime.datetime = None) -> tuple[int, int, int, int]:
+
+def get_ace_token_usage(
+    run_start_time: datetime.datetime = None,
+) -> tuple[int, int, int, int]:
     """Query Opik for ACE token usage only.
 
     Returns:
@@ -74,9 +78,7 @@ def get_ace_token_usage(run_start_time: datetime.datetime = None) -> tuple[int, 
                     filter_string=f'start_time >= "{recent_time}"',
                     max_results=50,
                 )
-                print(
-                    f"   📊 Found {len(traces)} recent traces in '{project}' project"
-                )
+                print(f"   📊 Found {len(traces)} recent traces in '{project}' project")
                 all_traces.extend(traces)
             except Exception as e:
                 print(f"   ⚠️ Failed to search '{project}' project: {e}")
@@ -206,12 +208,12 @@ async def main():
 
     # Create ACE agent - handles everything automatically!
     agent = ACEAgent(
-        llm=ChatBrowserUse(),                    # Browser automation LLM
-        ace_model="claude-haiku-4-5-20251001",   # ACE learning LLM
-        ace_max_tokens=4096,                     # Enough for shopping analysis
+        llm=ChatBrowserUse(),  # Browser automation LLM
+        ace_model="claude-haiku-4-5-20251001",  # ACE learning LLM
+        ace_max_tokens=4096,  # Enough for shopping analysis
         playbook_path=str(playbook_path) if playbook_path.exists() else None,
-        max_steps=30,                            # Browser automation steps
-        calculate_cost=True                      # Track usage
+        max_steps=30,  # Browser automation steps
+        calculate_cost=True,  # Track usage
     )
 
     # Show current knowledge
@@ -232,7 +234,7 @@ async def main():
         print("=" * 60)
 
         # Show results
-        if hasattr(history, 'final_result'):
+        if hasattr(history, "final_result"):
             print("📋 Shopping Results:")
             print(history.final_result())
 
@@ -241,22 +243,30 @@ async def main():
         browseruse_tokens = 0
         ace_tokens = 0
 
-        if hasattr(history, 'number_of_steps'):
+        if hasattr(history, "number_of_steps"):
             steps = history.number_of_steps()
 
         # Extract browser-use tokens from history
-        if hasattr(history, 'usage'):
+        if hasattr(history, "usage"):
             try:
                 usage = history.usage
                 if usage:
-                    if hasattr(usage, 'total_tokens'):
+                    if hasattr(usage, "total_tokens"):
                         browseruse_tokens = usage.total_tokens
-                    elif isinstance(usage, dict) and 'total_tokens' in usage:
-                        browseruse_tokens = usage['total_tokens']
-                    elif hasattr(usage, 'input_tokens') and hasattr(usage, 'output_tokens'):
+                    elif isinstance(usage, dict) and "total_tokens" in usage:
+                        browseruse_tokens = usage["total_tokens"]
+                    elif hasattr(usage, "input_tokens") and hasattr(
+                        usage, "output_tokens"
+                    ):
                         browseruse_tokens = usage.input_tokens + usage.output_tokens
-                    elif isinstance(usage, dict) and 'input_tokens' in usage and 'output_tokens' in usage:
-                        browseruse_tokens = usage['input_tokens'] + usage['output_tokens']
+                    elif (
+                        isinstance(usage, dict)
+                        and "input_tokens" in usage
+                        and "output_tokens" in usage
+                    ):
+                        browseruse_tokens = (
+                            usage["input_tokens"] + usage["output_tokens"]
+                        )
             except Exception as e:
                 print(f"⚠️ Could not extract browser-use tokens: {e}")
 
@@ -296,7 +306,9 @@ async def main():
         for i, bullet in enumerate(recent_strategies, 1):
             helpful = bullet.helpful
             harmful = bullet.harmful
-            effectiveness = "✅" if helpful > harmful else "⚠️" if helpful == harmful else "❌"
+            effectiveness = (
+                "✅" if helpful > harmful else "⚠️" if helpful == harmful else "❌"
+            )
             print(f"{i}. {effectiveness} {bullet.content}")
             print(f"   (+{helpful}/-{harmful})")
 

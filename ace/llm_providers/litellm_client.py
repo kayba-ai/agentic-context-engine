@@ -240,6 +240,13 @@ class LiteLLMClient(LLMClient):
 
     def _setup_opik_integration(self) -> None:
         """Set up Opik integration for automatic token and cost tracking."""
+        # Check if explicitly disabled
+        if os.environ.get("OPIK_DISABLED", "").lower() in ("true", "1", "yes"):
+            logger.debug(
+                "Opik integration disabled via OPIK_DISABLED environment variable"
+            )
+            return
+
         try:
             # Import observability module
             from ..observability import get_integration

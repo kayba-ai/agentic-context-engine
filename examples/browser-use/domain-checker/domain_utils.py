@@ -18,14 +18,14 @@ def get_test_domains() -> List[str]:
     return [
         "testdomain123456.com",
         "myuniquedomain789.net",
-        #"brandnewstartup2024.io",
-        #"innovativetech555.org",
-        #"creativesolutions999.co",
-        #"digitalagency2024.biz",
-        #"techstartup123.app",
-        #"newcompany456.info",
-        #"uniquebusiness789.online",
-        #"moderntech2024.dev",
+        # "brandnewstartup2024.io",
+        # "innovativetech555.org",
+        # "creativesolutions999.co",
+        # "digitalagency2024.biz",
+        # "techstartup123.app",
+        # "newcompany456.info",
+        # "uniquebusiness789.online",
+        # "moderntech2024.dev",
     ]
 
 

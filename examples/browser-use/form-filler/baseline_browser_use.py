@@ -15,6 +15,7 @@ from pathlib import Path
 
 load_dotenv()
 
+
 # Debug utility function (inlined from debug.py)
 def print_history_details(history):
     """Print all history information in a nice formatted way."""

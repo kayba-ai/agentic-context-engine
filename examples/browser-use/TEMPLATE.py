@@ -20,10 +20,7 @@ async def main():
     """Minimal ACE browser automation example."""
 
     # Create ACE agent
-    agent = ACEAgent(
-        llm=ChatBrowserUse(),
-        ace_model="gpt-4o-mini"
-    )
+    agent = ACEAgent(llm=ChatBrowserUse(), ace_model="gpt-4o-mini")
 
     # Define your tasks
     tasks = [

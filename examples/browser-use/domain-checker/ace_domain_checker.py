@@ -32,10 +32,12 @@ from ace import ACEAgent
 from ace.observability import configure_opik
 from browser_use import ChatBrowserUse
 
+
 # Utility function for timeout calculation
 def calculate_timeout_steps(timeout_seconds: float) -> int:
     """Calculate steps for timeout based on 1 step per 12 seconds."""
     return int(timeout_seconds // 12)
+
 
 # Import domain-specific utilities
 from domain_utils import get_test_domains
@@ -66,7 +68,9 @@ Remember: Focus on accuracy and efficiency. Use learned strategies to improve yo
 """
 
 
-def get_ace_token_usage(run_start_time: datetime.datetime = None) -> tuple[int, int, int, int]:
+def get_ace_token_usage(
+    run_start_time: datetime.datetime = None,
+) -> tuple[int, int, int, int]:
     """Query Opik for ACE token usage only.
 
     Returns:
@@ -108,9 +112,7 @@ def get_ace_token_usage(run_start_time: datetime.datetime = None) -> tuple[int, 
                     filter_string=f'start_time >= "{recent_time}"',
                     max_results=50,
                 )
-                print(
-                    f"   📊 Found {len(traces)} recent traces in '{project}' project"
-                )
+                print(f"   📊 Found {len(traces)} recent traces in '{project}' project")
                 all_traces.extend(traces)
             except Exception as e:
                 print(f"   ⚠️ Failed to search '{project}' project: {e}")
@@ -194,21 +196,32 @@ def parse_domain_result(output: str, domain: str) -> dict:
         return {"status": "TAKEN"}
 
     # Check for natural language indicators of availability
-    elif ("AVAILABLE" in output_upper and domain_upper in output_upper) or \
-         ("ADD TO CART" in output_upper and domain_upper in output_upper) or \
-         ("PRICE:" in output_upper and domain_upper in output_upper) or \
-         ("REGISTRATION" in output_upper and "AVAILABLE" in output_upper and domain_upper in output_upper):
+    elif (
+        ("AVAILABLE" in output_upper and domain_upper in output_upper)
+        or ("ADD TO CART" in output_upper and domain_upper in output_upper)
+        or ("PRICE:" in output_upper and domain_upper in output_upper)
+        or (
+            "REGISTRATION" in output_upper
+            and "AVAILABLE" in output_upper
+            and domain_upper in output_upper
+        )
+    ):
         return {"status": "AVAILABLE"}
 
     # Check for natural language indicators of taken/unavailable
-    elif ("TAKEN" in output_upper and domain_upper in output_upper) or \
-         ("REGISTERED" in output_upper and domain_upper in output_upper) or \
-         ("NOT AVAILABLE" in output_upper and domain_upper in output_upper) or \
-         ("UNAVAILABLE" in output_upper and domain_upper in output_upper):
+    elif (
+        ("TAKEN" in output_upper and domain_upper in output_upper)
+        or ("REGISTERED" in output_upper and domain_upper in output_upper)
+        or ("NOT AVAILABLE" in output_upper and domain_upper in output_upper)
+        or ("UNAVAILABLE" in output_upper and domain_upper in output_upper)
+    ):
         return {"status": "TAKEN"}
 
     else:
-        return {"status": "ERROR", "reason": f"Could not parse result: {output[:100]}..."}
+        return {
+            "status": "ERROR",
+            "reason": f"Could not parse result: {output[:100]}...",
+        }
 
 
 async def check_single_domain(agent: ACEAgent, domain: str) -> dict:
@@ -223,7 +236,6 @@ async def check_single_domain(agent: ACEAgent, domain: str) -> dict:
     # Track browser-use tokens across all attempts
     total_browseruse_tokens = 0
 
-
     for attempt in range(max_retries):
         print(f"   🔄 Attempt {attempt + 1}/{max_retries}")
 
@@ -233,8 +245,7 @@ async def check_single_domain(agent: ACEAgent, domain: str) -> dict:
 
             # Run domain check with ACE learning (with timeout like baseline)
             history = await asyncio.wait_for(
-                agent.run(task=task, max_steps=25),
-                timeout=180.0
+                agent.run(task=task, max_steps=25), timeout=180.0
             )
 
             # Extract results
@@ -291,10 +302,12 @@ async def check_single_domain(agent: ACEAgent, domain: str) -> dict:
                         print(f"   ⚠️ Could not get tokens from history: {e}")
 
                 # Method 2: Try agent internal token tracking (ACEAgent specific)
-                if attempt_tokens == 0 and hasattr(agent, 'browser_llm'):
+                if attempt_tokens == 0 and hasattr(agent, "browser_llm"):
                     try:
                         # ACEAgent uses browser_use Agent internally, check if it has token tracking
-                        if hasattr(agent, '_last_agent') and hasattr(agent._last_agent, 'token_cost_service'):
+                        if hasattr(agent, "_last_agent") and hasattr(
+                            agent._last_agent, "token_cost_service"
+                        ):
                             usage_summary = (
                                 await agent._last_agent.token_cost_service.get_usage_summary()
                             )
@@ -354,9 +367,13 @@ async def check_single_domain(agent: ACEAgent, domain: str) -> dict:
 
             steps = actual_steps + timeout_steps
             total_steps += steps
-            attempt_details.append(f"attempt {attempt + 1}: {steps} steps (timeout, +{timeout_steps} for duration)")
+            attempt_details.append(
+                f"attempt {attempt + 1}: {steps} steps (timeout, +{timeout_steps} for duration)"
+            )
             last_error = f"Timeout on attempt {attempt + 1}"
-            print(f"   ⏰ Timeout after {actual_steps} steps (+{timeout_steps} timeout penalty)")
+            print(
+                f"   ⏰ Timeout after {actual_steps} steps (+{timeout_steps} timeout penalty)"
+            )
 
         except Exception as e:
             # Get actual steps even on error
@@ -409,10 +426,12 @@ async def check_single_domain(agent: ACEAgent, domain: str) -> dict:
                     print(f"   ⚠️ Could not get tokens from history: {e}")
 
             # Method 2: Try agent internal token tracking (ACEAgent specific)
-            if attempt_tokens == 0 and hasattr(agent, 'browser_llm'):
+            if attempt_tokens == 0 and hasattr(agent, "browser_llm"):
                 try:
                     # ACEAgent uses browser_use Agent internally, check if it has token tracking
-                    if hasattr(agent, '_last_agent') and hasattr(agent._last_agent, 'token_cost_service'):
+                    if hasattr(agent, "_last_agent") and hasattr(
+                        agent._last_agent, "token_cost_service"
+                    ):
                         usage_summary = (
                             await agent._last_agent.token_cost_service.get_usage_summary()
                         )
@@ -432,7 +451,6 @@ async def check_single_domain(agent: ACEAgent, domain: str) -> dict:
                 f"   🤖 Attempt {attempt + 1} tokens: {attempt_tokens} (total: {total_browseruse_tokens})"
             )
 
-
     # All retries failed - use accumulated tokens from all attempts
     print(f"   ❌ All {max_retries} attempts failed")
     return {
@@ -441,7 +459,7 @@ async def check_single_domain(agent: ACEAgent, domain: str) -> dict:
         "success": False,
         "correct": False,
         "expected": "AVAILABLE",
-        "steps": steps if 'steps' in locals() else 0,
+        "steps": steps if "steps" in locals() else 0,
         "total_steps": total_steps,
         "error": f"Failed after {max_retries} attempts. Last error: {last_error}",
         "attempt": max_retries,
@@ -472,12 +490,12 @@ async def main():
 
     # Create ACE agent - handles everything automatically!
     agent = ACEAgent(
-        llm=ChatBrowserUse(),                    # Browser automation LLM
-        ace_model="claude-haiku-4-5-20251001",   # ACE learning LLM
-        ace_max_tokens=4096,                     # Enough for domain check analysis
+        llm=ChatBrowserUse(),  # Browser automation LLM
+        ace_model="claude-haiku-4-5-20251001",  # ACE learning LLM
+        ace_max_tokens=4096,  # Enough for domain check analysis
         playbook_path=str(playbook_path) if playbook_path.exists() else None,
-        max_steps=25,                            # Browser automation steps
-        calculate_cost=True                      # Track usage
+        max_steps=25,  # Browser automation steps
+        calculate_cost=True,  # Track usage
     )
 
     # Show current knowledge
@@ -544,7 +562,9 @@ async def main():
     print(f"\n{'='*60}")
     print("📊 DOMAIN CHECK RESULTS")
     print("=" * 60)
-    print(f"{'#':<3} {'Domain':<25} {'Status':<10} {'Acc':<4} {'Steps':<8} {'Browser-Tokens':<13} {'Details'}")
+    print(
+        f"{'#':<3} {'Domain':<25} {'Status':<10} {'Acc':<4} {'Steps':<8} {'Browser-Tokens':<13} {'Details'}"
+    )
     print("-" * 93)
 
     total_steps = 0
@@ -573,7 +593,9 @@ async def main():
         accuracy_indicator = "✓" if correct else "✗"
         browseruse_tokens = result.get("browseruse_tokens", 0)
 
-        print(f"{i:<3} {result['domain']:<25} {result['status']:<10} {accuracy_indicator:<4} {total_steps_domain:<8} {browseruse_tokens:<12} {step_details}")
+        print(
+            f"{i:<3} {result['domain']:<25} {result['status']:<10} {accuracy_indicator:<4} {total_steps_domain:<8} {browseruse_tokens:<12} {step_details}"
+        )
 
         if not correct and result["success"]:
             expected = result.get("expected", "UNKNOWN")
@@ -630,7 +652,9 @@ async def main():
         for i, bullet in enumerate(recent_strategies, 1):
             helpful = bullet.helpful
             harmful = bullet.harmful
-            effectiveness = "✅" if helpful > harmful else "⚠️" if helpful == harmful else "❌"
+            effectiveness = (
+                "✅" if helpful > harmful else "⚠️" if helpful == harmful else "❌"
+            )
             print(f"{i}. {effectiveness} {bullet.content}")
             print(f"   (+{helpful}/-{harmful})")
 

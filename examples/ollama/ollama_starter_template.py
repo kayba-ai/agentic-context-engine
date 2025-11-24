@@ -24,17 +24,11 @@ import os
 from pathlib import Path
 
 
-
-
-
 def check_ollama_running():
     """Check if Ollama is running and has models available."""
     try:
         result = subprocess.run(
-            ["ollama", "list"],
-            capture_output=True,
-            text=True,
-            timeout=10
+            ["ollama", "list"], capture_output=True, text=True, timeout=10
         )
         if result.returncode == 0 and result.stdout.strip():
             return True, result.stdout
@@ -60,7 +54,6 @@ def main():
     print("Available models:")
     print(message)
 
-
     # 1. Create ACELiteLLM agent with Ollama
     print("\n🤖 Creating ACELiteLLM agent with Ollama...")
     playbook_path = Path(__file__).parent / "ollama_learned_strategies.json"
@@ -69,9 +62,8 @@ def main():
         max_tokens=1024,
         temperature=0.2,
         is_learning=True,
-        playbook_path=str(playbook_path) if playbook_path.exists() else None
+        playbook_path=str(playbook_path) if playbook_path.exists() else None,
     )
-
 
     # 2. Try asking questions before learning
     print("\n❓ Testing agent before learning:")
@@ -89,7 +81,9 @@ def main():
 
     # 4. Run learning
     print("\n🚀 Running ACE learning with Ollama...")
-    print("⚠️  Note: Small models like Gemma 1B may have issues with structured JSON output")
+    print(
+        "⚠️  Note: Small models like Gemma 1B may have issues with structured JSON output"
+    )
     environment = SimpleEnvironment()
 
     try:
@@ -98,7 +92,9 @@ def main():
         print(f"✅ Successfully processed {successful_samples}/{len(results)} samples")
     except Exception as e:
         print(f"❌ Learning failed: {e}")
-        print("💡 Try using a larger model like 'ollama pull llama2:7b' for better JSON generation")
+        print(
+            "💡 Try using a larger model like 'ollama pull llama2:7b' for better JSON generation"
+        )
         results = []
 
     # 5. Check results
