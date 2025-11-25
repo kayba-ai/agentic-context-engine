@@ -362,7 +362,9 @@ def configure_opik(
     global _global_integration
     if _should_skip_opik():
         # Return disabled integration when OPIK_DISABLED is set
-        logger.debug("Opik configuration skipped via OPIK_DISABLED environment variable")
+        logger.debug(
+            "Opik configuration skipped via OPIK_DISABLED environment variable"
+        )
         _global_integration = OpikIntegration(enable_auto_config=False)
         _global_integration.enabled = False
     else:
