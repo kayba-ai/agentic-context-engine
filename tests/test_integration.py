@@ -8,9 +8,12 @@ import json
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Any
+from typing import Any, Type, TypeVar
 
 import pytest
+from pydantic import BaseModel
+
+T = TypeVar("T", bound=BaseModel)
 
 from ace import (
     Curator,
@@ -38,7 +41,7 @@ class MockLLMClient(LLMClient):
         """Return valid JSON based on prompt type."""
         self.call_count += 1
 
-        # Detect role from prompt
+        # Detect role from prompt and return matching Pydantic schema
         if "Generator" in prompt or "bullet_ids" in prompt:
             response = json.dumps(
                 {
@@ -48,14 +51,70 @@ class MockLLMClient(LLMClient):
                 }
             )
         elif "Reflector" in prompt or "helpful" in prompt.lower():
-            response = json.dumps({"analysis": "Mock analysis", "bullet_tags": []})
+            response = json.dumps(
+                {
+                    "reasoning": "Mock reflection analysis",
+                    "error_identification": "",
+                    "root_cause_analysis": "",
+                    "correct_approach": "",
+                    "key_insight": "",
+                    "bullet_tags": [],
+                }
+            )
         elif "Curator" in prompt or "delta" in prompt.lower():
-            response = json.dumps({"deltas": []})
+            response = json.dumps(
+                {
+                    "delta": {
+                        "reasoning": "No changes needed",
+                        "operations": [],
+                    }
+                }
+            )
         else:
             # Generic response
             response = json.dumps({"result": "Mock result"})
 
         return LLMResponse(text=response)
+
+    def complete_structured(
+        self,
+        prompt: str,
+        response_model: Type[T],
+        **kwargs: Any,
+    ) -> T:
+        """Mock structured output - returns data based on response_model type."""
+        self.call_count += 1
+
+        # Use response_model name for reliable detection
+        model_name = response_model.__name__
+
+        if model_name == "GeneratorOutput":
+            data = {
+                "reasoning": "Mock reasoning",
+                "final_answer": "This is a correct mock answer",
+                "bullet_ids": [],
+            }
+        elif model_name == "ReflectorOutput":
+            data = {
+                "reasoning": "Mock reflection analysis",
+                "error_identification": "",
+                "root_cause_analysis": "",
+                "correct_approach": "",
+                "key_insight": "",
+                "bullet_tags": [],
+            }
+        elif model_name == "CuratorOutput":
+            # CuratorOutput expects delta as DeltaBatch
+            from ace.delta import DeltaBatch
+
+            return response_model(
+                delta=DeltaBatch(reasoning="No changes needed", operations=[]),
+                raw={},
+            )  # type: ignore
+        else:
+            data = {"result": "Mock result"}
+
+        return response_model.model_validate(data)
 
 
 class SimpleTestEnvironment(TaskEnvironment):
