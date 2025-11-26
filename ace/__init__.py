@@ -79,6 +79,12 @@ except ImportError:
     BROWSER_USE_AVAILABLE = False
     LANGCHAIN_AVAILABLE = False
 
+# Import deduplication module
+from .deduplication import (
+    DeduplicationConfig,
+    DeduplicationManager,
+)
+
 __all__ = [
     # Core components
     "Bullet",
@@ -103,6 +109,9 @@ __all__ = [
     "SimpleEnvironment",
     "EnvironmentResult",
     "AdapterStepResult",
+    # Deduplication
+    "DeduplicationConfig",
+    "DeduplicationManager",
     # Out-of-box integrations
     "ACELiteLLM",  # LiteLLM integration (quick start)
     "ACEAgent",  # Browser-use integration

@@ -80,6 +80,16 @@ def has_instructor() -> bool:
     return _check_import("instructor")
 
 
+def has_numpy() -> bool:
+    """Check if NumPy is available for similarity computations."""
+    return _check_import("numpy")
+
+
+def has_sentence_transformers() -> bool:
+    """Check if sentence-transformers is available for local embeddings."""
+    return _check_import("sentence_transformers")
+
+
 def get_available_features() -> Dict[str, bool]:
     """
     Get a dictionary of all available features.
@@ -101,6 +111,8 @@ def get_available_features() -> Dict[str, bool]:
         "browser_use": has_browser_use(),
         "playwright": has_playwright(),
         "instructor": has_instructor(),
+        "numpy": has_numpy(),
+        "sentence_transformers": has_sentence_transformers(),
     }
 
 

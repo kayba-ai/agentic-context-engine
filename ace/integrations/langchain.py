@@ -36,13 +36,16 @@ Example:
     ace_chain.save_playbook("chain_expert.json")
 """
 
-from typing import Any, Optional, Dict, Callable
+from typing import TYPE_CHECKING, Any, Optional, Dict, Callable
 import logging
 
 from ..playbook import Playbook
 from ..roles import Reflector, Curator, GeneratorOutput
 from ..prompts_v2_1 import PromptManager
 from .base import wrap_playbook_context
+
+if TYPE_CHECKING:
+    from ..deduplication import DeduplicationConfig
 
 try:
     from langchain_core.runnables import Runnable
@@ -101,6 +104,7 @@ class ACELangChain:
         playbook_path: Optional[str] = None,
         is_learning: bool = True,
         output_parser: Optional[Callable[[Any], str]] = None,
+        dedup_config: Optional["DeduplicationConfig"] = None,
     ):
         """
         Initialize ACELangChain wrapper.
@@ -112,6 +116,7 @@ class ACELangChain:
             is_learning: Enable/disable learning (default: True)
             output_parser: Custom function to parse runnable output to string
                           (default: converts to string)
+            dedup_config: Optional DeduplicationConfig for bullet deduplication
 
         Raises:
             ImportError: If LangChain is not installed
@@ -127,6 +132,13 @@ class ACELangChain:
             ace_chain = ACELangChain(
                 my_chain,
                 output_parser=parse_output
+            )
+
+            # With deduplication
+            from ace import DeduplicationConfig
+            ace_chain = ACELangChain(
+                my_chain,
+                dedup_config=DeduplicationConfig(similarity_threshold=0.85)
             )
         """
         if not LANGCHAIN_AVAILABLE:
@@ -162,8 +174,18 @@ class ACELangChain:
         self.reflector = Reflector(
             self.llm, prompt_template=prompt_mgr.get_reflector_prompt()
         )
+
+        # Create DeduplicationManager if config provided
+        dedup_manager = None
+        if dedup_config is not None:
+            from ..deduplication import DeduplicationManager
+
+            dedup_manager = DeduplicationManager(dedup_config)
+
         self.curator = Curator(
-            self.llm, prompt_template=prompt_mgr.get_curator_prompt()
+            self.llm,
+            prompt_template=prompt_mgr.get_curator_prompt(),
+            dedup_manager=dedup_manager,
         )
 
     def invoke(self, input: Any, **kwargs) -> Any:

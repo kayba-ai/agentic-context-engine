@@ -6,9 +6,19 @@ import json
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Union, cast
+from typing import Any, Dict, FrozenSet, Iterable, List, Literal, Optional, Union, cast
 
 from .delta import DeltaBatch, DeltaOperation
+
+
+@dataclass
+class SimilarityDecision:
+    """Record of a Curator decision to KEEP two bullets separate."""
+
+    decision: Literal["KEEP"]
+    reasoning: str
+    decided_at: str
+    similarity_at_decision: float
 
 
 @dataclass
@@ -27,6 +37,9 @@ class Bullet:
     updated_at: str = field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )
+    # Deduplication fields
+    embedding: Optional[List[float]] = None
+    status: Literal["active", "invalid"] = "active"
 
     def apply_metadata(self, metadata: Dict[str, int]) -> None:
         for key, value in metadata.items():
@@ -67,6 +80,8 @@ class Playbook:
         self._bullets: Dict[str, Bullet] = {}
         self._sections: Dict[str, List[str]] = {}
         self._next_id = 0
+        # Store KEEP decisions so we don't re-ask about the same pairs
+        self._similarity_decisions: Dict[FrozenSet[str], SimilarityDecision] = {}
 
     def __repr__(self) -> str:
         """Concise representation for debugging and object inspection."""
@@ -130,34 +145,89 @@ class Playbook:
 
         return bullet
 
-    def remove_bullet(self, bullet_id: str) -> None:
-        bullet = self._bullets.pop(bullet_id, None)
+    def remove_bullet(self, bullet_id: str, soft: bool = False) -> None:
+        """Remove a bullet from the playbook.
+
+        Args:
+            bullet_id: ID of the bullet to remove
+            soft: If True, mark as invalid instead of deleting (for audit trail)
+        """
+        bullet = self._bullets.get(bullet_id)
         if bullet is None:
             return
-        section_list = self._sections.get(bullet.section)
-        if section_list:
-            self._sections[bullet.section] = [
-                bid for bid in section_list if bid != bullet_id
-            ]
-            if not self._sections[bullet.section]:
-                del self._sections[bullet.section]
+
+        if soft:
+            # Soft delete: mark as invalid but keep in storage
+            bullet.status = "invalid"
+            bullet.updated_at = datetime.now(timezone.utc).isoformat()
+        else:
+            # Hard delete: remove entirely
+            self._bullets.pop(bullet_id, None)
+            section_list = self._sections.get(bullet.section)
+            if section_list:
+                self._sections[bullet.section] = [
+                    bid for bid in section_list if bid != bullet_id
+                ]
+                if not self._sections[bullet.section]:
+                    del self._sections[bullet.section]
 
     def get_bullet(self, bullet_id: str) -> Optional[Bullet]:
         return self._bullets.get(bullet_id)
 
-    def bullets(self) -> List[Bullet]:
-        return list(self._bullets.values())
+    def bullets(self, include_invalid: bool = False) -> List[Bullet]:
+        """Get all bullets in the playbook.
+
+        Args:
+            include_invalid: If True, include soft-deleted bullets
+
+        Returns:
+            List of bullets (active only by default)
+        """
+        if include_invalid:
+            return list(self._bullets.values())
+        return [b for b in self._bullets.values() if b.status == "active"]
+
+    # ------------------------------------------------------------------ #
+    # Similarity decisions (for deduplication)
+    # ------------------------------------------------------------------ #
+    def get_similarity_decision(
+        self, bullet_id_a: str, bullet_id_b: str
+    ) -> Optional[SimilarityDecision]:
+        """Get a prior similarity decision for a pair of bullets."""
+        pair_key = frozenset([bullet_id_a, bullet_id_b])
+        return self._similarity_decisions.get(pair_key)
+
+    def set_similarity_decision(
+        self,
+        bullet_id_a: str,
+        bullet_id_b: str,
+        decision: SimilarityDecision,
+    ) -> None:
+        """Store a similarity decision for a pair of bullets."""
+        pair_key = frozenset([bullet_id_a, bullet_id_b])
+        self._similarity_decisions[pair_key] = decision
+
+    def has_keep_decision(self, bullet_id_a: str, bullet_id_b: str) -> bool:
+        """Check if there's a KEEP decision for this pair."""
+        decision = self.get_similarity_decision(bullet_id_a, bullet_id_b)
+        return decision is not None and decision.decision == "KEEP"
 
     # ------------------------------------------------------------------ #
     # Serialization
     # ------------------------------------------------------------------ #
     def to_dict(self) -> Dict[str, object]:
+        # Serialize similarity decisions with string keys (JSON doesn't support frozenset)
+        similarity_decisions_serialized = {
+            ",".join(sorted(pair_ids)): asdict(decision)
+            for pair_ids, decision in self._similarity_decisions.items()
+        }
         return {
             "bullets": {
                 bullet_id: asdict(bullet) for bullet_id, bullet in self._bullets.items()
             },
             "sections": self._sections,
             "next_id": self._next_id,
+            "similarity_decisions": similarity_decisions_serialized,
         }
 
     @classmethod
@@ -167,7 +237,13 @@ class Playbook:
         if isinstance(bullets_payload, dict):
             for bullet_id, bullet_value in bullets_payload.items():
                 if isinstance(bullet_value, dict):
-                    instance._bullets[bullet_id] = Bullet(**bullet_value)
+                    # Handle new optional fields with defaults for backwards compatibility
+                    bullet_data = dict(bullet_value)
+                    if "embedding" not in bullet_data:
+                        bullet_data["embedding"] = None
+                    if "status" not in bullet_data:
+                        bullet_data["status"] = "active"
+                    instance._bullets[bullet_id] = Bullet(**bullet_data)
         sections_payload = payload.get("sections", {})
         if isinstance(sections_payload, dict):
             instance._sections = {
@@ -180,6 +256,15 @@ class Playbook:
             if next_id_value is not None
             else 0
         )
+        # Deserialize similarity decisions
+        similarity_decisions_payload = payload.get("similarity_decisions", {})
+        if isinstance(similarity_decisions_payload, dict):
+            for pair_key_str, decision_value in similarity_decisions_payload.items():
+                if isinstance(decision_value, dict):
+                    pair_ids = frozenset(pair_key_str.split(","))
+                    instance._similarity_decisions[pair_ids] = SimilarityDecision(
+                        **decision_value
+                    )
         return instance
 
     def dumps(self) -> str:

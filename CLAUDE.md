@@ -182,6 +182,7 @@ python scripts/explain_ace_performance.py
   - `browser_use.py`: ACEAgent - browser automation with learning
   - `langchain.py`: ACELangChain - wrap LangChain chains/agents
   - `litellm.py`: ACELiteLLM - simple conversational agent
+- `deduplication/`: Bullet deduplication (similarity detection, consolidation)
 
 **ace/observability/** - Production monitoring and observability:
 - `opik_integration.py`: Enterprise-grade monitoring with Opik

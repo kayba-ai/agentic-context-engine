@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -12,6 +13,11 @@ from .delta import DeltaBatch
 from .llm import LLMClient
 from .playbook import Playbook
 from .prompts import CURATOR_PROMPT, GENERATOR_PROMPT, REFLECTOR_PROMPT
+
+if TYPE_CHECKING:
+    from .deduplication import DeduplicationManager
+
+logger = logging.getLogger(__name__)
 
 # Import Opik tracing with graceful degradation
 try:
@@ -594,6 +600,7 @@ class Curator:
         llm: The LLM client to use for curation
         prompt_template: Custom prompt template (uses CURATOR_PROMPT by default)
         max_retries: Maximum validation retries via Instructor (default: 3)
+        dedup_manager: Optional DeduplicationManager for bullet deduplication
 
     Example:
         >>> from ace import Curator, LiteLLMClient
@@ -610,6 +617,13 @@ class Curator:
         >>> # Apply the delta to update playbook
         >>> playbook.apply_delta(output.delta)
 
+    With Deduplication:
+        >>> from ace.deduplication import DeduplicationManager, DeduplicationConfig
+        >>> dedup_manager = DeduplicationManager(DeduplicationConfig())
+        >>> curator = Curator(client, dedup_manager=dedup_manager)
+        >>> # Curator will now include similarity reports in prompts
+        >>> # and handle MERGE/DELETE/KEEP/UPDATE consolidation operations
+
     Custom Prompt Example:
         >>> custom_prompt = '''
         ... Progress: {progress}
@@ -617,6 +631,7 @@ class Curator:
         ... Reflection: {reflection}
         ... Playbook: {playbook}
         ... Context: {question_context}
+        ... Similarity Report: {similarity_report}
         ... Decide what changes to make. Return JSON with delta operations.
         ... '''
         >>> curator = Curator(client, prompt_template=custom_prompt)
@@ -626,6 +641,12 @@ class Curator:
         - UPDATE: Modify existing bullets
         - TAG: Update helpful/harmful counts
         - REMOVE: Delete unhelpful bullets
+
+    With deduplication enabled, also handles ConsolidationOperations:
+        - MERGE: Combine similar bullets
+        - DELETE: Soft-delete redundant bullets
+        - KEEP: Mark similar bullets as intentionally separate
+        - UPDATE: Refine content to differentiate similar bullets
     """
 
     def __init__(
@@ -634,6 +655,7 @@ class Curator:
         prompt_template: str = CURATOR_PROMPT,
         *,
         max_retries: int = 3,
+        dedup_manager: Optional["DeduplicationManager"] = None,
     ) -> None:
         # Auto-wrap with Instructor if not already wrapped
         # Use duck typing to detect Instructor capability (supports mocking)
@@ -646,6 +668,7 @@ class Curator:
 
         self.prompt_template = prompt_template
         self.max_retries = max_retries
+        self.dedup_manager = dedup_manager
 
     @maybe_track(
         name="curator_curate",
@@ -681,6 +704,11 @@ class Curator:
         """
         Generate delta operations to update the playbook based on reflection.
 
+        If a DeduplicationManager is configured, this method will:
+        1. Generate a similarity report for similar bullet pairs
+        2. Include the report in the prompt for the Curator to handle
+        3. Parse and apply consolidation operations from the response
+
         Args:
             reflection: The Reflector's analysis of what went right/wrong
             playbook: Current playbook to potentially update
@@ -694,6 +722,13 @@ class Curator:
         Raises:
             RuntimeError: If unable to produce valid JSON after max_retries
         """
+        # Get similarity report if deduplication is enabled
+        similarity_report = None
+        if self.dedup_manager is not None:
+            similarity_report = self.dedup_manager.get_similarity_report(playbook)
+            if similarity_report:
+                logger.info("Including similarity report in Curator prompt")
+
         base_prompt = self.prompt_template.format(
             progress=progress,
             stats=json.dumps(playbook.stats()),
@@ -702,11 +737,25 @@ class Curator:
             question_context=question_context,
         )
 
+        # Append similarity report if available
+        if similarity_report:
+            base_prompt = base_prompt + "\n\n" + similarity_report
+
         # Filter out non-LLM kwargs (like 'sample' used for ReplayGenerator)
         llm_kwargs = {k: v for k, v in kwargs.items() if k != "sample"}
 
         # Use Instructor for automatic validation (always available - core dependency)
-        return self.llm.complete_structured(base_prompt, CuratorOutput, **llm_kwargs)
+        output = self.llm.complete_structured(base_prompt, CuratorOutput, **llm_kwargs)
+
+        # Apply consolidation operations if deduplication is enabled
+        if self.dedup_manager is not None and output.raw:
+            applied_ops = self.dedup_manager.apply_operations_from_response(
+                output.raw, playbook
+            )
+            if applied_ops:
+                logger.info(f"Applied {len(applied_ops)} consolidation operations")
+
+        return output
 
 
 def _make_playbook_excerpt(playbook: Playbook, bullet_ids: Sequence[str]) -> str:

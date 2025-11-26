@@ -117,6 +117,27 @@ stats = playbook.stats()
 # }
 ```
 
+## Bullet Deduplication
+
+Optional feature to detect and consolidate similar bullets using embeddings.
+
+### DeduplicationConfig
+
+```python
+from ace import DeduplicationConfig
+
+config = DeduplicationConfig(
+    enabled=True,                              # Default: True
+    embedding_model="text-embedding-3-small",  # OpenAI embedding
+    similarity_threshold=0.85,                 # Pairs above this are similar
+    within_section_only=True                   # Compare within same section
+)
+
+# Use with any integration
+from ace import ACELiteLLM
+agent = ACELiteLLM(model="gpt-4o-mini", dedup_config=config)
+```
+
 ## Adapters
 
 ### OfflineAdapter

@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Sequence
 
 if TYPE_CHECKING:
+    from .deduplication import DeduplicationConfig
     from .observability.opik_integration import OpikIntegration
 
 from .playbook import Playbook
@@ -158,6 +159,7 @@ class AdapterBase:
         max_refinement_rounds: int = 1,
         reflection_window: int = 3,
         enable_observability: bool = True,
+        dedup_config: Optional["DeduplicationConfig"] = None,
     ) -> None:
         self.playbook = playbook or Playbook()
         self.generator = generator
@@ -166,6 +168,15 @@ class AdapterBase:
         self.max_refinement_rounds = max_refinement_rounds
         self.reflection_window = reflection_window
         self._recent_reflections: List[str] = []
+
+        # Set up deduplication if config provided and curator doesn't have one
+        if dedup_config is not None and curator.dedup_manager is None:
+            from .deduplication import DeduplicationManager
+
+            curator.dedup_manager = DeduplicationManager(dedup_config)
+            logger.info(
+                f"Deduplication enabled with threshold={dedup_config.similarity_threshold}"
+            )
 
         # Observability integration
         self.enable_observability = enable_observability
@@ -369,6 +380,7 @@ class OfflineAdapter(AdapterBase):
         curator: Curator instance for updating playbook
         max_refinement_rounds: Max reflection refinement attempts (default: 1)
         reflection_window: Number of recent reflections to maintain (default: 3)
+        dedup_config: Optional DeduplicationConfig for bullet deduplication
 
     Example:
         >>> from ace import OfflineAdapter, Generator, Reflector, Curator
@@ -398,6 +410,22 @@ class OfflineAdapter(AdapterBase):
         >>>
         >>> # Access evolved playbook
         >>> print(adapter.playbook.as_prompt())
+
+    With Deduplication:
+        >>> from ace.deduplication import DeduplicationConfig
+        >>>
+        >>> # Enable bullet deduplication with custom threshold
+        >>> dedup_config = DeduplicationConfig(
+        ...     similarity_threshold=0.85,
+        ...     embedding_model="text-embedding-3-small"
+        ... )
+        >>> adapter = OfflineAdapter(
+        ...     generator=generator,
+        ...     reflector=reflector,
+        ...     curator=curator,
+        ...     dedup_config=dedup_config
+        ... )
+        >>> # Similar bullets will now be detected and reported to Curator
 
     The adapter will:
         1. Process each sample through Generator → Environment → Reflector → Curator
@@ -513,6 +541,7 @@ class OnlineAdapter(AdapterBase):
         curator: Curator instance for updating playbook
         max_refinement_rounds: Max reflection refinement attempts (default: 1)
         reflection_window: Number of recent reflections to maintain (default: 3)
+        dedup_config: Optional DeduplicationConfig for bullet deduplication
 
     Example:
         >>> from ace import OnlineAdapter, Generator, Reflector, Curator
@@ -539,6 +568,18 @@ class OnlineAdapter(AdapterBase):
         >>>
         >>> # Playbook evolves with each sample
         >>> print(f"Bullets: {len(adapter.playbook.bullets)}")
+
+    With Deduplication:
+        >>> from ace.deduplication import DeduplicationConfig
+        >>>
+        >>> dedup_config = DeduplicationConfig(similarity_threshold=0.85)
+        >>> adapter = OnlineAdapter(
+        ...     playbook=playbook,
+        ...     generator=Generator(client),
+        ...     reflector=Reflector(client),
+        ...     curator=Curator(client),
+        ...     dedup_config=dedup_config
+        ... )
 
     Online vs Offline:
         - Online: Processes each sample once, adapts immediately
