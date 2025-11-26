@@ -157,18 +157,6 @@ playbook = Playbook.load_from_file("my_playbook.json")
 # PostgreSQL, SQLite, or vector stores supported
 ```
 
-### Retry Configuration
-
-```python
-from ace import Generator
-
-# Configure JSON parsing retries
-generator = Generator(
-    llm,
-    retry_prompt="\n\nPlease return valid JSON only."
-)
-```
-
 ### Checkpoint Saving
 
 ```python

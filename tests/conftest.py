@@ -5,16 +5,21 @@ across test files and ensure consistent test data.
 """
 
 import json
-from typing import Any, Dict
+from typing import Any, Dict, Type, TypeVar
 import pytest
+from pydantic import BaseModel
 
 from ace import Playbook, Sample, LLMClient
 from ace.llm import LLMResponse
+
+T = TypeVar("T", bound=BaseModel)
 
 
 class MockLLMClient(LLMClient):
     """
     Mock LLM client for testing.
+
+    Includes complete_structured() to prevent auto-wrapping with Instructor.
 
     Usage:
         @pytest.fixture
@@ -48,6 +53,33 @@ class MockLLMClient(LLMClient):
 
         response = self._responses.pop(0)
         return LLMResponse(text=response)
+
+    def complete_structured(
+        self,
+        prompt: str,
+        response_model: Type[T],
+        **kwargs: Any,
+    ) -> T:
+        """
+        Mock structured output - parses JSON and validates with Pydantic.
+
+        This prevents roles from auto-wrapping with real Instructor.
+        """
+        self._call_history.append(
+            {"prompt": prompt, "response_model": response_model, "kwargs": kwargs}
+        )
+
+        if not self._responses:
+            raise RuntimeError(
+                "MockLLMClient has no queued responses. "
+                "Use set_response() or set_responses() first."
+            )
+
+        response = self._responses.pop(0)
+
+        # Parse JSON and validate with Pydantic model
+        data = json.loads(response)
+        return response_model.model_validate(data)
 
     @property
     def call_history(self) -> list[Dict[str, Any]]:

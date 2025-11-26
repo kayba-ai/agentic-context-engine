@@ -133,75 +133,6 @@ class TestGenerator(unittest.TestCase):
         self.assertEqual(output.final_answer, "4")
         self.assertIn("math-001", output.bullet_ids)
 
-    def test_generate_retry_on_invalid_json(self):
-        """Test retry logic when LLM returns invalid JSON."""
-        # First attempt: invalid JSON
-        # Second attempt: valid JSON
-        self.mock_llm.set_responses(
-            [
-                "This is not valid JSON at all",
-                '{"reasoning": "Retry worked!", "final_answer": "Success"}',
-            ]
-        )
-
-        generator = Generator(self.mock_llm)
-        output = generator.generate(
-            question="Test question?", context="Test", playbook=self.playbook
-        )
-
-        self.assertEqual(output.final_answer, "Success")
-        self.assertEqual(len(self.mock_llm.call_history), 2)
-
-    def test_generate_fails_after_max_retries(self):
-        """Test that Generator raises RuntimeError after max retries."""
-        # All 3 attempts return invalid JSON
-        self.mock_llm.set_responses(
-            ["Invalid JSON 1", "Invalid JSON 2", "Invalid JSON 3"]
-        )
-
-        generator = Generator(self.mock_llm)
-
-        with self.assertRaises(RuntimeError) as ctx:
-            generator.generate(question="Test?", context="", playbook=self.playbook)
-
-        self.assertIn("failed to produce valid JSON", str(ctx.exception))
-        self.assertEqual(len(self.mock_llm.call_history), 3)
-
-    def test_generate_strips_markdown_fences(self):
-        """Test that markdown code fences are stripped from JSON."""
-        self.mock_llm.set_response(
-            '```json\n{"reasoning": "With fences", "final_answer": "OK"}\n```'
-        )
-
-        generator = Generator(self.mock_llm)
-        output = generator.generate(
-            question="Test?", context="", playbook=self.playbook
-        )
-
-        self.assertEqual(output.final_answer, "OK")
-
-    def test_generate_custom_retry_prompt(self):
-        """Test custom retry prompt is appended on retry."""
-        custom_retry = "\n\n[RETRY] Please fix your JSON format!"
-
-        self.mock_llm.set_responses(
-            [
-                "Bad JSON",
-                '{"reasoning": "Fixed", "final_answer": "OK"}',
-            ]
-        )
-
-        generator = Generator(self.mock_llm, retry_prompt=custom_retry)
-        output = generator.generate(
-            question="Test?", context="", playbook=self.playbook
-        )
-
-        # Verify custom retry prompt was appended on second attempt
-        self.assertEqual(len(self.mock_llm.call_history), 2)
-        second_prompt = self.mock_llm.call_history[1]["prompt"]
-        self.assertIn(custom_retry, second_prompt)
-        self.assertEqual(output.final_answer, "OK")
-
     def test_generate_with_reflection(self):
         """Test generation with reflection from previous attempt."""
         self.mock_llm.set_response(
@@ -348,29 +279,6 @@ class TestReflector(unittest.TestCase):
         self.assertEqual(reflection.bullet_tags[0].id, "b_bad")
         self.assertEqual(reflection.bullet_tags[0].tag, "harmful")
 
-    def test_reflect_retry_on_invalid_json(self):
-        """Test Reflector retry logic on invalid JSON."""
-        self.mock_llm.set_responses(
-            [
-                "This is not JSON",
-                '{"reasoning": "Retry worked", "error_identification": "", "root_cause_analysis": "", "correct_approach": "", "key_insight": "", "bullet_tags": []}',
-            ]
-        )
-
-        reflector = Reflector(self.mock_llm)
-        generator_output = GeneratorOutput(
-            reasoning="Test", final_answer="OK", bullet_ids=[], raw={}
-        )
-
-        reflection = reflector.reflect(
-            question="Test?",
-            generator_output=generator_output,
-            playbook=self.playbook,
-        )
-
-        self.assertEqual(reflection.reasoning, "Retry worked")
-        self.assertEqual(len(self.mock_llm.call_history), 2)
-
     def test_reflect_without_ground_truth(self):
         """Test reflection works without ground truth."""
         self.mock_llm.set_response(
@@ -392,32 +300,6 @@ class TestReflector(unittest.TestCase):
 
         self.assertIsNotNone(reflection.reasoning)
 
-    def test_reflect_custom_retry_prompt(self):
-        """Test custom retry prompt for Reflector."""
-        custom_retry = "\n\n[REFLECTOR RETRY] Fix JSON!"
-
-        self.mock_llm.set_responses(
-            [
-                "Bad",
-                '{"reasoning": "OK", "error_identification": "", "root_cause_analysis": "", "correct_approach": "", "key_insight": "", "bullet_tags": []}',
-            ]
-        )
-
-        reflector = Reflector(self.mock_llm, retry_prompt=custom_retry)
-        generator_output = GeneratorOutput(
-            reasoning="Test", final_answer="OK", bullet_ids=[], raw={}
-        )
-
-        reflection = reflector.reflect(
-            question="Test?",
-            generator_output=generator_output,
-            playbook=self.playbook,
-        )
-
-        # Verify custom retry prompt was used
-        second_prompt = self.mock_llm.call_history[1]["prompt"]
-        self.assertIn(custom_retry, second_prompt)
-
 
 @pytest.mark.unit
 class TestCurator(unittest.TestCase):
@@ -435,14 +317,16 @@ class TestCurator(unittest.TestCase):
         self.mock_llm.set_response(
             """
         {
-            "reasoning": "Need to add verification strategy",
-            "operations": [
-                {
-                    "type": "ADD",
-                    "section": "math",
-                    "content": "Always verify calculations"
-                }
-            ]
+            "delta": {
+                "reasoning": "Need to add verification strategy",
+                "operations": [
+                    {
+                        "type": "ADD",
+                        "section": "math",
+                        "content": "Always verify calculations"
+                    }
+                ]
+            }
         }
         """
         )
@@ -479,15 +363,17 @@ class TestCurator(unittest.TestCase):
         self.mock_llm.set_response(
             """
         {
-            "reasoning": "Bullet b1 was helpful",
-            "operations": [
-                {
-                    "type": "TAG",
-                    "section": "math",
-                    "bullet_id": "b1",
-                    "metadata": {"helpful": 1}
-                }
-            ]
+            "delta": {
+                "reasoning": "Bullet b1 was helpful",
+                "operations": [
+                    {
+                        "type": "TAG",
+                        "section": "math",
+                        "bullet_id": "b1",
+                        "metadata": {"helpful": 1}
+                    }
+                ]
+            }
         }
         """
         )
@@ -519,20 +405,22 @@ class TestCurator(unittest.TestCase):
         self.mock_llm.set_response(
             """
         {
-            "reasoning": "Add new strategy and tag existing one",
-            "operations": [
-                {
-                    "type": "ADD",
-                    "section": "math",
-                    "content": "Check units"
-                },
-                {
-                    "type": "TAG",
-                    "section": "math",
-                    "bullet_id": "b1",
-                    "metadata": {"helpful": 1}
-                }
-            ]
+            "delta": {
+                "reasoning": "Add new strategy and tag existing one",
+                "operations": [
+                    {
+                        "type": "ADD",
+                        "section": "math",
+                        "content": "Check units"
+                    },
+                    {
+                        "type": "TAG",
+                        "section": "math",
+                        "bullet_id": "b1",
+                        "metadata": {"helpful": 1}
+                    }
+                ]
+            }
         }
         """
         )
@@ -564,8 +452,10 @@ class TestCurator(unittest.TestCase):
         self.mock_llm.set_response(
             """
         {
-            "reasoning": "Playbook is already sufficient",
-            "operations": []
+            "delta": {
+                "reasoning": "Playbook is already sufficient",
+                "operations": []
+            }
         }
         """
         )
@@ -590,66 +480,6 @@ class TestCurator(unittest.TestCase):
 
         self.assertEqual(len(curator_output.delta.operations), 0)
         self.assertIn("sufficient", curator_output.delta.reasoning)
-
-    def test_curate_retry_logic(self):
-        """Test Curator retry on invalid JSON."""
-        self.mock_llm.set_responses(
-            [
-                "Not valid JSON",
-                '{"reasoning": "Retry OK", "operations": []}',
-            ]
-        )
-
-        curator = Curator(self.mock_llm)
-        reflection = ReflectorOutput(
-            reasoning="Test",
-            error_identification="",
-            root_cause_analysis="",
-            correct_approach="",
-            key_insight="",
-            bullet_tags=[],
-            raw={},
-        )
-
-        curator_output = curator.curate(
-            reflection=reflection,
-            playbook=self.playbook,
-            question_context="Test",
-            progress="1/1",
-        )
-
-        self.assertEqual(len(curator_output.delta.operations), 0)
-        self.assertEqual(len(self.mock_llm.call_history), 2)
-
-    def test_curate_custom_retry_prompt(self):
-        """Test custom retry prompt for Curator."""
-        custom_retry = "\n\n[CURATOR] Return valid delta_batch JSON!"
-
-        self.mock_llm.set_responses(
-            ["Invalid", '{"reasoning": "OK", "operations": []}']
-        )
-
-        curator = Curator(self.mock_llm, retry_prompt=custom_retry)
-        reflection = ReflectorOutput(
-            reasoning="Test",
-            error_identification="",
-            root_cause_analysis="",
-            correct_approach="",
-            key_insight="",
-            bullet_tags=[],
-            raw={},
-        )
-
-        curator_output = curator.curate(
-            reflection=reflection,
-            playbook=self.playbook,
-            question_context="Test",
-            progress="1/1",
-        )
-
-        # Verify custom retry prompt
-        second_prompt = self.mock_llm.call_history[1]["prompt"]
-        self.assertIn(custom_retry, second_prompt)
 
 
 class TestExtractCitedBulletIds(unittest.TestCase):

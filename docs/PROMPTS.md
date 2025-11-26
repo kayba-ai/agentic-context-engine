@@ -303,7 +303,7 @@ generator = Generator(llm, prompt_template=CUSTOM_GENERATOR_PROMPT)
 - List required fields: `reasoning`, `final_answer`, `bullet_ids`
 
 ❌ **Avoid**:
-- Hardcoding language-specific instructions (e.g., Chinese text) - use `retry_prompt` parameter instead
+- Hardcoding language-specific instructions in prompts
 - Overly complex nested instructions
 - Ambiguous output format requirements
 
@@ -338,21 +338,6 @@ print("✓ Custom prompt works!")
 ---
 
 ## Advanced Topics
-
-### Retry Prompts
-
-When JSON parsing fails, ACE retries with additional instructions:
-
-```python
-# Default English retry prompt
-generator = Generator(llm)  # Uses English by default
-
-# Custom retry prompt (e.g., for multilingual models)
-generator = Generator(
-    llm,
-    retry_prompt="\n\n[日本語] 有効なJSONオブジェクトのみを返してください。"
-)
-```
 
 ### Domain-Specific Sections
 
@@ -437,7 +422,6 @@ print(playbook.as_prompt())
 - Provide rich context in `context` parameter
 - Test prompts with your specific domain
 - Monitor JSON parse success rates
-- Use `retry_prompt` for non-English models
 
 ❌ **Don't**:
 - Use v2.0 (deprecated)

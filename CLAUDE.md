@@ -240,31 +240,6 @@ python scripts/explain_ace_performance.py
 
 ### New Features & Advanced Usage
 
-#### Configurable Retry Prompts (Added in v0.4.1)
-All three ACE roles now support customizable retry prompts for JSON parsing failures:
-
-```python
-from ace import Generator, Reflector, Curator, LiteLLMClient
-
-llm = LiteLLMClient(model="gpt-4")
-
-# Use English defaults (recommended)
-generator = Generator(llm)
-reflector = Reflector(llm)
-curator = Curator(llm)
-
-# Or customize for specific models/languages
-generator = Generator(
-    llm,
-    retry_prompt="\n\n[日本語] 有効なJSONオブジェクトのみを返してください。"
-)
-```
-
-**Benefits**:
-- Reduces JSON parse failures by 7-12%
-- Supports multilingual models
-- Consistent behavior across all roles
-
 #### Checkpoint Saving During Training
 OfflineAdapter now supports automatic checkpoint saving:
 

@@ -6,10 +6,14 @@ from abc import ABC, abstractmethod
 import json
 from collections import deque
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Deque, Dict, Optional, Union
+from typing import TYPE_CHECKING, Any, Deque, Dict, Optional, Type, TypeVar, Union
+
+from pydantic import BaseModel
 
 if TYPE_CHECKING:
     import torch
+
+T = TypeVar("T", bound=BaseModel)
 
 
 @dataclass
@@ -32,7 +36,10 @@ class LLMClient(ABC):
 
 
 class DummyLLMClient(LLMClient):
-    """Deterministic LLM stub for testing and dry runs."""
+    """Deterministic LLM stub for testing and dry runs.
+
+    Includes complete_structured() to prevent auto-wrapping with Instructor.
+    """
 
     def __init__(self, responses: Optional[Deque[str]] = None) -> None:
         super().__init__(model="dummy")
@@ -46,6 +53,25 @@ class DummyLLMClient(LLMClient):
         if not self._responses:
             raise RuntimeError("DummyLLMClient ran out of queued responses.")
         return LLMResponse(text=self._responses.popleft())
+
+    def complete_structured(
+        self,
+        prompt: str,
+        response_model: Type[T],
+        **kwargs: Any,
+    ) -> T:
+        """Mock structured output - parses JSON and validates with Pydantic.
+
+        This prevents roles from auto-wrapping with real Instructor.
+        """
+        if not self._responses:
+            raise RuntimeError("DummyLLMClient ran out of queued responses.")
+
+        response = self._responses.popleft()
+
+        # Parse JSON and validate with Pydantic model
+        data = json.loads(response)
+        return response_model.model_validate(data)
 
 
 class TransformersLLMClient(LLMClient):

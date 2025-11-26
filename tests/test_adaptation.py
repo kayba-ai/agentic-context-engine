@@ -59,15 +59,17 @@ class OfflineAdapterTest(unittest.TestCase):
         client.queue(
             json.dumps(
                 {
-                    "reasoning": "Adding a reminder for future tasks.",
-                    "operations": [
-                        {
-                            "type": "ADD",
-                            "section": "default_answers",
-                            "content": "If the question mentions life, universe, and everything, answer 42.",
-                            "metadata": {"helpful": 1},
-                        }
-                    ],
+                    "delta": {
+                        "reasoning": "Adding a reminder for future tasks.",
+                        "operations": [
+                            {
+                                "type": "ADD",
+                                "section": "default_answers",
+                                "content": "If the question mentions life, universe, and everything, answer 42.",
+                                "metadata": {"helpful": 1},
+                            }
+                        ],
+                    }
                 }
             )
         )

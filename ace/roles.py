@@ -133,8 +133,7 @@ class Generator:
     Args:
         llm: The LLM client to use for generation
         prompt_template: Custom prompt template (uses GENERATOR_PROMPT by default)
-        max_retries: Maximum attempts if JSON parsing fails (default: 3)
-        retry_prompt: Additional instruction appended on retry for JSON failures (default: English JSON reminder)
+        max_retries: Maximum validation retries via Instructor (default: 3)
 
     Example:
         >>> from ace import Generator, LiteLLMClient, Playbook
@@ -167,22 +166,18 @@ class Generator:
         prompt_template: str = GENERATOR_PROMPT,
         *,
         max_retries: int = 3,
-        retry_prompt: str = "\n\nIMPORTANT: Return ONLY a single valid JSON object. Escape all quotes properly or use single quotes. Do not include any additional text outside the JSON.",
     ) -> None:
-        # Auto-wrap with Instructor if not already wrapped (Instructor is a core dependency)
-        from .llm_providers.instructor_client import (
-            InstructorClient,
-            wrap_with_instructor,
-        )
-
-        if not isinstance(llm, InstructorClient):
-            self.llm = wrap_with_instructor(llm)
-        else:
+        # Auto-wrap with Instructor if not already wrapped
+        # Use duck typing to detect Instructor capability (supports mocking)
+        if hasattr(llm, "complete_structured"):
             self.llm = llm
+        else:
+            from .llm_providers.instructor_client import wrap_with_instructor
+
+            self.llm = wrap_with_instructor(llm, max_retries=max_retries)  # type: ignore[assignment]
 
         self.prompt_template = prompt_template
         self.max_retries = max_retries
-        self.retry_prompt = retry_prompt
 
     @maybe_track(
         name="generator_generate",
@@ -477,8 +472,7 @@ class Reflector:
     Args:
         llm: The LLM client to use for reflection
         prompt_template: Custom prompt template (uses REFLECTOR_PROMPT by default)
-        max_retries: Maximum attempts if JSON parsing fails (default: 3)
-        retry_prompt: Additional instruction appended on retry for JSON failures (default: English JSON reminder)
+        max_retries: Maximum validation retries via Instructor (default: 3)
 
     Example:
         >>> from ace import Reflector, LiteLLMClient
@@ -503,22 +497,18 @@ class Reflector:
         prompt_template: str = REFLECTOR_PROMPT,
         *,
         max_retries: int = 3,
-        retry_prompt: str = "\n\nIMPORTANT: Return ONLY a single valid JSON object. Escape all quotes properly or use single quotes. Do not include any additional text outside the JSON.",
     ) -> None:
-        # Auto-wrap with Instructor if not already wrapped (Instructor is a core dependency)
-        from .llm_providers.instructor_client import (
-            InstructorClient,
-            wrap_with_instructor,
-        )
-
-        if not isinstance(llm, InstructorClient):
-            self.llm = wrap_with_instructor(llm)
-        else:
+        # Auto-wrap with Instructor if not already wrapped
+        # Use duck typing to detect Instructor capability (supports mocking)
+        if hasattr(llm, "complete_structured"):
             self.llm = llm
+        else:
+            from .llm_providers.instructor_client import wrap_with_instructor
+
+            self.llm = wrap_with_instructor(llm, max_retries=max_retries)  # type: ignore[assignment]
 
         self.prompt_template = prompt_template
         self.max_retries = max_retries
-        self.retry_prompt = retry_prompt
 
     @maybe_track(
         name="reflector_reflect",
@@ -603,8 +593,7 @@ class Curator:
     Args:
         llm: The LLM client to use for curation
         prompt_template: Custom prompt template (uses CURATOR_PROMPT by default)
-        max_retries: Maximum attempts if JSON parsing fails (default: 3)
-        retry_prompt: Additional instruction appended on retry for JSON failures (default: English JSON reminder)
+        max_retries: Maximum validation retries via Instructor (default: 3)
 
     Example:
         >>> from ace import Curator, LiteLLMClient
@@ -645,22 +634,18 @@ class Curator:
         prompt_template: str = CURATOR_PROMPT,
         *,
         max_retries: int = 3,
-        retry_prompt: str = "\n\nIMPORTANT: Return ONLY a single valid JSON object. The JSON must be complete with ALL required fields:\n- reasoning (string)\n- deduplication_check (object)\n- operations (array)\n- quality_metrics (object with avg_atomicity, operations_count, estimated_impact)\nEscape all quotes properly and ensure the JSON is complete and well-formed.",
     ) -> None:
-        # Auto-wrap with Instructor if not already wrapped (Instructor is a core dependency)
-        from .llm_providers.instructor_client import (
-            InstructorClient,
-            wrap_with_instructor,
-        )
-
-        if not isinstance(llm, InstructorClient):
-            self.llm = wrap_with_instructor(llm, max_retries=max_retries)
-        else:
+        # Auto-wrap with Instructor if not already wrapped
+        # Use duck typing to detect Instructor capability (supports mocking)
+        if hasattr(llm, "complete_structured"):
             self.llm = llm
+        else:
+            from .llm_providers.instructor_client import wrap_with_instructor
+
+            self.llm = wrap_with_instructor(llm, max_retries=max_retries)  # type: ignore[assignment]
 
         self.prompt_template = prompt_template
         self.max_retries = max_retries
-        self.retry_prompt = retry_prompt
 
     @maybe_track(
         name="curator_curate",
