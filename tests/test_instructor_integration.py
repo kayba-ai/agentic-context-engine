@@ -421,3 +421,119 @@ class TestInstructorDetection(unittest.TestCase):
         cur_output = CuratorOutput(delta=delta, raw={})
         json_str = cur_output.model_dump_json()
         self.assertIn("operations", json_str)
+
+
+@pytest.mark.unit
+class TestInstructorClaudeParameterResolution(unittest.TestCase):
+    """
+    REGRESSION TESTS: Ensure InstructorClient applies Claude parameter resolution.
+
+    Previously, InstructorClient bypassed the _resolve_sampling_params() function
+    from LiteLLMClient, causing both temperature and top_p to be sent to Claude models.
+    This resulted in Anthropic API errors:
+    "temperature and top_p cannot both be specified for this model"
+
+    This broke ACE learning (Reflector/Curator failed, 0 strategies learned).
+    Fixed in commit 9740603.
+    """
+
+    @patch("ace.llm_providers.instructor_client.completion")
+    def test_instructor_client_applies_claude_parameter_resolution(
+        self, mock_completion
+    ):
+        """
+        Test that InstructorClient uses _resolve_sampling_params for Claude models.
+
+        This is the core regression test - if this fails, Claude learning will break.
+        """
+        from ace.llm_providers.litellm_client import LiteLLMClient, LiteLLMConfig
+        from ace.llm_providers.instructor_client import InstructorClient
+        from ace.roles import GeneratorOutput
+        import instructor
+
+        # Create a LiteLLM client with Claude model
+        config = LiteLLMConfig(
+            model="claude-3-sonnet-20240229",
+            temperature=0.0,
+            top_p=0.9,  # Explicitly set to simulate old bug
+        )
+        base_llm = LiteLLMClient(config=config)
+        instructor_client = InstructorClient(base_llm)
+
+        # Mock the response
+        mock_response = GeneratorOutput(
+            reasoning="Test",
+            final_answer="42",
+            bullet_ids=[],
+            raw={},
+        )
+
+        # Patch instructor's create to capture call params
+        captured_params = {}
+
+        def capture_create(**kwargs):
+            captured_params.update(kwargs)
+            return mock_response
+
+        with patch.object(
+            instructor_client.client.chat.completions,
+            "create",
+            side_effect=capture_create,
+        ):
+            try:
+                instructor_client.complete_structured(
+                    prompt="Test prompt",
+                    response_model=GeneratorOutput,
+                )
+            except Exception:
+                pass  # We just want to capture the params
+
+        # THE KEY ASSERTION: For Claude, should NOT have both temperature and top_p
+        has_temperature = "temperature" in captured_params
+        has_top_p = "top_p" in captured_params
+
+        # Either temperature OR top_p, but not both
+        self.assertFalse(
+            has_temperature and has_top_p,
+            f"InstructorClient sent BOTH temperature and top_p to Claude model! "
+            f"This causes Anthropic API errors. "
+            f"Captured params: {captured_params}",
+        )
+
+    def test_resolve_sampling_params_is_called_for_claude(self):
+        """Test that _resolve_sampling_params is actually called in InstructorClient."""
+        from ace.llm_providers.litellm_client import LiteLLMClient, LiteLLMConfig
+        from ace.llm_providers.instructor_client import InstructorClient
+        from ace.roles import GeneratorOutput
+
+        # Create a LiteLLM client with Claude model
+        config = LiteLLMConfig(
+            model="claude-haiku-4-5-20251001",
+            temperature=0.7,
+            top_p=0.9,
+        )
+        base_llm = LiteLLMClient(config=config)
+        instructor_client = InstructorClient(base_llm)
+
+        # Patch _resolve_sampling_params to track if it's called
+        with patch.object(
+            LiteLLMClient,
+            "_resolve_sampling_params",
+            wraps=LiteLLMClient._resolve_sampling_params,
+        ) as mock_resolve:
+            # Also patch the actual completion to prevent API call
+            with patch.object(instructor_client.client.chat.completions, "create"):
+                try:
+                    instructor_client.complete_structured(
+                        prompt="Test",
+                        response_model=GeneratorOutput,
+                    )
+                except Exception:
+                    pass  # We just want to verify _resolve_sampling_params was called
+
+            # Verify it was called for Claude model
+            mock_resolve.assert_called_once()
+            call_args = mock_resolve.call_args
+            self.assertIn(
+                "claude", call_args[0][1].lower()
+            )  # model name should contain "claude"

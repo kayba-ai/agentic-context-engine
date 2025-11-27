@@ -216,5 +216,36 @@ class TestClaudeParameterResolution(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["top_p"], 0.9)
 
 
+class TestLiteLLMConfigDefaults(unittest.TestCase):
+    """Test LiteLLMConfig default values prevent parameter conflicts."""
+
+    def test_top_p_default_is_none(self):
+        """
+        REGRESSION TEST: top_p must default to None, not 0.9.
+
+        When top_p defaults to 0.9, Claude models receive both temperature and top_p,
+        causing Anthropic API errors:
+        "temperature and top_p cannot both be specified for this model"
+
+        This broke ACE learning (Reflector/Curator failed, 0 strategies learned).
+        Fixed in commit 9740603.
+        """
+        from ace.llm_providers.litellm_client import LiteLLMConfig
+
+        config = LiteLLMConfig(model="claude-3-sonnet-20240229")
+        self.assertIsNone(
+            config.top_p,
+            "top_p must default to None to prevent temperature+top_p conflicts for Claude models. "
+            "Previous default of 0.9 caused Anthropic API errors.",
+        )
+
+    def test_config_with_explicit_top_p(self):
+        """Test that explicitly setting top_p still works."""
+        from ace.llm_providers.litellm_client import LiteLLMConfig
+
+        config = LiteLLMConfig(model="gpt-4", top_p=0.9)
+        self.assertEqual(config.top_p, 0.9)
+
+
 if __name__ == "__main__":
     unittest.main()
