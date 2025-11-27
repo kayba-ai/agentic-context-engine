@@ -425,17 +425,19 @@ class ACELangChain:
         """
         Async version of _learn for background execution.
 
-        Wraps the synchronous _learn method for use with asyncio.create_task.
+        Uses asyncio.to_thread() to run sync learning in a thread pool,
+        preventing event loop blocking when async_learning=True.
         """
-        self._learn(original_input, result)
+        await asyncio.to_thread(self._learn, original_input, result)
 
     async def _alearn_from_failure(self, original_input: Any, error_msg: str):
         """
         Async version of _learn_from_failure for background execution.
 
-        Wraps the synchronous _learn_from_failure method for use with asyncio.create_task.
+        Uses asyncio.to_thread() to run sync learning in a thread pool,
+        preventing event loop blocking when async_learning=True.
         """
-        self._learn_from_failure(original_input, error_msg)
+        await asyncio.to_thread(self._learn_from_failure, original_input, error_msg)
 
     async def wait_for_learning(self, timeout: Optional[float] = None) -> bool:
         """
