@@ -42,7 +42,7 @@ class LiteLLMConfig:
     api_version: Optional[str] = None
     temperature: float = 0.0
     max_tokens: int = 512
-    top_p: float = 0.9
+    top_p: Optional[float] = None
     timeout: int = 60
     max_retries: int = 3
     fallbacks: Optional[List[str]] = None

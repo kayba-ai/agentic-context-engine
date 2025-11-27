@@ -8,6 +8,7 @@ from typing import Any, Dict, Optional, Type, TypeVar
 from pydantic import BaseModel
 
 from ..llm import LLMClient, LLMResponse
+from .litellm_client import LiteLLMClient
 
 logger = logging.getLogger(__name__)
 
@@ -171,8 +172,17 @@ class InstructorClient:
                 {
                     "temperature": kwargs.get("temperature", config.temperature),
                     "max_tokens": kwargs.get("max_tokens", config.max_tokens),
-                    "top_p": kwargs.get("top_p", config.top_p),
                 }
+            )
+            # Only add top_p if explicitly set (not None)
+            top_p_value = kwargs.get("top_p", config.top_p)
+            if top_p_value is not None:
+                call_params["top_p"] = top_p_value
+
+            # Apply Claude parameter resolution to avoid temperature + top_p conflict
+            sampling_priority = getattr(config, "sampling_priority", "temperature")
+            call_params = LiteLLMClient._resolve_sampling_params(
+                call_params, model_name, sampling_priority
             )
 
         # Add any additional kwargs
