@@ -30,7 +30,7 @@ jobs:
 
     - name: Run tests with coverage
       run: |
-        uv run pytest
+        uv run pytest -m "not requires_api"
 
     - name: Upload coverage reports (Linux only)
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'

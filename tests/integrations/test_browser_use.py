@@ -57,6 +57,7 @@ class TestWrapPlaybookContext:
         assert "Test strategy" in result
 
 
+@pytest.mark.requires_api
 class TestACEAgentInitialization:
     """Test ACEAgent initialization."""
 
@@ -153,6 +154,7 @@ class TestACEAgentInitialization:
         assert agent.task == "Test task"
 
 
+@pytest.mark.requires_api
 class TestACEAgentLearningControl:
     """Test learning enable/disable functionality."""
 
@@ -212,6 +214,7 @@ class TestACEAgentLearningControl:
         assert "Strategic Knowledge" in strategies
 
 
+@pytest.mark.requires_api
 class TestACEAgentRunMethod:
     """Test ACEAgent.run() method."""
 
@@ -248,6 +251,7 @@ class TestACEAgentRunMethod:
         assert task_to_use == "Override task"
 
 
+@pytest.mark.requires_api
 class TestRichFeedbackBuilder:
     """Test rich feedback extraction from browser-use history."""
 
@@ -489,6 +493,7 @@ class TestACEAgentIntegration:
         pass
 
 
+@pytest.mark.requires_api
 class TestPromptVersionUsage:
     """Test that ACEAgent uses v2.1 prompts by default."""
 
@@ -556,6 +561,7 @@ class TestPromptVersionUsage:
         assert "These are learned patterns, not rigid rules" in result
 
 
+@pytest.mark.requires_api
 class TestCitationExtraction:
     """Test citation extraction in browser-use integration."""
 
@@ -730,6 +736,7 @@ class TestCitationExtraction:
         ), f"Expected 2 valid IDs, got {len(captured_bullet_ids)}: {captured_bullet_ids}"
 
 
+@pytest.mark.requires_api
 class TestBackwardsCompatibility:
     """Test that existing code patterns still work."""
 
