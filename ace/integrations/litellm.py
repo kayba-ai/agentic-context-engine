@@ -282,6 +282,7 @@ class ACELiteLLM:
             epochs=epochs,
             checkpoint_interval=checkpoint_interval,
             checkpoint_dir=checkpoint_dir,
+            wait_for_learning=not async_learning,  # Don't block if async
         )
 
         return results
