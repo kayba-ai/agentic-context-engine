@@ -39,7 +39,7 @@ Example:
     agent = ACELiteLLM(model="gpt-4o-mini", playbook_path="my_agent.json")
 """
 
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 from ..playbook import Playbook
 from ..roles import Generator, Reflector, Curator
@@ -163,6 +163,9 @@ class ACELiteLLM:
             self.llm, prompt_template=prompt_mgr.get_curator_prompt()
         )
 
+        # Store adapter reference for async learning control
+        self._adapter: Optional[OfflineAdapter] = None
+
     def ask(self, question: str, context: str = "") -> str:
         """
         Ask a question and get an answer (uses current playbook).
@@ -197,6 +200,8 @@ class ACELiteLLM:
         samples: List[Sample],
         environment: TaskEnvironment,
         epochs: int = 1,
+        async_learning: bool = False,
+        max_reflector_workers: int = 3,
         checkpoint_interval: Optional[int] = None,
         checkpoint_dir: Optional[str] = None,
     ):
@@ -209,6 +214,11 @@ class ACELiteLLM:
             samples: List of Sample objects to learn from
             environment: TaskEnvironment for evaluating results
             epochs: Number of training epochs (default: 1)
+            async_learning: Run learning in background (default: False)
+                           When True, Generator returns immediately while
+                           Reflector/Curator process in background.
+            max_reflector_workers: Number of parallel Reflector threads
+                                  (default: 3, only used when async_learning=True)
             checkpoint_interval: Save playbook every N samples (optional)
             checkpoint_dir: Directory for checkpoints (optional)
 
@@ -227,20 +237,32 @@ class ACELiteLLM:
             results = agent.learn(samples, SimpleEnvironment(), epochs=1)
 
             print(f"Learned {len(agent.playbook.bullets())} strategies")
+
+            # Async learning example
+            results = agent.learn(
+                samples, SimpleEnvironment(),
+                async_learning=True,
+                max_reflector_workers=3
+            )
+            # Results return immediately, learning continues in background
+            agent.wait_for_learning()  # Block until complete
+            print(agent.learning_stats)
         """
         if not self.is_learning:
             raise ValueError("Learning is disabled. Set is_learning=True first.")
 
         # Create offline adapter
-        adapter = OfflineAdapter(
+        self._adapter = OfflineAdapter(
             playbook=self.playbook,
             generator=self.generator,
             reflector=self.reflector,
             curator=self.curator,
+            async_learning=async_learning,
+            max_reflector_workers=max_reflector_workers,
         )
 
         # Run learning
-        results = adapter.run(
+        results = self._adapter.run(
             samples=samples,
             environment=environment,
             epochs=epochs,
@@ -303,6 +325,64 @@ class ACELiteLLM:
             lines.append(f"   Score: {score}")
 
         return "\n".join(lines)
+
+    def wait_for_learning(self, timeout: Optional[float] = None) -> bool:
+        """
+        Wait for async learning to complete.
+
+        Only relevant when using async_learning=True in learn().
+
+        Args:
+            timeout: Maximum seconds to wait (None = wait forever)
+
+        Returns:
+            True if all learning completed, False if timeout reached
+
+        Example:
+            agent.learn(samples, env, async_learning=True)
+            # Do other work while learning happens...
+            success = agent.wait_for_learning(timeout=60.0)
+            if success:
+                print("Learning complete!")
+        """
+        if self._adapter is None:
+            return True
+        return self._adapter.wait_for_learning(timeout)
+
+    @property
+    def learning_stats(self) -> Dict[str, Any]:
+        """
+        Get async learning statistics.
+
+        Returns:
+            Dictionary with learning progress info:
+            - async_learning: Whether async mode is enabled
+            - pending: Number of samples still being processed
+            - completed: Number of samples processed
+            - queue_size: Reflections waiting for Curator
+
+        Example:
+            stats = agent.learning_stats
+            print(f"Pending: {stats['pending']}")
+        """
+        if self._adapter is None:
+            return {"async_learning": False, "pending": 0, "completed": 0}
+        return self._adapter.learning_stats
+
+    def stop_async_learning(self):
+        """
+        Stop async learning pipeline.
+
+        Shuts down background threads and clears pending work.
+        Call this before exiting to ensure clean shutdown.
+
+        Example:
+            agent.learn(samples, env, async_learning=True)
+            # Decide to stop early...
+            agent.stop_async_learning()
+        """
+        if self._adapter:
+            self._adapter.stop_async_learning()
 
     def __repr__(self) -> str:
         """String representation."""

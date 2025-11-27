@@ -36,7 +36,8 @@ Example:
     ace_chain.save_playbook("chain_expert.json")
 """
 
-from typing import Any, Optional, Dict, Callable
+from typing import Any, Optional, Dict, Callable, List
+import asyncio
 import logging
 
 from ..playbook import Playbook
@@ -100,6 +101,7 @@ class ACELangChain:
         ace_model: str = "gpt-4o-mini",
         playbook_path: Optional[str] = None,
         is_learning: bool = True,
+        async_learning: bool = False,
         output_parser: Optional[Callable[[Any], str]] = None,
     ):
         """
@@ -110,6 +112,9 @@ class ACELangChain:
             ace_model: Model for ACE learning (Reflector/Curator)
             playbook_path: Path to existing playbook (optional)
             is_learning: Enable/disable learning (default: True)
+            async_learning: Run learning in background for ainvoke() (default: False)
+                           When True, ainvoke() returns immediately while
+                           Reflector/Curator process in background.
             output_parser: Custom function to parse runnable output to string
                           (default: converts to string)
 
@@ -119,6 +124,12 @@ class ACELangChain:
         Example:
             # Basic
             ace_chain = ACELangChain(my_chain)
+
+            # With async learning
+            ace_chain = ACELangChain(my_chain, async_learning=True)
+            result = await ace_chain.ainvoke(input)
+            # Result returns immediately, learning continues in background
+            await ace_chain.wait_for_learning()
 
             # With custom output parser
             def parse_output(result):
@@ -138,6 +149,8 @@ class ACELangChain:
 
         self.runnable = runnable
         self.is_learning = is_learning
+        self._async_learning = async_learning
+        self._learning_tasks: List[asyncio.Task] = []
         self.output_parser = output_parser or self._default_output_parser
 
         # Load or create playbook
@@ -216,6 +229,12 @@ class ACELangChain:
 
         Example:
             result = await ace_chain.ainvoke({"input": "Question"})
+
+            # With async_learning=True, learning happens in background
+            ace_chain = ACELangChain(chain, async_learning=True)
+            result = await ace_chain.ainvoke({"input": "Question"})
+            # Result returns immediately
+            await ace_chain.wait_for_learning()  # Wait for learning to complete
         """
         # Step 1: Inject playbook context
         enhanced_input = self._inject_context(input)
@@ -227,12 +246,20 @@ class ACELangChain:
             logger.error(f"Error executing runnable: {e}")
             # Learn from failure
             if self.is_learning:
-                self._learn_from_failure(input, str(e))
+                if self._async_learning:
+                    task = asyncio.create_task(self._alearn_from_failure(input, str(e)))
+                    self._learning_tasks.append(task)
+                else:
+                    await self._alearn_from_failure(input, str(e))
             raise
 
         # Step 3: Learn from result
         if self.is_learning:
-            self._learn(input, result)
+            if self._async_learning:
+                task = asyncio.create_task(self._alearn(input, result))
+                self._learning_tasks.append(task)
+            else:
+                await self._alearn(input, result)
 
         return result
 
@@ -393,6 +420,102 @@ class ACELangChain:
         except Exception as e:
             logger.error(f"ACE failure learning failed: {e}")
             # Don't crash
+
+    async def _alearn(self, original_input: Any, result: Any):
+        """
+        Async version of _learn for background execution.
+
+        Wraps the synchronous _learn method for use with asyncio.create_task.
+        """
+        self._learn(original_input, result)
+
+    async def _alearn_from_failure(self, original_input: Any, error_msg: str):
+        """
+        Async version of _learn_from_failure for background execution.
+
+        Wraps the synchronous _learn_from_failure method for use with asyncio.create_task.
+        """
+        self._learn_from_failure(original_input, error_msg)
+
+    async def wait_for_learning(self, timeout: Optional[float] = None) -> bool:
+        """
+        Wait for all background learning tasks to complete.
+
+        Only relevant when using async_learning=True.
+
+        Args:
+            timeout: Maximum seconds to wait (None = wait forever)
+
+        Returns:
+            True if all learning completed, False if timeout reached
+
+        Example:
+            ace_chain = ACELangChain(chain, async_learning=True)
+            result = await ace_chain.ainvoke(input)
+            # Do other work while learning happens...
+            success = await ace_chain.wait_for_learning(timeout=60.0)
+            if success:
+                print("Learning complete!")
+        """
+        if not self._learning_tasks:
+            return True
+
+        # Clean up completed tasks
+        self._learning_tasks = [t for t in self._learning_tasks if not t.done()]
+        if not self._learning_tasks:
+            return True
+
+        try:
+            await asyncio.wait_for(
+                asyncio.gather(*self._learning_tasks, return_exceptions=True),
+                timeout=timeout,
+            )
+            self._learning_tasks.clear()
+            return True
+        except asyncio.TimeoutError:
+            return False
+
+    @property
+    def learning_stats(self) -> Dict[str, Any]:
+        """
+        Get async learning statistics.
+
+        Returns:
+            Dictionary with learning progress info:
+            - tasks_submitted: Total tasks created
+            - pending: Number of tasks still running
+            - completed: Number of tasks finished
+            - async_learning: Whether async mode is enabled
+
+        Example:
+            stats = ace_chain.learning_stats
+            print(f"Pending: {stats['pending']}")
+        """
+        pending = [t for t in self._learning_tasks if not t.done()]
+        completed = len(self._learning_tasks) - len(pending)
+        return {
+            "tasks_submitted": len(self._learning_tasks),
+            "pending": len(pending),
+            "completed": completed,
+            "async_learning": self._async_learning,
+        }
+
+    def stop_async_learning(self):
+        """
+        Cancel all pending learning tasks.
+
+        Call this to stop background learning early.
+
+        Example:
+            ace_chain = ACELangChain(chain, async_learning=True)
+            await ace_chain.ainvoke(input)
+            # Decide to stop early...
+            ace_chain.stop_async_learning()
+        """
+        for task in self._learning_tasks:
+            if not task.done():
+                task.cancel()
+        self._learning_tasks.clear()
 
     @staticmethod
     def _default_output_parser(result: Any) -> str:
