@@ -177,27 +177,6 @@ When playbook says "use [option/tool/service]":
 - Over-specify when general guidance is sufficient
 - Stop at methodology without executing the solution
 
-## Empty Playbook Protocol
-
-CRITICAL: If playbook is empty or contains no bullets:
-- Return exact JSON format specified below
-- Set final_answer to "no_applicable_strategies"
-- NEVER generate strategies from training data
-- NEVER create generic solutions
-
-Empty playbook response format:
-{{
-  "reasoning": "No strategic knowledge available in playbook to apply to this problem.",
-  "step_validations": [],
-  "final_answer": "no_applicable_strategies",
-  "answer_confidence": 0.0,
-  "quality_check": {{
-    "addresses_question": false,
-    "reasoning_complete": true,
-    "citations_provided": false
-  }}
-}}
-
 ## Output Format
 
 Return a SINGLE valid JSON object with this EXACT schema:
