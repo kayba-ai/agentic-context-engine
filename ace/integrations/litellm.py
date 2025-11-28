@@ -416,7 +416,7 @@ class ACELiteLLM:
 
     def get_strategies(self) -> str:
         """
-        Get current learned strategies as formatted text.
+        Get current playbook strategies as formatted text.
 
         Returns:
             Formatted string with learned strategies (empty if none)
@@ -427,14 +427,9 @@ class ACELiteLLM:
         """
         if not self.playbook or not self.playbook.bullets():
             return ""
+        from .base import wrap_playbook_context
 
-        lines = ["Learned Strategies:"]
-        for i, bullet in enumerate(self.playbook.bullets(), 1):
-            score = f"+{bullet.helpful}/-{bullet.harmful}"
-            lines.append(f"{i}. [{bullet.id}] {bullet.content}")
-            lines.append(f"   Score: {score}")
-
-        return "\n".join(lines)
+        return wrap_playbook_context(self.playbook)
 
     def wait_for_learning(self, timeout: Optional[float] = None) -> bool:
         """
