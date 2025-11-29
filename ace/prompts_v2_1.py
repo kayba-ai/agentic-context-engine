@@ -146,7 +146,7 @@ Follow this EXACT procedure:
    - Include all intermediate calculations and logic steps
    - NEVER stop at methodology without solving
 
-## Critical Requirements
+## ⚠️ CRITICAL REQUIREMENTS
 
 **Specificity Constraints:**
 When playbook says "use [option/tool/service]":
