@@ -43,6 +43,16 @@ if [ ! -d "$WORKSPACE_DIR/.git" ]; then
     fi
     cp -r "$TEMPLATE_DIR" "$WORKSPACE_DIR"
     cd "$WORKSPACE_DIR"
+
+    # Copy .env.example to .env if needed
+    if [ -f "$WORKSPACE_DIR/.env.example" ]; then
+        if [ ! -f "$WORKSPACE_DIR/.env" ]; then
+            cp "$WORKSPACE_DIR/.env.example" "$WORKSPACE_DIR/.env"
+            echo "   ✅ Created .env from .env.example"
+            echo "   💡 Edit workspace/.env to add your ANTHROPIC_API_KEY"
+        fi
+    fi
+
     git init
     git add .
     git commit -m "Initial workspace setup
@@ -61,7 +71,24 @@ else
     git reset --hard HEAD > /dev/null 2>&1
     git clean -fd > /dev/null 2>&1  # Clean untracked files
     echo "   ✅ Workspace git reset to clean state"
+
+    # Copy .env.example to .env if needed
+    if [ -f "$WORKSPACE_DIR/.env.example" ]; then
+        if [ ! -f "$WORKSPACE_DIR/.env" ]; then
+            cp "$WORKSPACE_DIR/.env.example" "$WORKSPACE_DIR/.env"
+            echo "   ✅ Created .env from .env.example"
+            echo "   💡 Edit workspace/.env to add your ANTHROPIC_API_KEY"
+        else
+            echo "   ℹ️  .env already exists (keeping existing)"
+        fi
+    fi
 fi
+
+# Create timestamped branch for this run
+TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+BRANCH_NAME="run-$TIMESTAMP"
+git checkout -b "$BRANCH_NAME"
+echo "   ✅ Created branch: $BRANCH_NAME"
 echo ""
 
 # Step 2: Clone source code (outside workspace git tracking)
