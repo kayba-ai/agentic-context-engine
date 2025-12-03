@@ -56,7 +56,7 @@ print(answer)  # "ACE allows AI agents to remember and learn from experience!"
 
 ACE provides three ready-to-use integrations:
 
-### **ACELiteLLM** - Simplest Start 🚀
+### **ACELiteLLM** - Create Your Self-Improving Agent (Simplest Start) 🚀
 
 Perfect for Q&A, classification, reasoning:
 
@@ -72,7 +72,7 @@ answer2 = agent.ask("If all birds fly, can penguins (birds) fly?")  # Learns to 
 answer3 = agent.ask("If all metals conduct electricity, does copper conduct electricity?")
 
 # View learned strategies
-print(f"✅ Learned {len(agent.skillbook.skills())} reasoning strategies")
+print(f"✅ Learned {len(agent.skillbook.skills())} reasoning skills")
 
 # Save for reuse
 agent.save_skillbook("my_agent.json")
@@ -81,7 +81,20 @@ agent.save_skillbook("my_agent.json")
 agent2 = ACELiteLLM.from_skillbook("my_agent.json", model="gpt-4o-mini")
 ```
 
-### **ACEAgent (browser-use)** - Browser Automation 🌐
+### **ACELangChain** - Wrap ACE Around Your Existing Agent ⛓️
+
+Wrap any LangChain chain/agent with learning:
+
+```python
+from ace import ACELangChain
+
+ace_chain = ACELangChain(runnable=your_langchain_chain)
+result = ace_chain.invoke({"question": "Your task"})  # Learns automatically
+```
+
+**Best for:** Multi-step workflows, tool-using agents
+
+### **ACEAgent** - Enhance Browser-Use Agent with Self-Optimizing 🌐
 
 Self-improving browser agents with [browser-use](https://github.com/browser-use/browser-use):
 
@@ -110,19 +123,6 @@ await agent.run(task="New task")  # Starts smart!
 **Features:** Drop-in replacement for `browser_use.Agent`, automatic learning, reusable skillbooks
 **[→ Browser Use Guide](examples/browser-use/README.md)**
 
-### **ACELangChain** - Complex Workflows ⛓️
-
-Wrap any LangChain chain/agent with learning:
-
-```python
-from ace import ACELangChain
-
-ace_chain = ACELangChain(runnable=your_langchain_chain)
-result = ace_chain.invoke({"question": "Your task"})  # Learns automatically
-```
-
-**Best for:** Multi-step workflows, tool-using agents
-
 **[→ Integration Guide](docs/INTEGRATION_GUIDE.md)** | **[→ Examples](examples/)**
 
 ---
@@ -134,13 +134,16 @@ AI agents make the same mistakes repeatedly.
 ACE enables agents to learn from execution feedback: what works, what doesn't, and continuously improve. <br> No training data, no fine-tuning, just automatic improvement.
 
 ### Clear Benefits
+- 🧠 **Self-Improving**: Agents autonomously get smarter with each task
 - 📈 **20-35% Better Performance**: Proven improvements on complex tasks
-- 🧠 **Self-Improving**: Agents get smarter with each task
+- 📉 **Reduce Token Usage**: Demonstrated 49% reduction in browser-use example
+
+### Features
 - 🔄 **No Context Collapse**: Preserves valuable knowledge over time
 - ⚡ **Async Learning**: Agent responds instantly while learning happens in background
 - 🚀 **100+ LLM Providers**: Works with OpenAI, Anthropic, Google, and more
 - 📊 **Production Observability**: Built-in Opik integration for enterprise monitoring
-- 🔄 **Smart Deduplication**: Automatically consolidates similar strategies
+- 🔄 **Smart Deduplication**: Automatically consolidates similar skills
 
 ---
 
@@ -155,7 +158,7 @@ A challenge where LLMs often hallucinate that a seahorse emoji exists (it doesn'
 In this example:
 - **Round 1**: The agent incorrectly outputs 🐴 (horse emoji)
 - **Self-Reflection**: ACE reflects without any external feedback
-- **Round 2**: With learned strategies from ACE, the agent successfully realizes there is no seahorse emoji
+- **Round 2**: With learned skills from ACE, the agent successfully realizes there is no seahorse emoji
 
 Try it yourself:
 ```bash
@@ -182,9 +185,9 @@ uv run python examples/litellm/seahorse_emoji_ace.py
 *Based on the [ACE research framework](https://arxiv.org/abs/2510.04618) from Stanford & SambaNova.*
 
 ACE uses three specialized roles that work together:
-1. **🎯 Agent** - Creates strategies using learned patterns from the skillbook
+1. **🎯 Agent** - Creates a plan using learned skills and executes the task
 2. **🔍 Reflector** - Analyzes what worked and what didn't after execution
-3. **📝 SkillManager** - Updates the skillbook with new strategies based on reflection
+3. **📝 SkillManager** - Updates the skillbook with new skills based on reflection
 
 **Important:** The three ACE roles are different specialized prompts using the same language model, not separate models.
 
@@ -194,7 +197,7 @@ ACE teaches your agent and internalises:
 - **🔧 Tool usage** → Discover which tools work best for which tasks
 - **🎯 Edge cases** → Remember rare scenarios and how to handle them
 
-The magic happens in the **Skillbook**—a living document of strategies that evolves with experience. <br>
+The magic happens in the **Skillbook**—a living document of skills that evolves with experience. <br>
 **Key innovation:** All learning happens **in context** through incremental updates—no fine-tuning, no training data, and complete transparency into what your agent learned.
 
 ```mermaid
@@ -204,7 +207,7 @@ config:
   theme: neutral
 ---
 flowchart LR
-    Skillbook[("`**📚 Skillbook**<br>(Evolving Context)<br><br>•Strategy Skills<br> ✓ Helpful strategies <br>✗ Harmful patterns <br>○ Neutral observations`")]
+    Skillbook[("`**📚 Skillbook**<br>(Evolving Context)<br><br>•Strategy Skills<br> ✓ Helpful skills <br>✗ Harmful patterns <br>○ Neutral observations`")]
     Start(["**📝Query** <br>User prompt or question"]) --> Agent["**⚙️Agent** <br>Executes task using skillbook"]
     Agent --> Reflector
     Skillbook -. Provides Context .-> Agent
