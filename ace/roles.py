@@ -1,4 +1,4 @@
-"""Generator, Reflector, and Curator components."""
+"""Agent, Reflector, and SkillManager components."""
 
 from __future__ import annotations
 
@@ -9,16 +9,16 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .delta import DeltaBatch
+from .updates import UpdateBatch
 from .llm import LLMClient
-from .playbook import Playbook
+from .skillbook import Skillbook
 from .prompts_v2_1 import PromptManager
 
 # Use PromptManager to get v2.1 prompts with {current_date} filled in
 _prompt_manager = PromptManager(default_version="2.1")
-GENERATOR_PROMPT = _prompt_manager.get_generator_prompt()
+AGENT_PROMPT = _prompt_manager.get_agent_prompt()
 REFLECTOR_PROMPT = _prompt_manager.get_reflector_prompt()
-CURATOR_PROMPT = _prompt_manager.get_curator_prompt()
+SKILL_MANAGER_PROMPT = _prompt_manager.get_skill_manager_prompt()
 
 if TYPE_CHECKING:
     from .deduplication import DeduplicationManager
@@ -84,28 +84,28 @@ def _format_optional(value: Optional[str]) -> str:
     return value or "(none)"
 
 
-def extract_cited_bullet_ids(text: str) -> List[str]:
+def extract_cited_skill_ids(text: str) -> List[str]:
     """
-    Extract bullet IDs cited in text using [id-format] notation.
+    Extract skill IDs cited in text using [id-format] notation.
 
-    Parses text to find all bullet ID citations in format [section-00001].
+    Parses text to find all skill ID citations in format [section-00001].
     Used to track which strategies were applied by analyzing reasoning traces.
 
     Args:
-        text: Text containing bullet citations (reasoning, thoughts, etc.)
+        text: Text containing skill citations (reasoning, thoughts, etc.)
 
     Returns:
-        List of unique bullet IDs in order of first appearance.
+        List of unique skill IDs in order of first appearance.
         Empty list if no citations found.
 
     Example:
         >>> reasoning = "Following [general-00042], I verified the data. Using [geo-00003] for lookup."
-        >>> extract_cited_bullet_ids(reasoning)
+        >>> extract_cited_skill_ids(reasoning)
         ['general-00042', 'geo-00003']
 
         >>> # Filter to specific text (exclude tool outputs)
         >>> clean_text = get_agent_thoughts_only(history)
-        >>> cited_ids = extract_cited_bullet_ids(clean_text)
+        >>> cited_ids = extract_cited_skill_ids(clean_text)
         ['strategy-001']
 
     Note:
@@ -120,14 +120,14 @@ def extract_cited_bullet_ids(text: str) -> List[str]:
     return list(dict.fromkeys(matches))
 
 
-class GeneratorOutput(BaseModel):
-    """Output from the Generator role containing reasoning and answer."""
+class AgentOutput(BaseModel):
+    """Output from the Agent role containing reasoning and answer."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     reasoning: str = Field(..., description="Step-by-step reasoning process")
     final_answer: str = Field(..., description="The final answer to the question")
-    bullet_ids: List[str] = Field(
+    skill_ids: List[str] = Field(
         default_factory=list, description="IDs of strategies cited in reasoning"
     )
     raw: Dict[str, Any] = Field(
@@ -135,47 +135,47 @@ class GeneratorOutput(BaseModel):
     )
 
 
-class Generator:
+class Agent:
     """
-    Produces answers using the current playbook of strategies.
+    Produces answers using the current skillbook of strategies.
 
-    The Generator is one of three core ACE roles. It takes a question and
-    uses the accumulated strategies in the playbook to produce reasoned answers.
+    The Agent is one of three core ACE roles. It takes a question and
+    uses the accumulated strategies in the skillbook to produce reasoned answers.
 
     Args:
         llm: The LLM client to use for generation
-        prompt_template: Custom prompt template (uses GENERATOR_PROMPT by default)
+        prompt_template: Custom prompt template (uses AGENT_PROMPT by default)
         max_retries: Maximum validation retries via Instructor (default: 3)
 
     Example:
-        >>> from ace import Generator, LiteLLMClient, Playbook
+        >>> from ace import Agent, LiteLLMClient, Skillbook
         >>> client = LiteLLMClient(model="gpt-3.5-turbo")
-        >>> generator = Generator(client)
-        >>> playbook = Playbook()
+        >>> agent = Agent(client)
+        >>> skillbook = Skillbook()
         >>>
-        >>> output = generator.generate(
+        >>> output = agent.generate(
         ...     question="What is the capital of France?",
         ...     context="Answer concisely",
-        ...     playbook=playbook
+        ...     skillbook=skillbook
         ... )
         >>> print(output.final_answer)
         Paris
 
     Custom Prompt Example:
         >>> custom_prompt = '''
-        ... Use this playbook: {playbook}
+        ... Use this skillbook: {skillbook}
         ... Question: {question}
         ... Context: {context}
         ... Reflection: {reflection}
-        ... Return JSON with: reasoning, bullet_ids, final_answer
+        ... Return JSON with: reasoning, skill_ids, final_answer
         ... '''
-        >>> generator = Generator(client, prompt_template=custom_prompt)
+        >>> agent = Agent(client, prompt_template=custom_prompt)
     """
 
     def __init__(
         self,
         llm: LLMClient,
-        prompt_template: str = GENERATOR_PROMPT,
+        prompt_template: str = AGENT_PROMPT,
         *,
         max_retries: int = 3,
     ) -> None:
@@ -192,8 +192,8 @@ class Generator:
         self.max_retries = max_retries
 
     @maybe_track(
-        name="generator_generate",
-        tags=["ace-framework", "role", "generator"],
+        name="agent_generate",
+        tags=["ace-framework", "role", "agent"],
         project_name="ace-roles",
     )
     def generate(
@@ -201,14 +201,14 @@ class Generator:
         *,
         question: str,
         context: Optional[str],
-        playbook: Playbook,
+        skillbook: Skillbook,
         reflection: Optional[str] = None,
         **kwargs: Any,
-    ) -> GeneratorOutput:
+    ) -> AgentOutput:
         return self._generate_impl(
             question=question,
             context=context,
-            playbook=playbook,
+            skillbook=skillbook,
             reflection=reflection,
             **kwargs,
         )
@@ -218,42 +218,40 @@ class Generator:
         *,
         question: str,
         context: Optional[str],
-        playbook: Playbook,
+        skillbook: Skillbook,
         reflection: Optional[str] = None,
         **kwargs: Any,
-    ) -> GeneratorOutput:
+    ) -> AgentOutput:
         """
-        Generate an answer using the playbook strategies.
+        Generate an answer using the skillbook strategies.
 
         Args:
             question: The question to answer
             context: Additional context or requirements
-            playbook: The current playbook of strategies
+            skillbook: The current skillbook of strategies
             reflection: Optional reflection from previous attempts
             **kwargs: Additional arguments passed to the LLM
 
         Returns:
-            GeneratorOutput with reasoning, final_answer, and bullet_ids used
+            AgentOutput with reasoning, final_answer, and skill_ids used
         """
         base_prompt = self.prompt_template.format(
-            playbook=playbook.as_prompt() or "(empty playbook)",
+            skillbook=skillbook.as_prompt() or "(empty skillbook)",
             reflection=_format_optional(reflection),
             question=question,
             context=_format_optional(context),
         )
 
-        # Filter out non-LLM kwargs (like 'sample' used for ReplayGenerator)
+        # Filter out non-LLM kwargs (like 'sample' used for ReplayAgent)
         llm_kwargs = {k: v for k, v in kwargs.items() if k != "sample"}
 
         # Use Instructor for automatic validation (always available - core dependency)
-        output = self.llm.complete_structured(
-            base_prompt, GeneratorOutput, **llm_kwargs
-        )
-        output.bullet_ids = extract_cited_bullet_ids(output.reasoning)
+        output = self.llm.complete_structured(base_prompt, AgentOutput, **llm_kwargs)
+        output.skill_ids = extract_cited_skill_ids(output.reasoning)
         return output
 
 
-class ReplayGenerator:
+class ReplayAgent:
     """
     Replays pre-recorded responses instead of calling an LLM.
 
@@ -275,11 +273,11 @@ class ReplayGenerator:
         ...     "What is 2+2?": "4",
         ...     "What is the capital of France?": "Paris"
         ... }
-        >>> generator = ReplayGenerator(responses)
-        >>> output = generator.generate(
+        >>> agent = ReplayAgent(responses)
+        >>> output = agent.generate(
         ...     question="What is 2+2?",
         ...     context="",
-        ...     playbook=Playbook()
+        ...     skillbook=Skillbook()
         ... )
         >>> print(output.final_answer)
         4
@@ -287,11 +285,11 @@ class ReplayGenerator:
         Sample-based mode (for list-based datasets):
         >>> # Sample with response in metadata
         >>> sample = {'question': '...', 'metadata': {'response': 'answer'}}
-        >>> generator = ReplayGenerator()  # No dict needed
-        >>> output = generator.generate(
+        >>> agent = ReplayAgent()  # No dict needed
+        >>> output = agent.generate(
         ...     question=sample['question'],
         ...     context='',
-        ...     playbook=Playbook(),
+        ...     skillbook=Skillbook(),
         ...     sample=sample  # Pass sample in kwargs
         ... )
         >>> print(output.final_answer)
@@ -338,8 +336,8 @@ class ReplayGenerator:
         return None, None
 
     @maybe_track(
-        name="replay_generator_generate",
-        tags=["ace-framework", "role", "replay-generator"],
+        name="replay_agent_generate",
+        tags=["ace-framework", "role", "replay-agent"],
         project_name="ace-roles",
     )
     def generate(
@@ -347,10 +345,10 @@ class ReplayGenerator:
         *,
         question: str,
         context: Optional[str],
-        playbook: Playbook,
+        skillbook: Skillbook,
         reflection: Optional[str] = None,
         **kwargs: Any,
-    ) -> GeneratorOutput:
+    ) -> AgentOutput:
         """
         Return the pre-recorded response for the given question.
 
@@ -362,12 +360,12 @@ class ReplayGenerator:
         Args:
             question: The question to answer
             context: Additional context (ignored in replay)
-            playbook: The current playbook (ignored in replay)
+            skillbook: The current skillbook (ignored in replay)
             reflection: Optional reflection (ignored in replay)
             **kwargs: Additional arguments. Can include 'sample' for sample-based mode.
 
         Returns:
-            GeneratorOutput with the replayed answer
+            AgentOutput with the replayed answer
 
         Raises:
             ValueError: If no response can be found and no default is set
@@ -400,7 +398,7 @@ class ReplayGenerator:
         # Validation: Ensure we have a response
         if not final_answer:
             raise ValueError(
-                f"ReplayGenerator could not find response for question: '{question[:100]}...'. "
+                f"ReplayAgent could not find response for question: '{question[:100]}...'. "
                 f"Checked: sample={('sample' in kwargs)}, "
                 f"responses_dict={question in self.responses}, "
                 f"default_response={bool(self.default_response)}. "
@@ -419,15 +417,15 @@ class ReplayGenerator:
             response_source if response_source else "", "[Replayed - source unknown]"
         )
 
-        # Return GeneratorOutput matching the interface
-        return GeneratorOutput(
+        # Return AgentOutput matching the interface
+        return AgentOutput(
             reasoning=reasoning,
             final_answer=final_answer,
-            bullet_ids=[],  # No bullets used in replay
+            skill_ids=[],  # No skills used in replay
             raw={
                 "reasoning": reasoning,
                 "final_answer": final_answer,
-                "bullet_ids": [],
+                "skill_ids": [],
                 "replay_metadata": {
                     "response_source": response_source,
                     "question_found_in_dict": question in self.responses,
@@ -450,17 +448,17 @@ class ExtractedLearning(BaseModel):
     )
 
 
-class BulletTag(BaseModel):
-    """Classification tag for a bullet strategy (helpful/harmful/neutral)."""
+class SkillTag(BaseModel):
+    """Classification tag for a skill strategy (helpful/harmful/neutral)."""
 
-    id: str = Field(..., description="The bullet ID being tagged")
+    id: str = Field(..., description="The skill ID being tagged")
     tag: str = Field(
         ..., description="Classification: 'helpful', 'harmful', or 'neutral'"
     )
 
 
 class ReflectorOutput(BaseModel):
-    """Output from the Reflector role containing analysis and bullet classifications."""
+    """Output from the Reflector role containing analysis and skill classifications."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -480,7 +478,7 @@ class ReflectorOutput(BaseModel):
     extracted_learnings: List[ExtractedLearning] = Field(
         default_factory=list, description="Learnings extracted from task execution"
     )
-    bullet_tags: List[BulletTag] = Field(
+    skill_tags: List[SkillTag] = Field(
         default_factory=list, description="Classifications of strategy effectiveness"
     )
     raw: Dict[str, Any] = Field(
@@ -490,11 +488,11 @@ class ReflectorOutput(BaseModel):
 
 class Reflector:
     """
-    Analyzes generator outputs to extract lessons and improve strategies.
+    Analyzes agent outputs to extract lessons and improve strategies.
 
-    The Reflector is the second ACE role. It analyzes the Generator's output
+    The Reflector is the second ACE role. It analyzes the Agent's output
     and environment feedback to understand what went right or wrong, classifying
-    which playbook bullets were helpful, harmful, or neutral.
+    which skillbook skills were helpful, harmful, or neutral.
 
     Args:
         llm: The LLM client to use for reflection
@@ -509,12 +507,11 @@ class Reflector:
         >>> reflection = reflector.reflect(
         ...     question="What is 2+2?",
         ...     context="Show your work",
-        ...     generator_trajectory="Reasoning: 2+2 = 4",
-        ...     final_answer="4",
+        ...     agent_output=agent_output,
         ...     execution_feedback="Correct!",
-        ...     playbook=playbook
+        ...     skillbook=skillbook
         ... )
-        >>> print(reflection.diagnosis)
+        >>> print(reflection.key_insight)
         Successfully solved the arithmetic problem
     """
 
@@ -546,16 +543,16 @@ class Reflector:
         self,
         *,
         question: str,
-        generator_output: GeneratorOutput,
-        playbook: Playbook,
+        agent_output: AgentOutput,
+        skillbook: Skillbook,
         ground_truth: Optional[str] = None,
         feedback: Optional[str] = None,
         **kwargs: Any,
     ) -> ReflectorOutput:
         return self._reflect_impl(
             question=question,
-            generator_output=generator_output,
-            playbook=playbook,
+            agent_output=agent_output,
+            skillbook=skillbook,
             ground_truth=ground_truth,
             feedback=feedback,
             **kwargs,
@@ -565,84 +562,88 @@ class Reflector:
         self,
         *,
         question: str,
-        generator_output: GeneratorOutput,
-        playbook: Playbook,
+        agent_output: AgentOutput,
+        skillbook: Skillbook,
         ground_truth: Optional[str],
         feedback: Optional[str],
         max_refinement_rounds: int = 1,
         **kwargs: Any,
     ) -> ReflectorOutput:
-        playbook_excerpt = _make_playbook_excerpt(playbook, generator_output.bullet_ids)
+        skillbook_excerpt = _make_skillbook_excerpt(skillbook, agent_output.skill_ids)
 
-        # Format playbook section based on citation presence
-        if playbook_excerpt:
-            playbook_context = f"Strategies Applied:\n{playbook_excerpt}"
+        # Format skillbook section based on citation presence
+        if skillbook_excerpt:
+            skillbook_context = f"Strategies Applied:\n{skillbook_excerpt}"
         else:
-            playbook_context = "(No strategies cited - outcome-based learning)"
+            skillbook_context = "(No strategies cited - outcome-based learning)"
 
         base_prompt = self.prompt_template.format(
             question=question,
-            reasoning=generator_output.reasoning,
-            prediction=generator_output.final_answer,
+            reasoning=agent_output.reasoning,
+            prediction=agent_output.final_answer,
             ground_truth=_format_optional(ground_truth),
             feedback=_format_optional(feedback),
-            playbook_excerpt=playbook_context,
+            skillbook_excerpt=skillbook_context,
         )
 
-        # Filter out non-LLM kwargs (like 'sample' used for ReplayGenerator)
+        # Filter out non-LLM kwargs (like 'sample' used for ReplayAgent)
         llm_kwargs = {k: v for k, v in kwargs.items() if k != "sample"}
 
         # Use Instructor for automatic validation (always available - core dependency)
         return self.llm.complete_structured(base_prompt, ReflectorOutput, **llm_kwargs)
 
 
-class CuratorOutput(BaseModel):
-    """Output from the Curator role containing playbook update operations."""
+class SkillManagerOutput(BaseModel):
+    """Output from the SkillManager role containing skillbook update operations."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    delta: DeltaBatch = Field(
-        ..., description="Batch of delta operations to apply to playbook"
+    update: UpdateBatch = Field(
+        ..., description="Batch of update operations to apply to skillbook"
+    )
+    consolidation_operations: Optional[List[Dict[str, Any]]] = Field(
+        default=None,
+        description="Operations to consolidate similar skills (MERGE, DELETE, KEEP, UPDATE)",
     )
     raw: Dict[str, Any] = Field(
         default_factory=dict, description="Raw LLM response data"
     )
 
 
-class Curator:
+class SkillManager:
     """
-    Transforms reflections into actionable playbook updates.
+    Transforms reflections into actionable skillbook updates.
 
-    The Curator is the third ACE role. It analyzes the Reflector's output
-    and decides how to update the playbook - adding new strategies, updating
+    The SkillManager is the third ACE role. It analyzes the Reflector's output
+    and decides how to update the skillbook - adding new strategies, updating
     existing ones, or removing harmful patterns.
 
     Args:
-        llm: The LLM client to use for curation
-        prompt_template: Custom prompt template (uses CURATOR_PROMPT by default)
+        llm: The LLM client to use for skill management
+        prompt_template: Custom prompt template (uses SKILL_MANAGER_PROMPT by default)
         max_retries: Maximum validation retries via Instructor (default: 3)
-        dedup_manager: Optional DeduplicationManager for bullet deduplication
+        dedup_manager: Optional DeduplicationManager for skill deduplication
 
     Example:
-        >>> from ace import Curator, LiteLLMClient
+        >>> from ace import SkillManager, LiteLLMClient
         >>> client = LiteLLMClient(model="gpt-4")
-        >>> curator = Curator(client)
+        >>> skill_manager = SkillManager(client)
         >>>
-        >>> # Process reflection to get delta updates
-        >>> output = curator.curate(
+        >>> # Process reflection to get update operations
+        >>> output = skill_manager.update_skills(
         ...     reflection=reflection_output,
-        ...     playbook=playbook,
+        ...     skillbook=skillbook,
         ...     question_context="Math problem solving",
         ...     progress="5/10 problems solved correctly"
         ... )
-        >>> # Apply the delta to update playbook
-        >>> playbook.apply_delta(output.delta)
+        >>> # Apply the update to skillbook
+        >>> skillbook.apply_update(output.update)
 
     With Deduplication:
         >>> from ace.deduplication import DeduplicationManager, DeduplicationConfig
         >>> dedup_manager = DeduplicationManager(DeduplicationConfig())
-        >>> curator = Curator(client, dedup_manager=dedup_manager)
-        >>> # Curator will now include similarity reports in prompts
+        >>> skill_manager = SkillManager(client, dedup_manager=dedup_manager)
+        >>> # SkillManager will now include similarity reports in prompts
         >>> # and handle MERGE/DELETE/KEEP/UPDATE consolidation operations
 
     Custom Prompt Example:
@@ -650,30 +651,30 @@ class Curator:
         ... Progress: {progress}
         ... Stats: {stats}
         ... Reflection: {reflection}
-        ... Playbook: {playbook}
+        ... Skillbook: {skillbook}
         ... Context: {question_context}
         ... Similarity Report: {similarity_report}
-        ... Decide what changes to make. Return JSON with delta operations.
+        ... Decide what changes to make. Return JSON with update operations.
         ... '''
-        >>> curator = Curator(client, prompt_template=custom_prompt)
+        >>> skill_manager = SkillManager(client, prompt_template=custom_prompt)
 
-    The Curator emits DeltaOperations:
-        - ADD: Add new strategy bullets
-        - UPDATE: Modify existing bullets
+    The SkillManager emits UpdateOperations:
+        - ADD: Add new strategy skills
+        - UPDATE: Modify existing skills
         - TAG: Update helpful/harmful counts
-        - REMOVE: Delete unhelpful bullets
+        - REMOVE: Delete unhelpful skills
 
     With deduplication enabled, also handles ConsolidationOperations:
-        - MERGE: Combine similar bullets
-        - DELETE: Soft-delete redundant bullets
-        - KEEP: Mark similar bullets as intentionally separate
-        - UPDATE: Refine content to differentiate similar bullets
+        - MERGE: Combine similar skills
+        - DELETE: Soft-delete redundant skills
+        - KEEP: Mark similar skills as intentionally separate
+        - UPDATE: Refine content to differentiate similar skills
     """
 
     def __init__(
         self,
         llm: LLMClient,
-        prompt_template: str = CURATOR_PROMPT,
+        prompt_template: str = SKILL_MANAGER_PROMPT,
         *,
         max_retries: int = 3,
         dedup_manager: Optional["DeduplicationManager"] = None,
@@ -692,53 +693,53 @@ class Curator:
         self.dedup_manager = dedup_manager
 
     @maybe_track(
-        name="curator_curate",
-        tags=["ace-framework", "role", "curator"],
+        name="skill_manager_update_skills",
+        tags=["ace-framework", "role", "skill-manager"],
         project_name="ace-roles",
     )
-    def curate(
+    def update_skills(
         self,
         *,
         reflection: ReflectorOutput,
-        playbook: Playbook,
+        skillbook: Skillbook,
         question_context: str,
         progress: str,
         **kwargs: Any,
-    ) -> CuratorOutput:
-        return self._curate_impl(
+    ) -> SkillManagerOutput:
+        return self._update_skills_impl(
             reflection=reflection,
-            playbook=playbook,
+            skillbook=skillbook,
             question_context=question_context,
             progress=progress,
             **kwargs,
         )
 
-    def _curate_impl(
+    def _update_skills_impl(
         self,
         *,
         reflection: ReflectorOutput,
-        playbook: Playbook,
+        skillbook: Skillbook,
         question_context: str,
         progress: str,
         **kwargs: Any,
-    ) -> CuratorOutput:
+    ) -> SkillManagerOutput:
         """
-        Generate delta operations to update the playbook based on reflection.
+        Generate update operations to modify the skillbook based on reflection.
 
         If a DeduplicationManager is configured, this method will:
-        1. Generate a similarity report for similar bullet pairs
-        2. Include the report in the prompt for the Curator to handle
+        1. Generate a similarity report for similar skill pairs
+        2. Include the report in the prompt for the SkillManager to handle
         3. Parse and apply consolidation operations from the response
 
         Args:
             reflection: The Reflector's analysis of what went right/wrong
-            playbook: Current playbook to potentially update
+            skillbook: Current skillbook to potentially update
             question_context: Description of the task domain or question type
             progress: Current progress summary (e.g., "5/10 correct")
             **kwargs: Additional arguments passed to the LLM
 
         Returns:
-            CuratorOutput containing the delta operations to apply
+            SkillManagerOutput containing the update operations to apply
 
         Raises:
             RuntimeError: If unable to produce valid JSON after max_retries
@@ -746,9 +747,9 @@ class Curator:
         # Get similarity report if deduplication is enabled
         similarity_report = None
         if self.dedup_manager is not None:
-            similarity_report = self.dedup_manager.get_similarity_report(playbook)
+            similarity_report = self.dedup_manager.get_similarity_report(skillbook)
             if similarity_report:
-                logger.info("Including similarity report in Curator prompt")
+                logger.info("Including similarity report in SkillManager prompt")
 
         # Serialize reflection with all meaningful fields (not just empty 'raw')
         reflection_data = {
@@ -764,9 +765,9 @@ class Curator:
 
         base_prompt = self.prompt_template.format(
             progress=progress,
-            stats=json.dumps(playbook.stats()),
+            stats=json.dumps(skillbook.stats()),
             reflection=json.dumps(reflection_data, ensure_ascii=False, indent=2),
-            playbook=playbook.as_prompt() or "(empty playbook)",
+            skillbook=skillbook.as_prompt() or "(empty skillbook)",
             question_context=question_context,
         )
 
@@ -774,16 +775,21 @@ class Curator:
         if similarity_report:
             base_prompt = base_prompt + "\n\n" + similarity_report
 
-        # Filter out non-LLM kwargs (like 'sample' used for ReplayGenerator)
+        # Filter out non-LLM kwargs (like 'sample' used for ReplayAgent)
         llm_kwargs = {k: v for k, v in kwargs.items() if k != "sample"}
 
         # Use Instructor for automatic validation (always available - core dependency)
-        output = self.llm.complete_structured(base_prompt, CuratorOutput, **llm_kwargs)
+        output = self.llm.complete_structured(
+            base_prompt, SkillManagerOutput, **llm_kwargs
+        )
 
         # Apply consolidation operations if deduplication is enabled
-        if self.dedup_manager is not None and output.raw:
+        if self.dedup_manager is not None and output.consolidation_operations:
+            response_data = {
+                "consolidation_operations": output.consolidation_operations
+            }
             applied_ops = self.dedup_manager.apply_operations_from_response(
-                output.raw, playbook
+                response_data, skillbook
             )
             if applied_ops:
                 logger.info(f"Applied {len(applied_ops)} consolidation operations")
@@ -791,14 +797,14 @@ class Curator:
         return output
 
 
-def _make_playbook_excerpt(playbook: Playbook, bullet_ids: Sequence[str]) -> str:
+def _make_skillbook_excerpt(skillbook: Skillbook, skill_ids: Sequence[str]) -> str:
     lines: List[str] = []
     seen = set()
-    for bullet_id in bullet_ids:
-        if bullet_id in seen:
+    for skill_id in skill_ids:
+        if skill_id in seen:
             continue
-        bullet = playbook.get_bullet(bullet_id)
-        if bullet:
-            seen.add(bullet_id)
-            lines.append(f"[{bullet.id}] {bullet.content}")
+        skill = skillbook.get_skill(skill_id)
+        if skill:
+            seen.add(skill_id)
+            lines.append(f"[{skill.id}] {skill.content}")
     return "\n".join(lines)

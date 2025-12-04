@@ -11,9 +11,9 @@ Available Integrations:
 
 Pattern:
     All integrations follow the same pattern:
-    1. External framework executes task (or ACE Generator for LiteLLM)
-    2. ACE injects playbook context beforehand (via wrap_playbook_context)
-    3. ACE learns from execution afterward (Reflector + Curator)
+    1. External framework executes task (or ACE Agent for LiteLLM)
+    2. ACE injects skillbook context beforehand (via wrap_skillbook_context)
+    3. ACE learns from execution afterward (Reflector + SkillManager)
 
 Example:
     # LiteLLM (quick start)
@@ -35,7 +35,7 @@ Example:
     result = ace_chain.invoke("What is ACE?")
 """
 
-from .base import wrap_playbook_context
+from .base import wrap_skillbook_context
 
 # Import LiteLLM integration (always available if ace-framework installed)
 try:
@@ -58,7 +58,7 @@ except ImportError:
     LANGCHAIN_AVAILABLE = False
 
 __all__ = [
-    "wrap_playbook_context",
+    "wrap_skillbook_context",
     "ACELiteLLM",
     "ACEAgent",
     "ACELangChain",

@@ -40,12 +40,12 @@ Do you have an existing agentic system?
 **INTEGRATION PATTERN** (this guide):
 - Your agent executes tasks (browser-use, LangChain, custom API)
 - ACE **learns** from results (doesn't execute)
-- Components: Playbook + Reflector + Curator (NO Generator)
+- Components: Skillbook + Reflector + SkillManager (NO Agent)
 - Use case: Wrapping existing agents with learning
 
 **FULL ACE PIPELINE** (not this guide):
-- ACE Generator executes tasks
-- Full ACE components: Playbook + Generator + Reflector + Curator
+- ACE Agent executes tasks
+- Full ACE components: Skillbook + Agent + Reflector + SkillManager
 - Use case: Building new agents from scratch
 - See: `ace.integrations.ACELiteLLM` class
 
@@ -57,26 +57,26 @@ All ACE integrations follow a three-step pattern:
 
 ### Step 1: INJECT (Optional but Recommended)
 
-Add learned strategies from the playbook to your agent's input.
+Add learned strategies from the skillbook to your agent's input.
 
 ```python
-from ace.integrations.base import wrap_playbook_context
-from ace import Playbook
+from ace.integrations.base import wrap_skillbook_context
+from ace import Skillbook
 
-playbook = Playbook()  # or load existing: Playbook.load_from_file("expert.json")
+skillbook = Skillbook()  # or load existing: Skillbook.load_from_file("expert.json")
 task = "Process user request"
 
-# Inject playbook context
-if playbook.bullets():
-    enhanced_task = f"{task}\n\n{wrap_playbook_context(playbook)}"
+# Inject skillbook context
+if skillbook.skills():
+    enhanced_task = f"{task}\n\n{wrap_skillbook_context(skillbook)}"
 else:
     enhanced_task = task  # No learned strategies yet
 ```
 
-**What does `wrap_playbook_context()` do?**
+**What does `wrap_skillbook_context()` do?**
 - Formats learned strategies with success rates
 - Adds usage instructions for the agent
-- Returns empty string if no bullets (safe to call always)
+- Returns empty string if no skills (safe to call always)
 
 ### Step 2: EXECUTE
 
@@ -95,22 +95,22 @@ result = your_agent.execute(enhanced_task)
 
 ### Step 3: LEARN
 
-ACE analyzes the result and updates the playbook.
+ACE analyzes the result and updates the skillbook.
 
 ```python
-from ace import LiteLLMClient, Reflector, Curator
-from ace.roles import GeneratorOutput
+from ace import LiteLLMClient, Reflector, SkillManager
+from ace.roles import AgentOutput
 
 # Setup ACE learning components (do this once)
 llm = LiteLLMClient(model="gpt-4o-mini", max_tokens=2048)
 reflector = Reflector(llm)
-curator = Curator(llm)
+skill_manager = SkillManager(llm)
 
 # Create adapter for Reflector interface
-generator_output = GeneratorOutput(
+agent_output = AgentOutput(
     reasoning=f"Task: {task}",  # What happened
     final_answer=result.output,  # Agent's output
-    bullet_ids=[],  # External agents don't cite bullets
+    skill_ids=[],  # External agents don't cite skills
     raw={"success": result.success, "steps": result.steps}  # Metadata
 )
 
@@ -120,25 +120,25 @@ feedback = f"Task {'succeeded' if result.success else 'failed'}. Output: {result
 # Reflect: Analyze what worked/failed
 reflection = reflector.reflect(
     question=task,
-    generator_output=generator_output,
-    playbook=playbook,
+    agent_output=agent_output,
+    skillbook=skillbook,
     ground_truth=None,  # Optional: expected output
     feedback=feedback
 )
 
-# Curate: Generate playbook updates
-curator_output = curator.curate(
+# Curate: Generate skillbook updates
+skill_manager_output = skill_manager.curate(
     reflection=reflection,
-    playbook=playbook,
+    skillbook=skillbook,
     question_context=f"task: {task}",
     progress=f"Executing: {task}"
 )
 
 # Apply updates
-playbook.apply_delta(curator_output.delta)
+skillbook.apply_update(skill_manager_output.update)
 
 # Save for next time
-playbook.save_to_file("learned_strategies.json")
+skillbook.save_to_file("learned_strategies.json")
 ```
 
 ---
@@ -150,9 +150,9 @@ playbook.save_to_file("learned_strategies.json")
 Create a wrapper class that bundles your agent with ACE learning:
 
 ```python
-from ace import Playbook, LiteLLMClient, Reflector, Curator
-from ace.integrations.base import wrap_playbook_context
-from ace.roles import GeneratorOutput
+from ace import Skillbook, LiteLLMClient, Reflector, SkillManager
+from ace.integrations.base import wrap_skillbook_context
+from ace.roles import AgentOutput
 
 class ACEWrapper:
     """Wraps your custom agent with ACE learning."""
@@ -161,33 +161,33 @@ class ACEWrapper:
         self,
         agent,
         ace_model: str = "gpt-4o-mini",
-        playbook_path: str = None,
+        skillbook_path: str = None,
         is_learning: bool = True
     ):
         """
         Args:
             agent: Your agent instance
-            ace_model: Model for ACE learning (Reflector/Curator)
-            playbook_path: Path to existing playbook (optional)
+            ace_model: Model for ACE learning (Reflector/SkillManager)
+            skillbook_path: Path to existing skillbook (optional)
             is_learning: Enable/disable learning
         """
         self.agent = agent
         self.is_learning = is_learning
 
-        # Load or create playbook
-        if playbook_path:
-            self.playbook = Playbook.load_from_file(playbook_path)
+        # Load or create skillbook
+        if skillbook_path:
+            self.skillbook = Skillbook.load_from_file(skillbook_path)
         else:
-            self.playbook = Playbook()
+            self.skillbook = Skillbook()
 
         # Setup ACE learning components
         self.llm = LiteLLMClient(model=ace_model, max_tokens=2048)
         self.reflector = Reflector(self.llm)
-        self.curator = Curator(self.llm)
+        self.skill_manager = SkillManager(self.llm)
 
     def run(self, task: str):
         """Execute task with ACE learning."""
-        # STEP 1: Inject playbook context
+        # STEP 1: Inject skillbook context
         enhanced_task = self._inject_context(task)
 
         # STEP 2: Execute
@@ -200,18 +200,18 @@ class ACEWrapper:
         return result
 
     def _inject_context(self, task: str) -> str:
-        """Add playbook strategies to task."""
-        if self.playbook.bullets():
-            return f"{task}\n\n{wrap_playbook_context(self.playbook)}"
+        """Add skillbook strategies to task."""
+        if self.skillbook.skills():
+            return f"{task}\n\n{wrap_skillbook_context(self.skillbook)}"
         return task
 
     def _learn(self, task: str, result):
         """Run ACE learning pipeline."""
         # Adapt result to ACE interface
-        generator_output = GeneratorOutput(
+        agent_output = AgentOutput(
             reasoning=f"Task: {task}",
             final_answer=result.output,
-            bullet_ids=[],
+            skill_ids=[],
             raw={"success": result.success}
         )
 
@@ -221,29 +221,29 @@ class ACEWrapper:
         # Reflect
         reflection = self.reflector.reflect(
             question=task,
-            generator_output=generator_output,
-            playbook=self.playbook,
+            agent_output=agent_output,
+            skillbook=self.skillbook,
             feedback=feedback
         )
 
         # Curate
-        curator_output = self.curator.curate(
+        skill_manager_output = self.skill_manager.curate(
             reflection=reflection,
-            playbook=self.playbook,
+            skillbook=self.skillbook,
             question_context=f"task: {task}",
             progress=task
         )
 
-        # Update playbook
-        self.playbook.apply_delta(curator_output.delta)
+        # Update skillbook
+        self.skillbook.apply_update(skill_manager_output.update)
 
-    def save_playbook(self, path: str):
+    def save_skillbook(self, path: str):
         """Save learned strategies."""
-        self.playbook.save_to_file(path)
+        self.skillbook.save_to_file(path)
 
-    def load_playbook(self, path: str):
+    def load_skillbook(self, path: str):
         """Load existing strategies."""
-        self.playbook = Playbook.load_from_file(path)
+        self.skillbook = Skillbook.load_from_file(path)
 
     def enable_learning(self):
         """Enable learning."""
@@ -270,13 +270,13 @@ ace_agent = ACEWrapper(my_agent, is_learning=True)
 # Use it
 result = ace_agent.run("Process data")
 print(f"Result: {result.output}")
-print(f"Learned {len(ace_agent.playbook.bullets())} strategies")
+print(f"Learned {len(ace_agent.skillbook.skills())} strategies")
 
 # Save learned knowledge
-ace_agent.save_playbook("my_agent_learned.json")
+ace_agent.save_skillbook("my_agent_learned.json")
 
 # Next session: Load previous knowledge
-ace_agent = ACEWrapper(MyAgent(), playbook_path="my_agent_learned.json")
+ace_agent = ACEWrapper(MyAgent(), skillbook_path="my_agent_learned.json")
 ```
 
 ---
@@ -291,9 +291,9 @@ See [`ace/integrations/browser_use.py`](../ace/integrations/browser_use.py) for 
 
 1. **Context Injection** (line 182-189):
 ```python
-if self.is_learning and self.playbook.bullets():
-    playbook_context = wrap_playbook_context(self.playbook)
-    enhanced_task = f"{current_task}\n\n{playbook_context}"
+if self.is_learning and self.skillbook.skills():
+    skillbook_context = wrap_skillbook_context(self.skillbook)
+    enhanced_task = f"{current_task}\n\n{skillbook_context}"
 ```
 
 2. **Rich Feedback Extraction** (line 234-403):
@@ -302,20 +302,20 @@ if self.is_learning and self.playbook.bullets():
 - Provides detailed context for Reflector
 
 3. **Citation Extraction** (line 405-434):
-- Parses agent's reasoning for bullet citations
+- Parses agent's reasoning for skill citations
 - Filters invalid IDs (graceful degradation)
 
 4. **Learning Pipeline** (line 436-510):
-- Creates GeneratorOutput adapter
+- Creates AgentOutput adapter
 - Passes full trace to Reflector in `reasoning` field
-- Updates playbook via Curator
+- Updates skillbook via SkillManager
 
 **Why Browser-Use is a Good Reference:**
 - Shows rich feedback extraction
 - Handles async execution
 - Robust error handling
 - Learning toggle
-- Playbook persistence
+- Skillbook persistence
 
 ### Runnable Examples
 
@@ -345,9 +345,9 @@ Common patterns for integrating ACE with different types of agents. Each pattern
 #### Pattern
 
 ```python
-from ace import Playbook, LiteLLMClient, Reflector, Curator
-from ace.integrations.base import wrap_playbook_context
-from ace.roles import GeneratorOutput
+from ace import Skillbook, LiteLLMClient, Reflector, SkillManager
+from ace.integrations.base import wrap_skillbook_context
+from ace.roles import AgentOutput
 import requests
 
 class ACEAPIAgent:
@@ -356,18 +356,18 @@ class ACEAPIAgent:
     def __init__(self, api_url: str, api_key: str = None, ace_model: str = "gpt-4o-mini"):
         self.api_url = api_url
         self.api_key = api_key
-        self.playbook = Playbook()
+        self.skillbook = Skillbook()
 
         # ACE components
         llm = LiteLLMClient(model=ace_model, max_tokens=2048)
         self.reflector = Reflector(llm)
-        self.curator = Curator(llm)
+        self.skill_manager = SkillManager(llm)
 
     def execute(self, task: str):
         """Execute task via API with ACE learning."""
         # Inject context
-        if self.playbook.bullets():
-            task = f"{task}\n\n{wrap_playbook_context(self.playbook)}"
+        if self.skillbook.skills():
+            task = f"{task}\n\n{wrap_skillbook_context(self.skillbook)}"
 
         # API call
         headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
@@ -389,10 +389,10 @@ class ACEAPIAgent:
 
     def _learn(self, task: str, output: str, success: bool):
         # Create adapter
-        generator_output = GeneratorOutput(
+        agent_output = AgentOutput(
             reasoning=f"API call for task: {task}",
             final_answer=output,
-            bullet_ids=[],
+            skill_ids=[],
             raw={"success": success}
         )
 
@@ -402,24 +402,24 @@ class ACEAPIAgent:
         # Reflect + Curate
         reflection = self.reflector.reflect(
             question=task,
-            generator_output=generator_output,
-            playbook=self.playbook,
+            agent_output=agent_output,
+            skillbook=self.skillbook,
             feedback=feedback
         )
 
-        curator_output = self.curator.curate(
+        skill_manager_output = self.skill_manager.curate(
             reflection=reflection,
-            playbook=self.playbook,
+            skillbook=self.skillbook,
             question_context=f"API task: {task}",
             progress=task
         )
 
-        self.playbook.apply_delta(curator_output.delta)
+        self.skillbook.apply_update(skill_manager_output.update)
 
 # Usage
 agent = ACEAPIAgent(api_url="https://api.example.com", api_key="...")
 result = agent.execute("Process user data")
-agent.playbook.save_to_file("api_agent_learned.json")
+agent.skillbook.save_to_file("api_agent_learned.json")
 ```
 
 #### Key Considerations
@@ -460,17 +460,17 @@ class ACEWorkflowAgent:
 
     def __init__(self, workflow_agent, ace_model: str = "gpt-4o-mini"):
         self.agent = workflow_agent
-        self.playbook = Playbook()
+        self.skillbook = Skillbook()
 
         llm = LiteLLMClient(model=ace_model, max_tokens=2048)
         self.reflector = Reflector(llm)
-        self.curator = Curator(llm)
+        self.skill_manager = SkillManager(llm)
 
     def run(self, task: str) -> WorkflowResult:
         """Execute workflow with ACE learning."""
         # Inject context
-        if self.playbook.bullets():
-            task = f"{task}\n\n{wrap_playbook_context(self.playbook)}"
+        if self.skillbook.skills():
+            task = f"{task}\n\n{wrap_skillbook_context(self.skillbook)}"
 
         # Execute workflow (returns WorkflowResult)
         result = self.agent.execute_workflow(task)
@@ -499,10 +499,10 @@ class ACEWorkflowAgent:
         feedback = "\n".join(feedback_parts)
 
         # Create adapter with full trace
-        generator_output = GeneratorOutput(
+        agent_output = AgentOutput(
             reasoning=feedback,  # Full workflow trace
             final_answer=result.final_output,
-            bullet_ids=[],
+            skill_ids=[],
             raw={
                 "total_steps": len(result.steps),
                 "successful_steps": sum(1 for s in result.steps if s.success),
@@ -513,19 +513,19 @@ class ACEWorkflowAgent:
         # Reflect + Curate
         reflection = self.reflector.reflect(
             question=task,
-            generator_output=generator_output,
-            playbook=self.playbook,
+            agent_output=agent_output,
+            skillbook=self.skillbook,
             feedback=feedback
         )
 
-        curator_output = self.curator.curate(
+        skill_manager_output = self.skill_manager.curate(
             reflection=reflection,
-            playbook=self.playbook,
+            skillbook=self.skillbook,
             question_context=f"Multi-step workflow: {task}",
             progress=f"Completed {len(result.steps)} steps"
         )
 
-        self.playbook.apply_delta(curator_output.delta)
+        self.skillbook.apply_update(skill_manager_output.update)
 
 # Usage
 workflow_agent = MyWorkflowAgent()
@@ -555,18 +555,18 @@ class ACEToolAgent:
 
     def __init__(self, agent, ace_model: str = "gpt-4o-mini"):
         self.agent = agent
-        self.playbook = Playbook()
+        self.skillbook = Skillbook()
         self.original_system_message = agent.system_message
 
         llm = LiteLLMClient(model=ace_model, max_tokens=2048)
         self.reflector = Reflector(llm)
-        self.curator = Curator(llm)
+        self.skill_manager = SkillManager(llm)
 
     def run(self, task: str):
         """Execute with tool access and ACE learning."""
-        # Inject playbook into system message (not task)
-        if self.playbook.bullets():
-            context = wrap_playbook_context(self.playbook)
+        # Inject skillbook into system message (not task)
+        if self.skillbook.skills():
+            context = wrap_skillbook_context(self.skillbook)
             self.agent.system_message = f"{self.original_system_message}\n\n{context}"
 
         # Execute (agent selects and uses tools)
@@ -600,29 +600,29 @@ class ACEToolAgent:
         feedback = "\n".join(feedback_parts)
 
         # Adapter
-        generator_output = GeneratorOutput(
+        agent_output = AgentOutput(
             reasoning=feedback,
             final_answer=result["output"],
-            bullet_ids=[],
+            skill_ids=[],
             raw={"tools_used": [t["name"] for t in tools_used]}
         )
 
         # Reflect + Curate
         reflection = self.reflector.reflect(
             question=task,
-            generator_output=generator_output,
-            playbook=self.playbook,
+            agent_output=agent_output,
+            skillbook=self.skillbook,
             feedback=feedback
         )
 
-        curator_output = self.curator.curate(
+        skill_manager_output = self.skill_manager.curate(
             reflection=reflection,
-            playbook=self.playbook,
+            skillbook=self.skillbook,
             question_context=f"Tool-using task: {task}",
             progress=f"Used {len(tools_used)} tools"
         )
 
-        self.playbook.apply_delta(curator_output.delta)
+        self.skillbook.apply_update(skill_manager_output.update)
 
 # Usage
 tool_agent = MyToolUsingAgent(tools=[...])
@@ -654,17 +654,17 @@ class ACEAsyncAgent:
 
     def __init__(self, async_agent, ace_model: str = "gpt-4o-mini"):
         self.agent = async_agent
-        self.playbook = Playbook()
+        self.skillbook = Skillbook()
 
         llm = LiteLLMClient(model=ace_model, max_tokens=2048)
         self.reflector = Reflector(llm)
-        self.curator = Curator(llm)
+        self.skill_manager = SkillManager(llm)
 
     async def run(self, task: str):
         """Async execution with ACE learning."""
         # Inject context
-        if self.playbook.bullets():
-            task = f"{task}\n\n{wrap_playbook_context(self.playbook)}"
+        if self.skillbook.skills():
+            task = f"{task}\n\n{wrap_skillbook_context(self.skillbook)}"
 
         # Execute (async)
         result = await self.agent.execute(task)
@@ -676,10 +676,10 @@ class ACEAsyncAgent:
 
     def _learn(self, task: str, result):
         """Sync learning pipeline (runs in thread)."""
-        generator_output = GeneratorOutput(
+        agent_output = AgentOutput(
             reasoning=f"Async task: {task}",
             final_answer=result["output"],
-            bullet_ids=[],
+            skill_ids=[],
             raw={"success": result["success"]}
         )
 
@@ -687,19 +687,19 @@ class ACEAsyncAgent:
 
         reflection = self.reflector.reflect(
             question=task,
-            generator_output=generator_output,
-            playbook=self.playbook,
+            agent_output=agent_output,
+            skillbook=self.skillbook,
             feedback=feedback
         )
 
-        curator_output = self.curator.curate(
+        skill_manager_output = self.skill_manager.curate(
             reflection=reflection,
-            playbook=self.playbook,
+            skillbook=self.skillbook,
             question_context=task,
             progress=task
         )
 
-        self.playbook.apply_delta(curator_output.delta)
+        self.skillbook.apply_update(skill_manager_output.update)
 
 # Usage
 async def main():
@@ -713,7 +713,7 @@ asyncio.run(main())
 ```
 
 #### Key Considerations
-- Use `asyncio.to_thread()` to run sync Reflector/Curator in background
+- Use `asyncio.to_thread()` to run sync Reflector/SkillManager in background
 - Don't block async event loop with sync ACE operations
 - Consider batching learning for high-throughput async systems
 
@@ -734,18 +734,18 @@ class ACEChatAgent:
 
     def __init__(self, chat_agent, ace_model: str = "gpt-4o-mini"):
         self.agent = chat_agent
-        self.playbook = Playbook()
+        self.skillbook = Skillbook()
         self.conversation_history = []
 
         llm = LiteLLMClient(model=ace_model, max_tokens=2048)
         self.reflector = Reflector(llm)
-        self.curator = Curator(llm)
+        self.skill_manager = SkillManager(llm)
 
     def chat(self, message: str) -> str:
         """Single chat turn with context injection."""
-        # Inject playbook on first message
-        if len(self.conversation_history) == 0 and self.playbook.bullets():
-            system_context = wrap_playbook_context(self.playbook)
+        # Inject skillbook on first message
+        if len(self.conversation_history) == 0 and self.skillbook.skills():
+            system_context = wrap_skillbook_context(self.skillbook)
             self.agent.add_system_message(system_context)
 
         # Chat
@@ -768,10 +768,10 @@ class ACEChatAgent:
         )
 
         # Learn from full conversation
-        generator_output = GeneratorOutput(
+        agent_output = AgentOutput(
             reasoning=conversation,
             final_answer=self.conversation_history[-1]["assistant"],
-            bullet_ids=[],
+            skill_ids=[],
             raw={"turns": len(self.conversation_history)}
         )
 
@@ -782,19 +782,19 @@ class ACEChatAgent:
 
         reflection = self.reflector.reflect(
             question=self.conversation_history[0]["user"],
-            generator_output=generator_output,
-            playbook=self.playbook,
+            agent_output=agent_output,
+            skillbook=self.skillbook,
             feedback=feedback_text
         )
 
-        curator_output = self.curator.curate(
+        skill_manager_output = self.skill_manager.curate(
             reflection=reflection,
-            playbook=self.playbook,
+            skillbook=self.skillbook,
             question_context=f"Multi-turn conversation ({len(self.conversation_history)} turns)",
             progress="Conversation completed"
         )
 
-        self.playbook.apply_delta(curator_output.delta)
+        self.skillbook.apply_update(skill_manager_output.update)
 
         # Reset for next conversation
         self.conversation_history = []
@@ -810,12 +810,12 @@ ace_agent.chat("Thanks, that works!")
 
 # Learn from entire conversation
 ace_agent.end_conversation(success=True, feedback="User satisfied")
-ace_agent.playbook.save_to_file("chat_agent_learned.json")
+ace_agent.skillbook.save_to_file("chat_agent_learned.json")
 ```
 
 #### Key Considerations
 - Learn from complete conversation (not individual turns)
-- Inject playbook context at conversation start
+- Inject skillbook context at conversation start
 - Allow manual feedback at conversation end
 
 ---
@@ -835,19 +835,19 @@ class ACEBatchAgent:
 
     def __init__(self, agent, ace_model: str = "gpt-4o-mini", learn_every: int = 10):
         self.agent = agent
-        self.playbook = Playbook()
+        self.skillbook = Skillbook()
         self.learn_every = learn_every
         self.pending_results = []
 
         llm = LiteLLMClient(model=ace_model, max_tokens=2048)
         self.reflector = Reflector(llm)
-        self.curator = Curator(llm)
+        self.skill_manager = SkillManager(llm)
 
     def process(self, task: str):
         """Process single task (learn in batches)."""
         # Inject context
-        if self.playbook.bullets():
-            task = f"{task}\n\n{wrap_playbook_context(self.playbook)}"
+        if self.skillbook.skills():
+            task = f"{task}\n\n{wrap_skillbook_context(self.skillbook)}"
 
         # Execute
         result = self.agent.execute(task)
@@ -879,28 +879,28 @@ class ACEBatchAgent:
         # Use first task as representative
         task, result = self.pending_results[0]
 
-        generator_output = GeneratorOutput(
+        agent_output = AgentOutput(
             reasoning=f"Batch processing: {feedback}",
             final_answer=result["output"],
-            bullet_ids=[],
+            skill_ids=[],
             raw={"batch_size": len(self.pending_results), "success_rate": successes / len(self.pending_results)}
         )
 
         reflection = self.reflector.reflect(
             question=task,
-            generator_output=generator_output,
-            playbook=self.playbook,
+            agent_output=agent_output,
+            skillbook=self.skillbook,
             feedback=feedback
         )
 
-        curator_output = self.curator.curate(
+        skill_manager_output = self.skill_manager.curate(
             reflection=reflection,
-            playbook=self.playbook,
+            skillbook=self.skillbook,
             question_context=f"Batch processing ({len(self.pending_results)} items)",
             progress="Batch completed"
         )
 
-        self.playbook.apply_delta(curator_output.delta)
+        self.skillbook.apply_update(skill_manager_output.update)
 
         # Clear pending
         self.pending_results = []
@@ -919,7 +919,7 @@ for task in tasks:
 
 # Learn from remainder
 ace_agent.flush()
-ace_agent.playbook.save_to_file("batch_learned.json")
+ace_agent.skillbook.save_to_file("batch_learned.json")
 ```
 
 #### Key Considerations
@@ -944,17 +944,17 @@ class ACEStreamingAgent:
 
     def __init__(self, streaming_agent, ace_model: str = "gpt-4o-mini"):
         self.agent = streaming_agent
-        self.playbook = Playbook()
+        self.skillbook = Skillbook()
 
         llm = LiteLLMClient(model=ace_model, max_tokens=2048)
         self.reflector = Reflector(llm)
-        self.curator = Curator(llm)
+        self.skill_manager = SkillManager(llm)
 
     def stream(self, task: str):
         """Stream response with learning after completion."""
         # Inject context
-        if self.playbook.bullets():
-            task = f"{task}\n\n{wrap_playbook_context(self.playbook)}"
+        if self.skillbook.skills():
+            task = f"{task}\n\n{wrap_skillbook_context(self.skillbook)}"
 
         # Collect full response while streaming
         full_response = []
@@ -969,10 +969,10 @@ class ACEStreamingAgent:
 
     def _learn(self, task: str, response: str):
         """Learn from complete streamed response."""
-        generator_output = GeneratorOutput(
+        agent_output = AgentOutput(
             reasoning=f"Streamed response for: {task}",
             final_answer=response,
-            bullet_ids=[],
+            skill_ids=[],
             raw={"response_length": len(response)}
         )
 
@@ -980,19 +980,19 @@ class ACEStreamingAgent:
 
         reflection = self.reflector.reflect(
             question=task,
-            generator_output=generator_output,
-            playbook=self.playbook,
+            agent_output=agent_output,
+            skillbook=self.skillbook,
             feedback=feedback
         )
 
-        curator_output = self.curator.curate(
+        skill_manager_output = self.skill_manager.curate(
             reflection=reflection,
-            playbook=self.playbook,
+            skillbook=self.skillbook,
             question_context=task,
             progress="Streaming completed"
         )
 
-        self.playbook.apply_delta(curator_output.delta)
+        self.skillbook.apply_update(skill_manager_output.update)
 
 # Usage
 streaming_agent = MyStreamingAgent()
@@ -1024,18 +1024,18 @@ class ACERobustAgent:
 
     def __init__(self, agent, ace_model: str = "gpt-4o-mini", max_retries: int = 3):
         self.agent = agent
-        self.playbook = Playbook()
+        self.skillbook = Skillbook()
         self.max_retries = max_retries
 
         llm = LiteLLMClient(model=ace_model, max_tokens=2048)
         self.reflector = Reflector(llm)
-        self.curator = Curator(llm)
+        self.skill_manager = SkillManager(llm)
 
     def run(self, task: str):
         """Execute with retries and error learning."""
         # Inject context
-        if self.playbook.bullets():
-            task = f"{task}\n\n{wrap_playbook_context(self.playbook)}"
+        if self.skillbook.skills():
+            task = f"{task}\n\n{wrap_skillbook_context(self.skillbook)}"
 
         last_error = None
         for attempt in range(self.max_retries):
@@ -1067,29 +1067,29 @@ class ACERobustAgent:
                 final_answer = ""
 
             # Adapter
-            generator_output = GeneratorOutput(
+            agent_output = AgentOutput(
                 reasoning=f"Task: {task}. {feedback}",
                 final_answer=final_answer,
-                bullet_ids=[],
+                skill_ids=[],
                 raw={"success": success, "error": error}
             )
 
             # Reflect + Curate
             reflection = self.reflector.reflect(
                 question=task,
-                generator_output=generator_output,
-                playbook=self.playbook,
+                agent_output=agent_output,
+                skillbook=self.skillbook,
                 feedback=feedback
             )
 
-            curator_output = self.curator.curate(
+            skill_manager_output = self.skill_manager.curate(
                 reflection=reflection,
-                playbook=self.playbook,
+                skillbook=self.skillbook,
                 question_context=f"Task ({'success' if success else 'failure'}): {task}",
                 progress="Execution completed"
             )
 
-            self.playbook.apply_delta(curator_output.delta)
+            self.skillbook.apply_update(skill_manager_output.update)
 
         except Exception as learning_error:
             # Never crash due to learning failures
@@ -1103,7 +1103,7 @@ try:
     result = ace_agent.run("Risky task")
 except Exception as e:
     print(f"Task failed: {e}")
-    # But playbook learned from the failure!
+    # But skillbook learned from the failure!
 ```
 
 #### Key Considerations
@@ -1166,7 +1166,7 @@ ACE uses citations to track which strategies were used:
 
 **Extracting Citations:**
 ```python
-from ace.roles import extract_cited_bullet_ids
+from ace.roles import extract_cited_skill_ids
 
 # Agent's reasoning with citations
 reasoning = """
@@ -1175,14 +1175,14 @@ Step 2: Using [extraction-00003], extract title element.
 """
 
 # Extract citations
-cited_ids = extract_cited_bullet_ids(reasoning)
+cited_ids = extract_cited_skill_ids(reasoning)
 # Returns: ['navigation-00042', 'extraction-00003']
 
-# Pass to GeneratorOutput
-generator_output = GeneratorOutput(
+# Pass to AgentOutput
+agent_output = AgentOutput(
     reasoning=reasoning,
     final_answer=result,
-    bullet_ids=cited_ids,
+    skill_ids=cited_ids,
     raw={}
 )
 ```
@@ -1193,7 +1193,7 @@ generator_output = GeneratorOutput(
 if hasattr(history, 'model_thoughts'):
     thoughts = history.model_thoughts()
     thoughts_text = "\n".join(t.thinking for t in thoughts)
-    cited_ids = extract_cited_bullet_ids(thoughts_text)
+    cited_ids = extract_cited_skill_ids(thoughts_text)
 ```
 
 ### Handling Async Agents
@@ -1208,7 +1208,7 @@ async def run(self, task: str):
     # Execute (async)
     result = await self.agent.execute(enhanced_task)
 
-    # Learn (sync Reflector/Curator)
+    # Learn (sync Reflector/SkillManager)
     if self.is_learning:
         await asyncio.to_thread(self._learn, task, result)
 
@@ -1229,7 +1229,7 @@ def _learn(self, task: str, result):
         curator_output = self.curator.curate(...)
 
         # Update
-        self.playbook.apply_delta(curator_output.delta)
+        self.skillbook.apply_update(skill_manager_output.update)
 
     except Exception as e:
         logger.error(f"ACE learning failed: {e}")
@@ -1242,7 +1242,7 @@ ACE learning components need sufficient tokens:
 
 ```python
 # Reflector: 400-800 tokens typical
-# Curator: 300-1000 tokens typical
+# SkillManager: 300-1000 tokens typical
 llm = LiteLLMClient(model="gpt-4o-mini", max_tokens=2048)  # Recommended
 
 # For complex tasks with long traces:
@@ -1253,7 +1253,7 @@ llm = LiteLLMClient(model="gpt-4o-mini", max_tokens=4096)
 
 ## Troubleshooting
 
-### Problem: JSON Parsing Errors from Curator
+### Problem: JSON Parsing Errors from SkillManager
 
 **Cause:** Insufficient `max_tokens` for structured output
 
@@ -1266,17 +1266,17 @@ llm = LiteLLMClient(model="gpt-4o-mini", max_tokens=2048)  # or higher
 
 **Checks:**
 1. Is `is_learning=True`?
-2. Is Curator output non-empty? `print(curator_output.delta)`
-3. Is playbook being saved? `playbook.save_to_file(...)`
+2. Is SkillManager output non-empty? `print(skill_manager_output.update)`
+3. Is skillbook being saved? `skillbook.save_to_file(...)`
 
-### Problem: Too Many Bullets
+### Problem: Too Many Skills
 
-**Solution:** Curator automatically manages bullets via TAG operations. Review with:
+**Solution:** SkillManager automatically manages skills via TAG operations. Review with:
 ```python
-bullets = playbook.bullets()
-print(f"Total: {len(bullets)}")
-for b in bullets[:10]:
-    print(f"[{b.id}] +{b.helpful}/-{b.harmful}: {b.content}")
+skills = skillbook.skills()
+print(f"Total: {len(skills)}")
+for s in skills[:10]:
+    print(f"[{s.id}] +{s.helpful}/-{s.harmful}: {s.content}")
 ```
 
 ### Problem: High API Costs
@@ -1286,11 +1286,11 @@ for b in bullets[:10]:
 - Disable learning for simple tasks: `is_learning=False`
 - Batch learning: Learn only every N tasks
 
-### Problem: Agent Ignores Playbook Strategies
+### Problem: Agent Ignores Skillbook Strategies
 
 **Checks:**
 1. Are you actually injecting context? `print(enhanced_task)`
-2. Does playbook have bullets? `print(len(playbook.bullets()))`
+2. Does skillbook have skills? `print(len(skillbook.skills()))`
 3. Is context clear enough for your agent?
 
 ---
@@ -1300,7 +1300,7 @@ for b in bullets[:10]:
 1. **Start Simple:** Use the wrapper class template above
 2. **Adapt `_learn()`:** Customize for your agent's output format
 3. **Test Without Learning:** Set `is_learning=False` first
-4. **Enable Learning:** Turn on and monitor playbook growth
+4. **Enable Learning:** Turn on and monitor skillbook growth
 5. **Iterate:** Improve feedback extraction for better learning
 
 ---

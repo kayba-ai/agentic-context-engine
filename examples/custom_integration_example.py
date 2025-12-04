@@ -11,9 +11,9 @@ Requirements:
 """
 
 from dataclasses import dataclass
-from ace import Playbook, Reflector, Curator, LiteLLMClient
-from ace.integrations.base import wrap_playbook_context
-from ace.roles import GeneratorOutput
+from ace import Skillbook, Reflector, SkillManager, LiteLLMClient
+from ace.integrations.base import wrap_skillbook_context
+from ace.roles import AgentOutput
 
 
 # Simulated custom agent (replace with your actual agent)
@@ -39,28 +39,28 @@ class ACEWrappedAgent:
     Wraps any agent with ACE learning capabilities.
 
     Pattern:
-    1. Inject playbook context before execution
+    1. Inject skillbook context before execution
     2. Execute agent normally
-    3. Learn from results (Reflector + Curator)
+    3. Learn from results (Reflector + SkillManager)
     """
 
     def __init__(self, agent, ace_model: str = "gpt-4o-mini", is_learning: bool = True):
         self.agent = agent
-        self.playbook = Playbook()
+        self.skillbook = Skillbook()
         self.is_learning = is_learning
 
         # Create ACE learning components
         self.llm = LiteLLMClient(model=ace_model, max_tokens=2048)
         self.reflector = Reflector(self.llm)
-        self.curator = Curator(self.llm)
+        self.skill_manager = SkillManager(self.llm)
 
     def run(self, task: str) -> AgentResult:
         """Execute task with ACE learning."""
-        # 1. Inject playbook context (if available)
+        # 1. Inject skillbook context (if available)
         enhanced_task = task
-        if self.is_learning and self.playbook.bullets():
-            playbook_context = wrap_playbook_context(self.playbook)
-            enhanced_task = f"{task}\n\n{playbook_context}"
+        if self.is_learning and self.skillbook.skills():
+            skillbook_context = wrap_skillbook_context(self.skillbook)
+            enhanced_task = f"{task}\n\n{skillbook_context}"
 
         # 2. Execute agent
         result = self.agent.execute(enhanced_task)
@@ -74,10 +74,10 @@ class ACEWrappedAgent:
     def _learn(self, task: str, result: AgentResult):
         """Run ACE learning pipeline."""
         # Create adapter for Reflector (required interface)
-        generator_output = GeneratorOutput(
+        agent_output = AgentOutput(
             reasoning=f"Task: {task}",
             final_answer=result.output,
-            bullet_ids=[],  # External agent, not using ACE Generator
+            skill_ids=[],  # External agent, not using ACE Agent
             raw={"steps": result.steps, "success": result.success},
         )
 
@@ -91,30 +91,30 @@ class ACEWrappedAgent:
         # Reflect: Analyze what went right/wrong
         reflection = self.reflector.reflect(
             question=task,
-            generator_output=generator_output,
-            playbook=self.playbook,
+            agent_output=agent_output,
+            skillbook=self.skillbook,
             ground_truth=None,
             feedback=feedback,
         )
 
-        # Curate: Generate playbook updates
-        curator_output = self.curator.curate(
+        # Curate: Generate skillbook updates
+        skill_manager_output = self.skill_manager.curate(
             reflection=reflection,
-            playbook=self.playbook,
+            skillbook=self.skillbook,
             question_context=f"task: {task}\nfeedback: {feedback}",
             progress=f"Task: {task}",
         )
 
         # Apply updates
-        self.playbook.apply_delta(curator_output.delta)
+        self.skillbook.apply_update(skill_manager_output.update)
 
-    def save_playbook(self, path: str):
+    def save_skillbook(self, path: str):
         """Save learned knowledge."""
-        self.playbook.save_to_file(path)
+        self.skillbook.save_to_file(path)
 
-    def load_playbook(self, path: str):
+    def load_skillbook(self, path: str):
         """Load previously learned knowledge."""
-        self.playbook = Playbook.load_from_file(path)
+        self.skillbook = Skillbook.load_from_file(path)
 
 
 def main():
@@ -134,20 +134,20 @@ def main():
         print(f"\n📋 Task {i}: {task}")
         result = ace_agent.run(task)
         print(f"✅ Result: {result.output}")
-        print(f"📚 Learned {len(ace_agent.playbook.bullets())} strategies so far")
+        print(f"📚 Learned {len(ace_agent.skillbook.skills())} strategies so far")
 
     # Show learned strategies
     print("\n" + "=" * 50)
     print("🎯 Learned Strategies:")
     print("=" * 50)
-    for i, bullet in enumerate(ace_agent.playbook.bullets()[:5], 1):
-        print(f"{i}. {bullet.content}")
-        print(f"   Score: +{bullet.helpful}/-{bullet.harmful}\n")
+    for i, skill in enumerate(ace_agent.skillbook.skills()[:5], 1):
+        print(f"{i}. {skill.content}")
+        print(f"   Score: +{skill.helpful}/-{skill.harmful}\n")
 
     # Save for reuse
-    ace_agent.save_playbook("custom_agent_learned.json")
-    print("💾 Playbook saved to custom_agent_learned.json")
-    print("\n✨ Next time, load this playbook to start with learned knowledge!")
+    ace_agent.save_skillbook("custom_agent_learned.json")
+    print("💾 Skillbook saved to custom_agent_learned.json")
+    print("\n✨ Next time, load this skillbook to start with learned knowledge!")
 
 
 if __name__ == "__main__":

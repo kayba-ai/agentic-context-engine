@@ -8,7 +8,7 @@
 
 Agentic Context Engineering (ACE) is a framework introduced by researchers at Stanford University and SambaNova Systems that enables AI agents to improve performance by dynamically curating their own context through execution feedback.
 
-**Key Innovation:** Instead of updating model weights through expensive fine-tuning cycles, ACE treats context as a living "playbook" that evolves based on what strategies actually work in practice.
+**Key Innovation:** Instead of updating model weights through expensive fine-tuning cycles, ACE treats context as a living "skillbook" that evolves based on what strategies actually work in practice.
 
 **Research Paper:** [Agentic Context Engineering (arXiv:2510.04618)](https://arxiv.org/abs/2510.04618)
 
@@ -28,27 +28,27 @@ Modern AI agents face a fundamental limitation: they don't learn from execution 
 
 ## How ACE Works
 
-ACE introduces a three-agent architecture where specialized roles collaborate to build and maintain a dynamic knowledge base called the "playbook."
+ACE introduces a three-agent architecture where specialized roles collaborate to build and maintain a dynamic knowledge base called the "skillbook."
 
 ### The Three Agents
 
-**1. Generator** - Task Execution
-- Performs the actual work using strategies from the playbook
+**1. Agent** - Task Execution
+- Performs the actual work using strategies from the skillbook
 - Operates like a traditional agent but with access to learned knowledge
 
 **2. Reflector** - Performance Analysis
 - Analyzes execution outcomes without human supervision
 - Identifies which strategies worked, which failed, and why
-- Generates insights that inform playbook updates
+- Generates insights that inform skillbook updates
 
-**3. Curator** - Knowledge Management
+**3. SkillManager** - Knowledge Management
 - Adds new strategies based on successful executions
 - Removes or marks strategies that consistently fail
 - Merges semantically similar strategies to prevent redundancy
 
-### The Playbook
+### The Skillbook
 
-The playbook stores learned strategies as structured "bullets"—discrete pieces of knowledge with metadata:
+The skillbook stores learned strategies as structured "skills"—discrete pieces of knowledge with metadata:
 
 ```json
 {
@@ -61,11 +61,11 @@ The playbook stores learned strategies as structured "bullets"—discrete pieces
 
 ### The Learning Cycle
 
-1. **Execution:** Generator receives a task and retrieves relevant playbook bullets
-2. **Action:** Generator executes using retrieved strategies
+1. **Execution:** Agent receives a task and retrieves relevant skillbook skills
+2. **Action:** Agent executes using retrieved strategies
 3. **Reflection:** Reflector analyzes the execution outcome
-4. **Curation:** Curator updates the playbook with delta operations
-5. **Iteration:** Process repeats, playbook grows more refined over time
+4. **Curation:** SkillManager updates the skillbook with update operations
+5. **Iteration:** Process repeats, skillbook grows more refined over time
 
 ### Insight Levels
 
@@ -77,7 +77,7 @@ The Reflector can analyze execution at three different levels of scope, producin
 | **Meso** | Full agent run | Reasoning traces (thoughts, tool calls, observations) | Learns from execution patterns |
 | **Macro** | Cross-run analysis | Patterns across multiple executions | Comprehensive (future) |
 
-**Micro-level insights** come from the full ACE adaptation loop with environment feedback and ground truth. The Reflector knows whether the answer was correct and learns from that evaluation. Used by OfflineAdapter and OnlineAdapter.
+**Micro-level insights** come from the full ACE adaptation loop with environment feedback and ground truth. The Reflector knows whether the answer was correct and learns from that evaluation. Used by OfflineACE and OnlineACE.
 
 **Meso-level insights** come from full agent runs with intermediate steps—the agent's thoughts, tool calls, and observations—but without external ground truth. The Reflector learns from the execution patterns themselves. Used by integration wrappers like ACELangChain with AgentExecutor.
 
@@ -87,25 +87,25 @@ The Reflector can analyze execution at three different levels of scope, producin
 
 ## Key Technical Innovations
 
-### Delta Updates (Preventing Context Collapse)
+### Update Operations (Preventing Context Collapse)
 
 A critical insight from the ACE paper: LLMs exhibit **brevity bias** when asked to rewrite context. They compress information, losing crucial details.
 
-ACE solves this through **delta updates**—incremental modifications that never ask the LLM to regenerate entire contexts:
+ACE solves this through **update operations**—incremental modifications that never ask the LLM to regenerate entire contexts:
 
-- **Add:** Insert new bullet to playbook
-- **Remove:** Delete specific bullet by ID
+- **Add:** Insert new skill to skillbook
+- **Remove:** Delete specific skill by ID
 - **Modify:** Update specific fields (helpful_count, content refinement)
 
 This preserves the exact wording and structure of learned knowledge.
 
 ### Semantic Deduplication
 
-As agents learn, they may generate similar but differently-worded strategies. ACE prevents playbook bloat through embedding-based deduplication, keeping the playbook concise while capturing diverse knowledge.
+As agents learn, they may generate similar but differently-worded strategies. ACE prevents skillbook bloat through embedding-based deduplication, keeping the skillbook concise while capturing diverse knowledge.
 
 ### Hybrid Retrieval
 
-Instead of dumping the entire playbook into context, ACE uses hybrid retrieval to select only the most relevant bullets. This:
+Instead of dumping the entire skillbook into context, ACE uses hybrid retrieval to select only the most relevant skills. This:
 
 - Keeps context windows manageable
 - Prioritizes proven strategies
@@ -113,33 +113,33 @@ Instead of dumping the entire playbook into context, ACE uses hybrid retrieval t
 
 ### Async Learning Mode
 
-For latency-sensitive applications, ACE supports async learning where the Generator returns immediately while Reflector and Curator process in the background:
+For latency-sensitive applications, ACE supports async learning where the Agent returns immediately while Reflector and SkillManager process in the background:
 
 ```
 ┌───────────────────────────────────────────────────────────────────────┐
 │                       ASYNC LEARNING PIPELINE                         │
 ├───────────────────────────────────────────────────────────────────────┤
 │                                                                       │
-│  Sample 1 ──► Generator ──► Env ──► Reflector ─┐                     │
-│  Sample 2 ──► Generator ──► Env ──► Reflector ─┼──► Queue ──► Curator │
-│  Sample 3 ──► Generator ──► Env ──► Reflector ─┘         (serialized) │
-│             (parallel)           (parallel)                           │
+│  Sample 1 ──► Agent ──► Env ──► Reflector ─┐                         │
+│  Sample 2 ──► Agent ──► Env ──► Reflector ─┼──► Queue ──► SkillManager│
+│  Sample 3 ──► Agent ──► Env ──► Reflector ─┘           (serialized)   │
+│             (parallel)        (parallel)                              │
 │                                                                       │
 └───────────────────────────────────────────────────────────────────────┘
 ```
 
 **Why this architecture:**
-- **Parallel Reflectors**: Safe to parallelize (read-only analysis, no playbook writes)
-- **Serialized Curator**: Must be sequential (writes to playbook, handles deduplication)
+- **Parallel Reflectors**: Safe to parallelize (read-only analysis, no skillbook writes)
+- **Serialized SkillManager**: Must be sequential (writes to skillbook, handles deduplication)
 - **3x faster learning**: Reflector LLM calls run concurrently
 
 **Usage:**
 ```python
-adapter = OfflineAdapter(
-    playbook=playbook,
-    generator=generator,
+adapter = OfflineACE(
+    skillbook=skillbook,
+    agent=agent,
     reflector=reflector,
-    curator=curator,
+    skill_manager=skill_manager,
     async_learning=True,        # Enable async mode
     max_reflector_workers=3,    # Parallel Reflector threads
 )
@@ -168,7 +168,7 @@ The Stanford team evaluated ACE across multiple benchmarks:
 **Adaptation Efficiency:**
 - **86.9% lower adaptation latency** compared to existing context-adaptation methods
 
-**Key Insight:** Performance improvements compound over time. As the playbook grows, agents make fewer mistakes on similar tasks, creating a positive feedback loop.
+**Key Insight:** Performance improvements compound over time. As the skillbook grows, agents make fewer mistakes on similar tasks, creating a positive feedback loop.
 
 ---
 
@@ -213,7 +213,7 @@ ACE may not be the right fit when:
 |--------|-----|-------------|
 | Speed | Immediate (after single execution) | Days to weeks |
 | Cost | Inference only | $10K+ per iteration |
-| Interpretability | Readable playbook | Black box weights |
+| Interpretability | Readable skillbook | Black box weights |
 | Reversibility | Edit/remove strategies easily | Requires retraining |
 
 ### vs. RAG

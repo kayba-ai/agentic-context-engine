@@ -100,19 +100,19 @@ async def run_async_langchain():
     final_stats = ace_chain.learning_stats
     print(f"\nFinal learning stats:")
     print(f"  - Completed: {final_stats['completed']}")
-    print(f"  - Strategies learned: {len(ace_chain.playbook.bullets())}")
+    print(f"  - Strategies learned: {len(ace_chain.skillbook.skills())}")
 
     print(f"\nResults:")
     print(f"  - Samples processed: {len(questions)}")
     print(f"  - Results returned in: {results_time:.2f}s")
     print(f"  - Learning wait time: {wait_time:.2f}s")
     print(f"  - Total time: {total_time:.2f}s")
-    print(f"  - Strategies learned: {len(ace_chain.playbook.bullets())}")
+    print(f"  - Strategies learned: {len(ace_chain.skillbook.skills())}")
 
-    # Show complete playbook
-    print(f"\n📚 COMPLETE PLAYBOOK:")
-    if ace_chain.playbook.bullets():
-        print(str(ace_chain.playbook))
+    # Show complete skillbook
+    print(f"\n📚 COMPLETE SKILLBOOK:")
+    if ace_chain.skillbook.skills():
+        print(str(ace_chain.skillbook))
     else:
         print("(empty)")
 
@@ -165,7 +165,7 @@ async def run_sync_langchain():
     print(f"\nResults:")
     print(f"  - Samples processed: {len(questions)}")
     print(f"  - Total time: {total_time:.2f}s")
-    print(f"  - Strategies learned: {len(ace_chain.playbook.bullets())}")
+    print(f"  - Strategies learned: {len(ace_chain.skillbook.skills())}")
 
     return total_time
 

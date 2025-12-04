@@ -36,11 +36,11 @@ def main():
 
     # 4. Check results
     print(f"Trained on {len(results)} samples")
-    print(f"Playbook now has {len(agent.playbook.bullets())} strategies")
+    print(f"Skillbook now has {len(agent.skillbook.skills())} strategies")
 
     # Show a few learned strategies
-    for bullet in agent.playbook.bullets()[:3]:
-        print(f"\nLearned: {bullet.content}")
+    for skill in agent.skillbook.skills()[:3]:
+        print(f"\nLearned: {skill.content}")
 
     # 5. Test with new question
     answer = agent.ask("What is 5 + 3?")

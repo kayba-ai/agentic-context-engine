@@ -272,7 +272,7 @@ class ToolSelectionEnvironment(TaskEnvironment):
 
     def format_sample_as_question(self, sample_idx: int) -> str:
         """
-        Format a sample as a question for the Generator to answer.
+        Format a sample as a question for the Agent to answer.
 
         Args:
             sample_idx: Index of the sample to format

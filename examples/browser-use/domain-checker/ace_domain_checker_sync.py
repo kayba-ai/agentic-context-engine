@@ -2,7 +2,7 @@
 """
 ACE + Browser-Use Domain Checker Demo (SYNCHRONOUS LEARNING)
 
-This version uses SYNCHRONOUS learning - the Reflector and Curator run AFTER
+This version uses SYNCHRONOUS learning - the Reflector and SkillManager run AFTER
 each browser task completes, BLOCKING execution until learning finishes.
 
 Behavior:
@@ -81,7 +81,7 @@ def get_ace_token_usage(
     """Query Opik for ACE token usage only.
 
     Returns:
-        tuple: (ace_tokens, generator_tokens, reflector_tokens, curator_tokens)
+        tuple: (ace_tokens, agent_tokens, reflector_tokens, skill_manager_tokens)
     """
     try:
         if not opik:
@@ -125,9 +125,9 @@ def get_ace_token_usage(
                 print(f"   ⚠️ Failed to search '{project}' project: {e}")
 
         # Track individual ACE role tokens
-        generator_tokens = 0
+        agent_tokens = 0
         reflector_tokens = 0
-        curator_tokens = 0
+        skill_manager_tokens = 0
 
         print(f"   🔍 Processing {len(all_traces)} total traces...")
 
@@ -138,7 +138,7 @@ def get_ace_token_usage(
 
             if any(
                 role in trace_name_lower
-                for role in ["generator", "reflector", "curator"]
+                for role in ["agent", "reflector", "skill_manager"]
             ):
                 print(f"      📋 ACE Trace: '{trace_name}'")
 
@@ -163,25 +163,25 @@ def get_ace_token_usage(
                         print(f"         ⚠️ Failed to get spans: {e}")
 
                 # Classify by role
-                if "generator" in trace_name_lower:
-                    generator_tokens += total_tokens
-                    print(f"         🎯 Added to Generator")
+                if "agent" in trace_name_lower:
+                    agent_tokens += total_tokens
+                    print(f"         🎯 Added to Agent")
                 elif "reflector" in trace_name_lower:
                     reflector_tokens += total_tokens
                     print(f"         🔍 Added to Reflector")
-                elif "curator" in trace_name_lower:
-                    curator_tokens += total_tokens
-                    print(f"         📝 Added to Curator")
+                elif "skill_manager" in trace_name_lower:
+                    skill_manager_tokens += total_tokens
+                    print(f"         📝 Added to SkillManager")
 
         # Calculate total ACE tokens
-        ace_tokens = generator_tokens + reflector_tokens + curator_tokens
+        ace_tokens = agent_tokens + reflector_tokens + skill_manager_tokens
 
         print(f"   📊 ACE Role breakdown:")
-        print(f"      🎯 Generator: {generator_tokens} tokens")
+        print(f"      🎯 Agent: {agent_tokens} tokens")
         print(f"      🔍 Reflector: {reflector_tokens} tokens")
-        print(f"      📝 Curator: {curator_tokens} tokens")
+        print(f"      📝 SkillManager: {skill_manager_tokens} tokens")
 
-        return (ace_tokens, generator_tokens, reflector_tokens, curator_tokens)
+        return (ace_tokens, agent_tokens, reflector_tokens, skill_manager_tokens)
 
     except Exception as e:
         print(f"   Warning: Could not retrieve token usage from Opik: {e}")
@@ -492,24 +492,24 @@ async def main():
     print("🧠 Automated domain checking with learning!")
     print("=" * 60)
 
-    # Setup playbook persistence
-    playbook_path = Path(__file__).parent / "ace_domain_checker_playbook.json"
+    # Setup skillbook persistence
+    skillbook_path = Path(__file__).parent / "ace_domain_checker_skillbook.json"
 
     # Create ACE agent - handles everything automatically!
     agent = ACEAgent(
         llm=ChatBrowserUse(),  # Browser automation LLM
         ace_model="claude-haiku-4-5-20251001",  # ACE learning LLM
         ace_max_tokens=4096,  # Enough for domain check analysis
-        playbook_path=str(playbook_path) if playbook_path.exists() else None,
+        skillbook_path=str(skillbook_path) if skillbook_path.exists() else None,
         max_steps=25,  # Browser automation steps
         calculate_cost=True,  # Track usage
     )
 
     # Show current knowledge
-    if playbook_path.exists():
-        print(f"📚 Loaded {len(agent.playbook.bullets())} learned strategies")
+    if skillbook_path.exists():
+        print(f"📚 Loaded {len(agent.skillbook.skills())} learned strategies")
     else:
-        print("🆕 Starting with empty playbook - learning from scratch")
+        print("🆕 Starting with empty skillbook - learning from scratch")
 
     # Get test domains
     domains = get_test_domains()
@@ -553,16 +553,16 @@ async def main():
             await asyncio.sleep(2)
 
     # Save learned strategies
-    agent.save_playbook(str(playbook_path))
+    agent.save_skillbook(str(skillbook_path))
 
     # Query ACE tokens after all roles have completed
     print(f"\n💰 Querying ACE token usage after all domains processed...")
     time.sleep(5)  # Wait for Opik to index final traces
     (
         total_ace_tokens,
-        total_generator_tokens,
+        total_agent_tokens,
         total_reflector_tokens,
-        total_curator_tokens,
+        total_skill_manager_tokens,
     ) = get_ace_token_usage(run_start_time)
 
     # Show final results
@@ -648,7 +648,7 @@ async def main():
     print("=" * 80)
 
     # Show learned strategies
-    strategies = agent.playbook.bullets()
+    strategies = agent.skillbook.skills()
     print(f"\n🎯 LEARNED STRATEGIES: {len(strategies)} total")
     print("-" * 60)
 
@@ -656,19 +656,19 @@ async def main():
         # Show recent strategies (last 5)
         recent_strategies = strategies[-5:] if len(strategies) > 5 else strategies
 
-        for i, bullet in enumerate(recent_strategies, 1):
-            helpful = bullet.helpful
-            harmful = bullet.harmful
+        for i, skill in enumerate(recent_strategies, 1):
+            helpful = skill.helpful
+            harmful = skill.harmful
             effectiveness = (
                 "✅" if helpful > harmful else "⚠️" if helpful == harmful else "❌"
             )
-            print(f"{i}. {effectiveness} {bullet.content}")
+            print(f"{i}. {effectiveness} {skill.content}")
             print(f"   (+{helpful}/-{harmful})")
 
         if len(strategies) > 5:
             print(f"   ... and {len(strategies) - 5} other strategies")
 
-        print(f"\n💾 Strategies saved to: {playbook_path}")
+        print(f"\n💾 Strategies saved to: {skillbook_path}")
         print("🔄 Next run will use these learned strategies automatically!")
     else:
         print("No new strategies learned (tasks may have failed)")

@@ -1,58 +1,58 @@
-"""Unit tests for DeltaOperation and DeltaBatch classes."""
+"""Unit tests for UpdateOperation and UpdateBatch classes."""
 
 import unittest
 
 import pytest
 
-from ace.delta import DeltaOperation, DeltaBatch
+from ace.updates import UpdateOperation, UpdateBatch
 
 
 @pytest.mark.unit
-class TestDeltaOperation(unittest.TestCase):
-    """Test DeltaOperation class."""
+class TestUpdateOperation(unittest.TestCase):
+    """Test UpdateOperation class."""
 
     def test_add_operation(self):
         """Test creating ADD operation."""
-        op = DeltaOperation(type="ADD", section="math", content="Show your work")
+        op = UpdateOperation(type="ADD", section="math", content="Show your work")
         self.assertEqual(op.type, "ADD")
         self.assertEqual(op.section, "math")
         self.assertEqual(op.content, "Show your work")
-        self.assertIsNone(op.bullet_id)
+        self.assertIsNone(op.skill_id)
 
     def test_tag_operation(self):
         """Test creating TAG operation."""
-        op = DeltaOperation(
+        op = UpdateOperation(
             type="TAG",
             section="general",
-            bullet_id="bullet_123",
+            skill_id="skill_123",
             metadata={"helpful": 1},
         )
         self.assertEqual(op.type, "TAG")
-        self.assertEqual(op.bullet_id, "bullet_123")
+        self.assertEqual(op.skill_id, "skill_123")
         self.assertEqual(op.metadata["helpful"], 1)
 
     def test_update_operation(self):
         """Test creating UPDATE operation."""
-        op = DeltaOperation(
+        op = UpdateOperation(
             type="UPDATE",
             section="general",
-            bullet_id="bullet_123",
+            skill_id="skill_123",
             content="Updated content",
         )
         self.assertEqual(op.type, "UPDATE")
-        self.assertEqual(op.bullet_id, "bullet_123")
+        self.assertEqual(op.skill_id, "skill_123")
         self.assertEqual(op.content, "Updated content")
 
     def test_remove_operation(self):
         """Test creating REMOVE operation."""
-        op = DeltaOperation(type="REMOVE", section="general", bullet_id="bullet_123")
+        op = UpdateOperation(type="REMOVE", section="general", skill_id="skill_123")
         self.assertEqual(op.type, "REMOVE")
-        self.assertEqual(op.bullet_id, "bullet_123")
+        self.assertEqual(op.skill_id, "skill_123")
 
     def test_from_json_add(self):
         """Test parsing ADD operation from JSON."""
         payload = {"type": "ADD", "section": "math", "content": "Test content"}
-        op = DeltaOperation.from_json(payload)
+        op = UpdateOperation.from_json(payload)
         self.assertEqual(op.type, "ADD")
         self.assertEqual(op.section, "math")
         self.assertEqual(op.content, "Test content")
@@ -62,12 +62,12 @@ class TestDeltaOperation(unittest.TestCase):
         payload = {
             "type": "TAG",
             "section": "general",
-            "bullet_id": "bullet_123",
+            "skill_id": "skill_123",
             "metadata": {"helpful": 1, "harmful": 0},
         }
-        op = DeltaOperation.from_json(payload)
+        op = UpdateOperation.from_json(payload)
         self.assertEqual(op.type, "TAG")
-        self.assertEqual(op.bullet_id, "bullet_123")
+        self.assertEqual(op.skill_id, "skill_123")
         self.assertEqual(op.metadata["helpful"], 1)
         self.assertEqual(op.metadata["harmful"], 0)
 
@@ -76,14 +76,14 @@ class TestDeltaOperation(unittest.TestCase):
         payload = {
             "type": "TAG",
             "section": "general",
-            "bullet_id": "bullet_123",
+            "skill_id": "skill_123",
             "metadata": {
                 "helpful": 1,
                 "invalid_key": 5,  # Should be filtered out
                 "harmful": 2,
             },
         }
-        op = DeltaOperation.from_json(payload)
+        op = UpdateOperation.from_json(payload)
         self.assertIn("helpful", op.metadata)
         self.assertIn("harmful", op.metadata)
         self.assertNotIn("invalid_key", op.metadata)
@@ -92,83 +92,83 @@ class TestDeltaOperation(unittest.TestCase):
         """Test parsing invalid operation type raises ValueError."""
         payload = {"type": "INVALID", "section": "general"}
         with self.assertRaises(ValueError) as context:
-            DeltaOperation.from_json(payload)
+            UpdateOperation.from_json(payload)
         self.assertIn("Invalid operation type", str(context.exception))
 
     def test_from_json_case_insensitive_type(self):
         """Test operation type is case-insensitive."""
         payload = {"type": "add", "section": "general", "content": "Test"}  # lowercase
-        op = DeltaOperation.from_json(payload)
+        op = UpdateOperation.from_json(payload)
         self.assertEqual(op.type, "ADD")  # Should be uppercased
 
     def test_to_json_add(self):
         """Test serializing ADD operation to JSON."""
-        op = DeltaOperation(type="ADD", section="math", content="Test content")
+        op = UpdateOperation(type="ADD", section="math", content="Test content")
         json_data = op.to_json()
         self.assertEqual(json_data["type"], "ADD")
         self.assertEqual(json_data["section"], "math")
         self.assertEqual(json_data["content"], "Test content")
-        self.assertNotIn("bullet_id", json_data)  # Should not include None fields
+        self.assertNotIn("skill_id", json_data)  # Should not include None fields
 
     def test_to_json_tag(self):
         """Test serializing TAG operation to JSON."""
-        op = DeltaOperation(
+        op = UpdateOperation(
             type="TAG",
             section="general",
-            bullet_id="bullet_123",
+            skill_id="skill_123",
             metadata={"helpful": 1},
         )
         json_data = op.to_json()
         self.assertEqual(json_data["type"], "TAG")
-        self.assertEqual(json_data["bullet_id"], "bullet_123")
+        self.assertEqual(json_data["skill_id"], "skill_123")
         self.assertEqual(json_data["metadata"], {"helpful": 1})
 
     def test_to_json_remove(self):
         """Test serializing REMOVE operation to JSON."""
-        op = DeltaOperation(type="REMOVE", section="general", bullet_id="bullet_123")
+        op = UpdateOperation(type="REMOVE", section="general", skill_id="skill_123")
         json_data = op.to_json()
         self.assertEqual(json_data["type"], "REMOVE")
-        self.assertEqual(json_data["bullet_id"], "bullet_123")
+        self.assertEqual(json_data["skill_id"], "skill_123")
         self.assertNotIn("content", json_data)
 
     def test_roundtrip_json(self):
         """Test operation survives JSON serialization round-trip."""
-        original = DeltaOperation(
+        original = UpdateOperation(
             type="UPDATE",
             section="general",
-            bullet_id="bullet_123",
+            skill_id="skill_123",
             content="Updated",
             metadata={"helpful": 2},
         )
         json_data = original.to_json()
-        restored = DeltaOperation.from_json(json_data)
+        restored = UpdateOperation.from_json(json_data)
 
         self.assertEqual(original.type, restored.type)
         self.assertEqual(original.section, restored.section)
         self.assertEqual(original.content, restored.content)
-        self.assertEqual(original.bullet_id, restored.bullet_id)
+        self.assertEqual(original.skill_id, restored.skill_id)
         self.assertEqual(original.metadata, restored.metadata)
 
 
 @pytest.mark.unit
-class TestDeltaBatch(unittest.TestCase):
-    """Test DeltaBatch class."""
+class TestUpdateBatch(unittest.TestCase):
+    """Test UpdateBatch class."""
 
     def test_create_empty_batch(self):
         """Test creating empty batch."""
-        batch = DeltaBatch(reasoning="No changes needed")
+        batch = UpdateBatch(reasoning="No changes needed")
         self.assertEqual(batch.reasoning, "No changes needed")
         self.assertEqual(len(batch.operations), 0)
 
     def test_create_batch_with_operations(self):
         """Test creating batch with operations."""
         ops = [
-            DeltaOperation(type="ADD", section="math", content="New strategy"),
-            DeltaOperation(
-                type="TAG", section="general", bullet_id="b1", metadata={"helpful": 1}
+            UpdateOperation(type="ADD", section="math", content="New strategy"),
+            UpdateOperation(
+                type="TAG", section="general", skill_id="b1", metadata={"helpful": 1}
             ),
         ]
-        batch = DeltaBatch(reasoning="Multiple updates", operations=ops)
+        batch = UpdateBatch(reasoning="Multiple updates", operations=ops)
         self.assertEqual(len(batch.operations), 2)
         self.assertEqual(batch.operations[0].type, "ADD")
         self.assertEqual(batch.operations[1].type, "TAG")
@@ -176,7 +176,7 @@ class TestDeltaBatch(unittest.TestCase):
     def test_from_json_empty(self):
         """Test parsing empty batch from JSON."""
         payload = {"reasoning": "No changes", "operations": []}
-        batch = DeltaBatch.from_json(payload)
+        batch = UpdateBatch.from_json(payload)
         self.assertEqual(batch.reasoning, "No changes")
         self.assertEqual(len(batch.operations), 0)
 
@@ -189,7 +189,7 @@ class TestDeltaBatch(unittest.TestCase):
                 {"type": "ADD", "section": "general", "content": "Strategy 2"},
             ],
         }
-        batch = DeltaBatch.from_json(payload)
+        batch = UpdateBatch.from_json(payload)
         self.assertEqual(batch.reasoning, "Add new strategies")
         self.assertEqual(len(batch.operations), 2)
         self.assertEqual(batch.operations[0].content, "Strategy 1")
@@ -198,7 +198,7 @@ class TestDeltaBatch(unittest.TestCase):
     def test_from_json_missing_reasoning(self):
         """Test parsing batch with missing reasoning."""
         payload = {"operations": []}
-        batch = DeltaBatch.from_json(payload)
+        batch = UpdateBatch.from_json(payload)
         self.assertEqual(batch.reasoning, "")  # Should default to empty string
 
     def test_from_json_invalid_operations(self):
@@ -211,14 +211,14 @@ class TestDeltaBatch(unittest.TestCase):
                 {"type": "ADD", "section": "general", "content": "Also valid"},
             ],
         }
-        batch = DeltaBatch.from_json(payload)
+        batch = UpdateBatch.from_json(payload)
         self.assertEqual(len(batch.operations), 2)  # Only valid ones
         self.assertEqual(batch.operations[0].content, "Valid")
         self.assertEqual(batch.operations[1].content, "Also valid")
 
     def test_to_json_empty(self):
         """Test serializing empty batch to JSON."""
-        batch = DeltaBatch(reasoning="No changes")
+        batch = UpdateBatch(reasoning="No changes")
         json_data = batch.to_json()
         self.assertEqual(json_data["reasoning"], "No changes")
         self.assertEqual(json_data["operations"], [])
@@ -226,12 +226,12 @@ class TestDeltaBatch(unittest.TestCase):
     def test_to_json_with_operations(self):
         """Test serializing batch with operations to JSON."""
         ops = [
-            DeltaOperation(type="ADD", section="math", content="Strategy"),
-            DeltaOperation(
-                type="TAG", section="general", bullet_id="b1", metadata={"helpful": 1}
+            UpdateOperation(type="ADD", section="math", content="Strategy"),
+            UpdateOperation(
+                type="TAG", section="general", skill_id="b1", metadata={"helpful": 1}
             ),
         ]
-        batch = DeltaBatch(reasoning="Updates", operations=ops)
+        batch = UpdateBatch(reasoning="Updates", operations=ops)
         json_data = batch.to_json()
 
         self.assertEqual(json_data["reasoning"], "Updates")
@@ -242,13 +242,13 @@ class TestDeltaBatch(unittest.TestCase):
     def test_roundtrip_json(self):
         """Test batch survives JSON serialization round-trip."""
         original_ops = [
-            DeltaOperation(type="ADD", section="math", content="New"),
-            DeltaOperation(type="REMOVE", section="old", bullet_id="b1"),
+            UpdateOperation(type="ADD", section="math", content="New"),
+            UpdateOperation(type="REMOVE", section="old", skill_id="b1"),
         ]
-        original = DeltaBatch(reasoning="Test reasoning", operations=original_ops)
+        original = UpdateBatch(reasoning="Test reasoning", operations=original_ops)
 
         json_data = original.to_json()
-        restored = DeltaBatch.from_json(json_data)
+        restored = UpdateBatch.from_json(json_data)
 
         self.assertEqual(original.reasoning, restored.reasoning)
         self.assertEqual(len(original.operations), len(restored.operations))
@@ -256,7 +256,7 @@ class TestDeltaBatch(unittest.TestCase):
             self.assertEqual(orig_op.type, rest_op.type)
             self.assertEqual(orig_op.section, rest_op.section)
             self.assertEqual(orig_op.content, rest_op.content)
-            self.assertEqual(orig_op.bullet_id, rest_op.bullet_id)
+            self.assertEqual(orig_op.skill_id, rest_op.skill_id)
 
 
 if __name__ == "__main__":

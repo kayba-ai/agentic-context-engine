@@ -18,9 +18,9 @@ from ace.prompts_v2_1 import (
     PromptManager,
     validate_prompt_output_v2_1,
     compare_prompt_versions,
-    GENERATOR_V2_1_PROMPT,
+    AGENT_V2_1_PROMPT,
     REFLECTOR_V2_1_PROMPT,
-    CURATOR_V2_1_PROMPT,
+    SKILL_MANAGER_V2_1_PROMPT,
 )
 
 
@@ -38,22 +38,22 @@ class TestPromptsV21(unittest.TestCase):
         self.assertIsInstance(self.manager.usage_stats, dict)
         self.assertIsInstance(self.manager.quality_scores, dict)
 
-    def test_generator_prompt_v21_retrieval(self):
-        """Test retrieving v2.1 generator prompts."""
-        # General generator
-        prompt = self.manager.get_generator_prompt(version="2.1")
+    def test_agent_prompt_v21_retrieval(self):
+        """Test retrieving v2.1 agent prompts."""
+        # General agent
+        prompt = self.manager.get_agent_prompt(version="2.1")
         self.assertIn("Core Mission", prompt)
         self.assertIn("Core Responsibilities", prompt)
         self.assertIn("CRITICAL", prompt)
         self.assertIn("Strategy Application", prompt)
 
         # Math-specific
-        math_prompt = self.manager.get_generator_prompt(domain="math", version="2.1")
+        math_prompt = self.manager.get_agent_prompt(domain="math", version="2.1")
         self.assertIn("Mathematical Problem Solver", math_prompt)
         self.assertIn("PEMDAS/BODMAS", math_prompt)
 
         # Code-specific
-        code_prompt = self.manager.get_generator_prompt(domain="code", version="2.1")
+        code_prompt = self.manager.get_agent_prompt(domain="code", version="2.1")
         self.assertIn("Software Development Specialist", code_prompt)
         self.assertIn("Type hints", code_prompt)
 
@@ -68,9 +68,9 @@ class TestPromptsV21(unittest.TestCase):
         self.assertIn("impact_score", prompt)
         self.assertIn("Excellent (95", prompt)  # Check without emoji
 
-    def test_curator_prompt_v21_features(self):
-        """Test v2.1 curator prompt enhancements."""
-        prompt = self.manager.get_curator_prompt(version="2.1")
+    def test_skill_manager_prompt_v21_features(self):
+        """Test v2.1 skill manager prompt enhancements."""
+        prompt = self.manager.get_skill_manager_prompt(version="2.1")
 
         # Check for atomic strategy principle
         self.assertIn("ATOMIC STRATEGY PRINCIPLE", prompt)
@@ -79,14 +79,14 @@ class TestPromptsV21(unittest.TestCase):
         self.assertIn("DEDUPLICATION: UPDATE > ADD", prompt)
         self.assertIn("quality_metrics", prompt)
 
-    def test_validate_generator_output_v21(self):
-        """Test v2.1 validation for generator outputs."""
+    def test_validate_agent_output_v21(self):
+        """Test v2.1 validation for agent outputs."""
         # Valid output with v2.1 fields
         valid_output = json.dumps(
             {
                 "reasoning": "Step 1: Analyze. Step 2: Apply. Step 3: Solve.",
-                "bullet_ids": ["bullet_001", "bullet_002"],
-                "confidence_scores": {"bullet_001": 0.9, "bullet_002": 0.85},
+                "skill_ids": ["skill_001", "skill_002"],
+                "confidence_scores": {"skill_001": 0.9, "skill_002": 0.85},
                 "step_validations": ["Valid", "Verified"],
                 "final_answer": "42",
                 "answer_confidence": 0.95,
@@ -98,9 +98,7 @@ class TestPromptsV21(unittest.TestCase):
             }
         )
 
-        is_valid, errors, metrics = validate_prompt_output_v2_1(
-            valid_output, "generator"
-        )
+        is_valid, errors, metrics = validate_prompt_output_v2_1(valid_output, "agent")
 
         self.assertTrue(is_valid)
         self.assertEqual(len(errors), 0)
@@ -113,7 +111,7 @@ class TestPromptsV21(unittest.TestCase):
         """Test v2.1 validation for reflector outputs."""
         valid_output = json.dumps(
             {
-                "reasoning": "Analysis of generator performance.",
+                "reasoning": "Analysis of agent performance.",
                 "error_identification": "Calculation error at step 3",
                 "error_location": "Step 3",
                 "root_cause_analysis": "Multiplication error",
@@ -132,9 +130,9 @@ class TestPromptsV21(unittest.TestCase):
                 ],
                 "key_insight": "Double-check arithmetic",
                 "confidence_in_analysis": 0.95,
-                "bullet_tags": [
+                "skill_tags": [
                     {
-                        "id": "bullet_023",
+                        "id": "skill_023",
                         "tag": "neutral",
                         "justification": "Strategy correct, execution failed",
                         "impact_score": 0.7,
@@ -151,17 +149,17 @@ class TestPromptsV21(unittest.TestCase):
         self.assertEqual(len(errors), 0)
         self.assertIn("avg_atomicity", metrics)
         self.assertAlmostEqual(metrics["avg_atomicity"], 0.9, places=1)
-        self.assertIn("impact_bullet_023", metrics)
+        self.assertIn("impact_skill_023", metrics)
 
-    def test_validate_curator_output_v21(self):
-        """Test v2.1 validation for curator outputs."""
+    def test_validate_skill_manager_output_v21(self):
+        """Test v2.1 validation for skill manager outputs."""
         # Valid output with high atomicity
         valid_output = json.dumps(
             {
                 "reasoning": "Adding atomic strategy",
                 "deduplication_check": {
-                    "similar_bullets": ["bullet_089"],
-                    "similarity_scores": {"bullet_089": 0.3},
+                    "similar_skills": ["skill_089"],
+                    "similarity_scores": {"skill_089": 0.3},
                     "decision": "safe_to_add",
                 },
                 "operations": [
@@ -170,7 +168,7 @@ class TestPromptsV21(unittest.TestCase):
                         "section": "optimization",
                         "content": "Use pandas.read_csv() for CSV",
                         "atomicity_score": 0.95,
-                        "bullet_id": "",
+                        "skill_id": "",
                         "metadata": {"helpful": 1, "harmful": 0},
                         "justification": "Improves performance",
                         "evidence": "3x faster in tests",
@@ -184,14 +182,16 @@ class TestPromptsV21(unittest.TestCase):
             }
         )
 
-        is_valid, errors, metrics = validate_prompt_output_v2_1(valid_output, "curator")
+        is_valid, errors, metrics = validate_prompt_output_v2_1(
+            valid_output, "skill_manager"
+        )
 
         self.assertTrue(is_valid)
         self.assertEqual(len(errors), 0)
         self.assertIn("avg_atomicity", metrics)
         self.assertIn("estimated_impact", metrics)
 
-    def test_reject_low_atomicity_curator_output(self):
+    def test_reject_low_atomicity_skill_manager_output(self):
         """Test that low atomicity strategies are rejected."""
         bad_output = json.dumps(
             {
@@ -208,7 +208,9 @@ class TestPromptsV21(unittest.TestCase):
             }
         )
 
-        is_valid, errors, metrics = validate_prompt_output_v2_1(bad_output, "curator")
+        is_valid, errors, metrics = validate_prompt_output_v2_1(
+            bad_output, "skill_manager"
+        )
 
         self.assertFalse(is_valid)
         self.assertTrue(any("Atomicity too low" in error for error in errors))
@@ -218,20 +220,20 @@ class TestPromptsV21(unittest.TestCase):
         manager = PromptManager()
 
         # Track some quality scores
-        manager.track_quality("generator-2.1", 0.95)
-        manager.track_quality("generator-2.1", 0.88)
-        manager.track_quality("generator-2.1", 0.92)
+        manager.track_quality("agent-2.1", 0.95)
+        manager.track_quality("agent-2.1", 0.88)
+        manager.track_quality("agent-2.1", 0.92)
 
         stats = manager.get_stats()
 
         self.assertIn("average_quality", stats)
-        self.assertIn("generator-2.1", stats["average_quality"])
-        avg_quality = stats["average_quality"]["generator-2.1"]
+        self.assertIn("agent-2.1", stats["average_quality"])
+        avg_quality = stats["average_quality"]["agent-2.1"]
         self.assertAlmostEqual(avg_quality, 0.916, places=2)
 
     def test_compare_versions_functionality(self):
         """Test version comparison utility."""
-        comparisons = compare_prompt_versions("generator")
+        comparisons = compare_prompt_versions("agent")
 
         self.assertIn("length_v20", comparisons)
         self.assertIn("length_v21", comparisons)
@@ -252,32 +254,32 @@ class TestPromptsV21(unittest.TestCase):
         """Test listing available prompt versions."""
         versions = PromptManager.list_available_versions()
 
-        self.assertIn("generator", versions)
+        self.assertIn("agent", versions)
         self.assertIn("reflector", versions)
-        self.assertIn("curator", versions)
+        self.assertIn("skill_manager", versions)
 
         # Check that v2.1 is available
-        self.assertIn("2.1", versions["generator"])
+        self.assertIn("2.1", versions["agent"])
         self.assertIn("2.1", versions["reflector"])
-        self.assertIn("2.1", versions["curator"])
+        self.assertIn("2.1", versions["skill_manager"])
 
         # Check domain variants
-        self.assertIn("2.1-math", versions["generator"])
-        self.assertIn("2.1-code", versions["generator"])
+        self.assertIn("2.1-math", versions["agent"])
+        self.assertIn("2.1-code", versions["agent"])
 
     def test_backward_compatibility(self):
         """Test that v2.1 maintains backward compatibility."""
         manager = PromptManager(default_version="2.1")
 
         # Should still be able to get v2.0 prompts
-        prompt_v20 = manager.get_generator_prompt(version="2.0")
+        prompt_v20 = manager.get_agent_prompt(version="2.0")
         self.assertIsNotNone(prompt_v20)
         self.assertNotIn(
             "⚡ QUICK REFERENCE ⚡", prompt_v20
         )  # v2.0 shouldn't have this
 
         # Should still be able to get v1.0 prompts
-        prompt_v10 = manager.get_generator_prompt(version="1.0")
+        prompt_v10 = manager.get_agent_prompt(version="1.0")
         self.assertIsNotNone(prompt_v10)
 
     def test_usage_statistics(self):
@@ -285,22 +287,22 @@ class TestPromptsV21(unittest.TestCase):
         manager = PromptManager()
 
         # Use different prompts
-        _ = manager.get_generator_prompt(version="2.1")
-        _ = manager.get_generator_prompt(version="2.1")
-        _ = manager.get_generator_prompt(domain="math", version="2.1")
+        _ = manager.get_agent_prompt(version="2.1")
+        _ = manager.get_agent_prompt(version="2.1")
+        _ = manager.get_agent_prompt(domain="math", version="2.1")
         _ = manager.get_reflector_prompt(version="2.1")
 
         stats = manager.get_stats()
 
-        self.assertEqual(stats["usage"]["generator-2.1"], 2)
-        self.assertEqual(stats["usage"]["generator-2.1-math"], 1)
+        self.assertEqual(stats["usage"]["agent-2.1"], 2)
+        self.assertEqual(stats["usage"]["agent-2.1-math"], 1)
         self.assertEqual(stats["usage"]["reflector-2.1"], 1)
         self.assertEqual(stats["total_calls"], 4)
 
     def test_date_formatting(self):
         """Test that current_date is properly formatted."""
         manager = PromptManager()
-        prompt = manager.get_generator_prompt(version="2.1")
+        prompt = manager.get_agent_prompt(version="2.1")
 
         # Should not contain the placeholder
         self.assertNotIn("{current_date}", prompt)
@@ -316,14 +318,14 @@ class TestPromptsV21(unittest.TestCase):
         manager = PromptManager()
 
         test_input = {
-            "playbook": "test playbook",
+            "skillbook": "test skillbook",
             "question": "test question",
             "context": "test context",
             "reflection": "test reflection",
             "current_date": "2024-01-15",
         }
 
-        results = manager.compare_versions("generator", test_input)
+        results = manager.compare_versions("agent", test_input)
 
         # Should have results for v2.1 variants
         self.assertIn("2.1", results)

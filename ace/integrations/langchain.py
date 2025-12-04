@@ -33,17 +33,17 @@ Example:
     result = ace_chain.invoke({"question": "What is ACE?"})
 
     # Save learned strategies
-    ace_chain.save_playbook("chain_expert.json")
+    ace_chain.save_skillbook("chain_expert.json")
 """
 
 from typing import TYPE_CHECKING, Any, Optional, Dict, Callable, List
 import asyncio
 import logging
 
-from ..playbook import Playbook
-from ..roles import Reflector, Curator, GeneratorOutput
+from ..skillbook import Skillbook
+from ..roles import Reflector, SkillManager, AgentOutput
 from ..prompts_v2_1 import PromptManager
-from .base import wrap_playbook_context
+from .base import wrap_skillbook_context
 
 if TYPE_CHECKING:
     from ..deduplication import DeduplicationConfig
@@ -77,13 +77,13 @@ class ACELangChain:
     to improve future executions.
 
     Pattern:
-        1. INJECT: Add playbook context to input
+        1. INJECT: Add skillbook context to input
         2. EXECUTE: Run the LangChain runnable
-        3. LEARN: Update playbook via Reflector + Curator
+        3. LEARN: Update skillbook via Reflector + SkillManager
 
     Attributes:
         runnable: The LangChain Runnable being wrapped
-        playbook: Learned strategies (Playbook instance)
+        skillbook: Learned strategies (Skillbook instance)
         is_learning: Whether learning is enabled
 
     Example:
@@ -97,10 +97,10 @@ class ACELangChain:
         ace_chain = ACELangChain(runnable=chain)
         result = ace_chain.invoke({"input": "What is 2+2?"})
 
-        # With existing playbook
+        # With existing skillbook
         ace_chain = ACELangChain(
             runnable=chain,
-            playbook_path="expert.json"
+            skillbook_path="expert.json"
         )
 
         # Async execution
@@ -111,7 +111,7 @@ class ACELangChain:
         self,
         runnable: Any,
         ace_model: str = "gpt-4o-mini",
-        playbook_path: Optional[str] = None,
+        skillbook_path: Optional[str] = None,
         is_learning: bool = True,
         async_learning: bool = False,
         output_parser: Optional[Callable[[Any], str]] = None,
@@ -122,15 +122,15 @@ class ACELangChain:
 
         Args:
             runnable: LangChain Runnable (chain, agent, custom)
-            ace_model: Model for ACE learning (Reflector/Curator)
-            playbook_path: Path to existing playbook (optional)
+            ace_model: Model for ACE learning (Reflector/SkillManager)
+            skillbook_path: Path to existing skillbook (optional)
             is_learning: Enable/disable learning (default: True)
             async_learning: Run learning in background for ainvoke() (default: False)
                            When True, ainvoke() returns immediately while
-                           Reflector/Curator process in background.
+                           Reflector/SkillManager process in background.
             output_parser: Custom function to parse runnable output to string
                           (default: converts to string)
-            dedup_config: Optional DeduplicationConfig for bullet deduplication
+            dedup_config: Optional DeduplicationConfig for skill deduplication
 
         Raises:
             ImportError: If LangChain is not installed
@@ -176,11 +176,11 @@ class ACELangChain:
         self._tasks_completed_count: int = 0
         self.output_parser = output_parser or self._default_output_parser
 
-        # Load or create playbook
-        if playbook_path:
-            self.playbook = Playbook.load_from_file(playbook_path)
+        # Load or create skillbook
+        if skillbook_path:
+            self.skillbook = Skillbook.load_from_file(skillbook_path)
         else:
-            self.playbook = Playbook()
+            self.skillbook = Skillbook()
 
         # Setup ACE learning components
         try:
@@ -206,9 +206,9 @@ class ACELangChain:
 
             dedup_manager = DeduplicationManager(dedup_config)
 
-        self.curator = Curator(
+        self.skill_manager = SkillManager(
             self.llm,
-            prompt_template=prompt_mgr.get_curator_prompt(),
+            prompt_template=prompt_mgr.get_skill_manager_prompt(),
             dedup_manager=dedup_manager,
         )
 
@@ -233,7 +233,7 @@ class ACELangChain:
             # Dict input
             result = ace_chain.invoke({"question": "What is ACE?"})
         """
-        # Step 1: Inject playbook context
+        # Step 1: Inject skillbook context
         enhanced_input = self._inject_context(input)
 
         # Step 2: Configure AgentExecutor for intermediate steps (if applicable)
@@ -299,7 +299,7 @@ class ACELangChain:
             # Result returns immediately
             await ace_chain.wait_for_learning()  # Wait for learning to complete
         """
-        # Step 1: Inject playbook context
+        # Step 1: Inject skillbook context
         enhanced_input = self._inject_context(input)
 
         # Step 2: Configure AgentExecutor for intermediate steps (if applicable)
@@ -362,40 +362,40 @@ class ACELangChain:
 
     def _inject_context(self, input: Any) -> Any:
         """
-        Add playbook context to input.
+        Add skillbook context to input.
 
         Handles common input formats:
-        - String: Append playbook context
+        - String: Append skillbook context
         - Dict with "input" key: Enhance input field
-        - Dict without: Add playbook_context key
-        - Other: Return unchanged (no playbook strategies yet)
+        - Dict without: Add skillbook_context key
+        - Other: Return unchanged (no skillbook strategies yet)
 
         Args:
             input: Original input
 
         Returns:
-            Enhanced input with playbook context
+            Enhanced input with skillbook context
         """
         # No context if no strategies yet
-        if not self.playbook or not self.playbook.bullets():
+        if not self.skillbook or not self.skillbook.skills():
             return input
 
-        playbook_context = wrap_playbook_context(self.playbook)
+        skillbook_context = wrap_skillbook_context(self.skillbook)
 
         # String input - append context
         if isinstance(input, str):
-            return f"{input}\n\n{playbook_context}"
+            return f"{input}\n\n{skillbook_context}"
 
         # Dict input with "input" key - enhance that field
         if isinstance(input, dict) and "input" in input:
             enhanced = input.copy()
-            enhanced["input"] = f"{input['input']}\n\n{playbook_context}"
+            enhanced["input"] = f"{input['input']}\n\n{skillbook_context}"
             return enhanced
 
-        # Dict input without "input" key - add playbook_context key
+        # Dict input without "input" key - add skillbook_context key
         if isinstance(input, dict):
             enhanced = input.copy()
-            enhanced["playbook_context"] = playbook_context
+            enhanced["skillbook_context"] = skillbook_context
             return enhanced
 
         # Other types - return unchanged
@@ -432,14 +432,14 @@ class ACELangChain:
             # focus the learning on task patterns and output quality rather than
             # reasoning steps. This prevents the Reflector from generating
             # meta-strategies about the learning system itself.
-            generator_output = GeneratorOutput(
+            agent_output = AgentOutput(
                 reasoning=f"""Question/Task: {task}
 
 Chain Output: {output_str}
 
 Note: This is an external LangChain chain execution. Learning should focus on task patterns and output quality, not internal system behavior.""",
                 final_answer=output_str,
-                bullet_ids=[],  # LangChain runnables don't cite bullets
+                skill_ids=[],  # LangChain runnables don't cite skills
                 raw={"input": original_input, "output": result},
             )
 
@@ -449,22 +449,22 @@ Note: This is an external LangChain chain execution. Learning should focus on ta
             # Reflect: Analyze execution
             reflection = self.reflector.reflect(
                 question=task,
-                generator_output=generator_output,
-                playbook=self.playbook,
+                agent_output=agent_output,
+                skillbook=self.skillbook,
                 ground_truth=None,
                 feedback=feedback,
             )
 
-            # Curate: Generate playbook updates
-            curator_output = self.curator.curate(
+            # SkillManager: Generate skillbook updates
+            skill_manager_output = self.skill_manager.update_skills(
                 reflection=reflection,
-                playbook=self.playbook,
+                skillbook=self.skillbook,
                 question_context=f"task: {task}",
                 progress=task,
             )
 
             # Apply updates
-            self.playbook.apply_delta(curator_output.delta)
+            self.skillbook.apply_update(skill_manager_output.update)
 
         except Exception as e:
             logger.error(f"ACE learning failed: {e}")
@@ -493,7 +493,7 @@ Note: This is an external LangChain chain execution. Learning should focus on ta
 
             # Create adapter for Reflector interface
             # Note: Focus learning on task failure patterns, not system behavior
-            generator_output = GeneratorOutput(
+            agent_output = AgentOutput(
                 reasoning=f"""Question/Task: {task}
 
 Execution Result: FAILED
@@ -501,7 +501,7 @@ Error: {error_msg}
 
 Note: This is an external LangChain chain execution that failed. Learning should focus on task patterns that may have caused the failure, not internal system behavior.""",
                 final_answer=f"Failed: {error_msg}",
-                bullet_ids=[],
+                skill_ids=[],
                 raw={"input": original_input, "error": error_msg},
             )
 
@@ -511,22 +511,22 @@ Note: This is an external LangChain chain execution that failed. Learning should
             # Reflect on failure
             reflection = self.reflector.reflect(
                 question=task,
-                generator_output=generator_output,
-                playbook=self.playbook,
+                agent_output=agent_output,
+                skillbook=self.skillbook,
                 ground_truth=None,
                 feedback=feedback,
             )
 
-            # Curate: Learn from failure patterns
-            curator_output = self.curator.curate(
+            # SkillManager: Learn from failure patterns
+            skill_manager_output = self.skill_manager.update_skills(
                 reflection=reflection,
-                playbook=self.playbook,
+                skillbook=self.skillbook,
                 question_context=f"task: {task}",
                 progress=f"Failed: {task}",
             )
 
             # Apply updates
-            self.playbook.apply_delta(curator_output.delta)
+            self.skillbook.apply_update(skill_manager_output.update)
 
         except Exception as e:
             logger.error(f"ACE failure learning failed: {e}")
@@ -575,32 +575,32 @@ Note: This is an external LangChain chain execution that failed. Learning should
 
             reasoning = "\n".join(parts)
 
-            generator_output = GeneratorOutput(
+            agent_output = AgentOutput(
                 reasoning=reasoning,
                 final_answer=output,
-                bullet_ids=[],
+                skill_ids=[],
                 raw={"input": original_input, "output": result},
             )
 
             feedback = f"Agent completed task in {len(steps)} steps"
 
-            # Reflect and Curate
+            # Reflect and SkillManager
             reflection = self.reflector.reflect(
                 question=task,
-                generator_output=generator_output,
-                playbook=self.playbook,
+                agent_output=agent_output,
+                skillbook=self.skillbook,
                 ground_truth=None,
                 feedback=feedback,
             )
 
-            curator_output = self.curator.curate(
+            skill_manager_output = self.skill_manager.update_skills(
                 reflection=reflection,
-                playbook=self.playbook,
+                skillbook=self.skillbook,
                 question_context=f"task: {task}",
                 progress=task,
             )
 
-            self.playbook.apply_delta(curator_output.delta)
+            self.skillbook.apply_update(skill_manager_output.update)
 
         except Exception as e:
             logger.error(f"ACE learning with trace failed: {e}")
@@ -768,41 +768,41 @@ Note: This is an external LangChain chain execution that failed. Learning should
             )
         return str(original_input)
 
-    def save_playbook(self, path: str):
+    def save_skillbook(self, path: str):
         """
-        Save learned playbook to file.
+        Save learned skillbook to file.
 
         Args:
             path: File path to save to
 
         Example:
-            ace_chain.save_playbook("chain_expert.json")
+            ace_chain.save_skillbook("chain_expert.json")
         """
-        self.playbook.save_to_file(path)
+        self.skillbook.save_to_file(path)
 
-    def load_playbook(self, path: str):
+    def load_skillbook(self, path: str):
         """
-        Load playbook from file (replaces current).
+        Load skillbook from file (replaces current).
 
         Args:
             path: File path to load from
 
         Example:
-            ace_chain.load_playbook("expert.json")
+            ace_chain.load_skillbook("expert.json")
         """
-        self.playbook = Playbook.load_from_file(path)
+        self.skillbook = Skillbook.load_from_file(path)
 
     def enable_learning(self):
-        """Enable learning (allows learn() to update playbook)."""
+        """Enable learning (allows learn() to update skillbook)."""
         self.is_learning = True
 
     def disable_learning(self):
-        """Disable learning (prevents learn() from updating playbook)."""
+        """Disable learning (prevents learn() from updating skillbook)."""
         self.is_learning = False
 
     def get_strategies(self) -> str:
         """
-        Get current playbook strategies as formatted text.
+        Get current skillbook strategies as formatted text.
 
         Returns:
             Formatted string with learned strategies (empty if none)
@@ -811,17 +811,17 @@ Note: This is an external LangChain chain execution that failed. Learning should
             strategies = ace_chain.get_strategies()
             print(strategies)
         """
-        if not self.playbook or not self.playbook.bullets():
+        if not self.skillbook or not self.skillbook.skills():
             return ""
-        return wrap_playbook_context(self.playbook)
+        return wrap_skillbook_context(self.skillbook)
 
     def __repr__(self) -> str:
         """String representation."""
-        bullets_count = len(self.playbook.bullets()) if self.playbook else 0
+        skills_count = len(self.skillbook.skills()) if self.skillbook else 0
         return (
             f"ACELangChain("
             f"runnable={self.runnable.__class__.__name__}, "
-            f"strategies={bullets_count}, "
+            f"strategies={skills_count}, "
             f"learning={'enabled' if self.is_learning else 'disabled'})"
         )
 

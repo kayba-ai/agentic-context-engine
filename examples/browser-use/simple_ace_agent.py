@@ -23,7 +23,7 @@ async def main():
     # Create ACE agent (just like browser-use Agent!)
     # Two LLMs are used:
     #   - llm: ChatBrowserUse for browser execution (fine-tuned for browser automation)
-    #   - ace_model: "gpt-4o-mini" by default for ACE learning (Reflector/Curator)
+    #   - ace_model: "gpt-4o-mini" by default for ACE learning (Reflector/SkillManager)
     agent = ACEAgent(
         llm=ChatBrowserUse(),  # Browser execution LLM
         ace_model="gpt-4o-mini",  # ACE learning LLM (optional, this is the default)
@@ -36,7 +36,7 @@ async def main():
     print("-" * 50)
     try:
         await agent.run(task="Find the number 1 post on Hacker News")
-        print(f"✅ Completed! Learned {len(agent.playbook.bullets())} strategies\n")
+        print(f"✅ Completed! Learned {len(agent.skillbook.skills())} strategies\n")
     except Exception as e:
         print(f"⚠️  Task failed: {e}\n")
 
@@ -45,7 +45,7 @@ async def main():
     print("-" * 50)
     try:
         await agent.run(task="Find the number 2 post on Hacker News")
-        print(f"✅ Completed! Learned {len(agent.playbook.bullets())} strategies\n")
+        print(f"✅ Completed! Learned {len(agent.skillbook.skills())} strategies\n")
     except Exception as e:
         print(f"⚠️  Task failed: {e}\n")
 
@@ -54,7 +54,7 @@ async def main():
     print("-" * 50)
     try:
         await agent.run(task="Find the number 3 post on Hacker News")
-        print(f"✅ Completed! Learned {len(agent.playbook.bullets())} strategies\n")
+        print(f"✅ Completed! Learned {len(agent.skillbook.skills())} strategies\n")
     except Exception as e:
         print(f"⚠️  Task failed: {e}\n")
 
@@ -62,37 +62,37 @@ async def main():
     print("=" * 50)
     print("🎯 Learned Strategies:")
     print("=" * 50)
-    if agent.playbook.bullets():
-        for i, bullet in enumerate(agent.playbook.bullets()[:5], 1):
-            helpful = bullet.helpful
-            harmful = bullet.harmful
+    if agent.skillbook.skills():
+        for i, skill in enumerate(agent.skillbook.skills()[:5], 1):
+            helpful = skill.helpful
+            harmful = skill.harmful
             score = f"+{helpful}/-{harmful}"
-            print(f"{i}. {bullet.content}")
+            print(f"{i}. {skill.content}")
             print(f"   Score: {score}\n")
     else:
         print("No strategies learned yet.\n")
 
-    # Save playbook for reuse
-    playbook_path = "hn_expert.json"
-    agent.save_playbook(playbook_path)
-    print(f"💾 Playbook saved to {playbook_path}")
-    print("\n✨ Next time, load this playbook to start with learned strategies!")
+    # Save skillbook for reuse
+    skillbook_path = "hn_expert.json"
+    agent.save_skillbook(skillbook_path)
+    print(f"💾 Skillbook saved to {skillbook_path}")
+    print("\n✨ Next time, load this skillbook to start with learned strategies!")
 
 
 async def demo_with_pretrained():
     """
-    Demo: Using a pre-trained playbook.
+    Demo: Using a pre-trained skillbook.
 
     Run this after the main() function has saved hn_expert.json
     """
     print("\n" + "=" * 50)
-    print("📚 Demo: Using Pre-Trained Playbook")
+    print("📚 Demo: Using Pre-Trained Skillbook")
     print("=" * 50)
 
-    # Create agent with pre-trained playbook
-    agent = ACEAgent(llm=ChatBrowserUse(), playbook_path="hn_expert.json")
+    # Create agent with pre-trained skillbook
+    agent = ACEAgent(llm=ChatBrowserUse(), skillbook_path="hn_expert.json")
 
-    print(f"Loaded {len(agent.playbook.bullets())} strategies from playbook\n")
+    print(f"Loaded {len(agent.skillbook.skills())} strategies from skillbook\n")
 
     # This task should be faster/better due to pre-trained knowledge
     print("Task: Find fourth HN post (using pre-trained strategies)")
@@ -117,7 +117,7 @@ async def demo_learning_toggle():
     # Task 1 with learning
     print("Task 1 (learning=ON): Find top post")
     await agent.run(task="Find the top post on Hacker News")
-    print(f"Learned {len(agent.playbook.bullets())} strategies\n")
+    print(f"Learned {len(agent.skillbook.skills())} strategies\n")
 
     # Disable learning
     agent.disable_learning()
@@ -126,7 +126,7 @@ async def demo_learning_toggle():
     # Task 2 without learning
     print("Task 2 (learning=OFF): Find second post")
     await agent.run(task="Find the second post on Hacker News")
-    print(f"Strategies unchanged: {len(agent.playbook.bullets())}\n")
+    print(f"Strategies unchanged: {len(agent.skillbook.skills())}\n")
 
     # Re-enable learning
     agent.enable_learning()
@@ -135,7 +135,7 @@ async def demo_learning_toggle():
     # Task 3 with learning again
     print("Task 3 (learning=ON): Find third post")
     await agent.run(task="Find the third post on Hacker News")
-    print(f"Learned {len(agent.playbook.bullets())} strategies\n")
+    print(f"Learned {len(agent.skillbook.skills())} strategies\n")
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 """Integration tests for Instructor-based structured output validation.
 
 This module tests the Instructor integration that provides automatic Pydantic
-validation and intelligent retry for Generator, Reflector, and Curator roles.
+validation and intelligent retry for Agent, Reflector, and SkillManager roles.
 """
 
 import unittest
@@ -11,10 +11,10 @@ from unittest.mock import Mock, patch
 import pytest
 from pydantic import BaseModel, ValidationError
 
-from ace import Generator, Reflector, Curator, Playbook
+from ace import Agent, Reflector, SkillManager, Skillbook
 from ace.llm import LLMClient, LLMResponse
-from ace.roles import GeneratorOutput, ReflectorOutput, CuratorOutput, BulletTag
-from ace.delta import DeltaBatch
+from ace.roles import AgentOutput, ReflectorOutput, SkillManagerOutput, SkillTag
+from ace.updates import UpdateBatch
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -121,26 +121,26 @@ class MockInstructorClient(LLMClient):
 
 
 @pytest.mark.unit
-class TestInstructorIntegrationGenerator(unittest.TestCase):
-    """Test Generator with Instructor client."""
+class TestInstructorIntegrationAgent(unittest.TestCase):
+    """Test Agent with Instructor client."""
 
     def setUp(self):
         """Set up test fixtures."""
         self.instructor_llm = MockInstructorClient()
-        self.generator = Generator(self.instructor_llm)
-        self.playbook = Playbook()
+        self.agent = Agent(self.instructor_llm)
+        self.skillbook = Skillbook()
 
-    def test_generator_uses_complete_structured(self):
-        """Test that Generator uses complete_structured when available."""
-        # Queue a valid GeneratorOutput
-        expected_output = GeneratorOutput(
-            reasoning="Step 1: Add 2 + 2 = 4", final_answer="4", bullet_ids=[], raw={}
+    def test_agent_uses_complete_structured(self):
+        """Test that Agent uses complete_structured when available."""
+        # Queue a valid AgentOutput
+        expected_output = AgentOutput(
+            reasoning="Step 1: Add 2 + 2 = 4", final_answer="4", skill_ids=[], raw={}
         )
         self.instructor_llm.set_structured_response(expected_output)
 
         # Generate
-        result = self.generator.generate(
-            question="What is 2+2?", context="Show your work", playbook=self.playbook
+        result = self.agent.generate(
+            question="What is 2+2?", context="Show your work", skillbook=self.skillbook
         )
 
         # Verify result
@@ -150,53 +150,53 @@ class TestInstructorIntegrationGenerator(unittest.TestCase):
         # Verify complete_structured was called
         self.assertEqual(len(self.instructor_llm.call_history), 1)
         call = self.instructor_llm.call_history[0]
-        self.assertEqual(call["response_model"], GeneratorOutput)
+        self.assertEqual(call["response_model"], AgentOutput)
 
-    def test_generator_extracts_bullet_ids_from_reasoning(self):
-        """Test that Generator extracts bullet IDs even with Instructor."""
-        # Create output with bullet citations in reasoning
-        output_with_citations = GeneratorOutput(
+    def test_agent_extracts_skill_ids_from_reasoning(self):
+        """Test that Agent extracts skill IDs even with Instructor."""
+        # Create output with skill citations in reasoning
+        output_with_citations = AgentOutput(
             reasoning="Following [general-00001] and [math-00042], I calculated 2+2=4",
             final_answer="4",
-            bullet_ids=[],  # Empty initially
+            skill_ids=[],  # Empty initially
             raw={},
         )
         self.instructor_llm.set_structured_response(output_with_citations)
 
-        result = self.generator.generate(
-            question="What is 2+2?", context="", playbook=self.playbook
+        result = self.agent.generate(
+            question="What is 2+2?", context="", skillbook=self.skillbook
         )
 
-        # Verify bullet_ids were extracted
-        self.assertEqual(result.bullet_ids, ["general-00001", "math-00042"])
+        # Verify skill_ids were extracted
+        self.assertEqual(result.skill_ids, ["general-00001", "math-00042"])
 
-    def test_generator_pydantic_validation(self):
+    def test_agent_pydantic_validation(self):
         """Test that Pydantic validates required fields."""
         # This test verifies the output model structure
         with self.assertRaises(ValidationError):
-            GeneratorOutput(
+            AgentOutput(
                 # Missing required fields: reasoning, final_answer
-                bullet_ids=[],
+                skill_ids=[],
                 raw={},
             )
 
-    def test_generator_with_playbook_context(self):
-        """Test Generator includes playbook in prompt when using Instructor."""
-        self.playbook.add_bullet("math", "Show your work step by step")
+    def test_agent_with_skillbook_context(self):
+        """Test Agent includes skillbook in prompt when using Instructor."""
+        self.skillbook.add_skill("math", "Show your work step by step")
 
-        expected_output = GeneratorOutput(
-            reasoning="Following the playbook, I'll show my work...",
+        expected_output = AgentOutput(
+            reasoning="Following the skillbook, I'll show my work...",
             final_answer="4",
-            bullet_ids=[],
+            skill_ids=[],
             raw={},
         )
         self.instructor_llm.set_structured_response(expected_output)
 
-        result = self.generator.generate(
-            question="What is 2+2?", context="", playbook=self.playbook
+        result = self.agent.generate(
+            question="What is 2+2?", context="", skillbook=self.skillbook
         )
 
-        # Verify the prompt included playbook
+        # Verify the prompt included skillbook
         call = self.instructor_llm.call_history[0]
         self.assertIn("math", call["prompt"])
 
@@ -209,9 +209,9 @@ class TestInstructorIntegrationReflector(unittest.TestCase):
         """Set up test fixtures."""
         self.instructor_llm = MockInstructorClient()
         self.reflector = Reflector(self.instructor_llm)
-        self.playbook = Playbook()
-        self.generator_output = GeneratorOutput(
-            reasoning="2 + 2 = 4", final_answer="4", bullet_ids=[], raw={}
+        self.skillbook = Skillbook()
+        self.agent_output = AgentOutput(
+            reasoning="2 + 2 = 4", final_answer="4", skill_ids=[], raw={}
         )
 
     def test_reflector_uses_complete_structured(self):
@@ -222,15 +222,15 @@ class TestInstructorIntegrationReflector(unittest.TestCase):
             root_cause_analysis="",
             correct_approach="The approach was sound",
             key_insight="Addition was performed correctly",
-            bullet_tags=[],
+            skill_tags=[],
             raw={},
         )
         self.instructor_llm.set_structured_response(expected_output)
 
         result = self.reflector.reflect(
             question="What is 2+2?",
-            generator_output=self.generator_output,
-            playbook=self.playbook,
+            agent_output=self.agent_output,
+            skillbook=self.skillbook,
             ground_truth="4",
             feedback="Correct!",
         )
@@ -243,11 +243,11 @@ class TestInstructorIntegrationReflector(unittest.TestCase):
         call = self.instructor_llm.call_history[0]
         self.assertEqual(call["response_model"], ReflectorOutput)
 
-    def test_reflector_bullet_tagging(self):
-        """Test that Reflector can tag bullets as helpful/harmful."""
-        # Add a bullet and get its auto-generated ID
-        bullet = self.playbook.add_bullet("math", "Show your work")
-        bullet_id = bullet.id
+    def test_reflector_skill_tagging(self):
+        """Test that Reflector can tag skills as helpful/harmful."""
+        # Add a skill and get its auto-generated ID
+        skill = self.skillbook.add_skill("math", "Show your work")
+        skill_id = skill.id
 
         expected_output = ReflectorOutput(
             reasoning="The strategy was effective",
@@ -255,22 +255,22 @@ class TestInstructorIntegrationReflector(unittest.TestCase):
             root_cause_analysis="",
             correct_approach="Continue using this approach",
             key_insight="Showing work helps avoid errors",
-            bullet_tags=[BulletTag(id=bullet_id, tag="helpful")],
+            skill_tags=[SkillTag(id=skill_id, tag="helpful")],
             raw={},
         )
         self.instructor_llm.set_structured_response(expected_output)
 
         result = self.reflector.reflect(
             question="What is 2+2?",
-            generator_output=self.generator_output,
-            playbook=self.playbook,
+            agent_output=self.agent_output,
+            skillbook=self.skillbook,
             ground_truth="4",
         )
 
-        # Verify bullet tags
-        self.assertEqual(len(result.bullet_tags), 1)
-        self.assertEqual(result.bullet_tags[0].id, bullet_id)
-        self.assertEqual(result.bullet_tags[0].tag, "helpful")
+        # Verify skill tags
+        self.assertEqual(len(result.skill_tags), 1)
+        self.assertEqual(result.skill_tags[0].id, skill_id)
+        self.assertEqual(result.skill_tags[0].tag, "helpful")
 
     def test_reflector_pydantic_validation(self):
         """Test that Pydantic validates required fields in ReflectorOutput."""
@@ -278,32 +278,32 @@ class TestInstructorIntegrationReflector(unittest.TestCase):
             ReflectorOutput(
                 # Missing required fields: reasoning, correct_approach, key_insight
                 error_identification="",
-                bullet_tags=[],
+                skill_tags=[],
             )
 
 
 @pytest.mark.unit
-class TestInstructorIntegrationCurator(unittest.TestCase):
-    """Test Curator with Instructor client."""
+class TestInstructorIntegrationSkillManager(unittest.TestCase):
+    """Test SkillManager with Instructor client."""
 
     def setUp(self):
         """Set up test fixtures."""
         self.instructor_llm = MockInstructorClient()
-        self.curator = Curator(self.instructor_llm)
-        self.playbook = Playbook()
+        self.skill_manager = SkillManager(self.instructor_llm)
+        self.skillbook = Skillbook()
         self.reflection = ReflectorOutput(
             reasoning="The approach was good",
             error_identification="",
             root_cause_analysis="",
             correct_approach="Keep doing this",
             key_insight="This strategy works well",
-            bullet_tags=[],
+            skill_tags=[],
             raw={},
         )
 
-    def test_curator_uses_complete_structured(self):
-        """Test that Curator uses complete_structured when available."""
-        delta_batch = DeltaBatch.from_json(
+    def test_skill_manager_uses_complete_structured(self):
+        """Test that SkillManager uses complete_structured when available."""
+        update_batch = UpdateBatch.from_json(
             {
                 "reasoning": "Adding a new strategy",
                 "operations": [
@@ -312,28 +312,28 @@ class TestInstructorIntegrationCurator(unittest.TestCase):
             }
         )
 
-        expected_output = CuratorOutput(delta=delta_batch, raw={})
+        expected_output = SkillManagerOutput(update=update_batch, raw={})
         self.instructor_llm.set_structured_response(expected_output)
 
-        result = self.curator.curate(
+        result = self.skill_manager.update_skills(
             reflection=self.reflection,
-            playbook=self.playbook,
+            skillbook=self.skillbook,
             question_context="Math problems",
             progress="1/10 correct",
         )
 
         # Verify result
-        self.assertEqual(len(result.delta.operations), 1)
-        self.assertEqual(result.delta.operations[0].type, "ADD")
+        self.assertEqual(len(result.update.operations), 1)
+        self.assertEqual(result.update.operations[0].type, "ADD")
 
         # Verify complete_structured was called
         self.assertEqual(len(self.instructor_llm.call_history), 1)
         call = self.instructor_llm.call_history[0]
-        self.assertEqual(call["response_model"], CuratorOutput)
+        self.assertEqual(call["response_model"], SkillManagerOutput)
 
-    def test_curator_multiple_operations(self):
-        """Test Curator with multiple delta operations."""
-        delta_batch = DeltaBatch.from_json(
+    def test_skill_manager_multiple_operations(self):
+        """Test SkillManager with multiple update operations."""
+        update_batch = UpdateBatch.from_json(
             {
                 "reasoning": "Multiple updates needed",
                 "operations": [
@@ -344,33 +344,33 @@ class TestInstructorIntegrationCurator(unittest.TestCase):
                     },
                     {
                         "type": "TAG",
-                        "bullet_id": "math-00001",
+                        "skill_id": "math-00001",
                         "metadata": {"helpful": 1},
                     },
                 ],
             }
         )
 
-        expected_output = CuratorOutput(delta=delta_batch, raw={})
+        expected_output = SkillManagerOutput(update=update_batch, raw={})
         self.instructor_llm.set_structured_response(expected_output)
 
-        result = self.curator.curate(
+        result = self.skill_manager.update_skills(
             reflection=self.reflection,
-            playbook=self.playbook,
+            skillbook=self.skillbook,
             question_context="Math",
             progress="5/10",
         )
 
         # Verify operations
-        self.assertEqual(len(result.delta.operations), 2)
-        self.assertEqual(result.delta.operations[0].type, "ADD")
-        self.assertEqual(result.delta.operations[1].type, "TAG")
+        self.assertEqual(len(result.update.operations), 2)
+        self.assertEqual(result.update.operations[0].type, "ADD")
+        self.assertEqual(result.update.operations[1].type, "TAG")
 
-    def test_curator_pydantic_validation(self):
-        """Test that Pydantic validates CuratorOutput structure."""
+    def test_skill_manager_pydantic_validation(self):
+        """Test that Pydantic validates SkillManagerOutput structure."""
         with self.assertRaises(ValidationError):
-            CuratorOutput(
-                # Missing required field: delta
+            SkillManagerOutput(
+                # Missing required field: update
                 raw={}
             )
 
@@ -392,11 +392,11 @@ class TestInstructorDetection(unittest.TestCase):
 
     def test_pydantic_models_are_serializable(self):
         """Test that output models can be serialized/deserialized."""
-        # GeneratorOutput
-        gen_output = GeneratorOutput(
+        # AgentOutput
+        gen_output = AgentOutput(
             reasoning="test",
             final_answer="42",
-            bullet_ids=["id-1"],
+            skill_ids=["id-1"],
             raw={"key": "value"},
         )
         json_str = gen_output.model_dump_json()
@@ -410,16 +410,16 @@ class TestInstructorDetection(unittest.TestCase):
             root_cause_analysis="n/a",
             correct_approach="good",
             key_insight="works",
-            bullet_tags=[BulletTag(id="test-1", tag="helpful")],
+            skill_tags=[SkillTag(id="test-1", tag="helpful")],
             raw={},
         )
         json_str = ref_output.model_dump_json()
         self.assertIn("works", json_str)
 
-        # CuratorOutput
-        delta = DeltaBatch.from_json({"reasoning": "test", "operations": []})
-        cur_output = CuratorOutput(delta=delta, raw={})
-        json_str = cur_output.model_dump_json()
+        # SkillManagerOutput
+        update = UpdateBatch.from_json({"reasoning": "test", "operations": []})
+        sm_output = SkillManagerOutput(update=update, raw={})
+        json_str = sm_output.model_dump_json()
         self.assertIn("operations", json_str)
 
 
@@ -433,7 +433,7 @@ class TestInstructorClaudeParameterResolution(unittest.TestCase):
     This resulted in Anthropic API errors:
     "temperature and top_p cannot both be specified for this model"
 
-    This broke ACE learning (Reflector/Curator failed, 0 strategies learned).
+    This broke ACE learning (Reflector/SkillManager failed, 0 strategies learned).
     Fixed in commit 9740603.
     """
 
@@ -448,7 +448,7 @@ class TestInstructorClaudeParameterResolution(unittest.TestCase):
         """
         from ace.llm_providers.litellm_client import LiteLLMClient, LiteLLMConfig
         from ace.llm_providers.instructor_client import InstructorClient
-        from ace.roles import GeneratorOutput
+        from ace.roles import AgentOutput
         import instructor
 
         # Create a LiteLLM client with Claude model
@@ -461,10 +461,10 @@ class TestInstructorClaudeParameterResolution(unittest.TestCase):
         instructor_client = InstructorClient(base_llm)
 
         # Mock the response
-        mock_response = GeneratorOutput(
+        mock_response = AgentOutput(
             reasoning="Test",
             final_answer="42",
-            bullet_ids=[],
+            skill_ids=[],
             raw={},
         )
 
@@ -483,7 +483,7 @@ class TestInstructorClaudeParameterResolution(unittest.TestCase):
             try:
                 instructor_client.complete_structured(
                     prompt="Test prompt",
-                    response_model=GeneratorOutput,
+                    response_model=AgentOutput,
                 )
             except Exception:
                 pass  # We just want to capture the params
@@ -504,7 +504,7 @@ class TestInstructorClaudeParameterResolution(unittest.TestCase):
         """Test that _resolve_sampling_params is actually called in InstructorClient."""
         from ace.llm_providers.litellm_client import LiteLLMClient, LiteLLMConfig
         from ace.llm_providers.instructor_client import InstructorClient
-        from ace.roles import GeneratorOutput
+        from ace.roles import AgentOutput
 
         # Create a LiteLLM client with Claude model
         config = LiteLLMConfig(
@@ -526,7 +526,7 @@ class TestInstructorClaudeParameterResolution(unittest.TestCase):
                 try:
                     instructor_client.complete_structured(
                         prompt="Test",
-                        response_model=GeneratorOutput,
+                        response_model=AgentOutput,
                     )
                 except Exception:
                     pass  # We just want to verify _resolve_sampling_params was called

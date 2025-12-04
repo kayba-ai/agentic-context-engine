@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
-Playbook Evaluation with Blinded Judging
+Skillbook Evaluation with Blinded Judging
 
-Evaluates ACE playbook effectiveness by comparing baseline (no playbook) vs
-ACE (with playbook) responses on held-out test samples. Uses blinded judging
+Evaluates ACE skillbook effectiveness by comparing baseline (no skillbook) vs
+ACE (with skillbook) responses on held-out test samples. Uses blinded judging
 to eliminate bias.
 
 Methodology:
 1. Load last N samples from JSONL (test set, not used in training)
 2. Generate responses with Sonnet 4.0:
    - Baseline: original system prompt only
-   - ACE: original system prompt + playbook
+   - ACE: original system prompt + skillbook
 3. Judge each response independently with Sonnet 4.5 (blinded)
 4. Compare success rates
 
@@ -34,7 +34,7 @@ load_dotenv(override=True)
 # Disable Opik logging for cleaner output (must be set before importing ace)
 os.environ["OPIK_ENABLED"] = "false"
 
-from ace import Playbook, LiteLLMClient
+from ace import Skillbook, LiteLLMClient
 
 
 def load_test_samples(jsonl_path: str, n_samples: int = 20) -> List[Dict[str, Any]]:
@@ -111,40 +111,40 @@ def extract_ground_truth(response_text: str) -> Dict[str, str]:
     return result
 
 
-def filter_playbook_bullets(playbook: Playbook, categories: List[str]) -> str:
+def filter_skillbook_skills(skillbook: Skillbook, categories: List[str]) -> str:
     """
-    Filter playbook bullets to only those matching sample categories.
+    Filter skillbook skills to only those matching sample categories.
 
     Args:
-        playbook: Full learned playbook
+        skillbook: Full learned skillbook
         categories: Sample's error categories
 
     Returns:
-        Formatted string of relevant bullets
+        Formatted string of relevant skills
     """
-    relevant_bullets = []
+    relevant_skills = []
 
-    for bullet in playbook.bullets():
-        # Check if bullet section matches any category
-        bullet_section = bullet.section.lower()
+    for skill in skillbook.skills():
+        # Check if skill section matches any category
+        skill_section = skill.section.lower()
         if any(
-            cat.lower() in bullet_section or bullet_section in cat.lower()
+            cat.lower() in skill_section or skill_section in cat.lower()
             for cat in categories
         ):
-            relevant_bullets.append(bullet)
+            relevant_skills.append(skill)
 
-    if not relevant_bullets:
-        # If no exact matches, include top 5 bullets by score
-        all_bullets = sorted(
-            playbook.bullets(), key=lambda b: b.helpful - b.harmful, reverse=True
+    if not relevant_skills:
+        # If no exact matches, include top 5 skills by score
+        all_skills = sorted(
+            skillbook.skills(), key=lambda s: s.helpful - s.harmful, reverse=True
         )
-        relevant_bullets = all_bullets[:5]
+        relevant_skills = all_skills[:5]
 
-    # Format bullets
+    # Format skills
     formatted = "## Learned Patterns:\n\n"
-    for bullet in relevant_bullets[:10]:  # Max 10 bullets
-        score = bullet.helpful - bullet.harmful
-        formatted += f"- {bullet.content} [score: {score:+d}]\n\n"
+    for skill in relevant_skills[:10]:  # Max 10 skills
+        score = skill.helpful - skill.harmful
+        formatted += f"- {skill.content} [score: {score:+d}]\n\n"
 
     return formatted
 
@@ -152,7 +152,7 @@ def filter_playbook_bullets(playbook: Playbook, categories: List[str]) -> str:
 def generate_responses(
     question: str,
     system_prompt: str,
-    playbook_text: str,
+    skillbook_text: str,
     model: str = "claude-sonnet-4-20250514",
 ) -> Tuple[str, str]:
     """
@@ -161,7 +161,7 @@ def generate_responses(
     Args:
         question: The question to answer
         system_prompt: Original system prompt from logs
-        playbook_text: Filtered playbook bullets
+        skillbook_text: Filtered skillbook skills
         model: Model to use (Sonnet 4.0)
 
     Returns:
@@ -172,8 +172,8 @@ def generate_responses(
     # Baseline: system prompt only
     baseline_response = llm.complete(prompt=question, system=system_prompt)
 
-    # ACE: system prompt + playbook
-    ace_system_prompt = f"{system_prompt}\n\n{playbook_text}"
+    # ACE: system prompt + skillbook
+    ace_system_prompt = f"{system_prompt}\n\n{skillbook_text}"
     ace_response = llm.complete(prompt=question, system=ace_system_prompt)
 
     return baseline_response.text, ace_response.text
@@ -305,24 +305,24 @@ def print_interim_summary(
     print("=" * 70 + "\n")
 
 
-def evaluate_playbook(
-    test_samples: List[Dict[str, Any]], playbook: Playbook, output_dir: Path
+def evaluate_skillbook(
+    test_samples: List[Dict[str, Any]], skillbook: Skillbook, output_dir: Path
 ) -> Dict[str, Any]:
     """
     Run full evaluation: generate responses and judge them blindly.
 
     Args:
         test_samples: List of test samples
-        playbook: Learned playbook
+        skillbook: Learned skillbook
         output_dir: Directory to save results
 
     Returns:
         Evaluation results with metrics
     """
-    print("🎯 Starting Playbook Evaluation")
+    print("🎯 Starting Skillbook Evaluation")
     print("=" * 70)
     print(f"Test samples: {len(test_samples)}")
-    print(f"Playbook bullets: {len(playbook.bullets())}\n")
+    print(f"Skillbook skills: {len(skillbook.skills())}\n")
 
     results = []
     skipped_samples = 0
@@ -337,12 +337,12 @@ def evaluate_playbook(
         # Use a default system prompt (since we may not have original)
         system_prompt = "You are an expert Convex backend developer helping debug and fix code issues."
 
-        # Filter playbook for relevant bullets
-        playbook_text = filter_playbook_bullets(playbook, categories)
+        # Filter skillbook for relevant skills
+        skillbook_text = filter_skillbook_skills(skillbook, categories)
 
         # Generate responses
         baseline_resp, ace_resp = generate_responses(
-            question, system_prompt, playbook_text
+            question, system_prompt, skillbook_text
         )
 
         # Judge responses (blinded - random order)
@@ -389,7 +389,7 @@ def evaluate_playbook(
         print(f"\n  📝 Baseline Response:")
         print(f"     {baseline_resp[:300]}...")
         print(f"     Verdict: {result['baseline_judgment']['verdict']}")
-        print(f"\n  🎯 ACE Response (with playbook):")
+        print(f"\n  🎯 ACE Response (with skillbook):")
         print(f"     {ace_resp[:300]}...")
         print(f"     Verdict: {result['ace_judgment']['verdict']}")
         print(f"\n" + "-" * 70 + "\n")
@@ -464,12 +464,12 @@ def main():
     """Main evaluation script."""
 
     print("\n" + "=" * 70)
-    print("ACE Playbook Evaluation - Blinded Judging")
+    print("ACE Skillbook Evaluation - Blinded Judging")
     print("=" * 70 + "\n")
 
     # Configuration
     DATA_PATH = "../../.private/helicone/ace_convex_training/ace_convex_samples.jsonl"
-    PLAYBOOK_PATH = (
+    SKILLBOOK_PATH = (
         "checkpoints/convex_checkpoint_20.json"  # Use checkpoint after 20 samples
     )
     N_TEST_SAMPLES = 200
@@ -482,7 +482,7 @@ def main():
 
     script_dir = Path(__file__).parent
     data_path = script_dir / DATA_PATH
-    playbook_path = script_dir / PLAYBOOK_PATH
+    skillbook_path = script_dir / SKILLBOOK_PATH
     output_dir = script_dir / OUTPUT_DIR
     output_dir.mkdir(exist_ok=True)
 
@@ -491,21 +491,21 @@ def main():
         print(f"❌ Data file not found: {data_path}\n")
         return
 
-    if not playbook_path.exists():
-        print(f"❌ Playbook not found: {playbook_path}")
-        print(f"   Run convex_training.py first to train playbook\n")
+    if not skillbook_path.exists():
+        print(f"❌ Skillbook not found: {skillbook_path}")
+        print(f"   Run convex_training.py first to train skillbook\n")
         return
 
     # Load test samples
     test_samples = load_test_samples(str(data_path), n_samples=N_TEST_SAMPLES)
 
-    # Load playbook
-    print(f"📚 Loading playbook from: {playbook_path}")
-    playbook = Playbook.load_from_file(str(playbook_path))
-    print(f"✅ Loaded playbook with {len(playbook.bullets())} bullets\n")
+    # Load skillbook
+    print(f"📚 Loading skillbook from: {skillbook_path}")
+    skillbook = Skillbook.load_from_file(str(skillbook_path))
+    print(f"✅ Loaded skillbook with {len(skillbook.skills())} skills\n")
 
     # Run evaluation
-    eval_results = evaluate_playbook(test_samples, playbook, output_dir)
+    eval_results = evaluate_skillbook(test_samples, skillbook, output_dir)
 
     # Print final summary
     print("\n" + "=" * 70)
@@ -522,10 +522,10 @@ def main():
 
     print(f"\n**Performance Comparison:**")
     print(
-        f"  Baseline (no playbook): {metrics['baseline']['success']}/{metrics['samples_evaluated']} SUCCESS ({metrics['baseline']['success_rate']:.1f}%)"
+        f"  Baseline (no skillbook): {metrics['baseline']['success']}/{metrics['samples_evaluated']} SUCCESS ({metrics['baseline']['success_rate']:.1f}%)"
     )
     print(
-        f"  ACE (with playbook):    {metrics['ace']['success']}/{metrics['samples_evaluated']} SUCCESS ({metrics['ace']['success_rate']:.1f}%)"
+        f"  ACE (with skillbook):    {metrics['ace']['success']}/{metrics['samples_evaluated']} SUCCESS ({metrics['ace']['success_rate']:.1f}%)"
     )
 
     print(f"\n**Improvement:**")

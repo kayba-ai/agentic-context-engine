@@ -16,11 +16,11 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from ace import (
-    Curator,
+    SkillManager,
     EnvironmentResult,
-    Generator,
-    OfflineAdapter,
-    Playbook,
+    Agent,
+    OfflineACE,
+    Skillbook,
     Reflector,
     Sample,
     TaskEnvironment,
@@ -38,9 +38,9 @@ class SimpleSample(Sample):
 class SimpleQAEnvironment(TaskEnvironment):
     """Evaluates predictions by string equality against ground truth."""
 
-    def evaluate(self, sample: Sample, generator_output) -> EnvironmentResult:
+    def evaluate(self, sample: Sample, agent_output) -> EnvironmentResult:
         ground_truth = sample.ground_truth or ""
-        prediction = generator_output.final_answer
+        prediction = agent_output.final_answer
         correct = prediction.strip().lower() == ground_truth.strip().lower()
         feedback = (
             "Prediction matched ground truth."
@@ -96,14 +96,14 @@ def main() -> None:
         device_map="auto",
     )
 
-    generator = Generator(client)
+    agent = Agent(client)
     reflector = Reflector(client)
-    curator = Curator(client)
-    adapter = OfflineAdapter(
-        playbook=Playbook(),
-        generator=generator,
+    skill_manager = SkillManager(client)
+    adapter = OfflineACE(
+        skillbook=Skillbook(),
+        agent=agent,
         reflector=reflector,
-        curator=curator,
+        skill_manager=skill_manager,
         max_refinement_rounds=3,
     )
 
@@ -123,15 +123,15 @@ def main() -> None:
     for step, result in enumerate(results, start=1):
         print(f"\nStep {step}:")
         print(f"  Question: {result.sample.question}")
-        print(f"  Model final answer: {result.generator_output.final_answer}")
+        print(f"  Model final answer: {result.agent_output.final_answer}")
         print(f"  Feedback: {result.environment_result.feedback}")
         print("  Reflection:")
         print(json.dumps(result.reflection.raw, ensure_ascii=False, indent=2))
-        print("  Curator operations:")
-        print(json.dumps(result.curator_output.raw, ensure_ascii=False, indent=2))
+        print("  SkillManager operations:")
+        print(json.dumps(result.skill_manager_output.raw, ensure_ascii=False, indent=2))
 
-    print("\nFinal playbook:\n")
-    print(adapter.playbook.as_prompt() or "(playbook is empty)")
+    print("\nFinal skillbook:\n")
+    print(adapter.skillbook.as_prompt() or "(skillbook is empty)")
 
 
 if __name__ == "__main__":

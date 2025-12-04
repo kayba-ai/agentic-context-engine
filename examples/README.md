@@ -63,8 +63,8 @@ Shows the three-step integration: Inject → Execute → Learn
 - [compare_v2_v2_1_prompts.py](prompts/compare_v2_v2_1_prompts.py) - v2.0 vs v2.1 (recommended)
 - [advanced_prompts_v2.py](prompts/advanced_prompts_v2.py) - Advanced techniques
 
-### Playbook Management
-- **[playbook_persistence.py](playbook_persistence.py)** - Save and load learned strategies
+### Skillbook Management
+- **[skillbook_persistence.py](skillbook_persistence.py)** - Save and load learned strategies
 
 ## 🗂️ Examples by Use Case
 

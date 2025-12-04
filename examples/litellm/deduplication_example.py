@@ -3,9 +3,9 @@
 ACE Deduplication Example
 
 Demonstrates that deduplication works during learning by:
-1. Loading a playbook with known duplicate bullets
+1. Loading a skillbook with known duplicate skills
 2. Running a learning cycle (ask + learn)
-3. Verifying that similar bullets were detected and consolidated
+3. Verifying that similar skills were detected and consolidated
 
 Requires: OPENAI_API_KEY (for embeddings), ANTHROPIC_API_KEY (for LLM)
 """
@@ -13,7 +13,7 @@ Requires: OPENAI_API_KEY (for embeddings), ANTHROPIC_API_KEY (for LLM)
 import os
 from dotenv import load_dotenv
 
-from ace import ACELiteLLM, Sample, SimpleEnvironment, DeduplicationConfig, Playbook
+from ace import ACELiteLLM, Sample, SimpleEnvironment, DeduplicationConfig, Skillbook
 
 load_dotenv()
 
@@ -31,21 +31,21 @@ def main():
     print("ACELiteLLM DEDUPLICATION DEMO")
     print("=" * 60)
 
-    # Step 1: Load playbook with known duplicates
-    playbook_path = os.path.join(os.path.dirname(__file__), "test_duplicates.json")
+    # Step 1: Load skillbook with known duplicates
+    skillbook_path = os.path.join(os.path.dirname(__file__), "test_duplicates.json")
 
-    print("\n1. Loading playbook with known duplicates...")
-    playbook = Playbook.load_from_file(playbook_path)
-    bullets_before = playbook.bullets()
+    print("\n1. Loading skillbook with known duplicates...")
+    skillbook = Skillbook.load_from_file(skillbook_path)
+    skills_before = skillbook.skills()
 
-    print(f"   Loaded {len(bullets_before)} bullets:")
-    for b in bullets_before:
-        print(f"   [{b.section}] {b.content}")
+    print(f"   Loaded {len(skills_before)} skills:")
+    for s in skills_before:
+        print(f"   [{s.section}] {s.content}")
 
     # Step 2: Configure agent with deduplication
     dedup_config = DeduplicationConfig(
         enabled=True,
-        similarity_threshold=0.70,  # Lowered to catch semantic duplicates
+        similarity_threshold=0.60,  # Lowered to catch semantic duplicates
         embedding_model="text-embedding-3-small",
     )
 
@@ -54,7 +54,7 @@ def main():
         dedup_config=dedup_config,
         is_learning=True,
     )
-    agent.playbook = playbook  # Use our duplicate playbook
+    agent.skillbook = skillbook  # Use our duplicate skillbook
 
     print(f"\n2. Running learning with deduplication enabled...")
     print(f"   - Similarity threshold: {dedup_config.similarity_threshold}")
@@ -69,28 +69,28 @@ def main():
     results = agent.learn(samples, environment, epochs=1)
 
     # Step 4: Check results
-    bullets_after = agent.playbook.bullets()
+    skills_after = agent.skillbook.skills()
 
     print(f"\n3. Results:")
-    print(f"   - Bullets before: {len(bullets_before)}")
-    print(f"   - Bullets after:  {len(bullets_after)}")
+    print(f"   - Skills before: {len(skills_before)}")
+    print(f"   - Skills after:  {len(skills_after)}")
 
-    print(f"\n   Current playbook:")
-    for b in bullets_after:
-        print(f"   [{b.section}] {b.content}")
+    print(f"\n   Current skillbook:")
+    for s in skills_after:
+        print(f"   [{s.section}] {s.content}")
 
     # Step 5: Verify
     print("\n" + "=" * 60)
-    if len(bullets_after) < len(bullets_before):
-        reduction = len(bullets_before) - len(bullets_after)
-        print(f"SUCCESS: Deduplication removed {reduction} duplicate bullet(s)")
-    elif len(bullets_after) == len(bullets_before):
+    if len(skills_after) < len(skills_before):
+        reduction = len(skills_before) - len(skills_after)
+        print(f"SUCCESS: Deduplication removed {reduction} duplicate skill(s)")
+    elif len(skills_after) == len(skills_before):
         print("INFO: No duplicates removed (similarity may be below threshold)")
         print(
-            "   This is expected if embeddings find the bullets sufficiently different"
+            "   This is expected if embeddings find the skills sufficiently different"
         )
     else:
-        print("INFO: Learning added new bullets")
+        print("INFO: Learning added new skills")
     print("=" * 60)
 
 

@@ -227,7 +227,7 @@ class TestLiteLLMConfigDefaults(unittest.TestCase):
         causing Anthropic API errors:
         "temperature and top_p cannot both be specified for this model"
 
-        This broke ACE learning (Reflector/Curator failed, 0 strategies learned).
+        This broke ACE learning (Reflector/SkillManager failed, 0 strategies learned).
         Fixed in commit 9740603.
         """
         from ace.llm_providers.litellm_client import LiteLLMConfig
@@ -245,6 +245,168 @@ class TestLiteLLMConfigDefaults(unittest.TestCase):
 
         config = LiteLLMConfig(model="gpt-4", top_p=0.9)
         self.assertEqual(config.top_p, 0.9)
+
+
+@pytest.mark.unit
+class TestACELiteLLMConfiguration(unittest.TestCase):
+    """Test ACELiteLLM configuration parameter passing."""
+
+    def _mock_response(self):
+        """Create mock LiteLLM response."""
+        mock = MagicMock()
+        mock.choices = [
+            MagicMock(
+                message=MagicMock(
+                    content='{"reasoning":"test","bullet_ids":[],"final_answer":"ok"}'
+                )
+            )
+        ]
+        mock.usage = None
+        mock.model = "gpt-4"
+        return mock
+
+    @patch("ace.llm_providers.litellm_client.completion")
+    def test_api_key_passed_to_client(self, mock_completion):
+        """Test api_key parameter is passed to LiteLLMClient."""
+        mock_completion.return_value = self._mock_response()
+
+        from ace.integrations import ACELiteLLM
+
+        agent = ACELiteLLM(model="gpt-4", api_key="test-key-123")
+        self.assertEqual(agent.llm.config.api_key, "test-key-123")
+
+    @patch("ace.llm_providers.litellm_client.completion")
+    def test_base_url_maps_to_api_base(self, mock_completion):
+        """Test base_url maps to api_base in config."""
+        mock_completion.return_value = self._mock_response()
+
+        from ace.integrations import ACELiteLLM
+
+        agent = ACELiteLLM(model="openai/local", base_url="http://localhost:1234/v1")
+        self.assertEqual(agent.llm.config.api_base, "http://localhost:1234/v1")
+
+    @patch("ace.llm_providers.litellm_client.completion")
+    def test_extra_headers_passed(self, mock_completion):
+        """Test extra_headers parameter is passed through."""
+        mock_completion.return_value = self._mock_response()
+
+        from ace.integrations import ACELiteLLM
+
+        headers = {"X-Custom": "value", "X-Tenant-ID": "team-alpha"}
+        agent = ACELiteLLM(model="gpt-4", extra_headers=headers)
+        self.assertEqual(agent.llm.config.extra_headers, headers)
+
+    @patch("ace.llm_providers.litellm_client.completion")
+    def test_ssl_verify_false(self, mock_completion):
+        """Test ssl_verify=False is passed through."""
+        mock_completion.return_value = self._mock_response()
+
+        from ace.integrations import ACELiteLLM
+
+        agent = ACELiteLLM(model="gpt-4", ssl_verify=False)
+        self.assertEqual(agent.llm.config.ssl_verify, False)
+
+    @patch("ace.llm_providers.litellm_client.completion")
+    def test_ssl_verify_path(self, mock_completion):
+        """Test ssl_verify with CA bundle path."""
+        mock_completion.return_value = self._mock_response()
+
+        from ace.integrations import ACELiteLLM
+
+        agent = ACELiteLLM(model="gpt-4", ssl_verify="/path/to/ca.pem")
+        self.assertEqual(agent.llm.config.ssl_verify, "/path/to/ca.pem")
+
+    @patch("ace.llm_providers.litellm_client.completion")
+    def test_kwargs_passed_through(self, mock_completion):
+        """Test **llm_kwargs are passed to LiteLLMClient."""
+        mock_completion.return_value = self._mock_response()
+
+        from ace.integrations import ACELiteLLM
+
+        agent = ACELiteLLM(model="gpt-4", timeout=120, max_retries=5)
+        self.assertEqual(agent.llm.config.timeout, 120)
+        self.assertEqual(agent.llm.config.max_retries, 5)
+
+    @patch("ace.llm_providers.litellm_client.completion")
+    def test_backward_compatibility(self, mock_completion):
+        """Test that existing code without new params still works."""
+        mock_completion.return_value = self._mock_response()
+
+        from ace.integrations import ACELiteLLM
+
+        agent = ACELiteLLM(model="gpt-4o-mini", max_tokens=1024, temperature=0.5)
+        self.assertEqual(agent.model, "gpt-4o-mini")
+        self.assertEqual(agent.llm.config.max_tokens, 1024)
+        self.assertEqual(agent.llm.config.temperature, 0.5)
+        # New params should be None by default (api_key may be picked up from env vars)
+        self.assertIsNone(agent.llm.config.extra_headers)
+        self.assertIsNone(agent.llm.config.ssl_verify)
+
+
+@pytest.mark.unit
+class TestLiteLLMClientDirectConfig(unittest.TestCase):
+    """Test LiteLLMClient direct configuration."""
+
+    def _mock_response(self):
+        """Create mock LiteLLM response."""
+        mock = MagicMock()
+        mock.choices = [MagicMock(message=MagicMock(content="Test response"))]
+        mock.usage = None
+        mock.model = "gpt-4"
+        return mock
+
+    @patch("ace.llm_providers.litellm_client.completion")
+    def test_extra_headers_in_call_params(self, mock_completion):
+        """Test extra_headers is included in LiteLLM call_params."""
+        mock_completion.return_value = self._mock_response()
+
+        from ace.llm_providers import LiteLLMClient
+
+        headers = {"X-Custom": "value"}
+        client = LiteLLMClient(model="gpt-4", extra_headers=headers)
+        client.complete("Test prompt")
+
+        call_kwargs = mock_completion.call_args[1]
+        self.assertEqual(call_kwargs["extra_headers"], headers)
+
+    @patch("ace.llm_providers.litellm_client.completion")
+    def test_ssl_verify_false_in_call_params(self, mock_completion):
+        """Test ssl_verify=False is included in LiteLLM call_params."""
+        mock_completion.return_value = self._mock_response()
+
+        from ace.llm_providers import LiteLLMClient
+
+        client = LiteLLMClient(model="gpt-4", ssl_verify=False)
+        client.complete("Test prompt")
+
+        call_kwargs = mock_completion.call_args[1]
+        self.assertEqual(call_kwargs["ssl_verify"], False)
+
+    @patch("ace.llm_providers.litellm_client.completion")
+    def test_ssl_verify_path_in_call_params(self, mock_completion):
+        """Test ssl_verify path is included in LiteLLM call_params."""
+        mock_completion.return_value = self._mock_response()
+
+        from ace.llm_providers import LiteLLMClient
+
+        client = LiteLLMClient(model="gpt-4", ssl_verify="/path/to/ca.pem")
+        client.complete("Test prompt")
+
+        call_kwargs = mock_completion.call_args[1]
+        self.assertEqual(call_kwargs["ssl_verify"], "/path/to/ca.pem")
+
+    @patch("ace.llm_providers.litellm_client.completion")
+    def test_ssl_verify_none_not_in_call_params(self, mock_completion):
+        """Test ssl_verify=None is NOT included in call_params."""
+        mock_completion.return_value = self._mock_response()
+
+        from ace.llm_providers import LiteLLMClient
+
+        client = LiteLLMClient(model="gpt-4")  # ssl_verify defaults to None
+        client.complete("Test prompt")
+
+        call_kwargs = mock_completion.call_args[1]
+        self.assertNotIn("ssl_verify", call_kwargs)
 
 
 if __name__ == "__main__":

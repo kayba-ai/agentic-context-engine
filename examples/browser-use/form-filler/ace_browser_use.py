@@ -17,14 +17,14 @@ from browser_use import Agent, Browser, ChatOpenAI
 
 from ace import (
     LiteLLMClient,
-    Generator,
+    Agent as ACEAgent,
     Reflector,
-    Curator,
-    OnlineAdapter,
+    SkillManager,
+    OnlineACE,
     Sample,
     TaskEnvironment,
     EnvironmentResult,
-    Playbook,
+    Skillbook,
 )
 from ace.observability import configure_opik
 
@@ -80,16 +80,16 @@ class BrowserUseEnvironment(TaskEnvironment):
         if local_port:
             self.form_uri = _start_http_server(local_port)
 
-    def evaluate(self, sample: Sample, generator_output):
+    def evaluate(self, sample: Sample, agent_output):
         """Run browser automation and evaluate the result."""
 
         task = sample.context
 
-        print("GENERATOR OUTPUT: ", generator_output)
+        print("AGENT OUTPUT: ", agent_output)
 
         # Extract action plan - handle both dict and string formats
         action_plan = {}
-        action_plan_source = generator_output.final_answer
+        action_plan_source = agent_output.final_answer
 
         # If final_answer is already a dict, use it directly
         if isinstance(action_plan_source, dict):
@@ -101,8 +101,8 @@ class BrowserUseEnvironment(TaskEnvironment):
             except json.JSONDecodeError:
                 # If parsing fails, try getting from raw
                 action_plan_raw = (
-                    generator_output.raw.get("final_answer", "{}")
-                    if hasattr(generator_output, "raw")
+                    agent_output.raw.get("final_answer", "{}")
+                    if hasattr(agent_output, "raw")
                     else "{}"
                 )
                 if isinstance(action_plan_raw, dict):
@@ -114,8 +114,8 @@ class BrowserUseEnvironment(TaskEnvironment):
                         print("ERROR PARSING ACTION PLAN: ", e)
                         action_plan = {}
         # Fallback: try raw if available
-        elif hasattr(generator_output, "raw"):
-            action_plan_raw = generator_output.raw.get("final_answer", "{}")
+        elif hasattr(agent_output, "raw"):
+            action_plan_raw = agent_output.raw.get("final_answer", "{}")
             if isinstance(action_plan_raw, dict):
                 action_plan = action_plan_raw
             elif isinstance(action_plan_raw, str):
@@ -280,7 +280,7 @@ class BrowserUseEnvironment(TaskEnvironment):
         """Query Opik for ACE token usage only.
 
         Returns:
-            tuple: (ace_tokens, generator_tokens, reflector_tokens, curator_tokens)
+            tuple: (ace_tokens, agent_tokens, reflector_tokens, skill_manager_tokens)
         """
         try:
             import opik
@@ -323,9 +323,9 @@ class BrowserUseEnvironment(TaskEnvironment):
                     print(f"   ⚠️ Failed to search '{project}' project: {e}")
 
             # Track individual ACE role tokens
-            generator_tokens = 0
+            agent_tokens = 0
             reflector_tokens = 0
-            curator_tokens = 0
+            skill_manager_tokens = 0
 
             print(f"   🔍 Processing {len(all_traces)} total traces...")
 
@@ -336,7 +336,7 @@ class BrowserUseEnvironment(TaskEnvironment):
 
                 if any(
                     role in trace_name_lower
-                    for role in ["generator", "reflector", "curator"]
+                    for role in ["agent", "reflector", "skill_manager"]
                 ):
                     # Get usage from trace or spans
                     total_tokens = 0
@@ -355,22 +355,22 @@ class BrowserUseEnvironment(TaskEnvironment):
                             print(f"         ⚠️ Failed to get spans: {e}")
 
                     # Classify by role
-                    if "generator" in trace_name_lower:
-                        generator_tokens += total_tokens
+                    if "agent" in trace_name_lower:
+                        agent_tokens += total_tokens
                     elif "reflector" in trace_name_lower:
                         reflector_tokens += total_tokens
-                    elif "curator" in trace_name_lower:
-                        curator_tokens += total_tokens
+                    elif "skill_manager" in trace_name_lower:
+                        skill_manager_tokens += total_tokens
 
             # Calculate total ACE tokens
-            ace_tokens = generator_tokens + reflector_tokens + curator_tokens
+            ace_tokens = agent_tokens + reflector_tokens + skill_manager_tokens
 
             print(f"   📊 Role breakdown:")
-            print(f"      🎯 Generator: {generator_tokens} tokens")
+            print(f"      🎯 Agent: {agent_tokens} tokens")
             print(f"      🔍 Reflector: {reflector_tokens} tokens")
-            print(f"      📝 Curator: {curator_tokens} tokens")
+            print(f"      📝 SkillManager: {skill_manager_tokens} tokens")
 
-            return (ace_tokens, generator_tokens, reflector_tokens, curator_tokens)
+            return (ace_tokens, agent_tokens, reflector_tokens, skill_manager_tokens)
 
         except Exception as e:
             print(f"   Warning: Could not retrieve token usage from Opik: {e}")
@@ -429,11 +429,11 @@ def main(task_file: str = "task2_form.txt"):
 
     llm = LiteLLMClient(model="gpt-4o-mini", temperature=0.7)
 
-    adapter = OnlineAdapter(
-        playbook=Playbook(),
-        generator=Generator(llm),
+    adapter = OnlineACE(
+        skillbook=Skillbook(),
+        agent=ACEAgent(llm),
         reflector=Reflector(llm),
-        curator=Curator(llm),
+        skill_manager=SkillManager(llm),
         max_refinement_rounds=2,
     )
 
@@ -481,9 +481,9 @@ def main(task_file: str = "task2_form.txt"):
     time.sleep(5)  # Wait for Opik to index final traces
     (
         total_ace_tokens,
-        total_generator_tokens,
+        total_agent_tokens,
         total_reflector_tokens,
-        total_curator_tokens,
+        total_skill_manager_tokens,
     ) = environment._get_token_usage()
 
     # Show final results
@@ -513,13 +513,13 @@ def main(task_file: str = "task2_form.txt"):
         print()
         print("🧠 ACE Role Breakdown (Think → Learn):")
         print(
-            f"   🎯 Generator:      {total_generator_tokens:>6} tokens  (strategy planning)"
+            f"   🎯 Agent:          {total_agent_tokens:>6} tokens  (strategy planning)"
         )
         print(
             f"   🔍 Reflector:      {total_reflector_tokens:>6} tokens  (performance analysis)"
         )
         print(
-            f"   📝 Curator:        {total_curator_tokens:>6} tokens  (playbook updates)"
+            f"   📝 SkillManager:   {total_skill_manager_tokens:>6} tokens  (skillbook updates)"
         )
         print(f"   {'─' * 40}")
         print(f"   🧠 Total ACE:      {total_ace_tokens:>6} tokens")
@@ -529,10 +529,10 @@ def main(task_file: str = "task2_form.txt"):
     print(f"\n✨ Learning enabled - improves after each task")
 
     # Show learned strategies
-    if adapter.playbook.bullets():
+    if adapter.skillbook.skills():
         print(f"\n🎯 Learned Strategies:")
-        for i, bullet in enumerate(adapter.playbook.bullets(), 1):
-            print(f"  {i}. {bullet.content}")
+        for i, skill in enumerate(adapter.skillbook.skills(), 1):
+            print(f"  {i}. {skill.content}")
 
     print(f"\n💡 Compare with: python examples/browser-use/baseline_browser_use.py")
     print(f"   Baseline has no learning - same performance every time")

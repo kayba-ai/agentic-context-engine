@@ -52,7 +52,7 @@ def run_sync_learning():
     print(f"\nResults:")
     print(f"  - Samples processed: {len(results)}")
     print(f"  - Time elapsed: {elapsed:.2f}s")
-    print(f"  - Strategies learned: {len(agent.playbook.bullets())}")
+    print(f"  - Strategies learned: {len(agent.skillbook.skills())}")
 
     return elapsed
 
@@ -109,12 +109,12 @@ def run_async_learning():
     print(f"  - Results returned in: {results_time:.2f}s")
     print(f"  - Learning wait time: {wait_time:.2f}s")
     print(f"  - Total time: {total_time:.2f}s")
-    print(f"  - Strategies learned: {len(agent.playbook.bullets())}")
+    print(f"  - Strategies learned: {len(agent.skillbook.skills())}")
 
-    # Show complete playbook
-    print(f"\n📚 COMPLETE PLAYBOOK:")
-    if agent.playbook.bullets():
-        print(str(agent.playbook))
+    # Show complete skillbook
+    print(f"\n📚 COMPLETE SKILLBOOK:")
+    if agent.skillbook.skills():
+        print(str(agent.skillbook))
     else:
         print("(empty)")
 

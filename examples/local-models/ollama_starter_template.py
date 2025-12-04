@@ -56,13 +56,13 @@ def main():
 
     # 1. Create ACELiteLLM agent with Ollama
     print("\n🤖 Creating ACELiteLLM agent with Ollama...")
-    playbook_path = Path(__file__).parent / "ollama_learned_strategies.json"
+    skillbook_path = Path(__file__).parent / "ollama_learned_strategies.json"
     agent = ACELiteLLM(
         model="ollama/gemma3:1b",
         max_tokens=1024,
         temperature=0.2,
         is_learning=True,
-        playbook_path=str(playbook_path) if playbook_path.exists() else None,
+        skillbook_path=str(skillbook_path) if skillbook_path.exists() else None,
     )
 
     # 2. Try asking questions before learning
@@ -99,7 +99,7 @@ def main():
 
     # 5. Check results
     print(f"\n📊 Trained on {len(results)} samples")
-    print(f"📚 Playbook now has {len(agent.playbook.bullets())} strategies")
+    print(f"📚 Skillbook now has {len(agent.skillbook.skills())} strategies")
 
     # 6. Test with learned knowledge
     print("\n🧠 Testing agent after learning:")
@@ -109,17 +109,17 @@ def main():
         print(f"A: {answer}")
 
     # Show a few learned strategies
-    if agent.playbook.bullets():
+    if agent.skillbook.skills():
         print("\n💡 Learned strategies:")
-        for bullet in agent.playbook.bullets()[:3]:
-            helpful = bullet.helpful
-            harmful = bullet.harmful
+        for skill in agent.skillbook.skills()[:3]:
+            helpful = skill.helpful
+            harmful = skill.harmful
             score = f"(+{helpful}/-{harmful})"
-            print(f"  • {bullet.content[:70]}... {score}")
+            print(f"  • {skill.content[:70]}... {score}")
 
     # 7. Save learned knowledge for future use
-    agent.save_playbook(playbook_path)
-    print(f"\n💾 Saved learned strategies to {playbook_path}")
+    agent.save_skillbook(skillbook_path)
+    print(f"\n💾 Saved learned strategies to {skillbook_path}")
 
 
 if __name__ == "__main__":

@@ -138,17 +138,17 @@ def example_agent_executor_meso():
         print(f"\nFinal Answer: {result}")
 
     print(
-        f"\n\nLearned {len(ace_agent.playbook.bullets())} strategies from agent traces"
+        f"\n\nLearned {len(ace_agent.skillbook.skills())} strategies from agent traces"
     )
 
     # Show what was learned
-    if ace_agent.playbook.bullets():
+    if ace_agent.skillbook.skills():
         print("\nLearned strategies (from meso-level analysis):")
-        for i, bullet in enumerate(ace_agent.playbook.bullets()[:3], 1):
-            print(f"  {i}. {bullet.content[:80]}...")
+        for i, skill in enumerate(ace_agent.skillbook.skills()[:3], 1):
+            print(f"  {i}. {skill.content[:80]}...")
 
-    ace_agent.save_playbook("agent_executor_learned.json")
-    print("\nPlaybook saved to: agent_executor_learned.json")
+    ace_agent.save_skillbook("agent_executor_learned.json")
+    print("\nSkillbook saved to: agent_executor_learned.json")
 
 
 def example_simple_chain_vs_agent():
@@ -160,7 +160,7 @@ def example_simple_chain_vs_agent():
     - AgentExecutor: Sees full reasoning trace (meso-level learning)
 
     Note: For true micro-level learning (with ground truth feedback),
-    use OfflineAdapter or OnlineAdapter with a TaskEnvironment.
+    use OfflineACE or OnlineACE with a TaskEnvironment.
     """
     print("\n" + "=" * 60)
     print("Example 2: Simple Chain vs AgentExecutor")
@@ -185,7 +185,7 @@ def example_simple_chain_vs_agent():
     )
     result_simple = ace_simple.invoke({"input": "What is 5 * 6?"})
     print(f"Result: {result_simple.content}")
-    print(f"Strategies learned: {len(ace_simple.playbook.bullets())}")
+    print(f"Strategies learned: {len(ace_simple.skillbook.skills())}")
     print("ACE sees: request → response only")
 
     # --- AgentExecutor: meso-level learning ---
@@ -205,7 +205,7 @@ def example_simple_chain_vs_agent():
     )
     result_agent = ace_agent.invoke({"input": "What is 5 * 6?"})
     print(f"Result: {result_agent}")
-    print(f"Strategies learned: {len(ace_agent.playbook.bullets())}")
+    print(f"Strategies learned: {len(ace_agent.skillbook.skills())}")
     print("ACE sees: thoughts → tool calls → observations → answer")
 
     print("\n--- KEY DIFFERENCE ---")
@@ -254,7 +254,7 @@ async def example_async_agent():
         result = await ace_agent.ainvoke({"input": question})
         print(f"Answer: {result}")
 
-    print(f"\nLearned {len(ace_agent.playbook.bullets())} strategies (async meso)")
+    print(f"\nLearned {len(ace_agent.skillbook.skills())} strategies (async meso)")
 
 
 def main():

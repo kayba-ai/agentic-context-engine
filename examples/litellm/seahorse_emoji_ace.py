@@ -78,18 +78,18 @@ def main():
     console.print("Teaching ACE about emoji questions...")
     agent.learn(samples=[learning_sample], environment=environment, epochs=1)
 
-    if len(agent.playbook.bullets()) > 0:
+    if len(agent.skillbook.skills()) > 0:
         console.print(
-            f"[green]Playbook updated with {len(agent.playbook.bullets())} learned strategies[/green]"
+            f"[green]Skillbook updated with {len(agent.skillbook.skills())} learned strategies[/green]"
         )
-        console.print("\n[cyan]📚 Current Playbook:[/cyan]")
-        console.print(Panel(agent.playbook.as_prompt(), style="cyan"))
+        console.print("\n[cyan]📚 Current Skillbook:[/cyan]")
+        console.print(Panel(agent.skillbook.as_prompt(), style="cyan"))
 
     # Now ask the actual question
     console.print(f"\n[yellow]━━━ Round 2: Asking About Seahorse ━━━[/yellow]")
     console.print(f"[bold]Question:[/bold] {question}")
     console.print(
-        f"[dim]Playbook: {len(agent.playbook.bullets())} learned strategies[/dim]\n"
+        f"[dim]Skillbook: {len(agent.skillbook.skills())} learned strategies[/dim]\n"
     )
     answer1 = agent.ask(question=question, context="")
     console.print(f"[bold]Final Answer:[/bold] {answer1}")
@@ -105,14 +105,14 @@ def main():
     agent.learn(samples=[seahorse_sample], environment=environment, epochs=1)
 
     console.print(
-        f"[green]Playbook now contains {len(agent.playbook.bullets())} total learned insights[/green]"
+        f"[green]Skillbook now contains {len(agent.skillbook.skills())} total learned insights[/green]"
     )
 
     # Final ask to show further evolution
     console.print(f"\n[yellow]━━━ Round 3: Enhanced Knowledge ━━━[/yellow]")
     console.print(f"[bold]Question:[/bold] {question}")
     console.print(
-        f"[dim]Playbook: {len(agent.playbook.bullets())} learned strategies[/dim]\n"
+        f"[dim]Skillbook: {len(agent.skillbook.skills())} learned strategies[/dim]\n"
     )
     answer2 = agent.ask(question=question, context="")
     console.print(f"[bold]Final Answer:[/bold] {answer2}")

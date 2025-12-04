@@ -28,11 +28,11 @@ This guide explains the different prompt versions available in ACE, their use ca
 
 **Example**:
 ```python
-from ace.prompts import GENERATOR_PROMPT
-from ace import Generator, LiteLLMClient
+from ace.prompts import AGENT_PROMPT
+from ace import Agent, LiteLLMClient
 
 llm = LiteLLMClient(model="gpt-3.5-turbo")
-generator = Generator(llm, prompt_template=GENERATOR_PROMPT)
+agent = Agent(llm, prompt_template=AGENT_PROMPT)
 ```
 
 ### v2.0 (Advanced) - `ace/prompts_v2.py`
@@ -44,7 +44,7 @@ generator = Generator(llm, prompt_template=GENERATOR_PROMPT)
 **Deprecation Notice**:
 ```python
 # Will emit DeprecationWarning
-from ace.prompts_v2 import GENERATOR_V2_PROMPT
+from ace.prompts_v2 import AGENT_V2_PROMPT
 ```
 
 **Why Deprecated**: v2.1 includes all v2.0 features plus MCP enhancements and better error handling. There's no reason to use v2.0 over v2.1.
@@ -70,9 +70,9 @@ from ace.prompts_v2_1 import PromptManager
 
 # Use the recommended prompts
 prompt_mgr = PromptManager()
-generator = Generator(llm, prompt_template=prompt_mgr.get_generator_prompt())
+agent = Agent(llm, prompt_template=prompt_mgr.get_agent_prompt())
 reflector = Reflector(llm, prompt_template=prompt_mgr.get_reflector_prompt())
-curator = Curator(llm, prompt_template=prompt_mgr.get_curator_prompt())
+skill_manager = SkillManager(llm, prompt_template=prompt_mgr.get_skill_manager_prompt())
 ```
 
 ---
@@ -100,13 +100,13 @@ Quick guide to choosing the right prompt version:
 **Migration**: Switching from v1 → v2.1 is straightforward:
 ```python
 # Before (v1)
-from ace.prompts import GENERATOR_PROMPT
-generator = Generator(llm, prompt_template=GENERATOR_PROMPT)
+from ace.prompts import AGENT_PROMPT
+agent = Agent(llm, prompt_template=AGENT_PROMPT)
 
 # After (v2.1)
 from ace.prompts_v2_1 import PromptManager
 mgr = PromptManager()
-generator = Generator(llm, prompt_template=mgr.get_generator_prompt())
+agent = Agent(llm, prompt_template=mgr.get_agent_prompt())
 ```
 
 ---
@@ -115,11 +115,11 @@ generator = Generator(llm, prompt_template=mgr.get_generator_prompt())
 
 All ACE prompts use Python's `.format()` syntax with these variables:
 
-### Generator Prompts
+### Agent Prompts
 
 | Variable | Type | Description | Required |
 |----------|------|-------------|----------|
-| `{playbook}` | str | Formatted playbook bullets | ✅ Yes |
+| `{skillbook}` | str | Formatted skillbook skills | ✅ Yes |
 | `{question}` | str | The question to answer | ✅ Yes |
 | `{context}` | str | Additional context (optional) | ❌ No |
 | `{reflection}` | str | Prior reflection (optional) | ❌ No |
@@ -129,7 +129,7 @@ All ACE prompts use Python's `.format()` syntax with these variables:
 {
   "reasoning": "Step-by-step thinking process",
   "final_answer": "The actual answer",
-  "bullet_ids": ["bullet1", "bullet2"]
+  "skill_ids": ["skill1", "skill2"]
 }
 ```
 
@@ -137,10 +137,10 @@ All ACE prompts use Python's `.format()` syntax with these variables:
 
 | Variable | Type | Description | Required |
 |----------|------|-------------|----------|
-| `{playbook}` | str | Formatted playbook bullets | ✅ Yes |
+| `{skillbook}` | str | Formatted skillbook skills | ✅ Yes |
 | `{question}` | str | Original question | ✅ Yes |
 | `{context}` | str | Additional context | ❌ No |
-| `{generator_output}` | str | Generator's JSON output | ✅ Yes |
+| `{agent_output}` | str | Agent's JSON output | ✅ Yes |
 | `{feedback}` | str | Environment feedback | ✅ Yes |
 | `{ground_truth}` | str | Expected answer (optional) | ❌ No |
 
@@ -148,29 +148,29 @@ All ACE prompts use Python's `.format()` syntax with these variables:
 ```json
 {
   "analysis": "Analysis of what went wrong/right",
-  "bullet_tags": [
-    {"id": "bullet1", "tag": "helpful"},
-    {"id": "bullet2", "tag": "harmful"}
+  "skill_tags": [
+    {"id": "skill1", "tag": "helpful"},
+    {"id": "skill2", "tag": "harmful"}
   ]
 }
 ```
 
-### Curator Prompts
+### SkillManager Prompts
 
 | Variable | Type | Description | Required |
 |----------|------|-------------|----------|
-| `{playbook}` | str | Current playbook state | ✅ Yes |
+| `{skillbook}` | str | Current skillbook state | ✅ Yes |
 | `{reflection}` | str | Reflector's analysis | ✅ Yes |
 | `{recent_reflections}` | str | Past N reflections | ❌ No |
 
 **Output Format** (JSON):
 ```json
 {
-  "deltas": [
+  "updates": [
     {"operation": "ADD", "section": "Math", "content": "Always check units"},
-    {"operation": "UPDATE", "bullet_id": "b1", "content": "Revised strategy"},
-    {"operation": "TAG", "bullet_id": "b2", "tag": "helpful", "increment": 1},
-    {"operation": "REMOVE", "bullet_id": "b3"}
+    {"operation": "UPDATE", "skill_id": "s1", "content": "Revised strategy"},
+    {"operation": "TAG", "skill_id": "s2", "tag": "helpful", "increment": 1},
+    {"operation": "REMOVE", "skill_id": "s3"}
   ]
 }
 ```
@@ -212,7 +212,7 @@ Based on internal testing (200 samples, Claude Sonnet 4.5):
 **Step 1**: Update imports
 ```python
 # Before
-from ace.prompts import GENERATOR_PROMPT, REFLECTOR_PROMPT, CURATOR_PROMPT
+from ace.prompts import AGENT_PROMPT, REFLECTOR_PROMPT, SKILL_MANAGER_PROMPT
 
 # After
 from ace.prompts_v2_1 import PromptManager
@@ -222,12 +222,12 @@ prompt_mgr = PromptManager()
 **Step 2**: Update role initialization
 ```python
 # Before
-generator = Generator(llm)  # Uses v1.0 default
+agent = Agent(llm)  # Uses v1.0 default
 
 # After
-generator = Generator(llm, prompt_template=prompt_mgr.get_generator_prompt())
+agent = Agent(llm, prompt_template=prompt_mgr.get_agent_prompt())
 reflector = Reflector(llm, prompt_template=prompt_mgr.get_reflector_prompt())
-curator = Curator(llm, prompt_template=prompt_mgr.get_curator_prompt())
+skill_manager = SkillManager(llm, prompt_template=prompt_mgr.get_skill_manager_prompt())
 ```
 
 **Step 3**: Test and validate
@@ -242,15 +242,15 @@ Minimal changes required:
 
 ```python
 # Before (emits DeprecationWarning)
-from ace.prompts_v2 import GENERATOR_V2_PROMPT, REFLECTOR_V2_PROMPT, CURATOR_V2_PROMPT
+from ace.prompts_v2 import AGENT_V2_PROMPT, REFLECTOR_V2_PROMPT, SKILL_MANAGER_V2_PROMPT
 
 # After
 from ace.prompts_v2_1 import PromptManager
 prompt_mgr = PromptManager()
 
-generator = Generator(llm, prompt_template=prompt_mgr.get_generator_prompt())
+agent = Agent(llm, prompt_template=prompt_mgr.get_agent_prompt())
 reflector = Reflector(llm, prompt_template=prompt_mgr.get_reflector_prompt())
-curator = Curator(llm, prompt_template=prompt_mgr.get_curator_prompt())
+skill_manager = SkillManager(llm, prompt_template=prompt_mgr.get_skill_manager_prompt())
 ```
 
 **Benefits of Upgrading**:
@@ -268,11 +268,11 @@ curator = Curator(llm, prompt_template=prompt_mgr.get_curator_prompt())
 You can create domain-specific prompts while maintaining ACE compatibility:
 
 ```python
-CUSTOM_GENERATOR_PROMPT = """
+CUSTOM_AGENT_PROMPT = """
 You are a medical diagnosis assistant using ACE strategies.
 
 # Available Strategies
-{playbook}
+{skillbook}
 
 # Patient Question
 {question}
@@ -286,21 +286,21 @@ You are a medical diagnosis assistant using ACE strategies.
 IMPORTANT: Return JSON with:
 - "reasoning": Your diagnostic reasoning
 - "final_answer": Your diagnosis and recommendations
-- "bullet_ids": Strategy IDs you used (e.g., ["med_01", "diag_03"])
+- "skill_ids": Strategy IDs you used (e.g., ["med_01", "diag_03"])
 
 Respond ONLY with valid JSON, no other text.
 """
 
 # Use it
-generator = Generator(llm, prompt_template=CUSTOM_GENERATOR_PROMPT)
+agent = Agent(llm, prompt_template=CUSTOM_AGENT_PROMPT)
 ```
 
 ### Template Requirements
 
 ✅ **Required**:
-- Include all 4 variables: `{playbook}`, `{question}`, `{context}`, `{reflection}`
+- Include all 4 variables: `{skillbook}`, `{question}`, `{context}`, `{reflection}`
 - Specify JSON output format clearly
-- List required fields: `reasoning`, `final_answer`, `bullet_ids`
+- List required fields: `reasoning`, `final_answer`, `skill_ids`
 
 ❌ **Avoid**:
 - Hardcoding language-specific instructions in prompts
@@ -311,27 +311,27 @@ generator = Generator(llm, prompt_template=CUSTOM_GENERATOR_PROMPT)
 
 ```python
 import json
-from ace import Generator, Playbook, Sample
+from ace import Agent, Skillbook, Sample
 
 # Create test setup
 llm = LiteLLMClient(model="claude-sonnet-4-5-20250929")
-playbook = Playbook()
-playbook.add_bullet(section="Testing", content="Always validate output format")
+skillbook = Skillbook()
+skillbook.add_skill(section="Testing", content="Always validate output format")
 
-generator = Generator(llm, prompt_template=CUSTOM_GENERATOR_PROMPT)
+agent = Agent(llm, prompt_template=CUSTOM_AGENT_PROMPT)
 
 # Test
-output = generator.generate(
+output = agent.generate(
     question="Test question",
     context="Test context",
-    playbook=playbook,
+    skillbook=skillbook,
     reflection=None
 )
 
 # Validate
 assert output.reasoning
 assert output.final_answer
-assert isinstance(output.bullet_ids, list)
+assert isinstance(output.skill_ids, list)
 print("✓ Custom prompt works!")
 ```
 
@@ -341,20 +341,20 @@ print("✓ Custom prompt works!")
 
 ### Domain-Specific Sections
 
-Organize playbook bullets by domain:
+Organize skillbook skills by domain:
 
 ```python
-playbook.add_bullet(
+skillbook.add_skill(
     section="Medical/Diagnosis",
     content="Check for common symptoms first"
 )
 
-playbook.add_bullet(
+skillbook.add_skill(
     section="Medical/Treatment",
     content="Consider contraindications"
 )
 
-playbook.add_bullet(
+skillbook.add_skill(
     section="Legal/Compliance",
     content="Verify HIPAA requirements"
 )
@@ -366,10 +366,10 @@ v2.1 prompts work with non-English content:
 
 ```python
 # Question and context can be in any language
-output = generator.generate(
+output = agent.generate(
     question="¿Cuál es la capital de Francia?",
     context="Responde en español",
-    playbook=playbook
+    skillbook=skillbook
 )
 # Output will be in Spanish
 ```
@@ -380,35 +380,35 @@ output = generator.generate(
 
 ### High JSON Parse Failure Rate
 
-**Symptom**: Frequent `RuntimeError: Generator failed to produce valid JSON`
+**Symptom**: Frequent `RuntimeError: Agent failed to produce valid JSON`
 
 **Solutions**:
 1. Upgrade to v2.1 prompts
-2. Increase `max_retries`: `Generator(llm, max_retries=5)`
+2. Increase `max_retries`: `Agent(llm, max_retries=5)`
 3. Use a more capable model (Claude 3.5 Sonnet, GPT-4 Turbo)
 4. Add custom retry prompt if using non-English
 
-### Empty Bullet IDs
+### Empty Skill IDs
 
-**Symptom**: `bullet_ids` is always `[]`
+**Symptom**: `skill_ids` is always `[]`
 
-**Cause**: Playbook is empty or bullets not referenced
+**Cause**: Skillbook is empty or skills not referenced
 
 **Solution**:
 ```python
-# Ensure playbook has bullets
-print(f"Playbook has {len(playbook.bullets())} bullets")
+# Ensure skillbook has skills
+print(f"Skillbook has {len(skillbook.skills())} skills")
 
-# Check playbook format
-print(playbook.as_prompt())
+# Check skillbook format
+print(skillbook.as_prompt())
 ```
 
 ### Poor Quality Answers
 
-**Symptom**: Generator produces generic/unhelpful answers
+**Symptom**: Agent produces generic/unhelpful answers
 
 **Solutions**:
-1. Add more specific bullets to playbook
+1. Add more specific skills to skillbook
 2. Provide richer context
 3. Upgrade to v2.1 for better reasoning
 4. Increase model temperature for creativity: `LiteLLMClient(model="...", temperature=0.7)`

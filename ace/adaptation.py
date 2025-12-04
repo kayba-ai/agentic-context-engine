@@ -22,12 +22,12 @@ if TYPE_CHECKING:
     from .deduplication import DeduplicationConfig
     from .observability.opik_integration import OpikIntegration
 
-from .playbook import Playbook
+from .skillbook import Skillbook
 from .roles import (
-    Curator,
-    CuratorOutput,
-    Generator,
-    GeneratorOutput,
+    SkillManager,
+    SkillManagerOutput,
+    Agent,
+    AgentOutput,
     Reflector,
     ReflectorOutput,
 )
@@ -56,17 +56,17 @@ class EnvironmentResult:
 
 class TaskEnvironment(ABC):
     """
-    Abstract interface for evaluating generator outputs.
+    Abstract interface for evaluating agent outputs.
 
     Implement this class to define how your specific task evaluates
-    the Generator's answers. The environment provides feedback that
+    the Agent's answers. The environment provides feedback that
     helps ACE learn what works and what doesn't.
 
     Example Implementation:
         >>> class MathEnvironment(TaskEnvironment):
-        ...     def evaluate(self, sample, generator_output):
+        ...     def evaluate(self, sample, agent_output):
         ...         # Parse the answer
-        ...         predicted = extract_number(generator_output.final_answer)
+        ...         predicted = extract_number(agent_output.final_answer)
         ...         correct = str(predicted) == sample.ground_truth
         ...
         ...         # Provide feedback
@@ -83,15 +83,13 @@ class TaskEnvironment(ABC):
     """
 
     @abstractmethod
-    def evaluate(
-        self, sample: Sample, generator_output: GeneratorOutput
-    ) -> EnvironmentResult:
+    def evaluate(self, sample: Sample, agent_output: AgentOutput) -> EnvironmentResult:
         """
-        Evaluate the generator's output for a given sample.
+        Evaluate the agent's output for a given sample.
 
         Args:
             sample: The input sample with question and context
-            generator_output: The Generator's produced answer
+            agent_output: The Agent's produced answer
 
         Returns:
             EnvironmentResult with feedback and optional ground truth
@@ -112,12 +110,10 @@ class SimpleEnvironment(TaskEnvironment):
         >>> from ace import SimpleEnvironment, Sample
         >>> env = SimpleEnvironment()
         >>> sample = Sample(question="What is 2+2?", ground_truth="4")
-        >>> result = env.evaluate(sample, generator_output)
+        >>> result = env.evaluate(sample, agent_output)
     """
 
-    def evaluate(
-        self, sample: Sample, generator_output: GeneratorOutput
-    ) -> EnvironmentResult:
+    def evaluate(self, sample: Sample, agent_output: AgentOutput) -> EnvironmentResult:
         """Check if ground truth appears in the answer."""
         if not sample.ground_truth:
             return EnvironmentResult(
@@ -126,7 +122,7 @@ class SimpleEnvironment(TaskEnvironment):
                 metrics={"correct": 0.0},
             )
 
-        answer = generator_output.final_answer.lower()
+        answer = agent_output.final_answer.lower()
         truth = sample.ground_truth.lower()
         is_correct = truth in answer
 
@@ -142,20 +138,22 @@ class SimpleEnvironment(TaskEnvironment):
 
 
 @dataclass
-class AdapterStepResult:
+class ACEStepResult:
     """Result from processing a single sample through the ACE pipeline.
 
     In sync mode, all fields are populated immediately.
-    In async mode, reflection and curator_output may be None initially
+    In async mode, reflection and skill_manager_output may be None initially
     (they are processed in background).
     """
 
     sample: Sample
-    generator_output: GeneratorOutput
+    agent_output: AgentOutput
     environment_result: EnvironmentResult
     reflection: Optional[ReflectorOutput]  # None in async mode until processed
-    curator_output: Optional[CuratorOutput]  # None in async mode until processed
-    playbook_snapshot: str
+    skill_manager_output: Optional[
+        SkillManagerOutput
+    ]  # None in async mode until processed
+    skillbook_snapshot: str
 
     # Observability metadata
     epoch: int = 0
@@ -163,16 +161,16 @@ class AdapterStepResult:
     performance_score: float = 0.0
 
 
-class AdapterBase:
+class ACEBase:
     """Shared orchestration logic for offline and online ACE adaptation."""
 
     def __init__(
         self,
         *,
-        playbook: Optional[Playbook] = None,
-        generator: Generator,
+        skillbook: Optional[Skillbook] = None,
+        agent: Agent,
         reflector: Reflector,
-        curator: Curator,
+        skill_manager: SkillManager,
         max_refinement_rounds: int = 1,
         reflection_window: int = 3,
         enable_observability: bool = True,
@@ -184,10 +182,10 @@ class AdapterBase:
         # Deduplication
         dedup_config: Optional["DeduplicationConfig"] = None,
     ) -> None:
-        self.playbook = playbook or Playbook()
-        self.generator = generator
+        self.skillbook = skillbook or Skillbook()
+        self.agent = agent
         self.reflector = reflector
-        self.curator = curator
+        self.skill_manager = skill_manager
         self.max_refinement_rounds = max_refinement_rounds
         self.reflection_window = reflection_window
         self._recent_reflections: List[str] = []
@@ -199,11 +197,11 @@ class AdapterBase:
         self._on_learning_complete = on_learning_complete
         self._async_pipeline: Optional[AsyncLearningPipeline] = None
 
-        # Set up deduplication if config provided and curator doesn't have one
-        if dedup_config is not None and curator.dedup_manager is None:
+        # Set up deduplication if config provided and skill_manager doesn't have one
+        if dedup_config is not None and skill_manager.dedup_manager is None:
             from .deduplication import DeduplicationManager
 
-            curator.dedup_manager = DeduplicationManager(dedup_config)
+            skill_manager.dedup_manager = DeduplicationManager(dedup_config)
             logger.info(
                 f"Deduplication enabled with threshold={dedup_config.similarity_threshold}"
             )
@@ -226,10 +224,10 @@ class AdapterBase:
     def _track_observability_data(
         self,
         sample: Sample,
-        generator_output: GeneratorOutput,
+        agent_output: AgentOutput,
         environment_result: EnvironmentResult,
         reflection: ReflectorOutput,
-        curator_output: CuratorOutput,
+        skill_manager_output: SkillManagerOutput,
         epoch: int,
         step: int,
     ) -> None:
@@ -266,7 +264,7 @@ class AdapterBase:
                 epoch=epoch,
                 step=step,
                 performance_score=performance_score,
-                bullet_count=len(self.playbook.bullets()),
+                skill_count=len(self.skillbook.skills()),
                 successful_predictions=1 if performance_score > 0.5 else 0,
                 total_predictions=1,
                 metadata={
@@ -276,7 +274,7 @@ class AdapterBase:
                         if len(sample.question) > 100
                         else sample.question
                     ),
-                    "bullet_ids_used": generator_output.bullet_ids,
+                    "skill_ids_used": agent_output.skill_ids,
                     "environment_metrics": environment_result.metrics,
                 },
             )
@@ -292,7 +290,7 @@ class AdapterBase:
         return {
             "observability_enabled": True,
             "opik_available": self.opik_integration.is_available(),
-            "playbook_stats": self.playbook.stats(),
+            "skillbook_stats": self.skillbook.stats(),
         }
 
     # ------------------------------------------------------------------ #
@@ -306,9 +304,9 @@ class AdapterBase:
         from .async_learning import AsyncLearningPipeline
 
         self._async_pipeline = AsyncLearningPipeline(
-            playbook=self.playbook,
+            skillbook=self.skillbook,
             reflector=self.reflector,
-            curator=self.curator,
+            skill_manager=self.skill_manager,
             max_reflector_workers=self._max_reflector_workers,
             max_refinement_rounds=self.max_refinement_rounds,
             on_error=self._on_learning_error,
@@ -362,16 +360,16 @@ class AdapterBase:
         """Get async learning statistics.
 
         Returns:
-            Dict with tasks_submitted, reflections_completed, curations_completed,
-            tasks_failed, curator_queue_size, is_running
+            Dict with tasks_submitted, reflections_completed, skill_updates_completed,
+            tasks_failed, skill_manager_queue_size, is_running
         """
         if self._async_pipeline is None:
             return {
                 "tasks_submitted": 0,
                 "reflections_completed": 0,
-                "curations_completed": 0,
+                "skill_updates_completed": 0,
                 "tasks_failed": 0,
-                "curator_queue_size": 0,
+                "skill_manager_queue_size": 0,
                 "is_running": False,
             }
         return self._async_pipeline.stats
@@ -393,10 +391,10 @@ class AdapterBase:
                 -self.reflection_window :
             ]
 
-    def _apply_bullet_tags(self, reflection: ReflectorOutput) -> None:
-        for tag in reflection.bullet_tags:
+    def _apply_skill_tags(self, reflection: ReflectorOutput) -> None:
+        for tag in reflection.skill_tags:
             try:
-                self.playbook.tag_bullet(tag.id, tag.tag)
+                self.skillbook.tag_skill(tag.id, tag.tag)
             except ValueError:
                 continue
 
@@ -426,28 +424,28 @@ class AdapterBase:
         total_epochs: int,
         step_index: int,
         total_steps: int,
-    ) -> AdapterStepResult:
-        generator_output = self.generator.generate(
+    ) -> ACEStepResult:
+        agent_output = self.agent.generate(
             question=sample.question,
             context=sample.context,
-            playbook=self.playbook,
+            skillbook=self.skillbook,
             reflection=self._reflection_context(),
-            sample=sample,  # Pass sample for ReplayGenerator support
+            sample=sample,  # Pass sample for ReplayAgent support
         )
-        env_result = environment.evaluate(sample, generator_output)
+        env_result = environment.evaluate(sample, agent_output)
         reflection = self.reflector.reflect(
             question=sample.question,
-            generator_output=generator_output,
-            playbook=self.playbook,
+            agent_output=agent_output,
+            skillbook=self.skillbook,
             ground_truth=env_result.ground_truth,
             feedback=env_result.feedback,
             max_refinement_rounds=self.max_refinement_rounds,
         )
-        self._apply_bullet_tags(reflection)
+        self._apply_skill_tags(reflection)
         self._update_recent_reflections(reflection)
-        curator_output = self.curator.curate(
+        skill_manager_output = self.skill_manager.update_skills(
             reflection=reflection,
-            playbook=self.playbook,
+            skillbook=self.skillbook,
             question_context=self._question_context(sample, env_result),
             progress=self._progress_string(
                 epoch, total_epochs, step_index, total_steps
@@ -458,23 +456,23 @@ class AdapterBase:
         if self.enable_observability:
             self._track_observability_data(
                 sample,
-                generator_output,
+                agent_output,
                 env_result,
                 reflection,
-                curator_output,
+                skill_manager_output,
                 epoch,
                 step_index,
             )
 
-        self.playbook.apply_delta(curator_output.delta)
+        self.skillbook.apply_update(skill_manager_output.update)
 
-        return AdapterStepResult(
+        return ACEStepResult(
             sample=sample,
-            generator_output=generator_output,
+            agent_output=agent_output,
             environment_result=env_result,
             reflection=reflection,
-            curator_output=curator_output,
-            playbook_snapshot=self.playbook.as_prompt(),
+            skill_manager_output=skill_manager_output,
+            skillbook_snapshot=self.skillbook.as_prompt(),
             epoch=epoch,
             step=step_index,
         )
@@ -488,30 +486,30 @@ class AdapterBase:
         total_epochs: int,
         step_index: int,
         total_steps: int,
-    ) -> AdapterStepResult:
-        """Process sample with async learning - Generator returns immediately.
+    ) -> ACEStepResult:
+        """Process sample with async learning - Agent returns immediately.
 
-        Learning (Reflector -> Curator -> Playbook) happens in background.
+        Learning (Reflector -> SkillManager -> Skillbook) happens in background.
         """
         from .async_learning import LearningTask
 
-        # Generate (uses current playbook - eventual consistency)
-        generator_output = self.generator.generate(
+        # Generate (uses current skillbook - eventual consistency)
+        agent_output = self.agent.generate(
             question=sample.question,
             context=sample.context,
-            playbook=self.playbook,
+            skillbook=self.skillbook,
             reflection=self._reflection_context(),
             sample=sample,
         )
 
         # Evaluate (sync - usually fast)
-        env_result = environment.evaluate(sample, generator_output)
+        env_result = environment.evaluate(sample, agent_output)
 
         # Submit to async pipeline (Reflector runs in thread pool)
         if self._async_pipeline:
             task = LearningTask(
                 sample=sample,
-                generator_output=generator_output,
+                agent_output=agent_output,
                 environment_result=env_result,
                 epoch=epoch,
                 step_index=step_index,
@@ -521,51 +519,51 @@ class AdapterBase:
             self._async_pipeline.submit(task)
 
         # Return immediately with partial result
-        return AdapterStepResult(
+        return ACEStepResult(
             sample=sample,
-            generator_output=generator_output,
+            agent_output=agent_output,
             environment_result=env_result,
             reflection=None,  # Processing in background
-            curator_output=None,  # Processing in background
-            playbook_snapshot=self.playbook.as_prompt(),
+            skill_manager_output=None,  # Processing in background
+            skillbook_snapshot=self.skillbook.as_prompt(),
             epoch=epoch,
             step=step_index,
         )
 
 
-class OfflineAdapter(AdapterBase):
+class OfflineACE(ACEBase):
     """
     Orchestrates offline ACE adaptation over multiple training epochs.
 
-    The OfflineAdapter processes a fixed training set multiple times,
-    allowing the playbook to evolve and improve through repeated exposure
+    The OfflineACE processes a fixed training set multiple times,
+    allowing the skillbook to evolve and improve through repeated exposure
     to the same examples. This is useful for building a robust initial
-    playbook before deployment.
+    skillbook before deployment.
 
     Args:
-        playbook: Initial playbook (creates empty one if None)
-        generator: Generator instance for producing answers
+        skillbook: Initial skillbook (creates empty one if None)
+        agent: Agent instance for producing answers
         reflector: Reflector instance for analyzing outcomes
-        curator: Curator instance for updating playbook
+        skill_manager: SkillManager instance for updating skillbook
         max_refinement_rounds: Max reflection refinement attempts (default: 1)
         reflection_window: Number of recent reflections to maintain (default: 3)
-        dedup_config: Optional DeduplicationConfig for bullet deduplication
+        dedup_config: Optional DeduplicationConfig for skill deduplication
 
     Example:
-        >>> from ace import OfflineAdapter, Generator, Reflector, Curator
+        >>> from ace import OfflineACE, Agent, Reflector, SkillManager
         >>> from ace.llm_providers import LiteLLMClient
         >>>
         >>> # Initialize components with same LLM
         >>> client = LiteLLMClient(model="gpt-4")
-        >>> generator = Generator(client)
+        >>> agent = Agent(client)
         >>> reflector = Reflector(client)
-        >>> curator = Curator(client)
+        >>> skill_manager = SkillManager(client)
         >>>
-        >>> # Create adapter
-        >>> adapter = OfflineAdapter(
-        ...     generator=generator,
+        >>> # Create ACE
+        >>> ace = OfflineACE(
+        ...     agent=agent,
         ...     reflector=reflector,
-        ...     curator=curator
+        ...     skill_manager=skill_manager
         ... )
         >>>
         >>> # Prepare training samples
@@ -575,30 +573,30 @@ class OfflineAdapter(AdapterBase):
         ... ]
         >>>
         >>> # Run adaptation for 3 epochs
-        >>> results = adapter.run(samples, environment, epochs=3)
+        >>> results = ace.run(samples, environment, epochs=3)
         >>>
-        >>> # Access evolved playbook
-        >>> print(adapter.playbook.as_prompt())
+        >>> # Access evolved skillbook
+        >>> print(ace.skillbook.as_prompt())
 
     With Deduplication:
         >>> from ace.deduplication import DeduplicationConfig
         >>>
-        >>> # Enable bullet deduplication with custom threshold
+        >>> # Enable skill deduplication with custom threshold
         >>> dedup_config = DeduplicationConfig(
         ...     similarity_threshold=0.85,
         ...     embedding_model="text-embedding-3-small"
         ... )
-        >>> adapter = OfflineAdapter(
-        ...     generator=generator,
+        >>> ace = OfflineACE(
+        ...     agent=agent,
         ...     reflector=reflector,
-        ...     curator=curator,
+        ...     skill_manager=skill_manager,
         ...     dedup_config=dedup_config
         ... )
-        >>> # Similar bullets will now be detected and reported to Curator
+        >>> # Similar skills will now be detected and reported to SkillManager
 
-    The adapter will:
-        1. Process each sample through Generator → Environment → Reflector → Curator
-        2. Update the playbook after each sample
+    The ACE will:
+        1. Process each sample through Agent → Environment → Reflector → SkillManager
+        2. Update the skillbook after each sample
         3. Repeat for the specified number of epochs
         4. Return detailed results for analysis
     """
@@ -611,32 +609,32 @@ class OfflineAdapter(AdapterBase):
         checkpoint_interval: Optional[int] = None,
         checkpoint_dir: Optional[str] = None,
         wait_for_learning: bool = True,
-    ) -> List[AdapterStepResult]:
+    ) -> List[ACEStepResult]:
         """
         Run offline adaptation over training samples.
 
         Args:
             samples: Training samples to process
-            environment: Environment for evaluating generator outputs
+            environment: Environment for evaluating agent outputs
             epochs: Number of times to iterate over samples (default: 1)
-            checkpoint_interval: Save playbook every N successful samples (optional)
+            checkpoint_interval: Save skillbook every N successful samples (optional)
             checkpoint_dir: Directory to save checkpoints (required if checkpoint_interval set)
             wait_for_learning: If async_learning=True, wait for all learning tasks
                 to complete before returning (default: True)
 
         Returns:
-            List of AdapterStepResult for each processed sample
+            List of ACEStepResult for each processed sample
 
         Note:
-            The playbook is updated in-place during adaptation.
-            Access the evolved playbook via adapter.playbook after running.
+            The skillbook is updated in-place during adaptation.
+            Access the evolved skillbook via ace.skillbook after running.
             Failed samples are skipped and logged, training continues.
             In async mode with wait_for_learning=False, learning continues in
             background. Use wait_for_learning() to block when needed.
         """
         from pathlib import Path
 
-        results: List[AdapterStepResult] = []
+        results: List[ACEStepResult] = []
         failed_samples: List[tuple] = (
             []
         )  # Track (epoch, step_idx, error) for failed samples
@@ -685,13 +683,12 @@ class OfflineAdapter(AdapterBase):
                         ):
                             checkpoint_path = Path(checkpoint_dir)
                             numbered_checkpoint = (
-                                checkpoint_path
-                                / f"convex_checkpoint_{len(results)}.json"
+                                checkpoint_path / f"ace_checkpoint_{len(results)}.json"
                             )
-                            latest_checkpoint = checkpoint_path / "convex_latest.json"
+                            latest_checkpoint = checkpoint_path / "ace_latest.json"
 
-                            self.playbook.save_to_file(str(numbered_checkpoint))
-                            self.playbook.save_to_file(str(latest_checkpoint))
+                            self.skillbook.save_to_file(str(numbered_checkpoint))
+                            self.skillbook.save_to_file(str(latest_checkpoint))
                             logger.info(
                                 f"Checkpoint saved: {len(results)} samples → {numbered_checkpoint.name}"
                             )
@@ -723,37 +720,37 @@ class OfflineAdapter(AdapterBase):
             # If wait_for_learning=False, leave pipeline running for user to manage
 
 
-class OnlineAdapter(AdapterBase):
+class OnlineACE(ACEBase):
     """
     Orchestrates online ACE adaptation for continuous learning.
 
-    The OnlineAdapter processes samples sequentially as they arrive,
-    updating the playbook after each one. This enables continuous
+    The OnlineACE processes samples sequentially as they arrive,
+    updating the skillbook after each one. This enables continuous
     improvement during deployment, adapting to new patterns and
     correcting mistakes in real-time.
 
     Args:
-        playbook: Initial playbook (creates empty one if None)
-        generator: Generator instance for producing answers
+        skillbook: Initial skillbook (creates empty one if None)
+        agent: Agent instance for producing answers
         reflector: Reflector instance for analyzing outcomes
-        curator: Curator instance for updating playbook
+        skill_manager: SkillManager instance for updating skillbook
         max_refinement_rounds: Max reflection refinement attempts (default: 1)
         reflection_window: Number of recent reflections to maintain (default: 3)
-        dedup_config: Optional DeduplicationConfig for bullet deduplication
+        dedup_config: Optional DeduplicationConfig for skill deduplication
 
     Example:
-        >>> from ace import OnlineAdapter, Generator, Reflector, Curator
+        >>> from ace import OnlineACE, Agent, Reflector, SkillManager
         >>> from ace.llm_providers import LiteLLMClient
         >>>
-        >>> # Initialize with pre-trained playbook
-        >>> playbook = Playbook.load_from_file("pretrained_playbook.json")
+        >>> # Initialize with pre-trained skillbook
+        >>> skillbook = Skillbook.load_from_file("pretrained_skillbook.json")
         >>>
         >>> client = LiteLLMClient(model="gpt-4")
-        >>> adapter = OnlineAdapter(
-        ...     playbook=playbook,
-        ...     generator=Generator(client),
+        >>> ace = OnlineACE(
+        ...     skillbook=skillbook,
+        ...     agent=Agent(client),
         ...     reflector=Reflector(client),
-        ...     curator=Curator(client)
+        ...     skill_manager=SkillManager(client)
         ... )
         >>>
         >>> # Process streaming samples
@@ -762,20 +759,20 @@ class OnlineAdapter(AdapterBase):
         ...         yield get_next_sample()  # Your sample source
         >>>
         >>> # Run online adaptation
-        >>> results = adapter.run(sample_stream(), environment)
+        >>> results = ace.run(sample_stream(), environment)
         >>>
-        >>> # Playbook evolves with each sample
-        >>> print(f"Bullets: {len(adapter.playbook.bullets)}")
+        >>> # Skillbook evolves with each sample
+        >>> print(f"Skills: {len(ace.skillbook.skills())}")
 
     With Deduplication:
         >>> from ace.deduplication import DeduplicationConfig
         >>>
         >>> dedup_config = DeduplicationConfig(similarity_threshold=0.85)
-        >>> adapter = OnlineAdapter(
-        ...     playbook=playbook,
-        ...     generator=Generator(client),
+        >>> ace = OnlineACE(
+        ...     skillbook=skillbook,
+        ...     agent=Agent(client),
         ...     reflector=Reflector(client),
-        ...     curator=Curator(client),
+        ...     skill_manager=SkillManager(client),
         ...     dedup_config=dedup_config
         ... )
 
@@ -791,22 +788,22 @@ class OnlineAdapter(AdapterBase):
         samples: Iterable[Sample],
         environment: TaskEnvironment,
         wait_for_learning: bool = True,
-    ) -> List[AdapterStepResult]:
+    ) -> List[ACEStepResult]:
         """
         Run online adaptation over a stream of samples.
 
         Args:
             samples: Iterable of samples (can be infinite stream)
-            environment: Environment for evaluating generator outputs
+            environment: Environment for evaluating agent outputs
             wait_for_learning: If async_learning=True, wait for all learning tasks
                 to complete before returning (default: True)
 
         Returns:
-            List of AdapterStepResult for each processed sample
+            List of ACEStepResult for each processed sample
 
         Note:
             - Processes samples sequentially, updating after each one
-            - The playbook evolves continuously during processing
+            - The skillbook evolves continuously during processing
             - Can handle infinite streams for continuous deployment
             - In async mode with wait_for_learning=False, learning continues in
               background. Use wait_for_learning() to block when needed.
@@ -816,7 +813,7 @@ class OnlineAdapter(AdapterBase):
             self.start_async_learning()
 
         try:
-            results: List[AdapterStepResult] = []
+            results: List[ACEStepResult] = []
             step_idx = 0
             for step_idx, sample in enumerate(samples, start=1):
                 # Use async or sync processing based on mode

@@ -20,9 +20,9 @@ from typing import Dict, Any, List, Optional
 # SHARED CONSTANTS
 # ================================
 
-PLAYBOOK_USAGE_INSTRUCTIONS = """\
+SKILLBOOK_USAGE_INSTRUCTIONS = """\
 **How to use these strategies:**
-- Review bullets relevant to your current task
+- Review skills relevant to your current task
 - **When applying a strategy, cite its ID in your reasoning** (e.g., "Following [content_extraction-00001], I will extract the title...")
   - Citations enable precise tracking of strategy effectiveness
   - Makes reasoning transparent and auditable
@@ -36,77 +36,77 @@ PLAYBOOK_USAGE_INSTRUCTIONS = """\
 """
 
 
-def wrap_playbook_for_external_agent(playbook) -> str:
+def wrap_skillbook_for_external_agent(skillbook) -> str:
     """
-    Wrap playbook bullets with explanation for external agents.
+    Wrap skillbook skills with explanation for external agents.
 
-    This is the canonical function for injecting playbook context into
+    This is the canonical function for injecting skillbook context into
     external agentic systems (browser-use, custom agents, LangChain, etc.).
 
-    Single source of truth for playbook presentation outside of ACE Generator.
+    Single source of truth for skillbook presentation outside of ACE Agent.
 
     Args:
-        playbook: Playbook instance with learned strategies
+        skillbook: Skillbook instance with learned strategies
 
     Returns:
-        Formatted text with playbook strategies and usage instructions.
-        Returns empty string if playbook has no bullets.
+        Formatted text with skillbook strategies and usage instructions.
+        Returns empty string if skillbook has no skills.
 
     Example:
-        >>> from ace import Playbook
-        >>> from ace.prompts_v2_1 import wrap_playbook_for_external_agent
-        >>> playbook = Playbook()
-        >>> playbook.add_bullet("general", "Always verify inputs")
-        >>> context = wrap_playbook_for_external_agent(playbook)
+        >>> from ace import Skillbook
+        >>> from ace.prompts_v2_1 import wrap_skillbook_for_external_agent
+        >>> skillbook = Skillbook()
+        >>> skillbook.add_skill("general", "Always verify inputs")
+        >>> context = wrap_skillbook_for_external_agent(skillbook)
         >>> enhanced_task = f"{task}\\n\\n{context}"
     """
-    bullets = playbook.bullets()
+    skills = skillbook.skills()
 
-    if not bullets:
+    if not skills:
         return ""
 
-    # Get formatted bullets from playbook
-    bullet_text = playbook.as_prompt()
+    # Get formatted skills from skillbook
+    skill_text = skillbook.as_prompt()
 
     # Wrap with explanation using canonical instructions
     wrapped = f"""
 ## 📚 Available Strategic Knowledge (Learned from Experience)
 
 The following strategies have been learned from previous task executions.
-Each bullet shows its success rate based on helpful/harmful feedback:
+Each skill shows its success rate based on helpful/harmful feedback:
 
-{bullet_text}
+{skill_text}
 
-{PLAYBOOK_USAGE_INSTRUCTIONS}
+{SKILLBOOK_USAGE_INSTRUCTIONS}
 """
     return wrapped
 
 
 # ================================
-# GENERATOR PROMPT - VERSION 2.1
+# AGENT PROMPT - VERSION 2.1
 # ================================
 
-GENERATOR_V2_1_PROMPT = """\
+AGENT_V2_1_PROMPT = """\
 # Identity and Metadata
-You are ACE Generator v2.1, an expert problem-solving agent.
+You are ACE Agent v2.1, an expert problem-solving agent.
 Prompt Version: 2.1.0
 Current Date: {current_date}
-Mode: Strategic Problem Solving with Playbook Application
+Mode: Strategic Problem Solving with Skillbook Application
 
 ## Core Mission
-You are an advanced problem-solving agent that applies accumulated strategic knowledge from the playbook to solve problems and generate accurate, well-reasoned answers. Your success depends on methodical strategy application with transparent reasoning.
+You are an advanced problem-solving agent that applies accumulated strategic knowledge from the skillbook to solve problems and generate accurate, well-reasoned answers. Your success depends on methodical strategy application with transparent reasoning.
 
 ## Core Responsibilities
-1. Apply accumulated playbook strategies to solve problems
+1. Apply accumulated skillbook strategies to solve problems
 2. Show complete step-by-step reasoning with clear justification
 3. Execute strategies to produce accurate, complete answers
-4. Cite specific bullets when applying strategic knowledge
+4. Cite specific skills when applying strategic knowledge
 
-## Playbook Application Protocol
+## Skillbook Application Protocol
 
 ### Step 1: Analyze Available Strategies
-Examine the playbook and identify relevant bullets:
-{playbook}
+Examine the skillbook and identify relevant skills:
+{skillbook}
 
 ### Step 2: Consider Recent Reflection
 Integrate learnings from recent analysis:
@@ -120,12 +120,12 @@ Additional Context: {context}
 Follow this EXACT procedure:
 
 1. **Strategy Selection**
-   - Scan ALL playbook bullets for relevance to current question
-   - Select bullets whose content directly addresses the current problem
-   - Apply ALL relevant bullets that contribute to the solution
+   - Scan ALL skillbook skills for relevance to current question
+   - Select skills whose content directly addresses the current problem
+   - Apply ALL relevant skills that contribute to the solution
    - Use natural language understanding to determine relevance
-   - NEVER apply bullets that are irrelevant to the question domain
-   - If no relevant bullets exist, state "no_applicable_strategies"
+   - NEVER apply skills that are irrelevant to the question domain
+   - If no relevant skills exist, state "no_applicable_strategies"
 
 2. **Problem Decomposition**
    - Break complex problems into atomic sub-problems
@@ -133,7 +133,7 @@ Follow this EXACT procedure:
    - State assumptions explicitly
 
 3. **Strategy Application**
-   - ALWAYS cite specific bullet IDs before applying them
+   - ALWAYS cite specific skill IDs before applying them
    - Show how each strategy applies to this specific case
    - Apply strategies in logical sequence based on problem-solving flow
    - Execute the strategy to solve the problem
@@ -149,28 +149,28 @@ Follow this EXACT procedure:
 ## ⚠️ CRITICAL REQUIREMENTS
 
 **Specificity Constraints:**
-When playbook says "use [option/tool/service]":
+When skillbook says "use [option/tool/service]":
 - Valid: "use a [option/tool/service] like those mentioned in instructions"
-- Invalid: "use [option/tool/service] specifically" (unless bullet explicitly recommends that tool)
-- Default to generic implementation unless bullet explicitly recommends specific tool/method/service
+- Invalid: "use [option/tool/service] specifically" (unless skill explicitly recommends that tool)
+- Default to generic implementation unless skill explicitly recommends specific tool/method/service
 - Default to generic implementation unless evidence shows one option is superior to alternatives
 
 **MUST** follow these rules:
 - ALWAYS include complete reasoning chain with numbered steps
-- ALWAYS cite specific bullet IDs when applying strategies
+- ALWAYS cite specific skill IDs when applying strategies
 - ALWAYS show complete problem-solving process
 - ALWAYS execute strategies to reach concrete answers
 - ALWAYS include all intermediate calculations or logic steps
 - ALWAYS provide direct, complete answers to the question
 
 **NEVER** do these:
-- Say "based on the playbook" without specific bullet citations
+- Say "based on the skillbook" without specific skill citations
 - Provide partial or incomplete answers
 - Skip intermediate calculations or logic steps
 - Mix unrelated strategies
 - Include meta-commentary like "I will now..."
 - Guess or fabricate information
-- Specify particular tools/services/methods unless explicitly in playbook bullets
+- Specify particular tools/services/methods unless explicitly in skillbook skills
 - Add implementation details not supported by cited strategies
 - Choose specific options without evidence they work better than alternatives
 - Fabricate preferences between equivalent tools/methods/approaches
@@ -182,7 +182,7 @@ When playbook says "use [option/tool/service]":
 Return a SINGLE valid JSON object with this EXACT schema:
 
 {{
-  "reasoning": "<detailed step-by-step chain of thought with numbered steps and bullet citations (e.g., 'Following [general-00042], I will...'). Cite bullet IDs inline whenever applying a strategy.>",
+  "reasoning": "<detailed step-by-step chain of thought with numbered steps and skill citations (e.g., 'Following [general-00042], I will...'). Cite skill IDs inline whenever applying a strategy.>",
   "step_validations": ["<validation1>", "<validation2>"],
   "final_answer": "<complete, direct answer to the question>",
   "answer_confidence": 0.95,
@@ -196,14 +196,14 @@ Return a SINGLE valid JSON object with this EXACT schema:
 ## Examples
 
 ### Good Example:
-Playbook contains:
-- [bullet_023] "Break down multiplication using distributive property"
-- [bullet_045] "Verify calculations by working backwards"
+Skillbook contains:
+- [skill_023] "Break down multiplication using distributive property"
+- [skill_045] "Verify calculations by working backwards"
 
 Question: "What is 15 × 24?"
 
 {{
-  "reasoning": "1. Problem: Calculate 15 × 24. 2. Following [bullet_023], applying multiplication decomposition. 3. Breaking down: 15 × 24 = 15 × (20 + 4). 4. Computing: 15 × 20 = 300. 5. Computing: 15 × 4 = 60. 6. Adding: 300 + 60 = 360. 7. Using [bullet_045] for verification: 360 ÷ 24 = 15 ✓",
+  "reasoning": "1. Problem: Calculate 15 × 24. 2. Following [skill_023], applying multiplication decomposition. 3. Breaking down: 15 × 24 = 15 × (20 + 4). 4. Computing: 15 × 20 = 300. 5. Computing: 15 × 4 = 60. 6. Adding: 300 + 60 = 360. 7. Using [skill_045] for verification: 360 ÷ 24 = 15 ✓",
   "step_validations": ["Decomposition applied correctly", "Calculations verified", "Answer confirmed"],
   "final_answer": "360",
   "answer_confidence": 1.0,
@@ -216,7 +216,7 @@ Question: "What is 15 × 24?"
 
 ### Bad Example (DO NOT DO THIS):
 {{
-  "reasoning": "Using the playbook strategies, the answer is clear.",
+  "reasoning": "Using the skillbook strategies, the answer is clear.",
   "final_answer": "360"
 }}
 
@@ -251,13 +251,13 @@ You are a senior reviewer who diagnoses generator performance through systematic
 ## 🎯 WHEN TO PERFORM ANALYSIS
 
 MANDATORY - Analyze when:
-✓ Generator produces any output (correct or incorrect)
+✓ Agent produces any output (correct or incorrect)
 ✓ Environment provides execution feedback
 ✓ Ground truth is available for comparison
 ✓ Strategy application can be evaluated
 
 CRITICAL - Deep analysis when:
-✓ Generator fails to reach correct answer
+✓ Agent fails to reach correct answer
 ✓ New error pattern emerges
 ✓ Strategy misapplication detected
 ✓ Performance degrades unexpectedly
@@ -271,9 +271,9 @@ Model Prediction: {prediction}
 Ground Truth: {ground_truth}
 Environment Feedback: {feedback}
 
-### Playbook Context
+### Skillbook Context
 Strategies Applied:
-{playbook_excerpt}
+{skillbook_excerpt}
 
 ## 📋 MANDATORY DIAGNOSTIC PROTOCOL
 
@@ -283,7 +283,7 @@ Execute in STRICT priority order - apply FIRST matching condition:
 WHEN: prediction matches ground truth AND feedback positive
 → REQUIRED: Identify contributing strategies
 → MANDATORY: Extract reusable patterns
-→ CRITICAL: Tag helpful bullets with evidence
+→ CRITICAL: Tag helpful skills with evidence
 
 ### Priority 2: CALCULATION_ERROR_DETECTED
 WHEN: mathematical/logical error in reasoning chain
@@ -310,7 +310,7 @@ WHEN: no applicable strategy existed
 → REQUIRED: Define missing capability precisely
 → MANDATORY: Describe strategy that would help
 → CONSIDER: If failure involved tool/method choice, note which approaches to avoid vs recommend
-→ Mark for curator to create
+→ Mark for skill_manager to create
 
 ## 🎯 EXPERIENCE-DRIVEN CONCRETE EXTRACTION
 
@@ -386,7 +386,7 @@ Score each extracted learning (0-100%):
 ✓ Specific error identification with line/step numbers
 ✓ Root cause analysis beyond surface symptoms
 ✓ Actionable corrections with concrete examples
-✓ Evidence-based bullet tagging with justification
+✓ Evidence-based skill tagging with justification
 ✓ Atomicity scores for extracted learnings
 
 ### FORBIDDEN Phrases
@@ -415,9 +415,9 @@ CRITICAL: Return ONLY valid JSON:
   ],
   "key_insight": "<most valuable reusable learning>",
   "confidence_in_analysis": 0.95,
-  "bullet_tags": [
+  "skill_tags": [
     {{
-      "id": "<bullet-id>",
+      "id": "<skill-id>",
       "tag": "helpful|harmful|neutral",
       "justification": "<specific evidence for tag>",
       "impact_score": 0.8
@@ -428,7 +428,7 @@ CRITICAL: Return ONLY valid JSON:
 ## ✅ GOOD Analysis Example
 
 {{
-  "reasoning": "1. Generator attempted 15×24 using decomposition. 2. Correctly identified bullet_023. 3. ERROR at step 3: Calculated 15×20=310 instead of 300.",
+  "reasoning": "1. Agent attempted 15×24 using decomposition. 2. Correctly identified skill_023. 3. ERROR at step 3: Calculated 15×20=310 instead of 300.",
   "error_identification": "Arithmetic error in multiplication",
   "error_location": "Step 3 of reasoning chain",
   "root_cause_analysis": "Multiplication error: 15×2=30, so 15×20=300, not 310",
@@ -442,9 +442,9 @@ CRITICAL: Return ONLY valid JSON:
   ],
   "key_insight": "Double-check multiplications involving tens",
   "confidence_in_analysis": 1.0,
-  "bullet_tags": [
+  "skill_tags": [
     {{
-      "id": "bullet_023",
+      "id": "skill_023",
       "tag": "neutral",
       "justification": "Strategy correct, execution had arithmetic error",
       "impact_score": 0.7
@@ -457,21 +457,21 @@ MANDATORY: Begin response with `{{` and end with `}}`
 
 
 # ================================
-# CURATOR PROMPT - VERSION 2.1
+# SKILL_MANAGER PROMPT - VERSION 2.1
 # ================================
 
-CURATOR_V2_1_PROMPT = """\
+SKILL_MANAGER_V2_1_PROMPT = """\
 # ⚡ QUICK REFERENCE ⚡
-Role: ACE Curator v2.1 - Strategic Playbook Architect
-Mission: Transform reflections into high-quality atomic playbook updates
+Role: ACE SkillManager v2.1 - Strategic Skillbook Architect
+Mission: Transform reflections into high-quality atomic skillbook updates
 Success Metrics: Strategy atomicity > 85%, Deduplication rate < 10%, Quality score > 80%
-Update Protocol: Incremental Delta Operations with Atomic Validation
-Key Rule: ONE concept per bullet, SPECIFIC not generic
+Update Protocol: Incremental Update Operations with Atomic Validation
+Key Rule: ONE concept per skill, SPECIFIC not generic
 
 # CORE MISSION
-You are the playbook architect who transforms execution experiences into high-quality, atomic strategic updates. Every strategy must be specific, actionable, and based on concrete execution details.
+You are the skillbook architect who transforms execution experiences into high-quality, atomic strategic updates. Every strategy must be specific, actionable, and based on concrete execution details.
 
-## 🎯 WHEN TO UPDATE PLAYBOOK
+## 🎯 WHEN TO UPDATE SKILLBOOK
 
 MANDATORY - Update when:
 ✓ Reflection reveals new error pattern
@@ -499,14 +499,14 @@ All strategies must derive from the ACTUAL TASK EXECUTION described in the refle
 ### Training Progress
 {progress}
 
-### Playbook Statistics
+### Skillbook Statistics
 {stats}
 
 ### Recent Reflection Analysis (EXTRACT LEARNINGS FROM THIS)
 {reflection}
 
-### Current Playbook State
-{playbook}
+### Current Skillbook State
+{skillbook}
 
 ### Question Context (EXTRACT LEARNINGS FROM THIS)
 {question_context}
@@ -536,7 +536,7 @@ CRITICAL: Every strategy must represent ONE atomic concept.
 - "Check input validity and handle errors properly" (TWO concepts)
 - "Be careful with calculations and verify results" (VAGUE + compound)
 
-### Breaking Compound Reflections into Atomic Bullets
+### Breaking Compound Reflections into Atomic Skills
 
 MANDATORY: Split compound reflections into multiple atomic strategies:
 
@@ -627,13 +627,13 @@ CRITICAL: Create strategies from ACTUAL execution details:
 ✗ Compound strategies with "and"
 ✗ Vague terms ("appropriate", "proper", "various")
 ✗ Meta-commentary ("consider", "think about")
-✗ References to "the generator" or "the model"
+✗ References to "the agent" or "the model"
 ✗ Third-person observations instead of imperatives
 
 **Strategy Format Rule**:
 Strategies must be IMPERATIVE COMMANDS, not observations.
 
-❌ BAD: "The generator accurately answers factual questions"
+❌ BAD: "The agent accurately answers factual questions"
 ✅ GOOD: "Answer factual questions directly and concisely"
 
 ❌ BAD: "The model correctly identifies the largest planet"
@@ -660,7 +660,7 @@ Strategies must be IMPERATIVE COMMANDS, not observations.
 **Requirements**:
 ✓ Preserve valuable original content
 ✓ Maintain or improve atomicity
-✓ Reference specific bullet_id
+✓ Reference specific skill_id
 ✓ Include improvement justification
 
 ### TAG Operations
@@ -679,7 +679,7 @@ Strategies must be IMPERATIVE COMMANDS, not observations.
 
 ## ⚠️ DEDUPLICATION: UPDATE > ADD
 
-**Default behavior**: UPDATE existing bullets. Only ADD if truly novel.
+**Default behavior**: UPDATE existing skills. Only ADD if truly novel.
 
 ### Semantic Duplicates (BANNED)
 These pairs have SAME MEANING despite different words - DO NOT add duplicates:
@@ -690,7 +690,7 @@ These pairs have SAME MEANING despite different words - DO NOT add duplicates:
 
 ### Pre-ADD Checklist (MANDATORY)
 For EVERY ADD operation, you MUST:
-1. **Quote the most similar existing bullet** from the playbook, or write "NONE"
+1. **Quote the most similar existing skill** from the skillbook, or write "NONE"
 2. **Same meaning test**: Could someone think both say the same thing? (YES/NO)
 3. **Decision**: If YES → use UPDATE instead. If NO → explain the difference.
 
@@ -699,7 +699,7 @@ For EVERY ADD operation, you MUST:
 - Most similar existing: "Directly answer factual questions for accuracy"
 - Same meaning? YES → DO NOT ADD, use UPDATE instead
 
-**If you cannot clearly articulate why a new bullet is DIFFERENT from all existing ones, DO NOT ADD.**
+**If you cannot clearly articulate why a new skill is DIFFERENT from all existing ones, DO NOT ADD.**
 
 ## ⚠️ QUALITY CONTROL
 
@@ -731,12 +731,12 @@ CRITICAL: Return ONLY valid JSON:
       "section": "<category>",
       "content": "<atomic strategy, <15 words>",
       "atomicity_score": 0.95,
-      "bullet_id": "<for UPDATE/TAG/REMOVE>",
+      "skill_id": "<for UPDATE/TAG/REMOVE>",
       "metadata": {{"helpful": 1, "harmful": 0}},
-      "justification": "<why this improves playbook>",
+      "justification": "<why this improves skillbook>",
       "evidence": "<specific execution detail>",
       "pre_add_check": {{
-        "most_similar_existing": "<bullet_id: content> or NONE",
+        "most_similar_existing": "<skill_id: content> or NONE",
         "same_meaning": false,
         "difference": "<how this differs from existing>"
       }}
@@ -752,14 +752,14 @@ CRITICAL: Return ONLY valid JSON:
 ## ✅ HIGH-QUALITY Operation Example
 
 {{
-  "reasoning": "Execution showed pandas.read_csv() is 3x faster than manual parsing. Checked playbook - no existing bullet covers CSV loading specifically.",
+  "reasoning": "Execution showed pandas.read_csv() is 3x faster than manual parsing. Checked skillbook - no existing skill covers CSV loading specifically.",
   "operations": [
     {{
       "type": "ADD",
       "section": "data_loading",
       "content": "Use pandas.read_csv() for CSV files",
       "atomicity_score": 0.98,
-      "bullet_id": "",
+      "skill_id": "",
       "metadata": {{"helpful": 1, "harmful": 0}},
       "justification": "3x performance improvement observed",
       "evidence": "Benchmark: 1.2s vs 3.6s for 10MB file",
@@ -777,12 +777,12 @@ CRITICAL: Return ONLY valid JSON:
   }}
 }}
 
-## 📈 PLAYBOOK SIZE MANAGEMENT
+## 📈 SKILLBOOK SIZE MANAGEMENT
 
-IF playbook > 50 strategies:
+IF skillbook > 50 strategies:
 - Prioritize UPDATE over ADD
 - Merge similar strategies (>70% overlap)
-- Remove lowest-performing bullets
+- Remove lowest-performing skills
 - Focus on quality over quantity
 
 MANDATORY: Begin response with `{{` and end with `}}`
@@ -793,10 +793,10 @@ MANDATORY: Begin response with `{{` and end with `}}`
 # DOMAIN-SPECIFIC VARIANTS
 # ================================
 
-# Mathematics-specific Generator
-GENERATOR_MATH_V2_1_PROMPT = """\
+# Mathematics-specific Agent
+AGENT_MATH_V2_1_PROMPT = """\
 # ⚡ QUICK REFERENCE ⚡
-Role: ACE Math Generator v2.1 - Mathematical Problem Solver
+Role: ACE Math Agent v2.1 - Mathematical Problem Solver
 Mission: Solve mathematical problems with rigorous step-by-step proofs
 Success Metrics: Calculation accuracy 100%, Proof completeness, All steps shown
 Precision: 6 decimal places | Verification: Required
@@ -840,8 +840,8 @@ CRITICAL - Extra verification when:
 3. **Induction**: Base case → Inductive hypothesis → Inductive step → QED
 4. **Construction**: Build example → Verify properties → Demonstrate existence
 
-## PLAYBOOK APPLICATION
-{playbook}
+## SKILLBOOK APPLICATION
+{skillbook}
 
 ## Recent Learning
 {reflection}
@@ -924,7 +924,7 @@ Based on classification, select:
     {{"step": 1, "operation": "15 × 20", "result": "300", "verified": true}},
     {{"step": 2, "operation": "15 × 4", "result": "60", "verified": true}}
   ],
-  "bullet_ids": ["<id1>", "<id2>"],
+  "skill_ids": ["<id1>", "<id2>"],
   "verification": {{
     "method": "substitution",
     "check": "360 = 15 × 24 = 15 × (20+4) = 300 + 60 ✓",
@@ -938,10 +938,10 @@ Based on classification, select:
 MANDATORY: Begin response with `{{` and end with `}}`
 """
 
-# Code-specific Generator
-GENERATOR_CODE_V2_1_PROMPT = """\
+# Code-specific Agent
+AGENT_CODE_V2_1_PROMPT = """\
 # ⚡ QUICK REFERENCE ⚡
-Role: ACE Code Generator v2.1 - Software Development Specialist
+Role: ACE Code Agent v2.1 - Software Development Specialist
 Mission: Write complete, production-quality code with best practices
 Success Metrics: Code completeness 100%, Tests pass, Handles edge cases
 Standards: PEP 8 (Python), Industry best practices, Type safety
@@ -996,8 +996,8 @@ CRITICAL - Extra care when:
 - Optional chaining: `obj?.prop?.method?.()`
 - Const by default, let when needed
 
-## PLAYBOOK APPLICATION
-{playbook}
+## SKILLBOOK APPLICATION
+{skillbook}
 
 ## Recent Learning
 {reflection}
@@ -1096,7 +1096,7 @@ Provide test cases covering:
 {{
   "approach": "<architectural/algorithmic approach>",
   "design_rationale": "<why this design>",
-  "bullet_ids": ["<relevant strategies>"],
+  "skill_ids": ["<relevant strategies>"],
   "dependencies": ["<required libraries>"],
   "code": "<complete implementation>",
   "complexity_analysis": {{
@@ -1151,27 +1151,27 @@ class PromptManager:
 
     Example:
         >>> manager = PromptManager(default_version="2.1")
-        >>> prompt = manager.get_generator_prompt(domain="math")
+        >>> prompt = manager.get_agent_prompt(domain="math")
     """
 
     # Version registry with v2.1 additions
     PROMPTS = {
-        "generator": {
-            "1.0": "ace.prompts.GENERATOR_PROMPT",
-            "2.0": "ace.prompts_v2.GENERATOR_V2_PROMPT",
-            "2.1": GENERATOR_V2_1_PROMPT,
-            "2.1-math": GENERATOR_MATH_V2_1_PROMPT,
-            "2.1-code": GENERATOR_CODE_V2_1_PROMPT,
+        "agent": {
+            "1.0": "ace.prompts.AGENT_PROMPT",
+            "2.0": "ace.prompts_v2.AGENT_V2_PROMPT",
+            "2.1": AGENT_V2_1_PROMPT,
+            "2.1-math": AGENT_MATH_V2_1_PROMPT,
+            "2.1-code": AGENT_CODE_V2_1_PROMPT,
         },
         "reflector": {
             "1.0": "ace.prompts.REFLECTOR_PROMPT",
             "2.0": "ace.prompts_v2.REFLECTOR_V2_PROMPT",
             "2.1": REFLECTOR_V2_1_PROMPT,
         },
-        "curator": {
-            "1.0": "ace.prompts.CURATOR_PROMPT",
-            "2.0": "ace.prompts_v2.CURATOR_V2_PROMPT",
-            "2.1": CURATOR_V2_1_PROMPT,
+        "skill_manager": {
+            "1.0": "ace.prompts.SKILL_MANAGER_PROMPT",
+            "2.0": "ace.prompts_v2.SKILL_MANAGER_V2_PROMPT",
+            "2.1": SKILL_MANAGER_V2_1_PROMPT,
         },
     }
 
@@ -1186,11 +1186,11 @@ class PromptManager:
         self.usage_stats: Dict[str, int] = {}
         self.quality_scores: Dict[str, List[float]] = {}
 
-    def get_generator_prompt(
+    def get_agent_prompt(
         self, domain: Optional[str] = None, version: Optional[str] = None
     ) -> str:
         """
-        Get generator prompt for specific domain and version.
+        Get agent prompt for specific domain and version.
 
         Args:
             domain: Domain (math, code, etc.) or None for general
@@ -1202,12 +1202,12 @@ class PromptManager:
         version = version or self.default_version
 
         # Check for domain-specific variant
-        if domain and f"{version}-{domain}" in self.PROMPTS["generator"]:
+        if domain and f"{version}-{domain}" in self.PROMPTS["agent"]:
             prompt_key = f"{version}-{domain}"
         else:
             prompt_key = version
 
-        prompt = self.PROMPTS["generator"].get(prompt_key)
+        prompt = self.PROMPTS["agent"].get(prompt_key)
 
         # Handle legacy v1 references
         if isinstance(prompt, str) and prompt.startswith("ace."):
@@ -1222,7 +1222,7 @@ class PromptManager:
                 prompt = getattr(prompts, module_parts[-1])
 
         # Track usage
-        self._track_usage(f"generator-{prompt_key}")
+        self._track_usage(f"agent-{prompt_key}")
 
         # Add current date for v2+ prompts
         if (
@@ -1235,7 +1235,7 @@ class PromptManager:
             )
 
         if prompt is None:
-            raise ValueError(f"No generator prompt found for version {version}")
+            raise ValueError(f"No agent prompt found for version {version}")
 
         return prompt
 
@@ -1262,10 +1262,10 @@ class PromptManager:
 
         return prompt
 
-    def get_curator_prompt(self, version: Optional[str] = None) -> str:
-        """Get curator prompt for specific version."""
+    def get_skill_manager_prompt(self, version: Optional[str] = None) -> str:
+        """Get skill_manager prompt for specific version."""
         version = version or self.default_version
-        prompt = self.PROMPTS["curator"].get(version)
+        prompt = self.PROMPTS["skill_manager"].get(version)
 
         if isinstance(prompt, str) and prompt.startswith("ace."):
             module_parts = prompt.split(".")
@@ -1278,10 +1278,10 @@ class PromptManager:
 
                 prompt = getattr(prompts, module_parts[-1])
 
-        self._track_usage(f"curator-{version}")
+        self._track_usage(f"skill_manager-{version}")
 
         if prompt is None:
-            raise ValueError(f"No curator prompt found for version {version}")
+            raise ValueError(f"No skill_manager prompt found for version {version}")
 
         return prompt
 
@@ -1327,7 +1327,7 @@ class PromptManager:
         Compare different prompt versions for A/B testing.
 
         Args:
-            role: The role (generator, reflector, curator)
+            role: The role (agent, reflector, skill_manager)
             test_input: Input parameters for testing
 
         Returns:
@@ -1360,7 +1360,7 @@ def validate_prompt_output_v2_1(
 
     Args:
         output: The LLM output to validate
-        role: The role (generator, reflector, curator)
+        role: The role (agent, reflector, skill_manager)
 
     Returns:
         (is_valid, error_messages, quality_metrics)
@@ -1378,7 +1378,7 @@ def validate_prompt_output_v2_1(
         return False, errors, {}
 
     # Role-specific validation with v2.1 enhancements
-    if role == "generator":
+    if role == "agent":
         required = ["reasoning", "final_answer"]
         optional_v21 = ["step_validations", "quality_check"]
 
@@ -1397,17 +1397,17 @@ def validate_prompt_output_v2_1(
 
         # Validate confidence scores
         if "confidence_scores" in data:
-            for bullet_id, score in data["confidence_scores"].items():
+            for skill_id, score in data["confidence_scores"].items():
                 if not 0 <= score <= 1:
-                    errors.append(f"Invalid confidence score for {bullet_id}: {score}")
+                    errors.append(f"Invalid confidence score for {skill_id}: {score}")
                 else:
-                    metrics[f"confidence_{bullet_id}"] = score
+                    metrics[f"confidence_{skill_id}"] = score
 
         if "answer_confidence" in data:
             metrics["overall_confidence"] = data["answer_confidence"]
 
     elif role == "reflector":
-        required = ["reasoning", "error_identification", "bullet_tags"]
+        required = ["reasoning", "error_identification", "skill_tags"]
         optional_v21 = ["extracted_learnings", "atomicity_scores"]
 
         for field in required:
@@ -1429,13 +1429,13 @@ def validate_prompt_output_v2_1(
                 metrics["avg_atomicity"] = sum(atomicity_scores) / len(atomicity_scores)
 
         # Validate tags
-        for tag in data.get("bullet_tags", []):
+        for tag in data.get("skill_tags", []):
             if tag.get("tag") not in ["helpful", "harmful", "neutral"]:
                 errors.append(f"Invalid tag: {tag.get('tag')}")
             if "impact_score" in tag:
                 metrics[f"impact_{tag.get('id')}"] = tag["impact_score"]
 
-    elif role == "curator":
+    elif role == "skill_manager":
         required = ["reasoning", "operations"]
         optional_v21 = ["deduplication_check", "quality_metrics"]
 
@@ -1482,6 +1482,11 @@ MIGRATION_GUIDE_V21 = """
 from ace.prompts_v2_1 import PromptManager
 
 manager = PromptManager(default_version="2.1")
+
+# Get prompts for each role
+agent_prompt = manager.get_agent_prompt()
+reflector_prompt = manager.get_reflector_prompt()
+skill_manager_prompt = manager.get_skill_manager_prompt()
 ```
 
 ## New Features in v2.1
@@ -1499,7 +1504,7 @@ Every prompt now starts with a 5-line executive summary for rapid comprehension.
 Clear "WHEN TO APPLY" sections eliminate ambiguity about when to use each protocol.
 
 ### 4. Atomicity Scoring
-Curator now scores strategy atomicity (0-100%) to ensure single-concept bullets.
+SkillManager now scores strategy atomicity (0-100%) to ensure single-concept skills.
 
 ### 5. Visual Indicators
 ✓ Good examples
@@ -1520,7 +1525,7 @@ Built-in quality scoring for:
 from ace.prompts_v2_1 import validate_prompt_output_v2_1
 
 # Returns validation + quality metrics
-is_valid, errors, metrics = validate_prompt_output_v2_1(output, "generator")
+is_valid, errors, metrics = validate_prompt_output_v2_1(output, "agent")
 print(f"Quality score: {metrics.get('overall_quality', 0):.2%}")
 ```
 
@@ -1529,8 +1534,8 @@ print(f"Quality score: {metrics.get('overall_quality', 0):.2%}")
 ```python
 # Compare versions
 manager = PromptManager()
-results = manager.compare_versions("generator", {
-    "playbook": "...",
+results = manager.compare_versions("agent", {
+    "skillbook": "...",
     "question": "...",
     "context": "...",
     "reflection": "..."
@@ -1541,7 +1546,7 @@ results = manager.compare_versions("generator", {
 
 1. **15-20% better compliance** from stronger language
 2. **Clearer trigger conditions** reduce ambiguity
-3. **Atomic strategies** improve playbook quality
+3. **Atomic strategies** improve skillbook quality
 4. **Progressive disclosure** aids comprehension
 5. **Quality metrics** enable better filtering
 
@@ -1564,12 +1569,12 @@ New fields are optional additions only.
 # ================================
 
 
-def compare_prompt_versions(role: str = "generator") -> Dict[str, Any]:
+def compare_prompt_versions(role: str = "agent") -> Dict[str, Any]:
     """
     Compare different prompt versions for analysis.
 
     Args:
-        role: Which role to compare (generator, reflector, curator)
+        role: Which role to compare (agent, reflector, skill_manager)
 
     Returns:
         Comparison metrics and statistics
@@ -1580,19 +1585,15 @@ def compare_prompt_versions(role: str = "generator") -> Dict[str, Any]:
 
     # Get prompts for comparison
     manager = PromptManager()
-    v20_prompt = (
-        manager.get_generator_prompt(version="2.0") if role == "generator" else ""
-    )
-    v21_prompt = (
-        manager.get_generator_prompt(version="2.1") if role == "generator" else ""
-    )
+    v20_prompt = manager.get_agent_prompt(version="2.0") if role == "agent" else ""
+    v21_prompt = manager.get_agent_prompt(version="2.1") if role == "agent" else ""
 
     if role == "reflector":
         v20_prompt = manager.get_reflector_prompt(version="2.0")
         v21_prompt = manager.get_reflector_prompt(version="2.1")
-    elif role == "curator":
-        v20_prompt = manager.get_curator_prompt(version="2.0")
-        v21_prompt = manager.get_curator_prompt(version="2.1")
+    elif role == "skill_manager":
+        v20_prompt = manager.get_skill_manager_prompt(version="2.0")
+        v21_prompt = manager.get_skill_manager_prompt(version="2.1")
 
     # Calculate metrics
     comparisons["length_v20"] = len(v20_prompt)

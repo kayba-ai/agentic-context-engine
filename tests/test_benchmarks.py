@@ -109,7 +109,7 @@ class TestBenchmarkEnvironment(unittest.TestCase):
 
         sample = Sample(question="What is the capital of France?", ground_truth="Paris")
 
-        # Mock generator output
+        # Mock agent output
         mock_output = Mock()
         mock_output.final_answer = "Paris"
 

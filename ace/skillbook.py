@@ -1,4 +1,4 @@
-"""Playbook storage and mutation logic for ACE."""
+"""Skillbook storage and mutation logic for ACE."""
 
 from __future__ import annotations
 
@@ -8,12 +8,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, FrozenSet, Iterable, List, Literal, Optional, Union, cast
 
-from .delta import DeltaBatch, DeltaOperation
+from .updates import UpdateBatch, UpdateOperation
 
 
 @dataclass
 class SimilarityDecision:
-    """Record of a Curator decision to KEEP two bullets separate."""
+    """Record of a SkillManager decision to KEEP two skills separate."""
 
     decision: Literal["KEEP"]
     reasoning: str
@@ -22,8 +22,8 @@ class SimilarityDecision:
 
 
 @dataclass
-class Bullet:
-    """Single playbook entry."""
+class Skill:
+    """Single skillbook entry."""
 
     id: str
     section: str
@@ -73,11 +73,11 @@ class Bullet:
         }
 
 
-class Playbook:
+class Skillbook:
     """Structured context store as defined by ACE."""
 
     def __init__(self) -> None:
-        self._bullets: Dict[str, Bullet] = {}
+        self._skills: Dict[str, Skill] = {}
         self._sections: Dict[str, List[str]] = {}
         self._next_id = 0
         # Store KEEP decisions so we don't re-ask about the same pairs
@@ -85,131 +85,129 @@ class Playbook:
 
     def __repr__(self) -> str:
         """Concise representation for debugging and object inspection."""
-        return f"Playbook(bullets={len(self._bullets)}, sections={list(self._sections.keys())})"
+        return f"Skillbook(skills={len(self._skills)}, sections={list(self._sections.keys())})"
 
     def __str__(self) -> str:
         """
-        Human-readable representation showing actual playbook content.
+        Human-readable representation showing actual skillbook content.
 
         Uses markdown format for readability (not TOON) since this is
         typically used for debugging/inspection, not LLM prompts.
         """
-        if not self._bullets:
-            return "Playbook(empty)"
+        if not self._skills:
+            return "Skillbook(empty)"
         return self._as_markdown_debug()
 
     # ------------------------------------------------------------------ #
     # CRUD utils
     # ------------------------------------------------------------------ #
-    def add_bullet(
+    def add_skill(
         self,
         section: str,
         content: str,
-        bullet_id: Optional[str] = None,
+        skill_id: Optional[str] = None,
         metadata: Optional[Dict[str, int]] = None,
-    ) -> Bullet:
-        bullet_id = bullet_id or self._generate_id(section)
+    ) -> Skill:
+        skill_id = skill_id or self._generate_id(section)
         metadata = metadata or {}
-        bullet = Bullet(id=bullet_id, section=section, content=content)
-        bullet.apply_metadata(metadata)
-        self._bullets[bullet_id] = bullet
-        self._sections.setdefault(section, []).append(bullet_id)
-        return bullet
+        skill = Skill(id=skill_id, section=section, content=content)
+        skill.apply_metadata(metadata)
+        self._skills[skill_id] = skill
+        self._sections.setdefault(section, []).append(skill_id)
+        return skill
 
-    def update_bullet(
+    def update_skill(
         self,
-        bullet_id: str,
+        skill_id: str,
         *,
         content: Optional[str] = None,
         metadata: Optional[Dict[str, int]] = None,
-    ) -> Optional[Bullet]:
-        bullet = self._bullets.get(bullet_id)
-        if bullet is None:
+    ) -> Optional[Skill]:
+        skill = self._skills.get(skill_id)
+        if skill is None:
             return None
         if content is not None:
-            bullet.content = content
+            skill.content = content
         if metadata:
-            bullet.apply_metadata(metadata)
-        bullet.updated_at = datetime.now(timezone.utc).isoformat()
-        return bullet
+            skill.apply_metadata(metadata)
+        skill.updated_at = datetime.now(timezone.utc).isoformat()
+        return skill
 
-    def tag_bullet(
-        self, bullet_id: str, tag: str, increment: int = 1
-    ) -> Optional[Bullet]:
-        bullet = self._bullets.get(bullet_id)
-        if bullet is None:
+    def tag_skill(self, skill_id: str, tag: str, increment: int = 1) -> Optional[Skill]:
+        skill = self._skills.get(skill_id)
+        if skill is None:
             return None
-        bullet.tag(tag, increment=increment)
+        skill.tag(tag, increment=increment)
 
         # Opik tracing handles this automatically via @track decorator
 
-        return bullet
+        return skill
 
-    def remove_bullet(self, bullet_id: str, soft: bool = False) -> None:
-        """Remove a bullet from the playbook.
+    def remove_skill(self, skill_id: str, soft: bool = False) -> None:
+        """Remove a skill from the skillbook.
 
         Args:
-            bullet_id: ID of the bullet to remove
+            skill_id: ID of the skill to remove
             soft: If True, mark as invalid instead of deleting (for audit trail)
         """
-        bullet = self._bullets.get(bullet_id)
-        if bullet is None:
+        skill = self._skills.get(skill_id)
+        if skill is None:
             return
 
         if soft:
             # Soft delete: mark as invalid but keep in storage
-            bullet.status = "invalid"
-            bullet.updated_at = datetime.now(timezone.utc).isoformat()
+            skill.status = "invalid"
+            skill.updated_at = datetime.now(timezone.utc).isoformat()
         else:
             # Hard delete: remove entirely
-            self._bullets.pop(bullet_id, None)
-            section_list = self._sections.get(bullet.section)
+            self._skills.pop(skill_id, None)
+            section_list = self._sections.get(skill.section)
             if section_list:
-                self._sections[bullet.section] = [
-                    bid for bid in section_list if bid != bullet_id
+                self._sections[skill.section] = [
+                    sid for sid in section_list if sid != skill_id
                 ]
-                if not self._sections[bullet.section]:
-                    del self._sections[bullet.section]
+                if not self._sections[skill.section]:
+                    del self._sections[skill.section]
 
-    def get_bullet(self, bullet_id: str) -> Optional[Bullet]:
-        return self._bullets.get(bullet_id)
+    def get_skill(self, skill_id: str) -> Optional[Skill]:
+        return self._skills.get(skill_id)
 
-    def bullets(self, include_invalid: bool = False) -> List[Bullet]:
-        """Get all bullets in the playbook.
+    def skills(self, include_invalid: bool = False) -> List[Skill]:
+        """Get all skills in the skillbook.
 
         Args:
-            include_invalid: If True, include soft-deleted bullets
+            include_invalid: If True, include soft-deleted skills
 
         Returns:
-            List of bullets (active only by default)
+            List of skills (active only by default)
         """
         if include_invalid:
-            return list(self._bullets.values())
-        return [b for b in self._bullets.values() if b.status == "active"]
+            return list(self._skills.values())
+        return [s for s in self._skills.values() if s.status == "active"]
 
     # ------------------------------------------------------------------ #
     # Similarity decisions (for deduplication)
     # ------------------------------------------------------------------ #
     def get_similarity_decision(
-        self, bullet_id_a: str, bullet_id_b: str
+        self, skill_id_a: str, skill_id_b: str
     ) -> Optional[SimilarityDecision]:
-        """Get a prior similarity decision for a pair of bullets."""
-        pair_key = frozenset([bullet_id_a, bullet_id_b])
+        """Get a prior similarity decision for a pair of skills."""
+        pair_key = frozenset([skill_id_a, skill_id_b])
         return self._similarity_decisions.get(pair_key)
 
     def set_similarity_decision(
         self,
-        bullet_id_a: str,
-        bullet_id_b: str,
+        skill_id_a: str,
+        skill_id_b: str,
         decision: SimilarityDecision,
     ) -> None:
-        """Store a similarity decision for a pair of bullets."""
-        pair_key = frozenset([bullet_id_a, bullet_id_b])
+        """Store a similarity decision for a pair of skills."""
+        pair_key = frozenset([skill_id_a, skill_id_b])
         self._similarity_decisions[pair_key] = decision
 
-    def has_keep_decision(self, bullet_id_a: str, bullet_id_b: str) -> bool:
+    def has_keep_decision(self, skill_id_a: str, skill_id_b: str) -> bool:
         """Check if there's a KEEP decision for this pair."""
-        decision = self.get_similarity_decision(bullet_id_a, bullet_id_b)
+        decision = self.get_similarity_decision(skill_id_a, skill_id_b)
         return decision is not None and decision.decision == "KEEP"
 
     # ------------------------------------------------------------------ #
@@ -222,8 +220,8 @@ class Playbook:
             for pair_ids, decision in self._similarity_decisions.items()
         }
         return {
-            "bullets": {
-                bullet_id: asdict(bullet) for bullet_id, bullet in self._bullets.items()
+            "skills": {
+                skill_id: asdict(skill) for skill_id, skill in self._skills.items()
             },
             "sections": self._sections,
             "next_id": self._next_id,
@@ -231,19 +229,19 @@ class Playbook:
         }
 
     @classmethod
-    def from_dict(cls, payload: Dict[str, object]) -> "Playbook":
+    def from_dict(cls, payload: Dict[str, object]) -> "Skillbook":
         instance = cls()
-        bullets_payload = payload.get("bullets", {})
-        if isinstance(bullets_payload, dict):
-            for bullet_id, bullet_value in bullets_payload.items():
-                if isinstance(bullet_value, dict):
+        skills_payload = payload.get("skills", {})
+        if isinstance(skills_payload, dict):
+            for skill_id, skill_value in skills_payload.items():
+                if isinstance(skill_value, dict):
                     # Handle new optional fields with defaults for backwards compatibility
-                    bullet_data = dict(bullet_value)
-                    if "embedding" not in bullet_data:
-                        bullet_data["embedding"] = None
-                    if "status" not in bullet_data:
-                        bullet_data["status"] = "active"
-                    instance._bullets[bullet_id] = Bullet(**bullet_data)
+                    skill_data = dict(skill_value)
+                    if "embedding" not in skill_data:
+                        skill_data["embedding"] = None
+                    if "status" not in skill_data:
+                        skill_data["status"] = "active"
+                    instance._skills[skill_id] = Skill(**skill_data)
         sections_payload = payload.get("sections", {})
         if isinstance(sections_payload, dict):
             instance._sections = {
@@ -271,20 +269,20 @@ class Playbook:
         return json.dumps(self.to_dict(), ensure_ascii=False, indent=2)
 
     @classmethod
-    def loads(cls, data: str) -> "Playbook":
+    def loads(cls, data: str) -> "Skillbook":
         payload = json.loads(data)
         if not isinstance(payload, dict):
-            raise ValueError("Playbook serialization must be a JSON object.")
+            raise ValueError("Skillbook serialization must be a JSON object.")
         return cls.from_dict(payload)
 
     def save_to_file(self, path: str) -> None:
-        """Save playbook to a JSON file.
+        """Save skillbook to a JSON file.
 
         Args:
-            path: File path where to save the playbook
+            path: File path where to save the skillbook
 
         Example:
-            >>> playbook.save_to_file("trained_model.json")
+            >>> skillbook.save_to_file("trained_model.json")
         """
         file_path = Path(path)
         file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -292,84 +290,84 @@ class Playbook:
             f.write(self.dumps())
 
     @classmethod
-    def load_from_file(cls, path: str) -> "Playbook":
-        """Load playbook from a JSON file.
+    def load_from_file(cls, path: str) -> "Skillbook":
+        """Load skillbook from a JSON file.
 
         Args:
-            path: File path to load the playbook from
+            path: File path to load the skillbook from
 
         Returns:
-            Playbook instance loaded from the file
+            Skillbook instance loaded from the file
 
         Example:
-            >>> playbook = Playbook.load_from_file("trained_model.json")
+            >>> skillbook = Skillbook.load_from_file("trained_model.json")
 
         Raises:
             FileNotFoundError: If the file doesn't exist
             json.JSONDecodeError: If the file contains invalid JSON
-            ValueError: If the JSON doesn't represent a valid playbook
+            ValueError: If the JSON doesn't represent a valid skillbook
         """
         file_path = Path(path)
         if not file_path.exists():
-            raise FileNotFoundError(f"Playbook file not found: {path}")
+            raise FileNotFoundError(f"Skillbook file not found: {path}")
         with file_path.open("r", encoding="utf-8") as f:
             return cls.loads(f.read())
 
     # ------------------------------------------------------------------ #
-    # Delta application
+    # Update application
     # ------------------------------------------------------------------ #
-    def apply_delta(self, delta: DeltaBatch) -> None:
-        bullets_before = len(self._bullets)
+    def apply_update(self, update: UpdateBatch) -> None:
+        skills_before = len(self._skills)
 
-        for operation in delta.operations:
+        for operation in update.operations:
             self._apply_operation(operation)
 
-        bullets_after = len(self._bullets)
+        skills_after = len(self._skills)
 
         # Opik tracing handles this automatically via @track decorator
 
-    def _apply_operation(self, operation: DeltaOperation) -> None:
+    def _apply_operation(self, operation: UpdateOperation) -> None:
         op_type = operation.type.upper()
         if op_type == "ADD":
-            self.add_bullet(
+            self.add_skill(
                 section=operation.section,
                 content=operation.content or "",
-                bullet_id=operation.bullet_id,
+                skill_id=operation.skill_id,
                 metadata=operation.metadata,
             )
         elif op_type == "UPDATE":
-            if operation.bullet_id is None:
+            if operation.skill_id is None:
                 return
-            self.update_bullet(
-                operation.bullet_id,
+            self.update_skill(
+                operation.skill_id,
                 content=operation.content,
                 metadata=operation.metadata,
             )
         elif op_type == "TAG":
-            if operation.bullet_id is None:
+            if operation.skill_id is None:
                 return
             # Only apply valid tag names as defensive measure
             valid_tags = {"helpful", "harmful", "neutral"}
             for tag, increment in operation.metadata.items():
                 if tag in valid_tags:
-                    self.tag_bullet(operation.bullet_id, tag, increment)
+                    self.tag_skill(operation.skill_id, tag, increment)
         elif op_type == "REMOVE":
-            if operation.bullet_id is None:
+            if operation.skill_id is None:
                 return
-            self.remove_bullet(operation.bullet_id)
+            self.remove_skill(operation.skill_id)
 
     # ------------------------------------------------------------------ #
     # Presentation helpers
     # ------------------------------------------------------------------ #
     def as_prompt(self) -> str:
         """
-        Return TOON-encoded playbook for LLM prompts.
+        Return TOON-encoded skillbook for LLM prompts.
 
         Uses tab delimiters and excludes internal metadata (created_at, updated_at)
         for maximum token efficiency (~16-62% savings vs markdown).
 
         Returns:
-            TOON-formatted string with bullets array
+            TOON-formatted string with skills array
 
         Raises:
             ImportError: If python-toon is not installed
@@ -383,10 +381,10 @@ class Playbook:
             )
 
         # Only include LLM-relevant fields (exclude created_at, updated_at)
-        bullets_data = [b.to_llm_dict() for b in self.bullets()]
+        skills_data = [s.to_llm_dict() for s in self.skills()]
 
         # Use tab delimiter for 5-10% better compression than comma
-        return encode({"bullets": bullets_data}, {"delimiter": "\t"})
+        return encode({"skills": skills_data}, {"delimiter": "\t"})
 
     def _as_markdown_debug(self) -> str:
         """
@@ -396,25 +394,25 @@ class Playbook:
         Use for debugging, logging, or human inspection - not for LLM prompts.
 
         Returns:
-            Markdown-formatted playbook string
+            Markdown-formatted skillbook string
         """
         parts: List[str] = []
-        for section, bullet_ids in sorted(self._sections.items()):
+        for section, skill_ids in sorted(self._sections.items()):
             parts.append(f"## {section}")
-            for bullet_id in bullet_ids:
-                bullet = self._bullets[bullet_id]
-                counters = f"(helpful={bullet.helpful}, harmful={bullet.harmful}, neutral={bullet.neutral})"
-                parts.append(f"- [{bullet.id}] {bullet.content} {counters}")
+            for skill_id in skill_ids:
+                skill = self._skills[skill_id]
+                counters = f"(helpful={skill.helpful}, harmful={skill.harmful}, neutral={skill.neutral})"
+                parts.append(f"- [{skill.id}] {skill.content} {counters}")
         return "\n".join(parts)
 
     def stats(self) -> Dict[str, object]:
         return {
             "sections": len(self._sections),
-            "bullets": len(self._bullets),
+            "skills": len(self._skills),
             "tags": {
-                "helpful": sum(b.helpful for b in self._bullets.values()),
-                "harmful": sum(b.harmful for b in self._bullets.values()),
-                "neutral": sum(b.neutral for b in self._bullets.values()),
+                "helpful": sum(s.helpful for s in self._skills.values()),
+                "harmful": sum(s.harmful for s in self._skills.values()),
+                "neutral": sum(s.neutral for s in self._skills.values()),
             },
         }
 

@@ -11,10 +11,10 @@ to improve their performance over time. The agent will:
 4. Persist learned knowledge across sessions
 
 Key Concepts:
-- Generator: Produces answers using learned strategies
+- Agent: Produces answers using learned strategies
 - Reflector: Analyzes what worked/failed in execution
-- Curator: Updates the strategy playbook based on analysis
-- Playbook: Persistent store of learned execution strategies
+- SkillManager: Updates the strategy skillbook based on analysis
+- Skillbook: Persistent store of learned execution strategies
 
 Requirements:
     pip install ace-framework
@@ -53,8 +53,8 @@ def main():
 
     print("Setting up ACE learning agent...")
 
-    # Setup playbook persistence
-    playbook_path = Path(__file__).parent / "litellm_ace_learned.json"
+    # Setup skillbook persistence
+    skillbook_path = Path(__file__).parent / "litellm_ace_learned.json"
 
     # Create ACELiteLLM agent
     # Note: Change model for different providers (see docstring for examples)
@@ -62,14 +62,14 @@ def main():
         model="claude-sonnet-4-5-20250929",  # Claude Sonnet 4.5
         max_tokens=512,  # Reasonable limit for simple Q&A
         temperature=0.2,  # Low temperature for consistent learning
-        playbook_path=str(playbook_path) if playbook_path.exists() else None,
+        skillbook_path=str(skillbook_path) if skillbook_path.exists() else None,
     )
 
     # Show current knowledge state
-    if playbook_path.exists():
-        print(f"Loaded playbook: {len(agent.playbook.bullets())} existing strategies")
+    if skillbook_path.exists():
+        print(f"Loaded skillbook: {len(agent.skillbook.skills())} existing strategies")
     else:
-        print("Starting fresh: No existing playbook found")
+        print("Starting fresh: No existing skillbook found")
 
     print("\n" + "-" * 40)
     print("BEFORE LEARNING")
@@ -95,7 +95,7 @@ def main():
     print(f"Learning from {len(samples)} execution examples...")
 
     # Run ACE learning process
-    # Generator -> Environment -> Reflector -> Curator -> Updated Playbook
+    # Agent -> Environment -> Reflector -> SkillManager -> Updated Skillbook
     try:
         results = agent.learn(samples, SimpleEnvironment(), epochs=1)
         successful_samples = len([r for r in results if r.success])
@@ -105,7 +105,7 @@ def main():
         print(
             f"  Success rate: {success_rate:.1%} ({successful_samples}/{len(results)})"
         )
-        print(f"  Total strategies: {len(agent.playbook.bullets())}")
+        print(f"  Total strategies: {len(agent.skillbook.skills())}")
     except Exception as e:
         print(f"Learning failed: {e}")
         print("The agent will continue with existing knowledge.")
@@ -121,23 +121,23 @@ def main():
     print(f"A: {answer}")
 
     # Show learned strategies (if any)
-    if agent.playbook.bullets():
-        print(f"\nLearned Strategies ({len(agent.playbook.bullets())} total):")
-        for i, bullet in enumerate(agent.playbook.bullets()[:3], 1):  # Show first 3
-            helpful, harmful = bullet.helpful, bullet.harmful
+    if agent.skillbook.skills():
+        print(f"\nLearned Strategies ({len(agent.skillbook.skills())} total):")
+        for i, skill in enumerate(agent.skillbook.skills()[:3], 1):  # Show first 3
+            helpful, harmful = skill.helpful, skill.harmful
             effectiveness = "Effective" if helpful > harmful else "Needs improvement"
-            print(f"  {i}. [{effectiveness}] {bullet.content[:50]}...")
+            print(f"  {i}. [{effectiveness}] {skill.content[:50]}...")
 
     print("\n" + "-" * 40)
     print("PERSISTENCE")
     print("-" * 40)
 
     # Save learned knowledge
-    agent.save_playbook(str(playbook_path))
-    print(f"Strategies saved to: {playbook_path}")
+    agent.save_skillbook(str(skillbook_path))
+    print(f"Strategies saved to: {skillbook_path}")
     print("\nNext Steps:")
     print("  1. Run this script again to see incremental learning")
-    print("  2. Check the saved playbook JSON file to see strategies")
+    print("  2. Check the saved skillbook JSON file to see strategies")
     print("  3. Modify the model parameter to try different LLM providers")
     print("  4. Add your own training samples to teach specific tasks")
 

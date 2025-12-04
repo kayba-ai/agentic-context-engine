@@ -9,7 +9,6 @@ openai/ prefix with a custom base_url instead of ollama/.
 from ace.integrations import ACELiteLLM
 from ace import Sample, SimpleEnvironment
 from pathlib import Path
-import os
 
 
 def main():
@@ -19,21 +18,19 @@ def main():
     lm_studio_url = "http://localhost:1234/v1"
 
     # 1. Create ACELiteLLM agent pointing to LM Studio
-    # Note: Use "openai/" prefix with api_base for LM Studio
+    # Note: Use "openai/" prefix with base_url for LM Studio
     print(f"\n📡 Connecting to LM Studio at {lm_studio_url}...")
 
-    # Set environment variable for LiteLLM to use custom endpoint
-    os.environ["OPENAI_API_BASE"] = lm_studio_url
-
-    playbook_path = Path("lm_studio_learned_strategies.json")
+    skillbook_path = Path("lm_studio_learned_strategies.json")
 
     try:
         agent = ACELiteLLM(
             model="openai/local-model",  # LM Studio serves any model as 'local-model'
+            base_url=lm_studio_url,
             max_tokens=512,
             temperature=0.2,
             is_learning=True,
-            playbook_path=str(playbook_path) if playbook_path.exists() else None,
+            skillbook_path=str(skillbook_path) if skillbook_path.exists() else None,
         )
     except Exception as e:
         print(f"❌ Failed to connect to LM Studio: {e}")
@@ -80,7 +77,7 @@ def main():
 
     # 5. Check results
     print(f"\n📊 Trained on {len(results)} samples")
-    print(f"📚 Playbook now has {len(agent.playbook.bullets())} strategies")
+    print(f"📚 Skillbook now has {len(agent.skillbook.skills())} strategies")
 
     # 6. Test with learned knowledge
     print("\n🧠 Testing agent after learning:")
@@ -93,22 +90,20 @@ def main():
             print(f"❌ Error: {e}")
 
     # Show learned strategies
-    if agent.playbook.bullets():
+    if agent.skillbook.skills():
         print("\n💡 Learned strategies:")
-        for bullet in agent.playbook.bullets()[:3]:
-            helpful = bullet.helpful
-            harmful = bullet.harmful
+        for skill in agent.skillbook.skills()[:3]:
+            helpful = skill.helpful
+            harmful = skill.harmful
             score = f"(+{helpful}/-{harmful})"
             content = (
-                bullet.content[:70] + "..."
-                if len(bullet.content) > 70
-                else bullet.content
+                skill.content[:70] + "..." if len(skill.content) > 70 else skill.content
             )
             print(f"  • {content} {score}")
 
     # 7. Save learned knowledge
-    agent.save_playbook(playbook_path)
-    print(f"\n💾 Saved learned strategies to {playbook_path}")
+    agent.save_skillbook(skillbook_path)
+    print(f"\n💾 Saved learned strategies to {skillbook_path}")
 
 
 if __name__ == "__main__":

@@ -3,22 +3,22 @@
 Convex Error Pattern Training with ACE
 
 Trains ACE on Convex backend error→fix patterns using the new sample-based
-ReplayGenerator. Demonstrates how to use historical data without dict lookups.
+ReplayAgent. Demonstrates how to use historical data without dict lookups.
 
 Features:
-- Sample-based ReplayGenerator (reads response from sample.metadata)
+- Sample-based ReplayAgent (reads response from sample.metadata)
 - Time tracking for training duration
 - Learns from real Convex production errors
 - Simple validation environment
 
 Setup:
 1. Ensure you've run convert_convex_to_ace.py to generate ace_convex_samples.jsonl
-2. Set ANTHROPIC_API_KEY for Reflector and Curator
+2. Set ANTHROPIC_API_KEY for Reflector and SkillManager
 3. Run: python convex_training.py
 
 Output:
 - Prints training duration and learned insights
-- Saves playbook to convex_learned_playbook.json
+- Saves skillbook to convex_learned_skillbook.json
 """
 
 import json
@@ -31,14 +31,14 @@ from dotenv import load_dotenv
 
 
 from ace import (
-    ReplayGenerator,
+    ReplayAgent,
     Reflector,
-    Curator,
-    OfflineAdapter,
+    SkillManager,
+    OfflineACE,
     Sample,
     TaskEnvironment,
     EnvironmentResult,
-    Playbook,
+    Skillbook,
     LiteLLMClient,
 )
 from ace.prompts_v2_1 import PromptManager
@@ -54,14 +54,14 @@ class ConvexEnvironment(TaskEnvironment):
     Validates that replayed responses have meaningful content.
     """
 
-    def evaluate(self, sample: Sample, generator_output):
+    def evaluate(self, sample: Sample, agent_output):
         """
         Evaluate the replayed response.
 
         Since these are historical responses, we just validate they exist
         and have sufficient content.
         """
-        response = generator_output.final_answer.strip()
+        response = agent_output.final_answer.strip()
 
         # Basic validation
         is_valid = len(response) > 0
@@ -127,7 +127,7 @@ def load_convex_samples(jsonl_path: str, max_lines: int = 20) -> List[Sample]:
                     metadata={
                         "response": data[
                             "response"
-                        ],  # This is the key for ReplayGenerator!
+                        ],  # This is the key for ReplayAgent!
                         "line_number": data.get("metadata", {}).get("line_number"),
                         "categories": data.get("metadata", {}).get("categories", []),
                         "has_buggy_code": data.get("metadata", {}).get(
@@ -163,14 +163,14 @@ def main():
     MAX_LINES = 400  # Read first 20 lines
     EPOCHS = 1
     MODEL = "claude-sonnet-4-5-20250929"  # Using Sonnet 4.5 for better JSON reliability
-    PLAYBOOK_OUTPUT = "convex_learned_playbook.json"
+    SKILLBOOK_OUTPUT = "convex_learned_skillbook.json"
     CHECKPOINT_INTERVAL = 10  # Save checkpoint every N samples
     CHECKPOINTS_DIR = "checkpoints"
 
-    # Check for API key (needed for Reflector and Curator)
+    # Check for API key (needed for Reflector and SkillManager)
     if not os.getenv("ANTHROPIC_API_KEY"):
         print("⚠️  Please set ANTHROPIC_API_KEY in your .env file")
-        print("   Required for Reflector and Curator\n")
+        print("   Required for Reflector and SkillManager\n")
         return
 
     # 1. Load training samples
@@ -195,26 +195,28 @@ def main():
 
     # 2. Create ACE components
     print("🧠 Initializing ACE components...")
-    print(f"   Generator: ReplayGenerator (sample-based mode - NEW!)")
+    print(f"   Agent: ReplayAgent (sample-based mode - NEW!)")
     print(f"   Reflector: {MODEL} (with v2 prompts)")
-    print(f"   Curator: {MODEL} (with v2 prompts)\n")
+    print(f"   SkillManager: {MODEL} (with v2 prompts)\n")
 
-    # Create LLM client for Reflector and Curator
+    # Create LLM client for Reflector and SkillManager
     llm = LiteLLMClient(model=MODEL, temperature=0.7, max_tokens=8000)
 
     # Create prompt manager for v2 prompts
     prompt_manager = PromptManager(default_version="2.0")
 
-    # Create ReplayGenerator with NO dict (sample-based mode!)
+    # Create ReplayAgent with NO dict (sample-based mode!)
     # It will automatically read from sample.metadata['response']
-    generator = ReplayGenerator()
+    agent = ReplayAgent()
 
     # Create ACE adapter
-    adapter = OfflineAdapter(
-        playbook=Playbook(),
-        generator=generator,
+    adapter = OfflineACE(
+        skillbook=Skillbook(),
+        agent=agent,
         reflector=Reflector(llm, prompt_template=prompt_manager.get_reflector_prompt()),
-        curator=Curator(llm, prompt_template=prompt_manager.get_curator_prompt()),
+        skill_manager=SkillManager(
+            llm, prompt_template=prompt_manager.get_skill_manager_prompt()
+        ),
     )
 
     # 3. Create environment
@@ -254,7 +256,9 @@ def main():
     print(
         f"⏱️  Training duration: {duration_seconds:.2f} seconds ({duration_minutes:.2f} minutes)"
     )
-    print(f"📚 Playbook now has {len(adapter.playbook.bullets())} learned strategies\n")
+    print(
+        f"📚 Skillbook now has {len(adapter.skillbook.skills())} learned strategies\n"
+    )
 
     # Calculate success metrics
     if results:
@@ -265,27 +269,27 @@ def main():
         print(f"📈 Success rate: {success_rate:.1f}% ({successful}/{len(results)})")
 
     # Show learned insights
-    if adapter.playbook.bullets():
+    if adapter.skillbook.skills():
         print(f"\n🎯 Top Learned Insights:")
         print("-" * 70)
 
-        for i, bullet in enumerate(adapter.playbook.bullets()[:10], 1):
-            score = bullet.helpful - bullet.harmful
-            print(f"\n{i}. {bullet.content}")
-            print(f"   Score: +{bullet.helpful}/-{bullet.harmful} (net: {score:+d})")
+        for i, skill in enumerate(adapter.skillbook.skills()[:10], 1):
+            score = skill.helpful - skill.harmful
+            print(f"\n{i}. {skill.content}")
+            print(f"   Score: +{skill.helpful}/-{skill.harmful} (net: {score:+d})")
     else:
-        print("\n⚠️  No strategies learned (playbook is empty)")
+        print("\n⚠️  No strategies learned (skillbook is empty)")
 
-    # 6. Save playbook
+    # 6. Save skillbook
     print("\n" + "-" * 70)
-    playbook_path = script_dir / PLAYBOOK_OUTPUT
-    adapter.playbook.save_to_file(str(playbook_path))
-    print(f"💾 Playbook saved to: {playbook_path}")
+    skillbook_path = script_dir / SKILLBOOK_OUTPUT
+    adapter.skillbook.save_to_file(str(skillbook_path))
+    print(f"💾 Skillbook saved to: {skillbook_path}")
 
-    # Show playbook stats
-    stats = adapter.playbook.stats()
-    print(f"\n📊 Playbook Statistics:")
-    print(f"   Total bullets: {stats['bullets']}")
+    # Show skillbook stats
+    stats = adapter.skillbook.stats()
+    print(f"\n📊 Skillbook Statistics:")
+    print(f"   Total skills: {stats['skills']}")
     print(f"   Sections: {stats['sections']}")
     print(f"   Total helpful: {stats['tags']['helpful']}")
     print(f"   Total harmful: {stats['tags']['harmful']}")

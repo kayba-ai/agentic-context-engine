@@ -37,10 +37,10 @@ answer2 = agent.ask("What is the capital of France?")
 print(f"Answer: {answer2}")
 
 # Agent now has learned strategies!
-print(f"✅ Learned {len(agent.playbook.bullets())} strategies")
+print(f"✅ Learned {len(agent.skillbook.skills())} strategies")
 
 # Save for later
-agent.save_playbook("my_agent.json")
+agent.save_skillbook("my_agent.json")
 ```
 
 ### Step 4: Run It
@@ -53,7 +53,7 @@ python my_first_ace.py
 
 Your agent:
 - **Learned automatically** from each interaction
-- **Built a playbook** of successful strategies
+- **Built a skillbook** of successful strategies
 - **Saved knowledge** for reuse
 
 That's it! You now have a self-improving AI agent.
@@ -62,19 +62,19 @@ That's it! You now have a self-improving AI agent.
 
 ## 🎓 Advanced Tutorial: Understanding ACE Internals (15 minutes)
 
-Want to understand how ACE works under the hood? This section shows the full architecture with Generator, Reflector, and Curator roles.
+Want to understand how ACE works under the hood? This section shows the full architecture with Agent, Reflector, and SkillManager roles.
 
 ### Full Pipeline Example
 
 ```python
-from ace import OfflineAdapter, Generator, Reflector, Curator
+from ace import OfflineACE, Agent, Reflector, SkillManager
 from ace import LiteLLMClient, Sample, TaskEnvironment, EnvironmentResult
 
 
 # Simple environment that checks if answer contains the ground truth
 class SimpleEnvironment(TaskEnvironment):
-    def evaluate(self, sample, generator_output):
-        correct = str(sample.ground_truth).lower() in str(generator_output.final_answer).lower()
+    def evaluate(self, sample, agent_output):
+        correct = str(sample.ground_truth).lower() in str(agent_output.final_answer).lower()
         return EnvironmentResult(
             feedback="Correct!" if correct else "Incorrect",
             ground_truth=sample.ground_truth
@@ -85,12 +85,12 @@ class SimpleEnvironment(TaskEnvironment):
 client = LiteLLMClient(model="gpt-4o-mini")
 
 # Create ACE components (three roles)
-generator = Generator(client)  # Produces answers
-reflector = Reflector(client)  # Analyzes performance
-curator = Curator(client)      # Updates playbook
+agent = Agent(client)              # Produces answers
+reflector = Reflector(client)      # Analyzes performance
+skill_manager = SkillManager(client)  # Updates skillbook
 
 # Create adapter to orchestrate everything
-adapter = OfflineAdapter(generator=generator, reflector=reflector, curator=curator)
+adapter = OfflineACE(agent=agent, reflector=reflector, skill_manager=skill_manager)
 
 # Create training samples
 samples = [
@@ -104,14 +104,14 @@ print("Training agent...")
 results = adapter.run(samples, SimpleEnvironment(), epochs=2)
 
 # Save learned strategies
-adapter.playbook.save_to_file("my_agent.json")
-print(f"✅ Agent trained! Learned {len(adapter.playbook.bullets())} strategies")
+adapter.skillbook.save_to_file("my_agent.json")
+print(f"✅ Agent trained! Learned {len(adapter.skillbook.skills())} strategies")
 
 # Test with new question
-test_output = generator.generate(
+test_output = agent.generate(
     question="What is 5 + 3?",
     context="",
-    playbook=adapter.playbook
+    skillbook=adapter.skillbook
 )
 print(f"\nTest question: What is 5 + 3?")
 print(f"Answer: {test_output.final_answer}")
@@ -129,13 +129,13 @@ Answer: 8
 ### Understanding the Architecture
 
 **Three ACE Roles:**
-1. **Generator** - Executes tasks using playbook strategies
+1. **Agent** - Executes tasks using skillbook strategies
 2. **Reflector** - Analyzes what worked/didn't work
-3. **Curator** - Updates playbook with new strategies
+3. **SkillManager** - Updates skillbook with new strategies
 
 **Two Adaptation Modes:**
-- **OfflineAdapter** - Train on batch of samples (shown above)
-- **OnlineAdapter** - Learn from each task in real-time
+- **OfflineACE** - Train on batch of samples (shown above)
+- **OnlineACE** - Learn from each task in real-time
 
 ---
 
@@ -147,7 +147,7 @@ Answer: 8
 from ace import ACELiteLLM
 
 # Load previously trained agent
-agent = ACELiteLLM.from_playbook("my_agent.json", model="gpt-4o-mini")
+agent = ACELiteLLM.from_skillbook("my_agent.json", model="gpt-4o-mini")
 
 # Use it immediately
 answer = agent.ask("New question")
@@ -156,18 +156,18 @@ answer = agent.ask("New question")
 Or with full pipeline:
 
 ```python
-from ace import Playbook, Generator, LiteLLMClient
+from ace import Skillbook, Agent, LiteLLMClient
 
-# Load playbook
-playbook = Playbook.load_from_file("my_agent.json")
+# Load skillbook
+skillbook = Skillbook.load_from_file("my_agent.json")
 
-# Use with generator
+# Use with agent
 client = LiteLLMClient(model="gpt-4o-mini")
-generator = Generator(client)
-output = generator.generate(
+agent = Agent(client)
+output = agent.generate(
     question="New question",
     context="",
-    playbook=playbook
+    skillbook=skillbook
 )
 ```
 
@@ -214,9 +214,9 @@ See [Integration Guide](INTEGRATION_GUIDE.md) for details.
 ### Online Learning (Learn While Running)
 
 ```python
-from ace import OnlineAdapter
+from ace import OnlineACE
 
-adapter = OnlineAdapter(playbook, generator, reflector, curator)
+adapter = OnlineACE(skillbook, agent, reflector, skill_manager)
 
 # Process tasks one by one, learning from each
 for task in tasks:

@@ -258,12 +258,26 @@ async def main():
     # Print results summary with metrics
     print_results_summary(result["result_text"])
 
+    # Calculate accuracy
+    correct_items = 0
+    if result['success'] and result['result_text']:
+        result_text = result['result_text']
+        # Check for correct cheapest items
+        correct_items += 1 if "Valflora" in result_text and "1.40" in result_text else 0  # Milk
+        correct_items += 1 if "M-Budget" in result_text and "eggs" in result_text and "4.25" in result_text else 0  # Eggs
+        correct_items += 1 if "M-Budget" in result_text and ("Bananas" in result_text or "bananas" in result_text) and "1.20" in result_text else 0  # Bananas (must be M-Budget 1.20)
+        correct_items += 1 if "M-Classic" in result_text and "butter" in result_text and "7.80" in result_text else 0  # Butter (M-Classic 7.80)
+        correct_items += 1 if "Fleur de Pains" in result_text and "3.40" in result_text else 0  # Bread
+
+    accuracy_pct = (correct_items / 5) * 100
+
     # Print metrics summary
     print(f"\n📊 PERFORMANCE METRICS:")
     print("=" * 50)
     print(f"🔄 Steps taken: {result['steps']}")
     print(f"🤖 Browser-use tokens: {result['browseruse_tokens']}")
     print(f"✅ Shopping success: {'Yes' if result['success'] else 'No'}")
+    print(f"🎯 Accuracy: {correct_items}/5 ({accuracy_pct:.0f}%)")
 
     input("\n📱 Press Enter to close the browser...")
 

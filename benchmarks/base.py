@@ -67,8 +67,8 @@ class BenchmarkEnvironment(TaskEnvironment):
         self.metrics_config = {m["name"]: m for m in config.metrics}
 
     @abstractmethod
-    def evaluate(self, sample: Sample, generator_output) -> EnvironmentResult:
-        """Evaluate generator output against benchmark criteria."""
+    def evaluate(self, sample: Sample, agent_output) -> EnvironmentResult:
+        """Evaluate agent output against benchmark criteria."""
         pass
 
     def _compute_metrics(self, prediction: str, ground_truth: str) -> Dict[str, float]:

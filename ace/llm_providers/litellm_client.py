@@ -64,6 +64,10 @@ class LiteLLMConfig:
     # Anthropic API limitation: temperature and top_p cannot both be specified
     sampling_priority: str = "temperature"  # "temperature" | "top_p" | "top_k"
 
+    # HTTP/SSL settings
+    extra_headers: Optional[Dict[str, str]] = None  # Custom HTTP headers
+    ssl_verify: Optional[Union[bool, str]] = None  # True/False or path to CA bundle
+
 
 class LiteLLMClient(LLMClient):
     """
@@ -436,6 +440,12 @@ class LiteLLMClient(LLMClient):
         if self.config.api_base:
             call_params["api_base"] = self.config.api_base
 
+        # Add HTTP/SSL settings
+        if self.config.extra_headers:
+            call_params["extra_headers"] = self.config.extra_headers
+        if self.config.ssl_verify is not None:
+            call_params["ssl_verify"] = self.config.ssl_verify
+
         # Add Opik span association for role-level token aggregation
         if OPIK_SPAN_AVAILABLE and get_current_span_data:
             try:
@@ -559,6 +569,12 @@ class LiteLLMClient(LLMClient):
             call_params["api_key"] = self.config.api_key
         if self.config.api_base:
             call_params["api_base"] = self.config.api_base
+
+        # Add HTTP/SSL settings
+        if self.config.extra_headers:
+            call_params["extra_headers"] = self.config.extra_headers
+        if self.config.ssl_verify is not None:
+            call_params["ssl_verify"] = self.config.ssl_verify
 
         # Add Opik span association for role-level token aggregation
         if OPIK_SPAN_AVAILABLE and get_current_span_data:

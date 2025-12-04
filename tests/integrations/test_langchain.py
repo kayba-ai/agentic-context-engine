@@ -9,7 +9,7 @@ from unittest.mock import Mock, MagicMock, AsyncMock, patch
 pytest.importorskip("langchain_core")
 
 from ace.integrations import ACELangChain, LANGCHAIN_AVAILABLE
-from ace import Playbook, Bullet, LiteLLMClient
+from ace import Skillbook, Skill, LiteLLMClient
 
 
 class TestLangChainAvailability:
@@ -32,25 +32,25 @@ class TestACELangChainInitialization:
 
         assert agent.runnable is mock_runnable
         assert agent.is_learning is True  # Default
-        assert agent.playbook is not None
+        assert agent.skillbook is not None
         assert agent.reflector is not None
-        assert agent.curator is not None
+        assert agent.skill_manager is not None
         assert agent.output_parser is not None
 
-    def test_with_playbook_path(self):
-        """Should load existing playbook from path."""
+    def test_with_skillbook_path(self):
+        """Should load existing skillbook from path."""
         mock_runnable = Mock()
 
-        # Create temp playbook
+        # Create temp skillbook
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            f.write('{"bullets": []}')
-            playbook_path = f.name
+            f.write('{"skills": []}')
+            skillbook_path = f.name
 
         try:
-            agent = ACELangChain(runnable=mock_runnable, playbook_path=playbook_path)
-            assert agent.playbook is not None
+            agent = ACELangChain(runnable=mock_runnable, skillbook_path=skillbook_path)
+            assert agent.skillbook is not None
         finally:
-            Path(playbook_path).unlink()
+            Path(skillbook_path).unlink()
 
     def test_with_learning_disabled(self):
         """Should respect is_learning parameter."""
@@ -83,8 +83,8 @@ class TestACELangChainInitialization:
 class TestContextInjection:
     """Test _inject_context method."""
 
-    def test_empty_playbook_returns_unchanged(self):
-        """Should return input unchanged when playbook is empty."""
+    def test_empty_skillbook_returns_unchanged(self):
+        """Should return input unchanged when skillbook is empty."""
         mock_runnable = Mock()
         agent = ACELangChain(runnable=mock_runnable)
 
@@ -97,12 +97,12 @@ class TestContextInjection:
         assert result == {"input": "test"}
 
     def test_string_input_appends_context(self):
-        """Should append playbook context to string input."""
+        """Should append skillbook context to string input."""
         mock_runnable = Mock()
         agent = ACELangChain(runnable=mock_runnable)
 
-        # Add a bullet
-        agent.playbook.add_bullet("general", "Test strategy")
+        # Add a skill
+        agent.skillbook.add_skill("general", "Test strategy")
 
         result = agent._inject_context("What is ACE?")
 
@@ -115,8 +115,8 @@ class TestContextInjection:
         mock_runnable = Mock()
         agent = ACELangChain(runnable=mock_runnable)
 
-        # Add a bullet
-        agent.playbook.add_bullet("general", "Test strategy")
+        # Add a skill
+        agent.skillbook.add_skill("general", "Test strategy")
 
         original = {"input": "Question", "other": "data"}
         result = agent._inject_context(original)
@@ -127,13 +127,13 @@ class TestContextInjection:
         assert "Question" in result["input"]
         assert "Test strategy" in result["input"]
 
-    def test_dict_without_input_key_adds_playbook_context(self):
-        """Should add playbook_context key to dict."""
+    def test_dict_without_input_key_adds_skillbook_context(self):
+        """Should add skillbook_context key to dict."""
         mock_runnable = Mock()
         agent = ACELangChain(runnable=mock_runnable)
 
-        # Add a bullet
-        agent.playbook.add_bullet("general", "Test strategy")
+        # Add a skill
+        agent.skillbook.add_skill("general", "Test strategy")
 
         original = {"question": "What?", "data": "value"}
         result = agent._inject_context(original)
@@ -141,8 +141,8 @@ class TestContextInjection:
         assert isinstance(result, dict)
         assert "question" in result
         assert result["question"] == "What?"
-        assert "playbook_context" in result
-        assert "Test strategy" in result["playbook_context"]
+        assert "skillbook_context" in result
+        assert "Test strategy" in result["skillbook_context"]
 
 
 class TestOutputParser:
@@ -273,49 +273,49 @@ class TestLearningControl:
         assert agent.is_learning is True
 
 
-class TestPlaybookOperations:
-    """Test playbook save/load methods."""
+class TestSkillbookOperations:
+    """Test skillbook save/load methods."""
 
-    def test_save_playbook(self):
-        """Should save playbook to file."""
+    def test_save_skillbook(self):
+        """Should save skillbook to file."""
         mock_runnable = Mock()
         agent = ACELangChain(runnable=mock_runnable)
 
-        agent.playbook.add_bullet("general", "Test bullet")
+        agent.skillbook.add_skill("general", "Test skill")
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             temp_path = f.name
 
         try:
-            agent.save_playbook(temp_path)
+            agent.save_skillbook(temp_path)
 
             # Verify file exists and is valid JSON
-            loaded_playbook = Playbook.load_from_file(temp_path)
-            assert len(loaded_playbook.bullets()) == 1
-            assert loaded_playbook.bullets()[0].content == "Test bullet"
+            loaded_skillbook = Skillbook.load_from_file(temp_path)
+            assert len(loaded_skillbook.skills()) == 1
+            assert loaded_skillbook.skills()[0].content == "Test skill"
         finally:
             Path(temp_path).unlink()
 
-    def test_load_playbook(self):
-        """Should load playbook from file."""
+    def test_load_skillbook(self):
+        """Should load skillbook from file."""
         mock_runnable = Mock()
         agent = ACELangChain(runnable=mock_runnable)
 
-        # Create and save a playbook
-        temp_playbook = Playbook()
-        temp_playbook.add_bullet("general", "Loaded bullet")
+        # Create and save a skillbook
+        temp_skillbook = Skillbook()
+        temp_skillbook.add_skill("general", "Loaded skill")
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             temp_path = f.name
 
         try:
-            temp_playbook.save_to_file(temp_path)
+            temp_skillbook.save_to_file(temp_path)
 
             # Load it
-            agent.load_playbook(temp_path)
+            agent.load_skillbook(temp_path)
 
-            assert len(agent.playbook.bullets()) == 1
-            assert agent.playbook.bullets()[0].content == "Loaded bullet"
+            assert len(agent.skillbook.skills()) == 1
+            assert agent.skillbook.skills()[0].content == "Loaded skill"
         finally:
             Path(temp_path).unlink()
 
@@ -329,7 +329,7 @@ class TestReprMethod:
         mock_runnable.__class__.__name__ = "TestRunnable"
 
         agent = ACELangChain(runnable=mock_runnable, is_learning=True)
-        agent.playbook.add_bullet("general", "Test")
+        agent.skillbook.add_skill("general", "Test")
 
         repr_str = repr(agent)
 

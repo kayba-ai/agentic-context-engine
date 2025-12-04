@@ -51,7 +51,7 @@ uv run black ace/ tests/ examples/
 uv run mypy ace/
 
 # Run specific test files
-uv run pytest tests/test_playbook.py
+uv run pytest tests/test_skillbook.py
 uv run pytest -m unit  # Only unit tests
 uv run pytest -m integration  # Only integration tests
 ```

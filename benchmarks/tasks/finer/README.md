@@ -56,8 +56,8 @@ samples = list(data_loader.load(
 ))
 
 # Evaluate with ACE
-from ace import Generator
-generator = Generator(your_llm_client)
+from ace import Agent
+agent = Agent(your_llm_client)
 
 for sample_data in samples:
     # Convert to BenchmarkSample
@@ -68,10 +68,10 @@ for sample_data in samples:
     )
 
     # Generate response
-    output = generator.generate(
+    output = agent.generate(
         question=sample.question,
         context="",
-        playbook=playbook
+        skillbook=skillbook
     )
 
     # Evaluate

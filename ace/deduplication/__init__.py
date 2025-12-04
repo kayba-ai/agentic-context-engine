@@ -1,7 +1,7 @@
-"""Bullet deduplication module for ACE framework.
+"""Skill deduplication module for ACE framework.
 
-This module provides semantic deduplication for playbook bullets using
-embeddings and Curator-driven consolidation decisions.
+This module provides semantic deduplication for skillbook skills using
+embeddings and SkillManager-driven consolidation decisions.
 """
 
 from .config import DeduplicationConfig

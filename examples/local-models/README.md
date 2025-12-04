@@ -55,7 +55,7 @@ A: The answer is 4.
 ✅ Successfully processed 4/4 samples
 
 📊 Trained on 4 samples
-📚 Playbook now has 3 strategies
+📚 Skillbook now has 3 strategies
 
 🧠 Testing agent after learning:
 Q: What is 3+3?

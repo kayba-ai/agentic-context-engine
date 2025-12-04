@@ -7,8 +7,8 @@ that automatically learns from execution feedback.
 This is the reference implementation for ACE integrations with external agentic
 frameworks. It demonstrates the pattern:
 1. External framework (browser-use) executes task
-2. ACE injects playbook context beforehand
-3. ACE learns from execution afterward (Reflector + Curator)
+2. ACE injects skillbook context beforehand
+3. ACE learns from execution afterward (Reflector + SkillManager)
 
 Example:
     from ace.integrations import ACEAgent
@@ -16,7 +16,7 @@ Example:
 
     agent = ACEAgent(llm=ChatBrowserUse())
     await agent.run(task="Find top HN post")
-    agent.save_playbook("hn_expert.json")
+    agent.save_skillbook("hn_expert.json")
 """
 
 import asyncio
@@ -33,10 +33,10 @@ except ImportError:
     Browser = None  # type: ignore[misc,assignment]
 
 from ..llm_providers import LiteLLMClient
-from ..playbook import Playbook
-from ..roles import Reflector, Curator, GeneratorOutput
+from ..skillbook import Skillbook
+from ..roles import Reflector, SkillManager, AgentOutput
 from ..prompts_v2_1 import PromptManager
-from .base import wrap_playbook_context
+from .base import wrap_skillbook_context
 
 if TYPE_CHECKING:
     from ..deduplication import DeduplicationConfig
@@ -49,12 +49,12 @@ class ACEAgent:
     Drop-in replacement for browser-use Agent that automatically:
     - Injects learned strategies into tasks
     - Reflects on execution results
-    - Updates playbook with new learnings
+    - Updates skillbook with new learnings
 
     Key difference from standard Agent:
-    - No ACE Generator (browser-use executes directly)
-    - Playbook provides context only
-    - Reflector + Curator run AFTER execution
+    - No ACE Agent (browser-use executes directly)
+    - Skillbook provides context only
+    - Reflector + SkillManager run AFTER execution
 
     Insight Level: Meso
         ACE sees the full browser execution trace (thoughts, actions, observations)
@@ -73,19 +73,19 @@ class ACEAgent:
         agent = ACEAgent(llm=ChatBrowserUse())
         await agent.run(task="Task 1")
         await agent.run(task="Task 2")  # Uses Task 1 learnings
-        agent.save_playbook("expert.json")
+        agent.save_skillbook("expert.json")
 
         # Start with existing knowledge
         agent = ACEAgent(
             llm=ChatBrowserUse(),
-            playbook_path="expert.json"
+            skillbook_path="expert.json"
         )
         await agent.run(task="New task")
 
         # Disable learning for debugging
         agent = ACEAgent(
             llm=ChatBrowserUse(),
-            playbook_path="expert.json",
+            skillbook_path="expert.json",
             is_learning=False
         )
         await agent.run(task="Test task")
@@ -99,8 +99,8 @@ class ACEAgent:
         ace_model: str = "gpt-4o-mini",
         ace_llm: Optional[LiteLLMClient] = None,
         ace_max_tokens: int = 2048,
-        playbook: Optional[Playbook] = None,
-        playbook_path: Optional[str] = None,
+        skillbook: Optional[Skillbook] = None,
+        skillbook_path: Optional[str] = None,
         is_learning: bool = True,
         async_learning: bool = False,
         dedup_config: Optional["DeduplicationConfig"] = None,
@@ -113,18 +113,18 @@ class ACEAgent:
             task: Browser automation task (can also be set in run())
             llm: LLM for browser-use execution (ChatOpenAI, ChatBrowserUse, etc.)
             browser: Browser instance (optional, created automatically if None)
-            ace_model: Model name for ACE learning (Reflector/Curator)
+            ace_model: Model name for ACE learning (Reflector/SkillManager)
             ace_llm: Custom LLM client for ACE (overrides ace_model)
             ace_max_tokens: Max tokens for ACE learning LLM (default: 2048).
                 Reflector typically needs 400-800 tokens for analysis.
-                Curator typically needs 300-1000 tokens for delta operations.
+                SkillManager typically needs 300-1000 tokens for update operations.
                 Increase for complex tasks with long execution histories.
-            playbook: Existing Playbook instance
-            playbook_path: Path to load playbook from
+            skillbook: Existing Skillbook instance
+            skillbook_path: Path to load skillbook from
             is_learning: Enable/disable ACE learning
             async_learning: If True, learning happens in background (non-blocking).
-                Use wait_for_learning() before saving playbook.
-            dedup_config: Optional DeduplicationConfig for bullet deduplication
+                Use wait_for_learning() before saving skillbook.
+            dedup_config: Optional DeduplicationConfig for skill deduplication
             **agent_kwargs: Additional browser-use Agent parameters
                 (max_steps, use_vision, step_timeout, max_failures, etc.)
         """
@@ -144,23 +144,23 @@ class ACEAgent:
         # Async learning task tracking
         self._learning_tasks: List[asyncio.Task] = []
 
-        # Always create playbook and ACE components
+        # Always create skillbook and ACE components
         # (but only use them if is_learning=True)
 
-        # Load or create playbook
-        if playbook_path:
-            self.playbook = Playbook.load_from_file(playbook_path)
-        elif playbook:
-            self.playbook = playbook
+        # Load or create skillbook
+        if skillbook_path:
+            self.skillbook = Skillbook.load_from_file(skillbook_path)
+        elif skillbook:
+            self.skillbook = skillbook
         else:
-            self.playbook = Playbook()
+            self.skillbook = Skillbook()
 
-        # Create ACE LLM (for Reflector/Curator, NOT execution)
+        # Create ACE LLM (for Reflector/SkillManager, NOT execution)
         self.ace_llm = ace_llm or LiteLLMClient(
             model=ace_model, max_tokens=ace_max_tokens
         )
 
-        # Create ACE learning components with v2.1 prompts (NO GENERATOR!)
+        # Create ACE learning components with v2.1 prompts (NO ACE AGENT!)
         prompt_mgr = PromptManager()
         self.reflector = Reflector(
             self.ace_llm, prompt_template=prompt_mgr.get_reflector_prompt()
@@ -173,9 +173,9 @@ class ACEAgent:
 
             dedup_manager = DeduplicationManager(dedup_config)
 
-        self.curator = Curator(
+        self.skill_manager = SkillManager(
             self.ace_llm,
-            prompt_template=prompt_mgr.get_curator_prompt(),
+            prompt_template=prompt_mgr.get_skill_manager_prompt(),
             dedup_manager=dedup_manager,
         )
 
@@ -205,13 +205,13 @@ class ACEAgent:
         if not current_task:
             raise ValueError("Task must be provided either in constructor or run()")
 
-        # Get learned strategies if learning enabled and playbook has bullets
-        if self.is_learning and self.playbook and self.playbook.bullets():
-            playbook_context = wrap_playbook_context(self.playbook)
+        # Get learned strategies if learning enabled and skillbook has skills
+        if self.is_learning and self.skillbook and self.skillbook.skills():
+            skillbook_context = wrap_skillbook_context(self.skillbook)
             # Inject strategies into task
             enhanced_task = f"""{current_task}
 
-{playbook_context}"""
+{skillbook_context}"""
         else:
             enhanced_task = current_task
 
@@ -287,7 +287,7 @@ class ACEAgent:
 
         Returns dict with:
         - feedback: formatted feedback string for Reflector
-        - raw_trace: structured trace data for GeneratorOutput.raw
+        - raw_trace: structured trace data for AgentOutput.raw
         - steps: number of steps executed
         - output: final output from execution
         """
@@ -452,7 +452,7 @@ class ACEAgent:
 
     def _extract_cited_ids_from_history(self, history: Any) -> List[str]:
         """
-        Extract cited bullet IDs from browser-use agent thoughts.
+        Extract cited skill IDs from browser-use agent thoughts.
 
         Parses only the agent's reasoning (model_thoughts), filtering out
         tool calls, action results, and other noise.
@@ -461,7 +461,7 @@ class ACEAgent:
             history: Browser-use AgentHistoryList
 
         Returns:
-            List of cited bullet IDs found in agent thoughts
+            List of cited skill IDs found in agent thoughts
         """
         if not history or not hasattr(history, "model_thoughts"):
             return []
@@ -474,9 +474,9 @@ class ACEAgent:
             )
 
             # Use public utility to extract IDs
-            from ..roles import extract_cited_bullet_ids
+            from ..roles import extract_cited_skill_ids
 
-            return extract_cited_bullet_ids(thoughts_text)
+            return extract_cited_skill_ids(thoughts_text)
         except Exception:
             # Graceful degradation if extraction fails
             return []
@@ -487,8 +487,8 @@ class ACEAgent:
         """
         Run ACE learning pipeline AFTER browser execution.
 
-        Flow: Reflector → Curator → Update Playbook
-        (No Generator - browser-use already executed)
+        Flow: Reflector → SkillManager → Update Skillbook
+        (No ACE Agent - browser-use already executed)
 
         Uses asyncio.to_thread() to run sync LLM calls in a thread pool,
         preventing event loop blocking when async_learning=True.
@@ -496,15 +496,15 @@ class ACEAgent:
         # Extract rich trace information (fast, no LLM calls)
         trace_info = self._build_rich_feedback(history, success, error)
 
-        # Extract cited bullet IDs from agent thoughts (clean, no tool noise)
+        # Extract cited skill IDs from agent thoughts (clean, no tool noise)
         cited_ids = self._extract_cited_ids_from_history(history)
 
-        # Filter out invalid bullet IDs (ones that don't exist in playbook)
+        # Filter out invalid skill IDs (ones that don't exist in skillbook)
         # This prevents errors from hallucinated or malformed citations
         valid_cited_ids = [
-            bullet_id
-            for bullet_id in cited_ids
-            if self.playbook.get_bullet(bullet_id) is not None
+            skill_id
+            for skill_id in cited_ids
+            if self.skillbook.get_skill(skill_id) is not None
         ]
 
         # Run sync learning in thread pool (doesn't block event loop)
@@ -530,18 +530,18 @@ class ACEAgent:
         """
         Synchronous learning logic (runs in thread pool).
 
-        This method contains the actual LLM calls (Reflector + Curator)
+        This method contains the actual LLM calls (Reflector + SkillManager)
         which are synchronous and would block the event loop if called directly.
         """
-        # Create GeneratorOutput (browser executed, not ACE Generator)
+        # Create AgentOutput (browser executed, not ACE Agent)
         # This is a "fake" output to satisfy Reflector's interface
         # IMPORTANT: Pass full trace as reasoning so Reflector can analyze agent's thoughts
-        generator_output = GeneratorOutput(
+        agent_output = AgentOutput(
             reasoning=trace_info[
                 "feedback"
             ],  # Full chronological trace with thoughts/actions/results
             final_answer=trace_info["output"],
-            bullet_ids=valid_cited_ids,  # Filtered to only valid IDs that exist in playbook
+            skill_ids=valid_cited_ids,  # Filtered to only valid IDs that exist in skillbook
             raw={
                 "steps": trace_info["steps"],
                 "success": success,
@@ -552,7 +552,7 @@ class ACEAgent:
         )
 
         # Build concise feedback summary (success/error context)
-        # Full trace is already in generator_output.reasoning
+        # Full trace is already in agent_output.reasoning
         status = "succeeded" if success else "failed"
         feedback_summary = f"Browser task {status} in {trace_info['steps']} steps"
         if "duration_seconds" in trace_info["raw_trace"]:
@@ -563,16 +563,16 @@ class ACEAgent:
         # Run Reflector (sync LLM call)
         reflection = self.reflector.reflect(
             question=task,
-            generator_output=generator_output,
-            playbook=self.playbook,
+            agent_output=agent_output,
+            skillbook=self.skillbook,
             ground_truth=None,
             feedback=feedback_summary,
         )
 
-        # Run Curator with enriched context (sync LLM call)
-        curator_output = self.curator.curate(
+        # Run SkillManager with enriched context (sync LLM call)
+        skill_manager_output = self.skill_manager.update_skills(
             reflection=reflection,
-            playbook=self.playbook,
+            skillbook=self.skillbook,
             question_context=(
                 f"task: {task}\n"
                 f"feedback: {feedback_summary}\n"
@@ -583,15 +583,15 @@ class ACEAgent:
             progress=f"Browser task: {task}",
         )
 
-        # Update playbook with learned strategies
-        self.playbook.apply_delta(curator_output.delta)
+        # Update skillbook with learned strategies
+        self.skillbook.apply_update(skill_manager_output.update)
 
     def enable_learning(self):
         """Enable ACE learning."""
         self.is_learning = True
 
     def disable_learning(self):
-        """Disable ACE learning (execution only, no updates to playbook)."""
+        """Disable ACE learning (execution only, no updates to skillbook)."""
         self.is_learning = False
 
     # -----------------------------------------------------------------------
@@ -651,19 +651,19 @@ class ACEAgent:
                 task.cancel()
         self._learning_tasks.clear()
 
-    def save_playbook(self, path: str):
-        """Save learned playbook to file."""
-        self.playbook.save_to_file(path)
+    def save_skillbook(self, path: str):
+        """Save learned skillbook to file."""
+        self.skillbook.save_to_file(path)
 
-    def load_playbook(self, path: str):
-        """Load playbook from file."""
-        self.playbook = Playbook.load_from_file(path)
+    def load_skillbook(self, path: str):
+        """Load skillbook from file."""
+        self.skillbook = Skillbook.load_from_file(path)
 
     def get_strategies(self) -> str:
-        """Get current playbook strategies as formatted text."""
-        if not self.playbook:
+        """Get current skillbook strategies as formatted text."""
+        if not self.skillbook:
             return ""
-        return wrap_playbook_context(self.playbook)
+        return wrap_skillbook_context(self.skillbook)
 
 
 # Export for integration module

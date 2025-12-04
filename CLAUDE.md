@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is an implementation scaffold for reproducing the Agentic Context Engineering (ACE) method from the paper "Agentic Context Engineering: Evolving Contexts for Self-Improving Language Models" (arXiv:2510.04618).
 
-The framework enables AI agents to learn from their execution feedback through three collaborative roles: Generator (produces answers), Reflector (analyzes performance), and Curator (updates the knowledge base called a "playbook").
+The framework enables AI agents to learn from their execution feedback through three collaborative roles: Agent (produces answers), Reflector (analyzes performance), and SkillManager (updates the knowledge base called a "skillbook").
 
 ## Development Commands
 
@@ -86,7 +86,7 @@ uv run pytest -v                     # Verbose output
 ```
 
 **Test Coverage**:
-- Unit tests for individual components (playbook, roles, adapters)
+- Unit tests for individual components (skillbook, roles, adapters)
 - Integration tests for end-to-end workflows (offline/online adaptation, checkpoints)
 - Example scripts serve as functional tests
 
@@ -112,8 +112,8 @@ uv run pre-commit run --all-files   # Manual run
 # LiteLLM examples (ACELiteLLM)
 python examples/litellm/simple_ace_example.py        # Quick start
 python examples/litellm/async_learning_example.py   # Async learning demo
-python examples/litellm/deduplication_example.py    # Bullet deduplication
-python examples/litellm/playbook_persistence.py     # Save/load playbooks
+python examples/litellm/deduplication_example.py    # Skill deduplication
+python examples/litellm/skillbook_persistence.py    # Save/load skillbooks
 python examples/litellm/seahorse_emoji_ace.py       # Kayba test demo
 
 # LangChain examples (ACELangChain)
@@ -153,18 +153,18 @@ python scripts/explain_ace_performance.py
 ## Architecture
 
 ### Core Concepts
-- **Playbook**: Structured context store containing bullets (strategy entries) with helpful/harmful counters
+- **Skillbook**: Structured context store containing skills (strategy entries) with helpful/harmful counters
   - Uses TOON (Token-Oriented Object Notation) format for 16-62% token savings
-  - `playbook.as_prompt()` returns TOON format (for LLM consumption)
-  - `str(playbook)` returns markdown format (for human debugging)
-- **Delta Operations**: Incremental updates to the playbook (ADD, UPDATE, TAG, REMOVE)
+  - `skillbook.as_prompt()` returns TOON format (for LLM consumption)
+  - `str(skillbook)` returns markdown format (for human debugging)
+- **Update Operations**: Incremental updates to the skillbook (ADD, UPDATE, TAG, REMOVE)
 - **Three Agentic Roles** sharing the same base LLM:
-  - **Generator**: Produces answers using the current playbook
-  - **Reflector**: Analyzes errors and classifies bullet contributions
-  - **Curator**: Emits delta operations to update the playbook
+  - **Agent**: Produces answers using the current skillbook
+  - **Reflector**: Analyzes errors and classifies skill contributions
+  - **SkillManager**: Emits update operations to update the skillbook
 - **Two Architecture Patterns**:
-  - **Full ACE Pipeline**: Generator+Reflector+Curator (for new agents)
-  - **Integration Pattern**: Reflector+Curator only (for existing systems like browser-use, LangChain)
+  - **Full ACE Pipeline**: Agent+Reflector+SkillManager (for new agents)
+  - **Integration Pattern**: Reflector+SkillManager only (for existing systems like browser-use, LangChain)
 
 ### Insight Levels (Reflector Scope)
 
@@ -172,7 +172,7 @@ The ACE framework operates at three insight levels based on what scope the Refle
 
 | Level | Reflector Scope | Description | Implementation |
 |-------|-----------------|-------------|----------------|
-| **Micro** | Single interaction + environment | Request → response → ground truth/feedback | OfflineAdapter, OnlineAdapter with TaskEnvironment |
+| **Micro** | Single interaction + environment | Request → response → ground truth/feedback | OfflineACE, OnlineACE with TaskEnvironment |
 | **Meso** | Full agent run | Multiple steps with reasoning trace (no external feedback) | `_learn_with_trace()` (e.g., AgentExecutor intermediate_steps) |
 | **Macro** | Cross-run analysis | Comparing patterns across multiple runs | Future enhancement |
 
@@ -183,10 +183,10 @@ The ACE framework operates at three insight levels based on what scope the Refle
 ### Module Structure
 
 **ace/** - Core library modules:
-- `playbook.py`: Bullet and Playbook classes for context storage (TOON format)
-- `delta.py`: DeltaOperation and DeltaBatch for incremental updates
-- `roles.py`: Generator, Reflector, Curator implementations
-- `adaptation.py`: OfflineAdapter and OnlineAdapter orchestration loops
+- `skillbook.py`: Skill and Skillbook classes for context storage (TOON format)
+- `updates.py`: UpdateOperation and UpdateBatch for incremental updates
+- `roles.py`: Agent, Reflector, SkillManager implementations
+- `adaptation.py`: OfflineACE and OnlineACE orchestration loops
 - `llm.py`: LLMClient interface with DummyLLMClient and TransformersLLMClient
 - `prompts.py`: Default prompt templates (v1.0 - simple, for tutorials)
 - `prompts_v2_1.py`: State-of-the-art prompts with MCP enhancements (v2.1 - **RECOMMENDED**)
@@ -199,13 +199,14 @@ The ACE framework operates at three insight levels based on what scope the Refle
   - `browser_use.py`: ACEAgent - browser automation with learning
   - `langchain.py`: ACELangChain - wrap LangChain chains/agents
   - `litellm.py`: ACELiteLLM - simple conversational agent
-- `deduplication/`: Bullet deduplication (similarity detection, consolidation)
+- `deduplication/`: Skill deduplication (similarity detection, consolidation)
 
 **ace/observability/** - Production monitoring and observability:
 - `opik_integration.py`: Enterprise-grade monitoring with Opik
 - `tracers.py`: Automatic tracing decorators for all role interactions
 - **Automatic token usage and cost tracking** for all LLM calls
 - Real-time cost monitoring via Opik dashboard
+- Real-time monitoring of Agent, Reflector, and SkillManager interactions
 
 **benchmarks/** - Benchmark framework:
 - `base.py`: Base benchmark classes and interfaces
@@ -226,14 +227,14 @@ The ACE framework operates at three insight levels based on what scope the Refle
 ### Key Implementation Patterns
 
 1. **Full ACE Pipeline** (for new agents):
-   - Sample → Generator (produces answer) → Environment (evaluates) → Reflector (analyzes) → Curator (updates playbook)
+   - Sample → Agent (produces answer) → Environment (evaluates) → Reflector (analyzes) → SkillManager (updates skillbook)
    - Offline: Multiple epochs over training samples
    - Online: Sequential processing of test samples
    - Use when: Building new agent from scratch, Q&A tasks, classification
 
 2. **Integration Pattern** (for existing agents):
-   - External agent executes task → Reflector analyzes → Curator updates playbook
-   - No ACE Generator - external framework handles execution
+   - External agent executes task → Reflector analyzes → SkillManager updates skillbook
+   - No ACE Agent - external framework handles execution
    - Three steps: INJECT context (optional) → EXECUTE with external agent → LEARN from results
    - Use when: Wrapping browser-use, LangChain, CrewAI, or custom agents
    - See `ace/integrations/base.py` for detailed explanation
@@ -253,20 +254,20 @@ The ACE framework operates at three insight levels based on what scope the Refle
 5. **Observability Integration**:
    - Automatic tracing with Opik when installed
    - Token usage and cost tracking for all LLM calls
-   - Real-time monitoring of Generator, Reflector, and Curator interactions
+   - Real-time monitoring of Agent, Reflector, and SkillManager interactions
    - View traces at https://www.comet.com/opik or local Opik instance
 
 ### New Features & Advanced Usage
 
 #### Checkpoint Saving During Training
-OfflineAdapter now supports automatic checkpoint saving:
+OfflineACE now supports automatic checkpoint saving:
 
 ```python
-from ace import OfflineAdapter
+from ace import OfflineACE
 
-adapter = OfflineAdapter(playbook, generator, reflector, curator)
+adapter = OfflineACE(skillbook, agent, reflector, skill_manager)
 
-# Save playbook every 10 successful samples
+# Save skillbook every 10 successful samples
 results = adapter.run(
     samples,
     environment,
@@ -282,43 +283,43 @@ results = adapter.run(
 
 **Use Cases**:
 - Resume training after interruption
-- Compare playbook evolution over time
+- Compare skillbook evolution over time
 - Early stopping based on validation metrics
 
 #### Async Learning Mode
-Enable parallel learning where the Generator returns immediately while Reflector and Curator process in the background:
+Enable parallel learning where the Agent returns immediately while Reflector and SkillManager process in the background:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                           ASYNC LEARNING PIPELINE                           │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│  Sample 1 ──► Generator ──► Env ──► Reflector ─┐                           │
-│  Sample 2 ──► Generator ──► Env ──► Reflector ─┼──► [Queue] ──► Curator ──► Playbook
-│  Sample 3 ──► Generator ──► Env ──► Reflector ─┘              (serialized) │
-│             (parallel)           (parallel)                                 │
+│  Sample 1 ──► Agent ──► Env ──► Reflector ─┐                               │
+│  Sample 2 ──► Agent ──► Env ──► Reflector ─┼──► [Queue] ──► SkillManager ──► Skillbook
+│  Sample 3 ──► Agent ──► Env ──► Reflector ─┘              (serialized)     │
+│             (parallel)       (parallel)                                     │
 │                                                                             │
-│  ✓ Generator returns immediately (fast response)                           │
+│  ✓ Agent returns immediately (fast response)                               │
 │  ✓ Multiple Reflectors run concurrently (parallel LLM calls)               │
-│  ✓ Single Curator processes queue sequentially (safe playbook updates)     │
+│  ✓ Single SkillManager processes queue sequentially (safe skillbook updates)│
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 **Basic Usage**:
 ```python
-from ace import OfflineAdapter
+from ace import OfflineACE
 
-adapter = OfflineAdapter(
-    playbook=playbook,
-    generator=generator,
+adapter = OfflineACE(
+    skillbook=skillbook,
+    agent=agent,
     reflector=reflector,
-    curator=curator,
+    skill_manager=skill_manager,
     async_learning=True,           # Enable async mode
     max_reflector_workers=3,       # Parallel Reflector threads
 )
 
-# Returns fast - only Generator + evaluation time
+# Returns fast - only Agent + evaluation time
 results = adapter.run(samples, environment, epochs=3)
 # Learning completes in background, then run() returns
 ```
@@ -330,15 +331,15 @@ results = adapter.run(samples, environment, wait_for_learning=False)
 
 # Use results immediately while learning continues in background
 for r in results:
-    print(r.generator_output.final_answer)
+    print(r.agent_output.final_answer)
 
 # Check learning progress anytime
 print(adapter.learning_stats)
 # {'tasks_submitted': 30, 'reflections_completed': 25, 'curations_completed': 20, ...}
 
-# Wait when needed (e.g., before saving playbook)
+# Wait when needed (e.g., before saving skillbook)
 adapter.wait_for_learning(timeout=60.0)
-playbook.save_to_file("learned.json")
+skillbook.save_to_file("learned.json")
 
 # Cleanup when done
 adapter.stop_async_learning()
@@ -350,10 +351,10 @@ adapter.stop_async_learning()
 - `adapter.stop_async_learning(wait=True)` - Shutdown the pipeline
 
 **Why This Architecture**:
-- **Reflector is safe to parallelize**: Reads playbook, produces independent analysis
-- **Curator MUST be serialized**: Writes to playbook, handles deduplication
+- **Reflector is safe to parallelize**: Reads skillbook, produces independent analysis
+- **SkillManager MUST be serialized**: Writes to skillbook, handles deduplication
 - **3x faster learning**: Reflector LLM calls run concurrently
-- **Eventual consistency**: Generator uses whatever playbook state is available
+- **Eventual consistency**: Agent uses whatever skillbook state is available
 
 #### Prompt Version Guidance
 The framework includes two prompt versions (see `docs/PROMPTS.md`):
@@ -365,9 +366,9 @@ The framework includes two prompt versions (see `docs/PROMPTS.md`):
 from ace.prompts_v2_1 import PromptManager
 
 prompt_mgr = PromptManager()
-generator = Generator(llm, prompt_template=prompt_mgr.get_generator_prompt())
+agent = Agent(llm, prompt_template=prompt_mgr.get_agent_prompt())
 reflector = Reflector(llm, prompt_template=prompt_mgr.get_reflector_prompt())
-curator = Curator(llm, prompt_template=prompt_mgr.get_curator_prompt())
+skill_manager = SkillManager(llm, prompt_template=prompt_mgr.get_skill_manager_prompt())
 ```
 
 #### Feature Detection
@@ -396,11 +397,11 @@ from ace.llm_providers.instructor_client import wrap_with_instructor
 
 # Enable automatic Pydantic validation for better reliability
 llm = wrap_with_instructor(LiteLLMClient(model="ollama/gemma3:1b"))
-generator = Generator(llm)  # Auto-validates GeneratorOutput
+agent = Agent(llm)  # Auto-validates AgentOutput
 
 # Or use LiteLLMClient directly for standard behavior
 llm = LiteLLMClient(model="gpt-4")
-generator = Generator(llm)  # Manual JSON parsing (existing behavior)
+agent = Agent(llm)  # Manual JSON parsing (existing behavior)
 ```
 
 **Benefits**: Field validation, type coercion, intelligent retry (~15% fewer parsing errors)
@@ -453,7 +454,7 @@ response = client.complete("Hello world!")
 
 ### Cost Analytics
 - **Per-call tracking**: Individual LLM call costs
-- **Role attribution**: Costs by Generator/Reflector/Curator
+- **Role attribution**: Costs by Agent/Reflector/SkillManager
 - **Adaptation metrics**: Cost efficiency over time
 - **Budget monitoring**: Optional cost limits and alerts
 

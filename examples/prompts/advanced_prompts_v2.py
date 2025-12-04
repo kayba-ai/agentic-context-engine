@@ -15,22 +15,22 @@ from dotenv import load_dotenv
 
 from ace import (
     LiteLLMClient,
-    Generator,
+    Agent,
     Reflector,
-    Curator,
-    OfflineAdapter,
-    OnlineAdapter,
+    SkillManager,
+    OfflineACE,
+    OnlineACE,
     Sample,
     TaskEnvironment,
     EnvironmentResult,
-    Playbook,
+    Skillbook,
 )
 from ace.prompts_v2_1 import (
     PromptManager,
     validate_prompt_output,
-    GENERATOR_V2_1_PROMPT,
-    GENERATOR_MATH_PROMPT,
-    GENERATOR_CODE_PROMPT,
+    AGENT_V2_1_PROMPT,
+    AGENT_MATH_PROMPT,
+    AGENT_CODE_PROMPT,
 )
 
 # Load environment variables
@@ -40,16 +40,16 @@ load_dotenv()
 class MathEnvironment(TaskEnvironment):
     """Environment for mathematical problems with detailed validation."""
 
-    def evaluate(self, sample, generator_output):
+    def evaluate(self, sample, agent_output):
         """Evaluate mathematical answers with confidence tracking."""
         try:
             # Check if answer is numeric
             expected = float(sample.ground_truth)
-            actual = float(generator_output.final_answer)
+            actual = float(agent_output.final_answer)
             correct = abs(expected - actual) < 0.0001
 
             # Extract confidence if available
-            confidence = getattr(generator_output, "answer_confidence", 0.5)
+            confidence = getattr(agent_output, "answer_confidence", 0.5)
 
             return EnvironmentResult(
                 feedback=(
@@ -62,9 +62,7 @@ class MathEnvironment(TaskEnvironment):
             )
         except (ValueError, TypeError):
             # Non-numeric answer comparison
-            correct = (
-                sample.ground_truth.lower() in generator_output.final_answer.lower()
-            )
+            correct = sample.ground_truth.lower() in agent_output.final_answer.lower()
             return EnvironmentResult(
                 feedback=(
                     "Correct!"
@@ -79,9 +77,9 @@ class MathEnvironment(TaskEnvironment):
 class CodeEnvironment(TaskEnvironment):
     """Environment for code generation tasks."""
 
-    def evaluate(self, sample, generator_output):
+    def evaluate(self, sample, agent_output):
         """Evaluate code generation with basic syntax checking."""
-        code = generator_output.final_answer
+        code = agent_output.final_answer
 
         # Basic Python syntax check
         try:
@@ -125,24 +123,26 @@ def demo_math_prompts():
     manager = PromptManager(default_version="2.0")
 
     # Get math-specific prompt
-    math_prompt = manager.get_generator_prompt(domain="math")
+    math_prompt = manager.get_agent_prompt(domain="math")
 
     # Create LLM client
     llm = LiteLLMClient(model="gpt-3.5-turbo", temperature=0.1)
 
-    # Create math-optimized generator
-    math_generator = Generator(llm, prompt_template=math_prompt)
+    # Create math-optimized agent
+    math_agent = Agent(llm, prompt_template=math_prompt)
 
-    # Create standard reflector and curator with v2 prompts
+    # Create standard reflector and skill_manager with v2 prompts
     reflector = Reflector(llm, prompt_template=manager.get_reflector_prompt())
-    curator = Curator(llm, prompt_template=manager.get_curator_prompt())
+    skill_manager = SkillManager(
+        llm, prompt_template=manager.get_skill_manager_prompt()
+    )
 
     # Create adapter
-    adapter = OfflineAdapter(
-        playbook=Playbook(),
-        generator=math_generator,
+    adapter = OfflineACE(
+        skillbook=Skillbook(),
+        agent=math_agent,
         reflector=reflector,
-        curator=curator,
+        skill_manager=skill_manager,
     )
 
     # Math problem samples
@@ -161,12 +161,12 @@ def demo_math_prompts():
 
     # Display results
     print(f"\nTrained on {len(results)} math problems over 2 epochs")
-    print(f"Playbook now has {len(adapter.playbook.bullets())} strategies")
+    print(f"Skillbook now has {len(adapter.skillbook.skills())} strategies")
 
     # Show learned strategies
     print("\nLearned Math Strategies:")
-    for i, bullet in enumerate(adapter.playbook.bullets()[:3], 1):
-        print(f"{i}. {bullet.content[:100]}...")
+    for i, skill in enumerate(adapter.skillbook.skills()[:3], 1):
+        print(f"{i}. {skill.content[:100]}...")
 
     # Show usage statistics
     print(f"\nPrompt Usage Stats: {manager.get_stats()}")
@@ -186,20 +186,22 @@ def demo_code_prompts():
     manager = PromptManager(default_version="2.0")
 
     # Get code-specific prompt
-    code_prompt = manager.get_generator_prompt(domain="code")
+    code_prompt = manager.get_agent_prompt(domain="code")
 
     # Create LLM client
     llm = LiteLLMClient(model="gpt-3.5-turbo", temperature=0.1)
 
-    # Create code-optimized generator
-    code_generator = Generator(llm, prompt_template=code_prompt)
+    # Create code-optimized agent
+    code_agent = Agent(llm, prompt_template=code_prompt)
 
     # Create components
-    adapter = OfflineAdapter(
-        playbook=Playbook(),
-        generator=code_generator,
+    adapter = OfflineACE(
+        skillbook=Skillbook(),
+        agent=code_agent,
         reflector=Reflector(llm, prompt_template=manager.get_reflector_prompt()),
-        curator=Curator(llm, prompt_template=manager.get_curator_prompt()),
+        skill_manager=SkillManager(
+            llm, prompt_template=manager.get_skill_manager_prompt()
+        ),
     )
 
     # Code generation samples
@@ -219,7 +221,7 @@ def demo_code_prompts():
     results = adapter.run(samples, environment, epochs=1)
 
     print(f"\nTrained on {len(results)} code problems")
-    print(f"Playbook has {len(adapter.playbook.bullets())} code strategies")
+    print(f"Skillbook has {len(adapter.skillbook.skills())} code strategies")
 
 
 def demo_online_learning_with_v2():
@@ -238,15 +240,17 @@ def demo_online_learning_with_v2():
     # Create LLM client
     llm = LiteLLMClient(model="gpt-3.5-turbo", temperature=0.1)
 
-    # Start with empty playbook
-    playbook = Playbook()
+    # Start with empty skillbook
+    skillbook = Skillbook()
 
     # Create online adapter with v2 prompts
-    adapter = OnlineAdapter(
-        playbook=playbook,
-        generator=Generator(llm, prompt_template=manager.get_generator_prompt()),
+    adapter = OnlineACE(
+        skillbook=skillbook,
+        agent=Agent(llm, prompt_template=manager.get_agent_prompt()),
         reflector=Reflector(llm, prompt_template=manager.get_reflector_prompt()),
-        curator=Curator(llm, prompt_template=manager.get_curator_prompt()),
+        skill_manager=SkillManager(
+            llm, prompt_template=manager.get_skill_manager_prompt()
+        ),
     )
 
     # Stream of problems
@@ -266,16 +270,16 @@ def demo_online_learning_with_v2():
     # Display results for each sample
     for i, (sample, result) in enumerate(zip(test_samples, results), 1):
         print(f"\n--- Sample {i}: {sample.question}")
-        print(f"Answer: {result.generator_output.final_answer}")
+        print(f"Answer: {result.agent_output.final_answer}")
         print(f"Feedback: {result.environment_result.feedback}")
-        print(f"Playbook size: {len(adapter.playbook.bullets())}")
+        print(f"Skillbook size: {len(adapter.skillbook.skills())}")
 
         # Show confidence if available
         if (
-            hasattr(result.generator_output, "raw")
-            and "answer_confidence" in result.generator_output.raw
+            hasattr(result.agent_output, "raw")
+            and "answer_confidence" in result.agent_output.raw
         ):
-            confidence = result.generator_output.raw["answer_confidence"]
+            confidence = result.agent_output.raw["answer_confidence"]
             print(f"Confidence: {confidence:.2%}")
 
 
@@ -285,34 +289,34 @@ def demo_prompt_validation():
     print("VALIDATION DEMO - Testing prompt output validation")
     print("=" * 60)
 
-    # Example good generator output
-    good_generator_output = json.dumps(
+    # Example good agent output
+    good_agent_output = json.dumps(
         {
             "reasoning": "1. Analyzing the question. 2. Applying strategy. 3. Computing result.",
-            "bullet_ids": ["bullet_001", "bullet_002"],
-            "confidence_scores": {"bullet_001": 0.85, "bullet_002": 0.92},
+            "skill_ids": ["skill_001", "skill_002"],
+            "confidence_scores": {"skill_001": 0.85, "skill_002": 0.92},
             "final_answer": "42",
             "answer_confidence": 0.95,
         }
     )
 
-    # Example bad generator output (missing required field)
-    bad_generator_output = json.dumps(
+    # Example bad agent output (missing required field)
+    bad_agent_output = json.dumps(
         {
             "reasoning": "Some reasoning",
-            "bullet_ids": ["bullet_001"],
+            "skill_ids": ["skill_001"],
             # Missing "final_answer"
         }
     )
 
     # Validate good output
-    is_valid, errors = validate_prompt_output(good_generator_output, "generator")
+    is_valid, errors = validate_prompt_output(good_agent_output, "agent")
     print(f"\nGood output validation: {'✓ PASSED' if is_valid else '✗ FAILED'}")
     if errors:
         print(f"Errors: {errors}")
 
     # Validate bad output
-    is_valid, errors = validate_prompt_output(bad_generator_output, "generator")
+    is_valid, errors = validate_prompt_output(bad_agent_output, "agent")
     print(f"\nBad output validation: {'✓ PASSED' if is_valid else '✗ FAILED'}")
     if errors:
         print(f"Errors: {errors}")
@@ -322,7 +326,7 @@ def demo_prompt_validation():
         {
             "reasoning": "Analysis complete",
             "error_identification": "none",
-            "bullet_tags": [{"id": "bullet_001", "tag": "very_helpful"}],  # Invalid tag
+            "skill_tags": [{"id": "skill_001", "tag": "very_helpful"}],  # Invalid tag
         }
     )
 
@@ -339,9 +343,9 @@ def demo_custom_v2_prompt():
     print("=" * 60)
 
     # Create a custom prompt for scientific reasoning
-    custom_science_prompt = GENERATOR_V2_PROMPT.replace(
-        "You are ACE Generator v2.0, an expert problem-solving agent.",
-        "You are ACE Science Generator v1.0, specialized in scientific reasoning and hypothesis testing.",
+    custom_science_prompt = AGENT_V2_1_PROMPT.replace(
+        "You are ACE Agent v2.1, an expert problem-solving agent.",
+        "You are ACE Science Agent v1.0, specialized in scientific reasoning and hypothesis testing.",
     ).replace("Mode: Strategic Problem Solving", "Mode: Scientific Method Application")
 
     # Add custom section

@@ -38,9 +38,9 @@ class InstructorClient:
         >>> base_llm = LiteLLMClient(model="gpt-4")
         >>> instructor_llm = InstructorClient(base_llm)
         >>>
-        >>> # Use with Generator/Reflector/Curator
-        >>> from ace import Generator, GeneratorOutput
-        >>> generator = Generator(instructor_llm)
+        >>> # Use with Agent/Reflector/SkillManager
+        >>> from ace import Agent, AgentOutput
+        >>> agent = Agent(instructor_llm)
 
     Features:
         - Automatic Pydantic validation
@@ -135,10 +135,10 @@ class InstructorClient:
             ValidationError: If validation fails after max_retries
 
         Example:
-            >>> from ace.roles import GeneratorOutput
+            >>> from ace.roles import AgentOutput
             >>> output = instructor_llm.complete_structured(
             ...     prompt="What is 2+2?",
-            ...     response_model=GeneratorOutput
+            ...     response_model=AgentOutput
             ... )
             >>> print(output.final_answer)
             4
@@ -221,6 +221,6 @@ def wrap_with_instructor(
         >>>
         >>> base_llm = LiteLLMClient(model="gpt-4")
         >>> llm = wrap_with_instructor(base_llm)
-        >>> generator = Generator(llm)  # Auto-validates
+        >>> agent = Agent(llm)  # Auto-validates
     """
     return InstructorClient(llm, mode=mode, max_retries=max_retries)
