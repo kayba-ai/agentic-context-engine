@@ -7,7 +7,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-<img src="[https://framerusercontent.com/images/XBGa12hY8xKYI6KzagBxpbgY4.png](https://github.com/kayba-ai/agentic-context-engine/blob/main/examples/agent-prompt-optimizer/agent_prompt_optimizer.png)" alt="Kayba Agent Prompt Optimizer" width="1080"/>
+![Kayba Agent Prompt Optimizer](examples/agent-prompt-optimizer/agent_prompt_optimizer.png)
 
 
 ## The Problem with Traditional Prompt Engineering
