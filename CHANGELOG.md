@@ -5,6 +5,27 @@ All notable changes to ACE Framework will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2025-12-04
+
+### ⚠️ Breaking Changes
+- **Complete terminology rename** - Playbook → Skillbook, Bullet → Skill
+  - `Playbook` → `Skillbook`
+  - `Bullet` → `Skill`
+  - `Generator` → `Agent`
+  - `Curator` → `SkillManager`
+  - `OfflineAdapter` → `OfflineACE`
+  - `OnlineAdapter` → `OnlineACE`
+  - `DeltaOperation` → `UpdateOperation`
+  - `DeltaBatch` → `UpdateBatch`
+  - **Migration**: Update imports and method calls to use new names
+  - **JSON files**: Change `"bullets"` key to `"skills"` in saved skillbooks
+
+### Added
+- **Deduplication consolidation_operations field** - SkillManagerOutput now properly captures consolidation operations from LLM responses
+
+### Fixed
+- **Deduplication not working** - Added `consolidation_operations` field to SkillManagerOutput Pydantic model. Previously, Instructor was silently dropping these operations.
+
 ## [0.5.0] - 2025-11-20
 
 ### ⚠️ Breaking Changes
