@@ -1,11 +1,14 @@
-# Agent Prompt Optimizer - Turn agents' failures into better prompts!🔄
+# Agent Prompt Optimizer - Turn agents' failures into better prompts 🔄
 
 ![GitHub stars](https://img.shields.io/github/stars/kayba-ai/agentic-context-engine?style=social)
 [![Discord](https://img.shields.io/discord/1429935408145236131?label=Discord&logo=discord&logoColor=white&color=5865F2)](https://discord.gg/mqCqH7sTyK)
 [![Twitter Follow](https://img.shields.io/twitter/follow/kaybaai?style=social)](https://twitter.com/kaybaai)
 [![PyPI version](https://badge.fury.io/py/ace-framework.svg)](https://badge.fury.io/py/ace-framework)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)�
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+
+<img src="[https://framerusercontent.com/images/XBGa12hY8xKYI6KzagBxpbgY4.png](https://github.com/kayba-ai/agentic-context-engine/blob/main/examples/agent-prompt-optimizer/agent_prompt_optimizer.png)" alt="Kayba Agent Prompt Optimizer" width="1080"/>
+
 
 ## The Problem with Traditional Prompt Engineering
 - Time-consuming manual iteration cycles
