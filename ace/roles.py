@@ -601,6 +601,10 @@ class SkillManagerOutput(BaseModel):
     update: UpdateBatch = Field(
         ..., description="Batch of update operations to apply to skillbook"
     )
+    consolidation_operations: Optional[List[Dict[str, Any]]] = Field(
+        default=None,
+        description="Operations to consolidate similar skills (MERGE, DELETE, KEEP, UPDATE)",
+    )
     raw: Dict[str, Any] = Field(
         default_factory=dict, description="Raw LLM response data"
     )
@@ -780,9 +784,12 @@ class SkillManager:
         )
 
         # Apply consolidation operations if deduplication is enabled
-        if self.dedup_manager is not None and output.raw:
+        if self.dedup_manager is not None and output.consolidation_operations:
+            response_data = {
+                "consolidation_operations": output.consolidation_operations
+            }
             applied_ops = self.dedup_manager.apply_operations_from_response(
-                output.raw, skillbook
+                response_data, skillbook
             )
             if applied_ops:
                 logger.info(f"Applied {len(applied_ops)} consolidation operations")

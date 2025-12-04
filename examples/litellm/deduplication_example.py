@@ -45,7 +45,7 @@ def main():
     # Step 2: Configure agent with deduplication
     dedup_config = DeduplicationConfig(
         enabled=True,
-        similarity_threshold=0.70,  # Lowered to catch semantic duplicates
+        similarity_threshold=0.60,  # Lowered to catch semantic duplicates
         embedding_model="text-embedding-3-small",
     )
 
