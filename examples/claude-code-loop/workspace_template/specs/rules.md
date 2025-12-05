@@ -50,20 +50,20 @@ module.exports = {
 
 **Test Structure Example:**
 ```typescript
-// tests/playbook.test.ts
-import { Playbook, Bullet } from '../src/playbook';
+// tests/skillbook.test.ts
+import { Skillbook, Skill } from '../src/skillbook';
 
-describe('Playbook', () => {
-  test('should create empty playbook', () => {
-    const playbook = new Playbook();
-    expect(playbook.getBullets()).toHaveLength(0);
+describe('Skillbook', () => {
+  test('should create empty skillbook', () => {
+    const skillbook = new Skillbook();
+    expect(skillbook.getSkills()).toHaveLength(0);
   });
 
-  test('should add bullet successfully', () => {
-    const playbook = new Playbook();
-    const bullet = new Bullet('test-001', 'Test strategy');
-    playbook.addBullet(bullet);
-    expect(playbook.getBullets()).toHaveLength(1);
+  test('should add skill successfully', () => {
+    const skillbook = new Skillbook();
+    const skill = new Skill('test-001', 'Test strategy');
+    skillbook.addSkill(skill);
+    expect(skillbook.getSkills()).toHaveLength(1);
   });
 });
 ```
