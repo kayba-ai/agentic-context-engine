@@ -1,13 +1,7 @@
-# Task Prompt
+Your job is to [describe your task here].
 
-Edit this file to describe what Claude Code should do.
+Make a commit after every single file edit.
 
----
+Use .agent/ directory as scratchpad for your work. Store long term plans and todo lists there.
 
-Your job is to complete the task described in the workspace.
-
-Use .agent/ directory as your scratchpad. Store plans, notes, and todo lists there.
-
-Make a commit after every logical unit of work.
-
-When done, stop and wait for the next session.
+When done, improve code quality and fix any issues.
