@@ -15,7 +15,8 @@ Run Claude Code in a continuous loop. After each run, ACE (our open-source frame
 
 ## ✨ Example Result
 
-Used this to translate the ACE Python repo to TypeScript:
+Used this to translate the ACE Python repo to TypeScript: [kayba-ai/ace-ts](https://github.com/kayba-ai/ace-ts)
+
 
 | Metric           | Result                               |
 | ---------------- | ------------------------------------ |
