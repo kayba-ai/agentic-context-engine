@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
 """
-ACE + Claude Code: Continuous Learning Loop
+ACE + Claude Code: Simple Learning Loop
 
-This script demonstrates using ACEClaudeCode to run Claude Code in a loop,
-learning from each task execution. Tasks are read from a TODO.md file.
+Claude Code works autonomously until done, using .agent/ as scratchpad.
+After each session, ACE learning runs, then fresh session continues.
+
+Stopping conditions:
+- Stall detected (N consecutive sessions with no code changes)
+- Manual interruption
 
 Usage:
     python ace_loop.py                    # Interactive mode
     AUTO_MODE=true python ace_loop.py     # Fully automatic
 """
 
-import json
 import os
-import re
 import subprocess
-import sys
-from datetime import datetime
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -24,400 +24,92 @@ from ace.integrations import ACEClaudeCode
 load_dotenv()
 
 # Configuration
-DEMO_DIR = Path(__file__).parent
-DATA_DIR = Path(os.getenv("ACE_DEMO_DATA_DIR", str(DEMO_DIR / ".data")))
 AUTO_MODE = os.getenv("AUTO_MODE", "false").lower() == "true"
 ACE_MODEL = os.getenv("ACE_MODEL", "claude-sonnet-4-5-20250929")
-
-# Paths
-WORKSPACE_DIR = DEMO_DIR / "workspace"  # Separate git repo
+DEMO_DIR = Path(__file__).parent
+WORKSPACE_DIR = DEMO_DIR / "workspace"
+DATA_DIR = Path(os.getenv("ACE_DEMO_DATA_DIR", str(DEMO_DIR / ".data")))
 SKILLBOOK_PATH = DATA_DIR / "skillbooks" / "ace_typescript.json"
-LOGS_DIR = DATA_DIR / "logs"
-
-# Ensure data directories exist
-DATA_DIR.mkdir(parents=True, exist_ok=True)
-(DATA_DIR / "skillbooks").mkdir(exist_ok=True)
-LOGS_DIR.mkdir(exist_ok=True)
-
-# Verify workspace is a git repository
-if not (WORKSPACE_DIR / ".git").exists():
-    print("❌ Error: Workspace is not a git repository!")
-    print(f"   Run ./reset_workspace.sh to initialize workspace")
-    sys.exit(1)
 
 
-def parse_next_task_from_todo(workspace_dir: Path) -> str | None:
-    """
-    Parse TODO.md to find next unchecked task.
-
-    Returns:
-        Next unchecked task description, or None if all complete
-    """
-    todo_paths = [workspace_dir / ".agent" / "TODO.md", workspace_dir / "TODO.md"]
-
-    todo_path = None
-    for path in todo_paths:
-        if path.exists():
-            todo_path = path
-            print(f"   Found TODO.md at: {path}")
-            break
-
-    if not todo_path:
-        print(f"   No TODO.md found")
-        return None
-
-    content = todo_path.read_text()
-
-    # Look for unchecked tasks: [ ] or - [ ]
-    pattern = r"^[\s\-]*\[ \]\s+(.+)$"
-
-    # Skip vague category tasks
-    category_indicators = [
-        "phase",
-        "step",
-        "stage",
-        "setup",
-        "initialization",
-        "eslint",
-        "linting",
-        "ci/cd",
-        "configuration",
-    ]
-
-    for line in content.split("\n"):
-        match = re.match(pattern, line.strip())
-        if match:
-            task = match.group(1).strip()
-            task_lower = task.lower()
-
-            # Skip category-level tasks
-            if any(ind in task_lower for ind in category_indicators):
-                continue
-
-            # Skip markdown headers
-            if task.startswith("#"):
-                continue
-
-            # Accept any non-empty task (file paths or descriptive tasks)
-            print(f"   Found task: {task[:60]}...")
-            return task
-
-    return None
+def get_commit_count(workspace_dir: Path) -> int:
+    """Get current commit count in target repo."""
+    target_dir = workspace_dir / "target"
+    if not (target_dir / ".git").exists():
+        return 0
+    result = subprocess.run(
+        ["git", "rev-list", "--count", "HEAD"],
+        cwd=target_dir,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
+    )
+    if result.returncode == 0 and result.stdout.strip():
+        return int(result.stdout.strip())
+    return 0
 
 
-def build_task_prompt(task: str, context: str = "") -> str:
-    """
-    Build rich prompt for Claude Code with workspace context and instructions.
+def are_recent_commits_code_changes(workspace_dir: Path, n: int = 3) -> bool:
+    """Check if recent N commits contain actual code changes (not just docs)."""
+    target_dir = workspace_dir / "target"
+    if not (target_dir / ".git").exists():
+        return True
 
-    This restores the detailed prompting from the original claude_code_environment.py
-    that guides Claude Code on workspace structure, priorities, and response format.
-    """
-    return f"""TASK:
-{task}
+    result = subprocess.run(
+        ["git", "log", f"-{n}", "--name-only", "--format="],
+        cwd=target_dir,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return True
 
-CONTEXT:
-{context if context else 'None'}
+    files = [f.strip() for f in result.stdout.strip().split("\n") if f.strip()]
+    code_extensions = {".ts", ".tsx", ".js"}
+    doc_files = {"README.md", "CHANGELOG.md", "CONTRIBUTING.md", "LICENSE"}
 
-WORKSPACE STRUCTURE:
-- source/ - Python source code to translate
-- target/ - TypeScript output directory
-- specs/ - project.md (spec) and rules.md (coding standards)
-- .agent/ - your scratchpad (TODO.md, PLAN.md, notes)
+    for f in files:
+        ext = Path(f).suffix.lower()
+        basename = Path(f).name
+        if ext in code_extensions:
+            return True
+        if ext == ".json" and basename not in {"package.json", "package-lock.json"}:
+            return True
+        if basename not in doc_files and ext != ".md":
+            return True
+    return False
 
-CRITICAL REQUIREMENTS:
-1. Apply relevant strategies from the skillbook context (injected above)
-2. Test every new feature/change BEFORE committing (run tests, check compilation)
-3. Make atomic git commits after each working unit (commit message should explain what was done and why)
-4. You are working in a dedicated git repository - commit freely after testing
-5. Focus on actual work, not elaborate documentation or setup
 
-GIT WORKFLOW:
-- After completing a logical unit of work (e.g., translate one file, fix one bug)
-- Run tests to verify it works
-- Commit with: git add <files> && git commit -m "Clear message"
-- Each task may result in one or more commits
+def build_prompt() -> str:
+    """Build the task prompt."""
+    return """Your job is to port ACE framework (Python) to TypeScript and maintain the repository.
 
-FOCUS YOUR EFFORT ON:
-- Reading source files and understanding the implementation
-- Writing quality code following the specs
-- Writing/updating tests (aim for 20% of effort)
-- Fixing compilation/test errors
+You have access to source/ (Python) and target/ (TypeScript git repo).
 
-DO NOT spend excessive time on:
-- Elaborate documentation (README, guides)
-- Complex linting/CI configurations
-- Empty directory structures
+Make a commit after every single file edit.
 
-RESPONSE FORMAT:
-1. ## Approach - explain your plan and why
-2. ## Implementation - do the actual work
-3. ## Summary - what was accomplished
+Use .agent/ directory as scratchpad for your work. Store long term plans and todo lists there.
 
-AFTER COMPLETING THIS TASK:
-1. Update TODO.md: Mark this task as [x] (change [ ] to [x])
-2. STOP - do not continue to next tasks (the loop will call you again)
+Key substitution: LiteLLM (Python) → Vercel AI SDK (TypeScript)
+
+The .env file contains API keys for running examples.
+
+Spend 80% of time on porting, 20% on testing. When porting is complete, improve code quality and fix any issues.
 """
 
 
-def run_npm_command(
-    workspace_dir: Path, command: str, description: str
-) -> tuple[bool, str]:
-    """
-    Run npm command and capture output.
-
-    Args:
-        workspace_dir: Directory to run command in
-        command: npm script name (e.g., "build", "test")
-        description: Human-readable description
-
-    Returns:
-        Tuple of (success, output)
-    """
-    try:
-        print(f"   Running: npm run {command}")
-        result = subprocess.run(
-            ["npm", "run", command],
-            cwd=workspace_dir / "target",  # TypeScript project is in target/
-            capture_output=True,
-            text=True,
-            timeout=300,  # 5 minutes timeout
-        )
-        return result.returncode == 0, result.stdout + result.stderr
-    except subprocess.TimeoutExpired:
-        return False, f"Command timed out after 300 seconds"
-    except Exception as e:
-        return False, f"Error running command: {str(e)}"
-
-
-def extract_tsc_errors(output: str, max_lines: int = 50) -> str:
-    """Extract TypeScript compilation errors from tsc output."""
-    lines = output.split("\n")
-    error_lines = [line for line in lines if "error TS" in line or ".ts(" in line]
-    if len(error_lines) > max_lines:
-        error_lines = error_lines[:max_lines] + [
-            f"\n... ({len(error_lines) - max_lines} more errors)"
-        ]
-    return "\n".join(error_lines) if error_lines else output
-
-
-def extract_jest_errors(output: str, max_lines: int = 50) -> str:
-    """Extract Jest test errors from output."""
-    lines = output.split("\n")
-    # Look for FAIL markers and error messages
-    error_lines = []
-    in_error = False
-    for line in lines:
-        if "FAIL" in line or "Error:" in line or "Expected" in line:
-            in_error = True
-        if in_error:
-            error_lines.append(line)
-            if len(error_lines) >= max_lines:
-                error_lines.append(f"... (output truncated)")
-                break
-    return "\n".join(error_lines) if error_lines else output
-
-
-def validate_typescript_compilation(workspace_dir: Path) -> tuple[bool, str]:
-    """Run tsc --noEmit to check TypeScript compiles."""
-    success, output = run_npm_command(workspace_dir, "build", "TypeScript compilation")
-    if success:
-        return True, "✅ TypeScript compilation successful"
-    else:
-        errors = extract_tsc_errors(output)
-        return False, f"❌ TypeScript compilation failed:\n{errors}"
-
-
-def validate_unit_tests(workspace_dir: Path) -> tuple[bool, str]:
-    """Run Jest unit tests."""
-    success, output = run_npm_command(workspace_dir, "test", "Unit tests")
-    if success:
-        return True, "✅ All unit tests passed"
-    else:
-        errors = extract_jest_errors(output)
-        return False, f"❌ Unit tests failed:\n{errors}"
-
-
-def validate_example(workspace_dir: Path, example_name: str) -> tuple[bool, str]:
-    """Run example file."""
-    success, output = run_npm_command(
-        workspace_dir, f"example:{example_name}", f"{example_name} example"
-    )
-    if success:
-        return True, f"✅ {example_name} example ran successfully"
-    else:
-        # Truncate long output
-        if len(output) > 500:
-            output = output[:500] + "\n... (output truncated)"
-        return False, f"❌ {example_name} example failed:\n{output}"
-
-
-def validate_naming_convention(workspace_dir: Path) -> tuple[bool, str]:
-    """
-    Check that TypeScript uses ACEVercelAI (not ACELiteLLM).
-
-    TypeScript uses Vercel AI SDK, not LiteLLM, so the class should be
-    named ACEVercelAI to avoid confusion.
-    """
-    target_src = workspace_dir / "target" / "src"
-
-    if not target_src.exists():
-        return True, "✅ No src directory yet (skipping naming check)"
-
-    errors = []
-
-    # Check for wrong class name in TypeScript files
-    for ts_file in target_src.rglob("*.ts"):
-        try:
-            content = ts_file.read_text()
-            if "ACELiteLLM" in content and "integrations" in str(ts_file):
-                errors.append(
-                    f"{ts_file.name}: Uses 'ACELiteLLM' - should be 'ACEVercelAI' "
-                    "(TypeScript uses Vercel AI SDK, not LiteLLM)"
-                )
-        except Exception:
-            pass
-
-    # Check for wrong filename
-    if (target_src / "integrations" / "litellm.ts").exists():
-        errors.append(
-            "File 'integrations/litellm.ts' should be named 'vercel-ai.ts' "
-            "(TypeScript uses Vercel AI SDK, not LiteLLM)"
-        )
-
-    if errors:
-        return False, "❌ Naming convention errors:\n" + "\n".join(
-            f"  - {e}" for e in errors
-        )
-    return True, "✅ Naming conventions correct (ACEVercelAI)"
-
-
-def run_full_validation(workspace_dir: Path) -> tuple[bool, str]:
-    """
-    Run all validation checks in sequence.
-
-    Returns:
-        Tuple of (success, message)
-    """
-    results = []
-
-    # 1. TypeScript compilation
-    print(f"\n🔍 Step 1/5: TypeScript Compilation")
-    success, msg = validate_typescript_compilation(workspace_dir)
-    results.append((success, msg))
-    print(f"   {msg.split(':')[0]}")  # Print status only
-    if not success:
-        return False, msg
-
-    # 2. Unit tests
-    print(f"\n🔍 Step 2/5: Unit Tests")
-    success, msg = validate_unit_tests(workspace_dir)
-    results.append((success, msg))
-    print(f"   {msg.split(':')[0]}")
-    if not success:
-        return False, msg
-
-    # 3. Naming conventions (ACEVercelAI, not ACELiteLLM)
-    print(f"\n🔍 Step 3/5: Naming Conventions")
-    success, msg = validate_naming_convention(workspace_dir)
-    results.append((success, msg))
-    print(f"   {msg.split(':')[0]}")
-    if not success:
-        return False, msg
-
-    # 4. Simple example
-    print(f"\n🔍 Step 4/5: Simple Example")
-    success, msg = validate_example(workspace_dir, "simple")
-    results.append((success, msg))
-    print(f"   {msg.split(':')[0]}")
-    if not success:
-        return False, msg
-
-    # 5. Seahorse example
-    print(f"\n🔍 Step 5/5: Seahorse Example")
-    success, msg = validate_example(workspace_dir, "seahorse")
-    results.append((success, msg))
-    print(f"   {msg.split(':')[0]}")
-    if not success:
-        return False, msg
-
-    # All passed!
-    summary = "\n".join([msg for _, msg in results])
-    return True, f"🎉 ALL VALIDATION CHECKS PASSED!\n\n{summary}"
-
-
-def print_skillbook_summary(skillbook):
-    """Show skillbook as automatic prompt engineering."""
-    skills = list(skillbook.skills())
-    new_count = len([s for s in skills if s.helpful + s.harmful <= 1])
-
-    print("\n" + "=" * 70)
-    print("📚 SKILLBOOK LEARNING SUMMARY")
-    print("=" * 70)
-    print(f"\n✅ Learned {new_count} new strategies during this run")
-    print("💡 THIS IS AUTOMATIC PROMPT ENGINEERING")
-    print("   No manual iteration needed - ACE learned from execution\n")
-
-    # Show top strategies
-    sorted_skills = sorted(skills, key=lambda s: s.helpful - s.harmful, reverse=True)
-    print("Top 5 Helpful Strategies:")
-    for i, skill in enumerate(sorted_skills[:5], 1):
-        score = f"[+{skill.helpful} -{skill.harmful}]"
-        content = (
-            skill.content[:60] + "..." if len(skill.content) > 60 else skill.content
-        )
-        print(f"{i}. {score} {content}")
-
-    print(f"\n🎯 Next run will start with {len(skills)} strategies")
-    print("   Expect 60-80% improvement in tasks/time/cost\n")
-
-
-def print_improvement_analysis(current_run, previous_runs):
-    """Show before/after if this is run 2+."""
-    if len(previous_runs) == 0:
-        return
-
-    run1 = previous_runs[0]  # First run for comparison
-
-    print("\n" + "=" * 70)
-    print("📊 ACE LEARNING IMPROVEMENT ANALYSIS")
-    print("=" * 70)
-
-    # Calculate improvement
-    task_reduction = 0
-    if run1["task_count"] > 0:
-        task_reduction = int((1 - current_run["task_count"] / run1["task_count"]) * 100)
-
-    failure_reduction = 0
-    if run1["total_failures"] > 0:
-        failure_reduction = int(
-            (1 - current_run["total_failures"] / run1["total_failures"]) * 100
-        )
-
-    print(f"\nRun 1 (Blind - No Strategies):")
-    print(f"├─ Tasks: {run1['task_count']} tasks")
-    print(f"├─ Validation failures: {run1['total_failures']} attempts")
-    print(f"└─ Strategies learned: {run1['strategies_count']}")
-
-    print(f"\nRun 2+ (With Learned Strategies):")
-    print(f"├─ Tasks: {current_run['task_count']} tasks ({task_reduction}% reduction!)")
-    print(
-        f"├─ Validation failures: {current_run['total_failures']} attempts ({failure_reduction}% fewer!)"
-    )
-    print(f"└─ Strategies applied: {current_run['strategies_count']}")
-
-    print("\n🎯 WHAT THIS MEANS:")
-    print("- Manual prompt engineering = WEEKS of iteration")
-    print("- ACE = ONE RUN learns, next run applies automatically")
-    print("- This is the future: no prompt engineering, just learning\n")
-
-
 def main():
-    """Main orchestration function with continuous loop."""
-    print("\n ACE + Claude Code")
-    print("=" * 70)
+    """Main orchestration: simple learning loop."""
+    print("\n" + "=" * 60)
+    print(" ACE + Claude Code")
+    print("=" * 60)
 
     print(f"\n Initializing (model: {ACE_MODEL})...")
     print(f"   Mode: {'AUTOMATIC' if AUTO_MODE else 'INTERACTIVE'}")
+
+    # Ensure data directories exist
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    SKILLBOOK_PATH.parent.mkdir(parents=True, exist_ok=True)
 
     # Initialize ACEClaudeCode
     agent = ACEClaudeCode(
@@ -426,251 +118,89 @@ def main():
         skillbook_path=str(SKILLBOOK_PATH) if SKILLBOOK_PATH.exists() else None,
     )
 
-    print(f" Skillbook: {len(list(agent.skillbook.skills()))} strategies")
-    print(f" Workspace: {WORKSPACE_DIR}")
-
-    # Show current git branch
-    try:
-        current_branch = subprocess.run(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            cwd=WORKSPACE_DIR,
-            capture_output=True,
-            text=True,
-        ).stdout.strip()
-        print(f"📍 Branch: {current_branch}")
-    except Exception:
-        pass  # Ignore if git command fails
-
-    # Read project spec for context
-    spec_file = WORKSPACE_DIR / "specs" / "project.md"
-    context = ""
-    if spec_file.exists():
-        context = f"Project specification:\n{spec_file.read_text()[:1000]}..."
+    print(f"   Skillbook: {len(list(agent.skillbook.skills()))} strategies")
+    print(f"   Workspace: {WORKSPACE_DIR}")
 
     # Initial confirmation
-    print("\n" + "=" * 70)
     if not AUTO_MODE:
+        print("\n" + "-" * 60)
         response = input(" Start learning loop? (y/n): ")
         if response.lower() != "y":
             print(" Cancelled")
             return
 
-    task_count = 0
+    session_count = 0
+    total_commits = 0
     results = []
-    validation_attempts = 0
-    total_validation_failures = 0  # NEW
-    MAX_VALIDATION_ATTEMPTS = 5
-    MAX_TOTAL_FAILURES = 10  # NEW
+    stall_count = 0
+    MAX_STALLS = 4
 
-    # Load previous run metrics for comparison
-    runs_file = DATA_DIR / "runs.json"
-    previous_runs = []
-    if runs_file.exists():
-        try:
-            previous_runs = json.loads(runs_file.read_text())
-        except Exception:
-            previous_runs = []
-
-    # PHASE 1: TRANSLATION LOOP (existing behavior)
-    print("\n" + "=" * 70)
-    print("📝 PHASE 1: TRANSLATION")
-    print("=" * 70)
-
+    # SIMPLE LOOP
     while True:
-        task_count += 1
+        session_count += 1
+        initial_commits = get_commit_count(WORKSPACE_DIR)
 
-        # Determine next task
-        if task_count == 1:
-            task = """Create .agent/TODO.md with Python→TypeScript translation tasks.
-
-Use checkbox format with clear descriptions. Examples:
-- [ ] Translate source/ace/skillbook.py to TypeScript (convert dataclasses to interfaces)
-- [ ] Translate source/ace/roles.py to TypeScript (use Vercel AI SDK)
-- [ ] Create package.json with TypeScript dependencies
-
-List all Python files from source/ace/ that need translation.
-Group by module (Core, Integrations, LLM Providers, etc.)."""
-            print(f"\n Task {task_count} (bootstrap): Create TODO.md")
-        else:
-            task = parse_next_task_from_todo(WORKSPACE_DIR)
-            if not task:
-                print(f"\n✅ All translation tasks complete!")
-                break
-            print(f"\n Task {task_count}: {task[:60]}...")
+        print(f"\n{'=' * 60}")
+        print(f" SESSION {session_count}")
+        print(f"   Skillbook: {len(list(agent.skillbook.skills()))} strategies")
+        print("=" * 60)
 
         # Interactive confirmation
-        if not AUTO_MODE and task_count > 1:
-            response = input(" Process this task? (y/n/q): ").strip().lower()
-            if response == "q":
+        if not AUTO_MODE and session_count > 1:
+            response = input("\n Continue? (y/n): ").strip().lower()
+            if response != "y":
                 break
-            elif response != "y":
-                continue
 
-        # Execute task
-        print(f"\n{'=' * 70}")
-        print(f" EXECUTING TASK {task_count}")
-        print("=" * 70 + "\n")
-
-        # Build rich prompt with workspace context (for non-bootstrap tasks)
-        if task_count > 1:
-            task_prompt = build_task_prompt(task, context)
-        else:
-            task_prompt = task  # Bootstrap task doesn't need wrapper
-
-        result = agent.run(task=task_prompt, context="")
+        # Run Claude - let it work until done
+        prompt = build_prompt()
+        result = agent.run(task=prompt, context="")
         results.append(result)
 
-        # Summary
-        status = "SUCCESS" if result.success else "FAILED"
-        print(f"\n Task {task_count}: {status}")
-        print(f" Skillbook: {len(list(agent.skillbook.skills()))} strategies")
+        # Check progress
+        final_commits = get_commit_count(WORKSPACE_DIR)
+        commits_made = final_commits - initial_commits
+        total_commits += commits_made
 
-        # Save after each task
+        print(f"\n   Commits: {commits_made} | Total: {total_commits}")
+        print(f"   Skillbook: {len(list(agent.skillbook.skills()))} strategies")
+
+        # Save skillbook
         agent.save_skillbook(str(SKILLBOOK_PATH))
 
-        if not AUTO_MODE:
-            input("\nPress Enter to continue...")
-
-    # PHASE 2 & 3: VALIDATION + FIX LOOP
-    print("\n" + "=" * 70)
-    print("🧪 PHASE 2 & 3: VALIDATION + FIX LOOP")
-    print("=" * 70 + "\n")
-
-    # Check if target/package.json exists (TypeScript project setup)
-    if not (WORKSPACE_DIR / "target" / "package.json").exists():
-        print("⚠️  No TypeScript project found in target/ - skipping validation")
-        print("   (Validation requires target/package.json with npm scripts)")
-    else:
-        while validation_attempts < MAX_VALIDATION_ATTEMPTS:
-            validation_attempts += 1
-            print(
-                f"\n🔍 Validation Attempt {validation_attempts}/{MAX_VALIDATION_ATTEMPTS}"
-            )
-
-            # Run all validation checks
-            success, validation_output = run_full_validation(WORKSPACE_DIR)
-
-            if success:
-                # SUCCESS!
-                print("\n" + validation_output)
-                print("\n" + "=" * 70)
-                print("🎉 TRANSLATION SUCCESSFUL!")
-                print("=" * 70)
+        # Stall detection
+        if commits_made == 0:
+            stall_count += 1
+            print(f"   Warning: No commits ({stall_count}/{MAX_STALLS})")
+            if stall_count >= MAX_STALLS:
+                print("\n STALLED - no progress. Stopping.")
                 break
-            else:
-                # FAILED - Feed errors back to Claude Code
-                total_validation_failures += 1
-                print("\n" + validation_output)
-                print(
-                    f"\n❌ Validation failed (total failures: {total_validation_failures}/{MAX_TOTAL_FAILURES})"
-                )
-
-                # Check if environment is complaining too much
-                if total_validation_failures >= MAX_TOTAL_FAILURES:
-                    print("\n" + "=" * 70)
-                    print("🛑 CANCELLING - ENVIRONMENT COMPLAINED TOO MUCH")
-                    print("=" * 70)
-                    print(
-                        f"\n{total_validation_failures} validation failures detected."
-                    )
-                    print(
-                        "This suggests fundamental issues with the translation approach."
-                    )
-                    print(
-                        "\nSkillbook has learned from failures - next run will be better."
-                    )
-                    break
-
-                if validation_attempts >= MAX_VALIDATION_ATTEMPTS:
-                    print(
-                        f"\n❌ Maximum validation attempts ({MAX_VALIDATION_ATTEMPTS}) reached"
-                    )
-                    break
-
-                # Create fix prompt
-                fix_prompt = f"""VALIDATION FAILED - FIX REQUIRED
-
-The TypeScript translation has validation errors. Please analyze and fix them.
-
-{validation_output}
-
-INSTRUCTIONS:
-1. Read the error messages carefully
-2. Identify which files need fixes
-3. Make the necessary corrections
-4. Test your changes (run the failing command to verify fix)
-5. Commit your fixes with: git add . && git commit -m "Fix validation errors"
-6. Respond with a summary of what you fixed
-
-Focus only on fixing the specific errors shown above.
-Do NOT move on to other tasks or improvements.
-"""
-
-                # Feed back to Claude Code
-                print(f"\n🔧 Feeding errors back to Claude Code for fixes...")
-                if not AUTO_MODE:
-                    response = (
-                        input("   Continue with fix attempt? (y/n): ").strip().lower()
-                    )
-                    if response != "y":
-                        print("   Skipping fix loop")
-                        break
-
-                fix_result = agent.run(task=fix_prompt, context="")
-                results.append(fix_result)
-                agent.save_skillbook(str(SKILLBOOK_PATH))
-
-                # Loop back to validation
+        elif not are_recent_commits_code_changes(WORKSPACE_DIR, n=commits_made):
+            stall_count += 1
+            print(f"   Warning: Doc-only commits ({stall_count}/{MAX_STALLS})")
+            if stall_count >= MAX_STALLS:
+                print("\n STALLED - doc-only changes. Stopping.")
+                break
+        else:
+            stall_count = 0  # Reset on real progress
 
     # Final summary
-    print("\n" + "=" * 70)
-    print(" COMPLETE")
-    print("=" * 70)
+    print("\n" + "=" * 60)
+    print(" DONE")
+    print("=" * 60)
+    print(f"\nSessions: {len(results)}")
+    print(f"Commits: {total_commits}")
+    print(f"Skillbook: {len(list(agent.skillbook.skills()))} strategies")
 
-    successful = sum(1 for r in results if r.success)
-    print(f"\nTranslation tasks: {successful}/{len(results)} successful")
-    print(f"Validation attempts: {validation_attempts}")
-    print(f"Total validation failures: {total_validation_failures}")
+    skills = list(agent.skillbook.skills())
+    if skills:
+        print(f"\n Top Strategies:")
+        sorted_skills = sorted(
+            skills, key=lambda s: s.helpful - s.harmful, reverse=True
+        )
+        for i, skill in enumerate(sorted_skills[:5], 1):
+            print(f"  {i}. {skill.content[:65]}...")
 
-    # Show skillbook learning summary
-    print_skillbook_summary(agent.skillbook)
-
-    # Save run metrics
-    try:
-        current_branch = subprocess.run(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            cwd=WORKSPACE_DIR,
-            capture_output=True,
-            text=True,
-        ).stdout.strip()
-    except Exception:
-        current_branch = "unknown"
-
-    run_metadata = {
-        "run_id": current_branch,
-        "timestamp": datetime.now().isoformat(),
-        "task_count": len(results),
-        "validation_attempts": validation_attempts,
-        "total_failures": total_validation_failures,
-        "strategies_count": len(list(agent.skillbook.skills())),
-        "success": validation_attempts > 0
-        and total_validation_failures < MAX_TOTAL_FAILURES,
-    }
-
-    # Save to runs.json
-    if runs_file.exists():
-        runs = json.loads(runs_file.read_text())
-    else:
-        runs = []
-    runs.append(run_metadata)
-    runs_file.write_text(json.dumps(runs, indent=2))
-
-    # Show improvement if run 2+
-    if len(runs) > 1:
-        print_improvement_analysis(run_metadata, runs[:-1])
-
-    print(f"Skillbook saved to: {SKILLBOOK_PATH}")
-    print(f"Run metrics saved to: {runs_file}")
+    print(f"\n Saved: {SKILLBOOK_PATH}")
 
 
 if __name__ == "__main__":
