@@ -49,7 +49,7 @@ uv pip install ace-framework
 
 ```bash
 # Add your ANTHROPIC_API_KEY to .env.ace
-./reset_workspace.sh  # Initialize workspace
+./setup.sh  # Initialize workspace
 ```
 
 `reset_workspace.sh` copies `workspace_template/` to `workspace/` and initializes it as a git repo. Claude Code runs inside `workspace/` and is constrained to that directory. If you want to work on an existing codebase, put it in `workspace_template/` first.
@@ -73,7 +73,7 @@ You can stop anytime with `Ctrl+C` and resume later with `uv run python ace_loop
 Run this when starting a new task or trying a different prompt (workspace and skillbook get archived to logs).
 
 ```bash
-./reset_workspace.sh
+./setup.sh
 ```
 
 ---
@@ -137,7 +137,7 @@ Each iteration builds on previous work. Skills compound over time.
 | `workspace_template/` | Your codebase + .env (copied on reset)    |
 | `workspace/`          | Where Claude Code works                   |
 | `.data/skillbooks/`   | Learned strategies (archived on reset)    |
-| `reset_workspace.sh`  | Initialize/reset workspace                |
+| `setup.sh`            | Initialize/reset workspace                |
 
 ---
 
