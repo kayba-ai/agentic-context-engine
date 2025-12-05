@@ -214,6 +214,22 @@ uv run python examples/litellm/seahorse_emoji_ace.py
 
 **[→ Try it yourself & see all demos](examples/browser-use/README.md)**
 
+### 💻 Claude Code Loop
+
+Continuous autonomous coding: Claude Code runs a task, ACE learns from execution, skills get injected into the next iteration.
+
+**Python → TypeScript Translation:**
+
+| Metric           | Result                               |
+| ---------------- | ------------------------------------ |
+| ⏱️ Duration      | ~4 hours                             |
+| 📝 Commits       | 119                                  |
+| 📏 Lines written | ~14k                                 |
+| ✅ Outcome       | Zero build errors, all tests passing |
+| 💰 API cost      | ~$1.5 (Sonnet for learning)          |
+
+**[→ Try it yourself](examples/claude-code-loop/)**
+
 ---
 
 ## How does Agentic Context Engine (ACE) work?
