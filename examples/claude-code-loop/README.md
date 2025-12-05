@@ -25,14 +25,13 @@ Used this to translate the ACE Python repo to TypeScript:
 ### 1. Install
 
 ```bash
-pip install ace-framework
+uv pip install ace-framework
 ```
 
 ### 2. Setup
 
 ```bash
-cp .env.example .env
-# Add your ANTHROPIC_API_KEY to .env
+# Add your ANTHROPIC_API_KEY to .env.ace
 ./reset_workspace.sh  # Initialize workspace
 ```
 
@@ -43,7 +42,7 @@ Edit `prompt.md` with your task (see [Prompt Tips](#-prompt-tips) for guidance).
 ### 4. Run
 
 ```bash
-python ace_loop.py
+uv run python ace_loop.py
 ```
 
 Walk away. The loop runs until stall detection kicks in (no new commits for 4 iterations).
@@ -77,6 +76,7 @@ Each iteration builds on previous work. Skills compound over time.
 
 | File                 | What it does                           |
 | -------------------- | -------------------------------------- |
+| `.env.ace`           | Your API key (edit this)               |
 | `prompt.md`          | Your task (edit this)                  |
 | `ace_loop.py`        | Main loop script                       |
 | `workspace/`         | Where Claude Code works                |
@@ -87,12 +87,13 @@ Each iteration builds on previous work. Skills compound over time.
 
 ## ⚙️ Environment Variables
 
-Set in `.env` file:
+Set in `.env.ace` file:
 
-| Variable    | Description                                                               |
-| ----------- | ------------------------------------------------------------------------- |
-| `AUTO_MODE` | `true` (default) runs fully automatic, `false` prompts between iterations |
-| `ACE_MODEL` | Model for learning (default: claude-sonnet-4-5)                           |
+| Variable          | Description                                                               |
+| ----------------- | ------------------------------------------------------------------------- |
+| `ANTHROPIC_API_KEY` | Required: API key for ACE learning model                                |
+| `AUTO_MODE`       | `true` (default) runs fully automatic, `false` prompts between iterations |
+| `ACE_MODEL`       | Model for learning (default: claude-sonnet-4-5-20250929)                  |
 
 ---
 

@@ -21,10 +21,11 @@ from dotenv import load_dotenv
 
 from ace.integrations import ACEClaudeCode
 
-load_dotenv()
+# Load ACE loop config from .env.ace (not workspace .env)
+load_dotenv(Path(__file__).parent / ".env.ace")
 
 # Configuration
-AUTO_MODE = os.getenv("AUTO_MODE", "false").lower() == "true"
+AUTO_MODE = os.getenv("AUTO_MODE", "true").lower() == "true"
 ACE_MODEL = os.getenv("ACE_MODEL", "claude-sonnet-4-5-20250929")
 DEMO_DIR = Path(__file__).parent
 WORKSPACE_DIR = DEMO_DIR / "workspace"
