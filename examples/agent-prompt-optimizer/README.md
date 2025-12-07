@@ -77,6 +77,12 @@ await agent.run(task="Navigate complex website")  # Improves with each interacti
 - Data extraction agents learning document structures
 - Browser automation agents optimizing navigation strategies
 
+### See Also: Claude Code Loop
+
+Run Claude Code in a continuous self-learning loop. We used it to translate our entire Python repo to TypeScript - 4 hours, 119 commits, 14k lines, zero errors.
+
+→ [examples/claude-code-loop](../claude-code-loop/)
+
 ### Metrics & Monitoring
 - Track skill evolution over time
 - Measure performance improvements

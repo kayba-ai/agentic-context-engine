@@ -8,6 +8,7 @@ Available Integrations:
     - LiteLLM: ACELiteLLM - Quick-start agent for simple tasks
     - browser-use: ACEAgent - Self-improving browser automation
     - LangChain: ACELangChain - Complex workflows with learning
+    - Claude Code: ACEClaudeCode - Claude Code CLI with learning
 
 Pattern:
     All integrations follow the same pattern:
@@ -33,6 +34,12 @@ Example:
     chain = ChatOpenAI(temperature=0)
     ace_chain = ACELangChain(runnable=chain)
     result = ace_chain.invoke("What is ACE?")
+
+    # Claude Code
+    from ace.integrations import ACEClaudeCode
+    agent = ACEClaudeCode(working_dir="./my_project")
+    result = agent.run(task="Add unit tests")
+    agent.save_skillbook("learned.json")
 """
 
 from .base import wrap_skillbook_context
@@ -57,11 +64,20 @@ except ImportError:
     ACELangChain = None  # type: ignore
     LANGCHAIN_AVAILABLE = False
 
+# Import Claude Code integration if available
+try:
+    from .claude_code import ACEClaudeCode, CLAUDE_CODE_AVAILABLE
+except ImportError:
+    ACEClaudeCode = None  # type: ignore
+    CLAUDE_CODE_AVAILABLE = False
+
 __all__ = [
     "wrap_skillbook_context",
     "ACELiteLLM",
     "ACEAgent",
     "ACELangChain",
+    "ACEClaudeCode",
     "BROWSER_USE_AVAILABLE",
     "LANGCHAIN_AVAILABLE",
+    "CLAUDE_CODE_AVAILABLE",
 ]

@@ -130,8 +130,10 @@ python examples/prompts/compare_v1_v2_prompts.py
 python examples/prompts/advanced_prompts_v2.py
 
 # Browser automation demos (contributors: install with `uv sync --group demos`)
-uv run python examples/browser-use/domain-checker/ace_domain_checker.py
-uv run python examples/browser-use/form-filler/ace_form_filler.py
+uv run python examples/browser-use/domain-checker/baseline_domain_checker.py  # Baseline automation
+uv run python examples/browser-use/domain-checker/ace_domain_checker.py       # ACE-enhanced automation
+uv run python examples/browser-use/form-filler/baseline_form_filler.py        # Baseline form filling
+uv run python examples/browser-use/form-filler/ace_form_filler.py             # ACE-enhanced form filling
 ```
 
 ### Development Scripts (Research Only)
@@ -189,6 +191,7 @@ The ACE framework operates at three insight levels based on what scope the Refle
 - `adaptation.py`: OfflineACE and OnlineACE orchestration loops
 - `llm.py`: LLMClient interface with DummyLLMClient and TransformersLLMClient
 - `prompts.py`: Default prompt templates (v1.0 - simple, for tutorials)
+- `prompts_v2.py`: Intermediate prompts (v2.0 - improved structure)
 - `prompts_v2_1.py`: State-of-the-art prompts with MCP enhancements (v2.1 - **RECOMMENDED**)
 - `features.py`: Centralized optional dependency detection
 - `llm_providers/`: Production LLM client implementations
@@ -197,6 +200,7 @@ The ACE framework operates at three insight levels based on what scope the Refle
 - `integrations/`: Wrappers for external agentic frameworks (**key pattern**)
   - `base.py`: Base integration pattern and utilities
   - `browser_use.py`: ACEAgent - browser automation with learning
+  - `claude_code.py`: ACEClaudeCode - Claude Code CLI with learning
   - `langchain.py`: ACELangChain - wrap LangChain chains/agents
   - `litellm.py`: ACELiteLLM - simple conversational agent
 - `deduplication/`: Skill deduplication (similarity detection, consolidation)
@@ -217,10 +221,14 @@ The ACE framework operates at three insight levels based on what scope the Refle
 
 **tests/** - Test suite using unittest framework
 
-**examples/** - Production-ready example scripts:
-- Basic usage examples with various LLM providers
-- Browser automation demos comparing baseline vs ACE-enhanced approaches
-- Advanced prompt engineering examples
+**examples/** - Production-ready example scripts organized by integration:
+- `browser-use/` - Browser automation demos (domain-checker, form-filler, online-shopping)
+- `langchain/` - LangChain chain and agent examples
+- `claude-code-integration/` & `claude-code-loop/` - Claude Code integration patterns
+- `helicone/` - Helicone observability integration
+- `LMstudio/` & `ollama/` - Local model examples
+- `litellm/` - LiteLLM provider examples
+- `prompts/` - Prompt version comparison examples
 
 **scripts/** - Research and development scripts (not in PyPI package)
 
@@ -257,7 +265,7 @@ The ACE framework operates at three insight levels based on what scope the Refle
    - Real-time monitoring of Agent, Reflector, and SkillManager interactions
    - View traces at https://www.comet.com/opik or local Opik instance
 
-### New Features & Advanced Usage
+### Key Features
 
 #### Checkpoint Saving During Training
 OfflineACE now supports automatic checkpoint saving:

@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 """
-🌊 The Kayba Test - Self-Learning Demo 🌊
-=========================================
+The Kayba Test - Self-Learning Demo
 
 Demonstrates ACE's ability to self-reflect and learn strategies
 without external feedback. Tests the famous "seahorse emoji problem"
 that confuses most LLMs.
 
-Named after Kayba AI (海馬 kaiba = seahorse in Japanese).
+The simple pattern:
+1. ASK the question -> LLM likely gets it wrong
+2. LEARN from the response (self-reflection)
+3. ASK again -> should show improvement
+
+Named after Kayba AI (kaiba = seahorse in Japanese).
 """
 
 import os
@@ -37,23 +41,18 @@ console = Console()
 def main():
     # Display header
     console.print("\n" + "=" * 60)
-    console.print(
-        "[bold cyan]🌊 The Kayba Test - ACE Self-Learning Demo 🌊[/bold cyan]"
-    )
-    console.print("[dim]Using Claude Sonnet 4.5[/dim]")
+    console.print("[bold cyan]The Kayba Test - ACE Self-Learning Demo[/bold cyan]")
+    console.print("[dim]Simple 'ask twice' pattern[/dim]")
     console.print("=" * 60 + "\n")
 
     # Configure Opik observability
     integration = configure_opik(
         project_name="kayba-test", tags=["demo", "seahorse", "self-learning"]
     )
-    status = "✓ Enabled" if integration.is_available() else "✗ Disabled"
-    console.print(f"[cyan]Opik Observability: {status}[/cyan]")
-    if integration.is_available():
-        console.print("[dim]View traces at: https://www.comet.com/[/dim]")
-    console.print()
+    status = "Enabled" if integration.is_available() else "Disabled"
+    console.print(f"[cyan]Opik Observability: {status}[/cyan]\n")
 
-    # Setup - Claude Sonnet 4.5 via ACELiteLLM
+    # Setup agent
     agent = ACELiteLLM(
         model="claude-sonnet-4-5-20250929",
         temperature=0.7,
@@ -62,21 +61,7 @@ def main():
     )
 
     question = "Give me the seahorse emoji?"
-
-    # First ask - provide initial learning material
-    console.print("[yellow]━━━ Round 1: Teaching ACE About Emojis ━━━[/yellow]")
-    console.print(
-        "[dim]First, let's teach ACE with a sample that will provide context...[/dim]\n"
-    )
-
-    # Create a learning sample about emojis (with some ground truth to establish knowledge)
-    learning_sample = Sample(
-        question="What emoji represents a horse?", ground_truth="🐴 (horse emoji)"
-    )
-
     environment = SimpleEnvironment()
-    console.print("Teaching ACE about emoji questions...")
-    agent.learn(samples=[learning_sample], environment=environment, epochs=1)
 
     if len(agent.skillbook.skills()) > 0:
         console.print(
@@ -92,17 +77,14 @@ def main():
         f"[dim]Skillbook: {len(agent.skillbook.skills())} learned strategies[/dim]\n"
     )
     answer1 = agent.ask(question=question, context="")
-    console.print(f"[bold]Final Answer:[/bold] {answer1}")
-    console.print(
-        f"[dim]Note: ACE applies learned emoji strategies to new question[/dim]"
-    )
+    console.print(f"[bold]Answer:[/bold] {answer1}")
 
-    # Learn from this interaction too
-    console.print("\n[cyan]━━━ Self-Learning Phase ━━━[/cyan]")
-    console.print("[dim]ACE learns from its seahorse emoji response...[/dim]")
+    # Learn from this interaction (self-learning, no ground truth)
+    console.print("\n[cyan]--- Learning Phase ---[/cyan]")
+    console.print("[dim]ACE reflects on its response...[/dim]")
 
-    seahorse_sample = Sample(question=question, ground_truth=None)  # Self-learning
-    agent.learn(samples=[seahorse_sample], environment=environment, epochs=1)
+    sample = Sample(question=question, ground_truth=None)
+    agent.learn(samples=[sample], environment=environment, epochs=1)
 
     console.print(
         f"[green]Skillbook now contains {len(agent.skillbook.skills())} total learned insights[/green]"
@@ -115,30 +97,22 @@ def main():
         f"[dim]Skillbook: {len(agent.skillbook.skills())} learned strategies[/dim]\n"
     )
     answer2 = agent.ask(question=question, context="")
-    console.print(f"[bold]Final Answer:[/bold] {answer2}")
-    console.print(f"[dim]Note: ACE continuously refines its approach[/dim]")
+    console.print(f"[bold]Answer:[/bold] {answer2}")
 
-    # Just show the two answers for comparison
-    import time
-
-    time.sleep(2)  # Pause before showing results
+    # Results comparison
     console.print("\n" + "=" * 60)
-    console.print("[bold cyan]📊 Results Comparison[/bold cyan]")
+    console.print("[bold cyan]Results Comparison[/bold cyan]")
     console.print("=" * 60)
 
-    console.print("\n[yellow]Round 2 Answer (initial with emoji knowledge):[/yellow]")
+    console.print("\n[yellow]Round 1 (before learning):[/yellow]")
     console.print(Panel(answer1, style="yellow"))
 
-    console.print("[green]Round 3 Answer (enhanced with seahorse learning):[/green]")
+    console.print("[green]Round 2 (after learning):[/green]")
     console.print(Panel(answer2, style="green"))
 
-    console.print("\n[bold red]⚠️  Fact Check:[/bold red]")
-    console.print(
-        "[dim]There is NO seahorse emoji in Unicode (despite what models often claim).[/dim]"
-    )
-    console.print(
-        "[dim]This demo shows how ACE learns strategies through self-reflection.[/dim]\n"
-    )
+    console.print("\n[bold red]Fact Check:[/bold red]")
+    console.print("[dim]There is NO seahorse emoji in Unicode.[/dim]")
+    console.print("[dim]This demo shows ACE learning through self-reflection.[/dim]\n")
 
 
 if __name__ == "__main__":
