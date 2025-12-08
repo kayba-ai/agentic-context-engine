@@ -125,6 +125,34 @@ result = ace_chain.invoke({"question": "Your task"})  # Learns automatically
 
 **[→ Integration Guide](docs/INTEGRATION_GUIDE.md)** | **[→ Examples](examples/)**
 
+### **Claude Code Integration** - Learn While You Code 💻
+
+ACE integrates directly with [Claude Code](https://claude.ai/code) to learn from your coding sessions:
+
+```bash
+# One-time setup
+pip install ace-framework
+ace-learn setup
+```
+
+Then add your Anthropic API key to `~/.ace/.env` and start coding! ACE learns automatically from each session.
+
+**Slash Commands:**
+- `/ace-on` / `/ace-off` - Enable/disable learning
+- `/ace-insights` - View learned strategies
+- `/ace-remove` - Remove a specific insight
+- `/ace-clear` - Reset all insights
+
+**CLI Commands:**
+```bash
+ace-learn setup       # Configure Claude Code hook
+ace-learn insights    # Show learned strategies
+ace-learn remove <id> # Remove insight by ID
+ace-learn clear       # Reset playbook
+```
+
+**How it works:** ACE uses a Stop hook to analyze your sessions after each Claude response, extracting patterns about what works and what doesn't.
+
 ---
 
 ## Why Agentic Context Engine (ACE)?
