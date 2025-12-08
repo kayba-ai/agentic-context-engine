@@ -445,7 +445,9 @@ class ACEHookLearner:
         learner.learn_from_hook()  # Reads stdin, processes, updates skill
     """
 
-    DEFAULT_PLAYBOOK_PATH = Path.home() / ".ace" / "claude_code_playbook.json"
+    # Store playbook in same directory as SKILL.md for portability
+    DEFAULT_SKILL_DIR = SkillGenerator.DEFAULT_SKILL_DIR
+    DEFAULT_PLAYBOOK_PATH = DEFAULT_SKILL_DIR / "playbook.json"
 
     def __init__(
         self,
@@ -463,8 +465,13 @@ class ACEHookLearner:
             ace_model: Model for ACE Reflector/Curator
             ace_llm: Custom LLM client (overrides ace_model)
         """
-        self.playbook_path = playbook_path or self.DEFAULT_PLAYBOOK_PATH
-        self.skill_generator = SkillGenerator(skill_dir)
+        # Use skill_dir for both skill and playbook if provided
+        if skill_dir:
+            self.skill_generator = SkillGenerator(skill_dir)
+            self.playbook_path = playbook_path or (skill_dir / "playbook.json")
+        else:
+            self.skill_generator = SkillGenerator()
+            self.playbook_path = playbook_path or self.DEFAULT_PLAYBOOK_PATH
         self.transcript_parser = TranscriptParser()
 
         # Load or create playbook
@@ -665,11 +672,16 @@ def setup_hook():
             "# ACE Framework Configuration\n# Add your LLM API key here\nOPENAI_API_KEY=your-key-here\n"
         )
 
+    skill_dir = ACEHookLearner.DEFAULT_SKILL_DIR
     print("✓ Claude Code hook configured!")
     print()
     print("Next steps:")
     print(f"  1. Add your API key to: {env_path}")
     print("  2. Start using Claude Code - it will learn from your sessions!")
+    print()
+    print("Data locations:")
+    print(f"  Skill file:  {skill_dir / 'SKILL.md'}")
+    print(f"  Playbook:    {skill_dir / 'playbook.json'}")
     print()
     print(f"Settings saved to: {settings_path}")
 
