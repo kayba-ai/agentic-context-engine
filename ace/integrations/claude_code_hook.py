@@ -453,7 +453,7 @@ class ACEHookLearner:
         self,
         playbook_path: Optional[Path] = None,
         skill_dir: Optional[Path] = None,
-        ace_model: str = "anthropic/claude-3-5-sonnet-latest",
+        ace_model: str = "anthropic/claude-sonnet-4-5-20250929",
         ace_llm: Optional[LiteLLMClient] = None,
     ):
         """
@@ -669,7 +669,7 @@ def setup_hook():
     if not env_path.exists():
         env_path.parent.mkdir(parents=True, exist_ok=True)
         env_path.write_text(
-            "# ACE Framework Configuration\n# Add your LLM API key here\nOPENAI_API_KEY=your-key-here\n"
+            "# ACE Framework Configuration\n# Add your Anthropic API key here\nANTHROPIC_API_KEY=your-key-here\n"
         )
 
     skill_dir = ACEHookLearner.DEFAULT_SKILL_DIR
@@ -742,6 +742,118 @@ def disable_hook():
     print("ACE learning disabled")
 
 
+def show_insights():
+    """Show current ACE learned strategies."""
+    playbook_path = ACEHookLearner.DEFAULT_PLAYBOOK_PATH
+
+    if not playbook_path.exists():
+        print("No insights yet. ACE will learn from your Claude Code sessions.")
+        return
+
+    try:
+        from ..playbook import Playbook
+
+        playbook = Playbook.load_from_file(str(playbook_path))
+        bullets = playbook.bullets()
+
+        if not bullets:
+            print("No insights yet. ACE will learn from your Claude Code sessions.")
+            return
+
+        print(f"ACE Learned Strategies ({len(bullets)} total):\n")
+
+        # Group by section
+        sections: dict = {}
+        for bullet in bullets:
+            section = bullet.section
+            if section not in sections:
+                sections[section] = []
+            sections[section].append(bullet)
+
+        for section, section_bullets in sorted(sections.items()):
+            print(f"## {section.replace('_', ' ').title()}")
+            for b in section_bullets:
+                score = f"({b.helpful}↑ {b.harmful}↓)"
+                print(f"  [{b.id}] {b.content} {score}")
+            print()
+
+    except Exception as e:
+        print(f"Error reading playbook: {e}")
+
+
+def remove_insight(insight_id: str):
+    """Remove a specific insight by ID."""
+    playbook_path = ACEHookLearner.DEFAULT_PLAYBOOK_PATH
+
+    if not playbook_path.exists():
+        print("No playbook found.")
+        return
+
+    try:
+        from ..playbook import Playbook
+
+        playbook = Playbook.load_from_file(str(playbook_path))
+
+        # Find bullet by ID or partial match
+        bullets = playbook.bullets()
+        target = None
+        for b in bullets:
+            if (
+                b.id == insight_id
+                or insight_id in b.id
+                or insight_id.lower() in b.content.lower()
+            ):
+                target = b
+                break
+
+        if not target:
+            print(f"No insight found matching '{insight_id}'")
+            print("Use 'ace-learn insights' to see available insights.")
+            return
+
+        # Remove the bullet
+        playbook.remove_bullet(target.id)
+        playbook.save_to_file(str(playbook_path))
+
+        # Regenerate skill file
+        skill_dir = ACEHookLearner.DEFAULT_SKILL_DIR
+        generator = SkillGenerator(skill_dir)
+        generator.save(playbook)
+
+        print(f"Removed: {target.content}")
+
+    except Exception as e:
+        print(f"Error removing insight: {e}")
+
+
+def clear_insights(confirm: bool = False):
+    """Clear all ACE learned strategies."""
+    if not confirm:
+        print("This will delete all learned strategies.")
+        print("Run with --confirm to proceed: ace-learn clear --confirm")
+        return
+
+    playbook_path = ACEHookLearner.DEFAULT_PLAYBOOK_PATH
+    skill_path = ACEHookLearner.DEFAULT_SKILL_DIR / "SKILL.md"
+
+    try:
+        from ..playbook import Playbook
+
+        # Create empty playbook
+        playbook = Playbook()
+        playbook.save_to_file(str(playbook_path))
+
+        # Regenerate empty skill file
+        skill_dir = ACEHookLearner.DEFAULT_SKILL_DIR
+        generator = SkillGenerator(skill_dir)
+        generator.save(playbook)
+
+        print("All insights cleared. ACE will start fresh.")
+
+    except Exception as e:
+        print(f"Error clearing insights: {e}")
+
+
 def _create_slash_commands():
     """Create slash commands for enabling/disabling ACE learning."""
     commands_dir = Path.home() / ".claude" / "commands"
@@ -770,6 +882,51 @@ ace-learn disable
 This stops ACE from learning from your sessions. Your existing playbook is preserved.
 """
     (commands_dir / "ace-off.md").write_text(ace_off_content)
+
+    # /ace-insights command
+    ace_insights_content = """Show ACE learned strategies.
+
+Run this command to see all learned insights:
+```bash
+ace-learn insights
+```
+
+Display the output to show the user their current playbook of strategies.
+"""
+    (commands_dir / "ace-insights.md").write_text(ace_insights_content)
+
+    # /ace-remove command
+    ace_remove_content = """Remove an ACE learned strategy.
+
+First, show current insights:
+```bash
+ace-learn insights
+```
+
+Then ask the user which insight to remove (by ID or keyword).
+
+Remove it with:
+```bash
+ace-learn remove "<id-or-keyword>"
+```
+
+Confirm the removal to the user.
+"""
+    (commands_dir / "ace-remove.md").write_text(ace_remove_content)
+
+    # /ace-clear command
+    ace_clear_content = """Clear all ACE learned strategies.
+
+IMPORTANT: Ask the user to confirm they want to delete all insights before proceeding.
+
+If confirmed, run:
+```bash
+ace-learn clear --confirm
+```
+
+This will reset the playbook and start fresh.
+"""
+    (commands_dir / "ace-clear.md").write_text(ace_clear_content)
 
 
 def run_learning(args):
@@ -837,6 +994,9 @@ Examples:
   ace-learn setup              Configure Claude Code hook (run once)
   ace-learn enable             Enable ACE learning
   ace-learn disable            Disable ACE learning
+  ace-learn insights           Show learned strategies
+  ace-learn remove <id>        Remove a specific insight
+  ace-learn clear --confirm    Clear all insights
   ace-learn                    Learn from stdin (called by hook)
   ace-learn -t transcript.jsonl   Learn from specific transcript
 """,
@@ -850,6 +1010,15 @@ Examples:
     # Enable/disable commands
     subparsers.add_parser("enable", help="Enable ACE learning hook")
     subparsers.add_parser("disable", help="Disable ACE learning hook")
+
+    # Insight management commands
+    subparsers.add_parser("insights", help="Show learned strategies")
+    remove_parser = subparsers.add_parser("remove", help="Remove a specific insight")
+    remove_parser.add_argument("id", help="Insight ID or keyword to match")
+    clear_parser = subparsers.add_parser("clear", help="Clear all insights")
+    clear_parser.add_argument(
+        "--confirm", action="store_true", help="Confirm clearing all insights"
+    )
 
     # Learning options (work without subcommand for backwards compat)
     parser.add_argument(
@@ -871,7 +1040,7 @@ Examples:
         "--model",
         "-m",
         help="Model for ACE learning",
-        default="anthropic/claude-3-5-sonnet-latest",
+        default="anthropic/claude-sonnet-4-5-20250929",
     )
     parser.add_argument(
         "--verbose", "-v", action="store_true", help="Enable verbose logging"
@@ -890,6 +1059,12 @@ Examples:
         enable_hook()
     elif args.command == "disable":
         disable_hook()
+    elif args.command == "insights":
+        show_insights()
+    elif args.command == "remove":
+        remove_insight(args.id)
+    elif args.command == "clear":
+        clear_insights(confirm=args.confirm)
     else:
         # Default: run learning (backwards compat with hook calling ace-learn)
         run_learning(args)
