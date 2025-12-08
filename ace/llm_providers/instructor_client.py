@@ -179,6 +179,16 @@ class InstructorClient:
             if top_p_value is not None:
                 call_params["top_p"] = top_p_value
 
+            # Forward authentication and HTTP settings (Issue #44)
+            if config.api_key:
+                call_params["api_key"] = config.api_key
+            if config.api_base:
+                call_params["api_base"] = config.api_base
+            if config.extra_headers:
+                call_params["extra_headers"] = config.extra_headers
+            if config.ssl_verify is not None:
+                call_params["ssl_verify"] = config.ssl_verify
+
             # Apply Claude parameter resolution to avoid temperature + top_p conflict
             sampling_priority = getattr(config, "sampling_priority", "temperature")
             call_params = LiteLLMClient._resolve_sampling_params(

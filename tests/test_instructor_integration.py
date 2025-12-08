@@ -537,3 +537,162 @@ class TestInstructorClaudeParameterResolution(unittest.TestCase):
             self.assertIn(
                 "claude", call_args[0][1].lower()
             )  # model name should contain "claude"
+
+
+@pytest.mark.unit
+class TestInstructorClientCredentialForwarding(unittest.TestCase):
+    """
+    REGRESSION TESTS: Ensure InstructorClient forwards authentication parameters.
+
+    GitHub Issue #44: When users pass api_key and base_url to ACELiteLLM,
+    these credentials must be forwarded to the Instructor client.
+
+    Previously, InstructorClient.complete_structured() extracted model/temperature/max_tokens
+    from the wrapped LLM's config but NEVER extracted api_key, api_base, extra_headers,
+    or ssl_verify. This caused AuthenticationError for custom OpenAI-compatible endpoints.
+    """
+
+    @patch("ace.llm_providers.instructor_client.completion")
+    def test_instructor_forwards_api_key(self, mock_completion):
+        """Test that InstructorClient forwards api_key to LiteLLM calls."""
+        from ace.llm_providers.litellm_client import LiteLLMClient
+        from ace.llm_providers.instructor_client import InstructorClient
+
+        base_llm = LiteLLMClient(model="openai/custom-model", api_key="sk-test-key-123")
+        instructor_client = InstructorClient(base_llm)
+
+        captured_params = {}
+
+        def capture_create(**kwargs):
+            captured_params.update(kwargs)
+            return AgentOutput(
+                reasoning="Test", final_answer="42", skill_ids=[], raw={}
+            )
+
+        with patch.object(
+            instructor_client.client.chat.completions,
+            "create",
+            side_effect=capture_create,
+        ):
+            try:
+                instructor_client.complete_structured(
+                    prompt="Test", response_model=AgentOutput
+                )
+            except Exception:
+                pass
+
+        self.assertEqual(
+            captured_params.get("api_key"),
+            "sk-test-key-123",
+            "InstructorClient must forward api_key from wrapped LLM config",
+        )
+
+    @patch("ace.llm_providers.instructor_client.completion")
+    def test_instructor_forwards_api_base(self, mock_completion):
+        """Test that InstructorClient forwards api_base to LiteLLM calls."""
+        from ace.llm_providers.litellm_client import LiteLLMClient
+        from ace.llm_providers.instructor_client import InstructorClient
+
+        base_llm = LiteLLMClient(
+            model="openai/custom-model",
+            api_key="sk-test",
+            api_base="https://custom.endpoint.com/v1",
+        )
+        instructor_client = InstructorClient(base_llm)
+
+        captured_params = {}
+
+        def capture_create(**kwargs):
+            captured_params.update(kwargs)
+            return AgentOutput(
+                reasoning="Test", final_answer="42", skill_ids=[], raw={}
+            )
+
+        with patch.object(
+            instructor_client.client.chat.completions,
+            "create",
+            side_effect=capture_create,
+        ):
+            try:
+                instructor_client.complete_structured(
+                    prompt="Test", response_model=AgentOutput
+                )
+            except Exception:
+                pass
+
+        self.assertEqual(
+            captured_params.get("api_base"),
+            "https://custom.endpoint.com/v1",
+            "InstructorClient must forward api_base from wrapped LLM config",
+        )
+
+    @patch("ace.llm_providers.instructor_client.completion")
+    def test_instructor_forwards_extra_headers(self, mock_completion):
+        """Test that InstructorClient forwards extra_headers to LiteLLM calls."""
+        from ace.llm_providers.litellm_client import LiteLLMClient
+        from ace.llm_providers.instructor_client import InstructorClient
+
+        headers = {"X-Custom-Header": "custom-value"}
+        base_llm = LiteLLMClient(model="gpt-4", extra_headers=headers)
+        instructor_client = InstructorClient(base_llm)
+
+        captured_params = {}
+
+        def capture_create(**kwargs):
+            captured_params.update(kwargs)
+            return AgentOutput(
+                reasoning="Test", final_answer="42", skill_ids=[], raw={}
+            )
+
+        with patch.object(
+            instructor_client.client.chat.completions,
+            "create",
+            side_effect=capture_create,
+        ):
+            try:
+                instructor_client.complete_structured(
+                    prompt="Test", response_model=AgentOutput
+                )
+            except Exception:
+                pass
+
+        self.assertEqual(
+            captured_params.get("extra_headers"),
+            headers,
+            "InstructorClient must forward extra_headers from wrapped LLM config",
+        )
+
+    @patch("ace.llm_providers.instructor_client.completion")
+    def test_instructor_forwards_ssl_verify(self, mock_completion):
+        """Test that InstructorClient forwards ssl_verify to LiteLLM calls."""
+        from ace.llm_providers.litellm_client import LiteLLMClient
+        from ace.llm_providers.instructor_client import InstructorClient
+
+        base_llm = LiteLLMClient(model="gpt-4", ssl_verify=False)
+        instructor_client = InstructorClient(base_llm)
+
+        captured_params = {}
+
+        def capture_create(**kwargs):
+            captured_params.update(kwargs)
+            return AgentOutput(
+                reasoning="Test", final_answer="42", skill_ids=[], raw={}
+            )
+
+        with patch.object(
+            instructor_client.client.chat.completions,
+            "create",
+            side_effect=capture_create,
+        ):
+            try:
+                instructor_client.complete_structured(
+                    prompt="Test", response_model=AgentOutput
+                )
+            except Exception:
+                pass
+
+        self.assertEqual(
+            captured_params.get("ssl_verify"),
+            False,
+            "InstructorClient must forward ssl_verify from wrapped LLM config",
+        )
