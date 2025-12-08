@@ -453,7 +453,7 @@ class ACEHookLearner:
         self,
         playbook_path: Optional[Path] = None,
         skill_dir: Optional[Path] = None,
-        ace_model: str = "gpt-4o-mini",
+        ace_model: str = "anthropic/claude-3-5-sonnet-latest",
         ace_llm: Optional[LiteLLMClient] = None,
     ):
         """
@@ -776,7 +776,10 @@ Examples:
         default=str(SkillGenerator.DEFAULT_SKILL_DIR),
     )
     parser.add_argument(
-        "--model", "-m", help="Model for ACE learning", default="gpt-4o-mini"
+        "--model",
+        "-m",
+        help="Model for ACE learning",
+        default="anthropic/claude-3-5-sonnet-latest",
     )
     parser.add_argument(
         "--verbose", "-v", action="store_true", help="Enable verbose logging"
