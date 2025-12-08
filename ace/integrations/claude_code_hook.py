@@ -685,6 +685,92 @@ def setup_hook():
     print()
     print(f"Settings saved to: {settings_path}")
 
+    # Create slash commands for enable/disable
+    _create_slash_commands()
+
+
+def enable_hook():
+    """Enable ACE learning hook in Claude Code settings."""
+    settings_path = Path.home() / ".claude" / "settings.json"
+
+    # Load existing settings
+    if settings_path.exists():
+        try:
+            settings = json.loads(settings_path.read_text())
+        except json.JSONDecodeError:
+            settings = {}
+    else:
+        settings = {}
+
+    # Add hook config
+    if "hooks" not in settings:
+        settings["hooks"] = {}
+
+    settings["hooks"]["Stop"] = [
+        {"matcher": "*", "hooks": [{"type": "command", "command": "ace-learn"}]}
+    ]
+
+    # Write back
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    settings_path.write_text(json.dumps(settings, indent=2))
+
+    print("ACE learning enabled")
+
+
+def disable_hook():
+    """Disable ACE learning hook in Claude Code settings."""
+    settings_path = Path.home() / ".claude" / "settings.json"
+
+    if not settings_path.exists():
+        print("ACE learning was not configured")
+        return
+
+    try:
+        settings = json.loads(settings_path.read_text())
+    except json.JSONDecodeError:
+        print("ACE learning was not configured")
+        return
+
+    # Remove the Stop hook
+    if "hooks" in settings and "Stop" in settings["hooks"]:
+        del settings["hooks"]["Stop"]
+        # Clean up empty hooks dict
+        if not settings["hooks"]:
+            del settings["hooks"]
+
+    settings_path.write_text(json.dumps(settings, indent=2))
+    print("ACE learning disabled")
+
+
+def _create_slash_commands():
+    """Create slash commands for enabling/disabling ACE learning."""
+    commands_dir = Path.home() / ".claude" / "commands"
+    commands_dir.mkdir(parents=True, exist_ok=True)
+
+    # /ace-on command
+    ace_on_content = """Enable ACE learning for Claude Code sessions.
+
+Run this command to enable ACE learning:
+```bash
+ace-learn enable
+```
+
+After enabling, ACE will learn from your coding sessions and build a playbook of strategies.
+"""
+    (commands_dir / "ace-on.md").write_text(ace_on_content)
+
+    # /ace-off command
+    ace_off_content = """Disable ACE learning for Claude Code sessions.
+
+Run this command to disable ACE learning:
+```bash
+ace-learn disable
+```
+
+This stops ACE from learning from your sessions. Your existing playbook is preserved.
+"""
+    (commands_dir / "ace-off.md").write_text(ace_off_content)
+
 
 def run_learning(args):
     """Run the learning process (called from hook or manually)."""
@@ -749,6 +835,8 @@ def main():
         epilog="""
 Examples:
   ace-learn setup              Configure Claude Code hook (run once)
+  ace-learn enable             Enable ACE learning
+  ace-learn disable            Disable ACE learning
   ace-learn                    Learn from stdin (called by hook)
   ace-learn -t transcript.jsonl   Learn from specific transcript
 """,
@@ -758,6 +846,10 @@ Examples:
 
     # Setup command
     subparsers.add_parser("setup", help="Configure Claude Code to use ACE learning")
+
+    # Enable/disable commands
+    subparsers.add_parser("enable", help="Enable ACE learning hook")
+    subparsers.add_parser("disable", help="Disable ACE learning hook")
 
     # Learning options (work without subcommand for backwards compat)
     parser.add_argument(
@@ -794,6 +886,10 @@ Examples:
 
     if args.command == "setup":
         setup_hook()
+    elif args.command == "enable":
+        enable_hook()
+    elif args.command == "disable":
+        disable_hook()
     else:
         # Default: run learning (backwards compat with hook calling ace-learn)
         run_learning(args)
