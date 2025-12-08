@@ -56,9 +56,9 @@ print(answer)  # "ACE allows AI agents to remember and learn from experience!"
 
 ACE provides four ready-to-use integrations:
 
-### **ACELiteLLM** - Create Your Self-Improving Agent (Simplest Start) 🚀
+### **ACELiteLLM** - (Simplest Start) 🚀
 
-Perfect for Q&A, classification, reasoning:
+Create your self-improving agent:
 
 ```python
 from ace import ACELiteLLM
