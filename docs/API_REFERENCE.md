@@ -63,7 +63,7 @@ from ace import SkillManager
 
 skill_manager = SkillManager(client)
 
-skill_manager_output = skill_manager.curate(
+skill_manager_output = skill_manager.update_skills(
     reflection=reflection,
     skillbook=skillbook,
     question_context="Math problems",

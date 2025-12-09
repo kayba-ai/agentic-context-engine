@@ -127,7 +127,7 @@ reflection = reflector.reflect(
 )
 
 # Curate: Generate skillbook updates
-skill_manager_output = skill_manager.curate(
+skill_manager_output = skill_manager.update_skills(
     reflection=reflection,
     skillbook=skillbook,
     question_context=f"task: {task}",
@@ -227,7 +227,7 @@ class ACEWrapper:
         )
 
         # Curate
-        skill_manager_output = self.skill_manager.curate(
+        skill_manager_output = self.skill_manager.update_skills(
             reflection=reflection,
             skillbook=self.skillbook,
             question_context=f"task: {task}",
@@ -407,7 +407,7 @@ class ACEAPIAgent:
             feedback=feedback
         )
 
-        skill_manager_output = self.skill_manager.curate(
+        skill_manager_output = self.skill_manager.update_skills(
             reflection=reflection,
             skillbook=self.skillbook,
             question_context=f"API task: {task}",
@@ -518,7 +518,7 @@ class ACEWorkflowAgent:
             feedback=feedback
         )
 
-        skill_manager_output = self.skill_manager.curate(
+        skill_manager_output = self.skill_manager.update_skills(
             reflection=reflection,
             skillbook=self.skillbook,
             question_context=f"Multi-step workflow: {task}",
@@ -615,7 +615,7 @@ class ACEToolAgent:
             feedback=feedback
         )
 
-        skill_manager_output = self.skill_manager.curate(
+        skill_manager_output = self.skill_manager.update_skills(
             reflection=reflection,
             skillbook=self.skillbook,
             question_context=f"Tool-using task: {task}",
@@ -692,7 +692,7 @@ class ACEAsyncAgent:
             feedback=feedback
         )
 
-        skill_manager_output = self.skill_manager.curate(
+        skill_manager_output = self.skill_manager.update_skills(
             reflection=reflection,
             skillbook=self.skillbook,
             question_context=task,
@@ -787,7 +787,7 @@ class ACEChatAgent:
             feedback=feedback_text
         )
 
-        skill_manager_output = self.skill_manager.curate(
+        skill_manager_output = self.skill_manager.update_skills(
             reflection=reflection,
             skillbook=self.skillbook,
             question_context=f"Multi-turn conversation ({len(self.conversation_history)} turns)",
@@ -893,7 +893,7 @@ class ACEBatchAgent:
             feedback=feedback
         )
 
-        skill_manager_output = self.skill_manager.curate(
+        skill_manager_output = self.skill_manager.update_skills(
             reflection=reflection,
             skillbook=self.skillbook,
             question_context=f"Batch processing ({len(self.pending_results)} items)",
@@ -985,7 +985,7 @@ class ACEStreamingAgent:
             feedback=feedback
         )
 
-        skill_manager_output = self.skill_manager.curate(
+        skill_manager_output = self.skill_manager.update_skills(
             reflection=reflection,
             skillbook=self.skillbook,
             question_context=task,
@@ -1082,7 +1082,7 @@ class ACERobustAgent:
                 feedback=feedback
             )
 
-            skill_manager_output = self.skill_manager.curate(
+            skill_manager_output = self.skill_manager.update_skills(
                 reflection=reflection,
                 skillbook=self.skillbook,
                 question_context=f"Task ({'success' if success else 'failure'}): {task}",
@@ -1226,7 +1226,7 @@ def _learn(self, task: str, result):
         reflection = self.reflector.reflect(...)
 
         # Curation
-        curator_output = self.curator.curate(...)
+        skill_manager_output = self.skill_manager.update_skills(...)
 
         # Update
         self.skillbook.apply_update(skill_manager_output.update)

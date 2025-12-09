@@ -98,7 +98,7 @@ class ACEWrappedAgent:
         )
 
         # Curate: Generate skillbook updates
-        skill_manager_output = self.skill_manager.curate(
+        skill_manager_output = self.skill_manager.update_skills(
             reflection=reflection,
             skillbook=self.skillbook,
             question_context=f"task: {task}\nfeedback: {feedback}",

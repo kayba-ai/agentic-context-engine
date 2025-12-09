@@ -143,7 +143,7 @@ class TestReflectorSkillManager(unittest.TestCase):
     def test_curation(self):
         reflection = self.reflector.reflect(...)
 
-        skill_manager_output = self.skill_manager.curate(
+        skill_manager_output = self.skill_manager.update_skills(
             reflection=reflection,
             skillbook=self.skillbook,
             question_context="Math problem",
