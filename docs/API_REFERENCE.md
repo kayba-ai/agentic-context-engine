@@ -146,7 +146,7 @@ Train on a batch of samples.
 
 ```python
 from ace import OfflineACE
-from ace.types import Sample
+from ace import Sample
 
 adapter = OfflineACE(agent, reflector, skill_manager)
 
@@ -373,7 +373,7 @@ client = LangChainLiteLLMClient(
 ### Sample
 
 ```python
-from ace.types import Sample
+from ace import Sample
 
 sample = Sample(
     question="Your question here",

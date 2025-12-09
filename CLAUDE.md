@@ -343,7 +343,7 @@ for r in results:
 
 # Check learning progress anytime
 print(adapter.learning_stats)
-# {'tasks_submitted': 30, 'reflections_completed': 25, 'curations_completed': 20, ...}
+# {'tasks_submitted': 30, 'reflections_completed': 25, 'skill_updates_completed': 20, ...}
 
 # Wait when needed (e.g., before saving skillbook)
 adapter.wait_for_learning(timeout=60.0)

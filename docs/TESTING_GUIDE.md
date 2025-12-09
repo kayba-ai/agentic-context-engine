@@ -138,9 +138,9 @@ class TestReflectorSkillManager(unittest.TestCase):
             feedback="Correct answer"
         )
 
-        self.assertIsNotNone(reflection.analysis)
+        self.assertIsNotNone(reflection.reasoning)
 
-    def test_curation(self):
+    def test_update_skills(self):
         reflection = self.reflector.reflect(...)
 
         skill_manager_output = self.skill_manager.update_skills(

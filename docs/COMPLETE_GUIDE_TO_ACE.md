@@ -221,7 +221,7 @@ ACE may not be the right fit when:
 | Aspect | ACE | RAG |
 |--------|-----|-----|
 | Knowledge Source | Learned from execution | Static documents |
-| Update Mechanism | Autonomous curation | Manual updates |
+| Update Mechanism | Autonomous skill updates | Manual updates |
 | Content Type | Strategies, patterns | Facts, references |
 | Optimization | Self-improving | Requires query tuning |
 
