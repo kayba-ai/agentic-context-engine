@@ -126,7 +126,7 @@ reflection = reflector.reflect(
     feedback=feedback
 )
 
-# Curate: Generate skillbook updates
+# Update skills: Generate skillbook updates
 skill_manager_output = skill_manager.update_skills(
     reflection=reflection,
     skillbook=skillbook,
@@ -226,7 +226,7 @@ class ACEWrapper:
             feedback=feedback
         )
 
-        # Curate
+        # Update skills
         skill_manager_output = self.skill_manager.update_skills(
             reflection=reflection,
             skillbook=self.skillbook,
@@ -399,7 +399,7 @@ class ACEAPIAgent:
         # Feedback
         feedback = f"API call {'succeeded' if success else 'failed'}. Output: {output[:200]}"
 
-        # Reflect + Curate
+        # Reflect + Update skills
         reflection = self.reflector.reflect(
             question=task,
             agent_output=agent_output,
@@ -510,7 +510,7 @@ class ACEWorkflowAgent:
             }
         )
 
-        # Reflect + Curate
+        # Reflect + Update skills
         reflection = self.reflector.reflect(
             question=task,
             agent_output=agent_output,
@@ -607,7 +607,7 @@ class ACEToolAgent:
             raw={"tools_used": [t["name"] for t in tools_used]}
         )
 
-        # Reflect + Curate
+        # Reflect + Update skills
         reflection = self.reflector.reflect(
             question=task,
             agent_output=agent_output,
@@ -1074,7 +1074,7 @@ class ACERobustAgent:
                 raw={"success": success, "error": error}
             )
 
-            # Reflect + Curate
+            # Reflect + Update skills
             reflection = self.reflector.reflect(
                 question=task,
                 agent_output=agent_output,
@@ -1225,7 +1225,7 @@ def _learn(self, task: str, result):
         # Reflection
         reflection = self.reflector.reflect(...)
 
-        # Curation
+        # Update skills
         skill_manager_output = self.skill_manager.update_skills(...)
 
         # Update

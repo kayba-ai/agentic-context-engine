@@ -208,7 +208,7 @@ answer2 = agent.ask("What about Spain?")
 agent.skillbook.save_to_file("learned_strategies.json")
 
 # Load and continue learning
-agent2 = ACELiteLLM.from_skillbook("learned_strategies.json", model="gpt-4o-mini")
+agent2 = ACELiteLLM(model="gpt-4o-mini", skillbook_path="learned_strategies.json")
 ```
 
 **Parameters:**

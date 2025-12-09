@@ -224,9 +224,9 @@ The ACE framework operates at three insight levels based on what scope the Refle
 **examples/** - Production-ready example scripts organized by integration:
 - `browser-use/` - Browser automation demos (domain-checker, form-filler, online-shopping)
 - `langchain/` - LangChain chain and agent examples
-- `claude-code-integration/` & `claude-code-loop/` - Claude Code integration patterns
+- `claude-code-loop/` - Claude Code integration patterns
 - `helicone/` - Helicone observability integration
-- `LMstudio/` & `ollama/` - Local model examples
+- `local-models/` - LM Studio and Ollama examples
 - `litellm/` - LiteLLM provider examples
 - `prompts/` - Prompt version comparison examples
 

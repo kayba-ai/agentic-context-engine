@@ -147,7 +147,7 @@ Answer: 8
 from ace import ACELiteLLM
 
 # Load previously trained agent
-agent = ACELiteLLM.from_skillbook("my_agent.json", model="gpt-4o-mini")
+agent = ACELiteLLM(model="gpt-4o-mini", skillbook_path="my_agent.json")
 
 # Use it immediately
 answer = agent.ask("New question")

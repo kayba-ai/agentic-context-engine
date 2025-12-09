@@ -83,7 +83,7 @@ print(f"✅ Learned {len(agent.skillbook.skills())} reasoning skills")
 agent.save_skillbook("my_agent.json")
 
 # Load and continue
-agent2 = ACELiteLLM.from_skillbook("my_agent.json", model="gpt-4o-mini")
+agent2 = ACELiteLLM(model="gpt-4o-mini", skillbook_path="my_agent.json")
 ```
 
 </details>
