@@ -408,6 +408,48 @@ class TestLiteLLMClientDirectConfig(unittest.TestCase):
         call_kwargs = mock_completion.call_args[1]
         self.assertNotIn("ssl_verify", call_kwargs)
 
+    @patch("ace.llm_providers.litellm_client.completion")
+    def test_reasoning_effort_passed_through(self, mock_completion):
+        """Test reasoning_effort parameter is passed to LiteLLM (Issue #48)."""
+        mock_completion.return_value = self._mock_response()
+
+        from ace.llm_providers import LiteLLMClient
+
+        client = LiteLLMClient(model="gpt-5", reasoning_effort="low")
+        client.complete("Test prompt")
+
+        call_kwargs = mock_completion.call_args[1]
+        self.assertEqual(call_kwargs["reasoning_effort"], "low")
+
+    @patch("ace.llm_providers.litellm_client.completion")
+    def test_extra_params_multiple_values(self, mock_completion):
+        """Test multiple extra_params are passed to LiteLLM."""
+        mock_completion.return_value = self._mock_response()
+
+        from ace.llm_providers import LiteLLMClient
+
+        client = LiteLLMClient(
+            model="gpt-5",
+            reasoning_effort="high",
+            budget_tokens=10000,
+        )
+        client.complete("Test prompt")
+
+        call_kwargs = mock_completion.call_args[1]
+        self.assertEqual(call_kwargs["reasoning_effort"], "high")
+        self.assertEqual(call_kwargs["budget_tokens"], 10000)
+
+    @patch("ace.llm_providers.litellm_client.completion")
+    def test_extra_params_stored_in_config(self, mock_completion):
+        """Test extra_params are stored in config.extra_params."""
+        mock_completion.return_value = self._mock_response()
+
+        from ace.llm_providers import LiteLLMClient
+
+        client = LiteLLMClient(model="gpt-5", reasoning_effort="medium")
+
+        self.assertEqual(client.config.extra_params, {"reasoning_effort": "medium"})
+
 
 if __name__ == "__main__":
     unittest.main()
