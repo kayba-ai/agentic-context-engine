@@ -368,6 +368,495 @@ class XBRLMathEnvironment(BenchmarkEnvironment):
             )
 
 
+class SWEBenchEnvironment(BenchmarkEnvironment):
+    """
+    Environment for SWE-bench evaluation.
+
+    Executes generated patches in Docker containers and runs test suites.
+    """
+
+    def __init__(self, config: BenchmarkConfig):
+        super().__init__(config)
+        self._docker_available = self._check_docker()
+
+    def _check_docker(self) -> bool:
+        """Verify Docker is available."""
+        import subprocess
+
+        try:
+            result = subprocess.run(
+                ["docker", "info"],
+                capture_output=True,
+                timeout=10,
+            )
+            return result.returncode == 0
+        except Exception:
+            return False
+
+    def evaluate(self, sample: Sample, agent_output) -> EnvironmentResult:
+        """
+        Evaluate a generated patch by running it in a Docker container.
+        """
+        if not self._docker_available:
+            return EnvironmentResult(
+                feedback="Docker is not available. SWE-bench requires Docker for evaluation.",
+                ground_truth=sample.ground_truth,
+                metrics={"resolved": 0.0, "tests_passed": 0.0, "partial_fix": 0.0},
+            )
+
+        prediction = agent_output.final_answer or ""
+
+        # Extract patch from prediction
+        patch = self._extract_patch(prediction)
+
+        # Run evaluation in Docker
+        result = self._run_docker_evaluation(sample, patch)
+
+        metrics = {
+            "resolved": float(result["resolved"]),
+            "tests_passed": result["tests_passed_ratio"],
+            "partial_fix": float(result["partial_fix"]),
+        }
+
+        feedback = self._generate_feedback(result)
+
+        return EnvironmentResult(
+            feedback=feedback,
+            ground_truth=sample.ground_truth,
+            metrics=metrics,
+        )
+
+    def _extract_patch(self, prediction: str) -> str:
+        """Extract patch content from model output."""
+        # Try to find diff/patch block
+        patterns = [
+            r"```diff\n(.*?)```",
+            r"```patch\n(.*?)```",
+            r"```\n(diff.*?)```",
+        ]
+
+        for pattern in patterns:
+            match = re.search(pattern, prediction, re.DOTALL)
+            if match:
+                return match.group(1).strip()
+
+        # Return raw prediction if no block found
+        return prediction
+
+    def _run_docker_evaluation(self, sample: Sample, patch: str) -> Dict[str, Any]:
+        """
+        Run patch evaluation in Docker container.
+
+        Uses SWE-bench harness for proper test execution.
+        """
+        import subprocess
+        import tempfile
+
+        metadata = sample.metadata or {}
+
+        # Write patch to temp file
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".patch", delete=False) as f:
+            f.write(patch)
+            patch_file = f.name
+
+        try:
+            # Run SWE-bench evaluation harness
+            result = subprocess.run(
+                [
+                    "python",
+                    "-m",
+                    "swebench.harness.run_evaluation",
+                    "--predictions_path",
+                    patch_file,
+                    "--instance_id",
+                    metadata.get("instance_id", ""),
+                    "--run_id",
+                    "ace_eval",
+                ],
+                capture_output=True,
+                timeout=300,  # 5 minute timeout
+                text=True,
+            )
+
+            if result.returncode == 0:
+                # Parse evaluation results
+                try:
+                    output = json.loads(result.stdout)
+                    return {
+                        "resolved": output.get("resolved", False),
+                        "tests_passed_ratio": output.get("tests_passed", 0)
+                        / max(output.get("total_tests", 1), 1),
+                        "partial_fix": output.get("partial_fix", False),
+                        "error": None,
+                    }
+                except json.JSONDecodeError:
+                    return {
+                        "resolved": False,
+                        "tests_passed_ratio": 0.0,
+                        "partial_fix": False,
+                        "error": "Failed to parse evaluation output",
+                    }
+            else:
+                return {
+                    "resolved": False,
+                    "tests_passed_ratio": 0.0,
+                    "partial_fix": False,
+                    "error": result.stderr,
+                }
+        except subprocess.TimeoutExpired:
+            return {
+                "resolved": False,
+                "tests_passed_ratio": 0.0,
+                "partial_fix": False,
+                "error": "Evaluation timed out",
+            }
+        except Exception as e:
+            return {
+                "resolved": False,
+                "tests_passed_ratio": 0.0,
+                "partial_fix": False,
+                "error": str(e),
+            }
+        finally:
+            import os
+
+            os.unlink(patch_file)
+
+    def _generate_feedback(self, result: Dict[str, Any]) -> str:
+        """Generate feedback for the evaluation result."""
+        if result["resolved"]:
+            return "Excellent! The patch fully resolves the issue and all tests pass."
+        elif result["partial_fix"]:
+            passed = result["tests_passed_ratio"]
+            return f"Partial fix achieved. {passed:.0%} of tests pass. Review failing tests for remaining issues."
+        elif result["error"]:
+            return (
+                f"Evaluation error: {result['error']}. Check patch format and syntax."
+            )
+        else:
+            return "The patch does not resolve the issue. Analyze the problem statement and test requirements."
+
+
+class LettaEnvironment(BenchmarkEnvironment):
+    """
+    Environment for Letta benchmark evaluation.
+
+    Evaluates memory recall, response quality, and conversation coherence.
+    """
+
+    def evaluate(self, sample: Sample, agent_output) -> EnvironmentResult:
+        """Evaluate agent response against Letta benchmark criteria."""
+        prediction = agent_output.final_answer or ""
+        ground_truth = sample.ground_truth or ""
+        metadata = sample.metadata or {}
+
+        # Compute metrics
+        metrics = self._compute_letta_metrics(prediction, ground_truth, metadata)
+
+        feedback = self._generate_feedback(metrics, metadata)
+
+        return EnvironmentResult(
+            feedback=feedback,
+            ground_truth=ground_truth,
+            metrics=metrics,
+        )
+
+    def _compute_letta_metrics(
+        self,
+        prediction: str,
+        ground_truth: str,
+        metadata: Dict[str, Any],
+    ) -> Dict[str, float]:
+        """Compute Letta-specific evaluation metrics."""
+        # Memory recall - check if key information is present
+        relevant_memories = metadata.get("relevant_memories", [])
+        memory_hits = sum(
+            1 for mem in relevant_memories if mem.lower() in prediction.lower()
+        )
+        memory_recall = memory_hits / max(len(relevant_memories), 1)
+
+        # Response quality - semantic similarity to expected
+        response_quality = self._compute_similarity(prediction, ground_truth)
+
+        # Conversation coherence - heuristic based on structure
+        coherence = self._compute_coherence(prediction, metadata)
+
+        return {
+            "memory_recall": memory_recall,
+            "response_quality": response_quality,
+            "conversation_coherence": coherence,
+        }
+
+    def _compute_similarity(self, pred: str, gold: str) -> float:
+        """Compute semantic similarity between prediction and ground truth."""
+        # Simple word overlap for now
+        pred_words = set(pred.lower().split())
+        gold_words = set(gold.lower().split())
+
+        if not gold_words:
+            return 1.0 if not pred_words else 0.0
+
+        overlap = len(pred_words & gold_words)
+        return overlap / len(gold_words)
+
+    def _compute_coherence(self, prediction: str, metadata: Dict[str, Any]) -> float:
+        """Compute conversation coherence score."""
+        # Basic heuristics
+        score = 1.0
+
+        # Penalize very short responses
+        if len(prediction.split()) < 5:
+            score -= 0.3
+
+        # Penalize very long responses
+        if len(prediction.split()) > 500:
+            score -= 0.2
+
+        # Check for complete sentences
+        if not prediction.strip().endswith((".", "!", "?")):
+            score -= 0.1
+
+        return max(0.0, score)
+
+    def _generate_feedback(
+        self,
+        metrics: Dict[str, float],
+        metadata: Dict[str, Any],
+    ) -> str:
+        """Generate evaluation feedback."""
+        parts = []
+
+        memory_recall = metrics["memory_recall"]
+        if memory_recall >= 0.8:
+            parts.append(
+                "Excellent memory recall - retrieved relevant information effectively."
+            )
+        elif memory_recall >= 0.5:
+            parts.append(
+                f"Moderate memory recall ({memory_recall:.0%}). Some relevant memories were missed."
+            )
+        else:
+            parts.append(
+                f"Low memory recall ({memory_recall:.0%}). Important context was not incorporated."
+            )
+
+        response_quality = metrics["response_quality"]
+        if response_quality >= 0.7:
+            parts.append("Response quality is good.")
+        else:
+            parts.append(
+                f"Response quality needs improvement ({response_quality:.0%})."
+            )
+
+        coherence = metrics["conversation_coherence"]
+        if coherence < 0.8:
+            parts.append("Response coherence could be improved.")
+
+        return " ".join(parts)
+
+
+class MultipleChoiceEnvironment(BenchmarkEnvironment):
+    """
+    Environment for multiple-choice benchmarks (MMLU, HellaSwag, ARC, etc.).
+
+    Provides robust answer extraction and evaluation for multiple-choice questions.
+    """
+
+    def __init__(self, config: BenchmarkConfig):
+        super().__init__(config)
+        self.valid_answers = {"A", "B", "C", "D", "E"}
+
+    def evaluate(self, sample: Sample, agent_output) -> EnvironmentResult:
+        """Evaluate multiple-choice answer."""
+        prediction = agent_output.final_answer or ""
+        ground_truth = sample.ground_truth or ""
+
+        # Extract answer letter from prediction
+        extracted_answer = self._extract_answer(prediction)
+
+        # Normalize ground truth (handle both letter and numeric formats)
+        normalized_gt = self._normalize_answer(ground_truth)
+
+        # Compute metrics
+        is_correct = extracted_answer == normalized_gt
+        metrics = {
+            "accuracy": float(is_correct),
+            "exact_match": float(is_correct),
+        }
+
+        # Generate feedback
+        if is_correct:
+            feedback = f"Correct! Answer: {extracted_answer}"
+        else:
+            feedback = (
+                f"Incorrect. Predicted: {extracted_answer}, Expected: {normalized_gt}"
+            )
+            if extracted_answer not in self.valid_answers:
+                feedback += " (Could not extract valid answer from response)"
+
+        return EnvironmentResult(
+            feedback=feedback,
+            ground_truth=ground_truth,
+            metrics=metrics,
+        )
+
+    def _extract_answer(self, prediction: str) -> str:
+        """Extract answer letter from model prediction."""
+        # Clean the prediction
+        prediction = prediction.strip().upper()
+
+        # Direct single letter answer
+        if prediction in self.valid_answers:
+            return prediction
+
+        # Look for patterns like "A)", "(A)", "Answer: A", etc.
+        patterns = [
+            r"(?:answer|choice|option)[\s:]*([A-E])\b",
+            r"^([A-E])\)",
+            r"\(([A-E])\)",
+            r"^([A-E])\.",
+            r"^([A-E])\b",
+            r"\b([A-E])$",
+        ]
+
+        for pattern in patterns:
+            match = re.search(pattern, prediction, re.IGNORECASE)
+            if match:
+                return match.group(1).upper()
+
+        # Last resort: find any letter A-E in the response
+        letters = re.findall(r"\b([A-E])\b", prediction)
+        if letters:
+            return letters[-1].upper()  # Take the last one
+
+        return "?"  # Unknown
+
+    def _normalize_answer(self, answer: str) -> str:
+        """Normalize ground truth answer to uppercase letter."""
+        answer = str(answer).strip().upper()
+
+        if answer in self.valid_answers:
+            return answer
+
+        # Handle numeric answers (0-4 -> A-E)
+        letter_map = {"0": "A", "1": "B", "2": "C", "3": "D", "4": "E"}
+        return letter_map.get(answer, answer)
+
+
+class MathEnvironment(BenchmarkEnvironment):
+    """
+    Environment for math benchmarks (GSM8K, etc.).
+
+    Provides numerical answer extraction and tolerance-based evaluation.
+    """
+
+    def evaluate(self, sample: Sample, agent_output) -> EnvironmentResult:
+        """Evaluate numerical answer with tolerance."""
+        prediction = agent_output.final_answer or ""
+        ground_truth = sample.ground_truth or ""
+
+        # Extract numbers from both
+        predicted_num = self._extract_number(prediction)
+        expected_num = self._extract_number(ground_truth)
+
+        # Compute metrics
+        metrics = self._compute_math_metrics(predicted_num, expected_num)
+
+        # Generate feedback
+        feedback = self._generate_feedback(predicted_num, expected_num, metrics)
+
+        return EnvironmentResult(
+            feedback=feedback,
+            ground_truth=ground_truth,
+            metrics=metrics,
+        )
+
+    def _extract_number(self, text: str) -> float:
+        """Extract final numerical answer from text."""
+        import math
+
+        if not text:
+            return float("nan")
+
+        # Look for #### pattern (GSM8K format)
+        match = re.search(r"####\s*(-?\d[\d,]*\.?\d*)", text)
+        if match:
+            return float(match.group(1).replace(",", ""))
+
+        # Look for "answer is X" or "= X" patterns
+        patterns = [
+            r"(?:answer|result|equals?)[\s:]*(-?\d[\d,]*\.?\d*)",
+            r"=\s*(-?\d[\d,]*\.?\d*)\s*$",
+            r"(-?\d[\d,]*\.?\d*)\s*$",
+        ]
+
+        for pattern in patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                try:
+                    return float(match.group(1).replace(",", ""))
+                except ValueError:
+                    continue
+
+        # Find all numbers and return the last one
+        numbers = re.findall(r"-?\d[\d,]*\.?\d*", text)
+        if numbers:
+            try:
+                return float(numbers[-1].replace(",", ""))
+            except ValueError:
+                pass
+
+        return float("nan")
+
+    def _compute_math_metrics(
+        self, predicted: float, expected: float
+    ) -> Dict[str, float]:
+        """Compute math evaluation metrics."""
+        import math
+
+        if math.isnan(predicted) or math.isnan(expected):
+            return {
+                "exact_match": 0.0,
+                "accuracy": 0.0,
+                "within_1_percent": 0.0,
+                "within_5_percent": 0.0,
+            }
+
+        # Exact match (with small tolerance for floating point)
+        exact_match = float(abs(predicted - expected) < 0.001)
+
+        # Relative error
+        if expected != 0:
+            rel_error = abs(predicted - expected) / abs(expected)
+        else:
+            rel_error = float("inf") if predicted != 0 else 0.0
+
+        return {
+            "exact_match": exact_match,
+            "accuracy": exact_match,
+            "within_1_percent": float(rel_error <= 0.01),
+            "within_5_percent": float(rel_error <= 0.05),
+        }
+
+    def _generate_feedback(
+        self, predicted: float, expected: float, metrics: Dict[str, float]
+    ) -> str:
+        """Generate feedback for math evaluation."""
+        import math
+
+        if math.isnan(predicted):
+            return "Could not extract numerical answer from response."
+
+        if metrics["exact_match"]:
+            return f"Correct! Answer: {predicted}"
+        elif metrics["within_1_percent"]:
+            return f"Close! Predicted: {predicted}, Expected: {expected} (within 1%)"
+        elif metrics["within_5_percent"]:
+            return f"Nearly correct. Predicted: {predicted}, Expected: {expected} (within 5%)"
+        else:
+            return f"Incorrect. Predicted: {predicted}, Expected: {expected}"
+
+
 class AppWorldEnvironment(BenchmarkEnvironment):
     """
     Environment for AppWorld benchmark (autonomous agent execution).

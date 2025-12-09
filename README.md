@@ -56,14 +56,9 @@ print(answer)  # "ACE allows AI agents to remember and learn from experience!"
 
 ACE provides four ready-to-use integrations:
 
-**[→ Integration Guide](docs/INTEGRATION_GUIDE.md)** | **[→ Examples](examples/)**
+### **ACELiteLLM** - Create Your Self-Improving Agent (Simplest Start) 🚀
 
-### 1. **ACELiteLLM** - Simplest Start 🚀
-
-Create your self-improving agent:
-
-<details>
-<summary>Click to view code example</summary>
+Perfect for Q&A, classification, reasoning:
 
 ```python
 from ace import ACELiteLLM
@@ -86,17 +81,9 @@ agent.save_skillbook("my_agent.json")
 agent2 = ACELiteLLM.from_skillbook("my_agent.json", model="gpt-4o-mini")
 ```
 
-</details>
-<br>
-
-### 2. **ACELangChain** - Wrap ACE Around Your Existing Agent ⛓️
+### **ACELangChain** - Wrap ACE Around Your Existing Agent ⛓️
 
 Wrap any LangChain chain/agent with learning:
-
-**Best for:** Multi-step workflows, tool-using agents
-
-<details>
-<summary>Click to view code example</summary>
 
 ```python
 from ace import ACELangChain
@@ -105,18 +92,11 @@ ace_chain = ACELangChain(runnable=your_langchain_chain)
 result = ace_chain.invoke({"question": "Your task"})  # Learns automatically
 ```
 
-</details>
-<br>
+**Best for:** Multi-step workflows, tool-using agents
 
-### 3. **ACEAgent** - Enhance Browser-Use Agent with Self-Optimizing 🌐
+### **ACEAgent** - Enhance Browser-Use Agent with Self-Optimizing 🌐
 
 Self-improving browser agents with [browser-use](https://github.com/browser-use/browser-use):
-
-**Features:** Drop-in replacement for `browser_use.Agent`, automatic learning, reusable skillbooks
-**[→ Browser Use Guide](examples/browser-use/README.md)**
-
-<details>
-<summary>Click to view code example</summary>
 
 ```bash
 pip install ace-framework[browser-use]
@@ -140,18 +120,12 @@ agent = ACEAgent(llm=ChatBrowserUse(), skillbook_path="hn_expert.json")
 await agent.run(task="New task")  # Starts smart!
 ```
 
-</details>
-<br>
+**Features:** Drop-in replacement for `browser_use.Agent`, automatic learning, reusable skillbooks
+**[→ Browser Use Guide](examples/browser-use/README.md)**
 
-### 4. **ACEClaudeCode** - Claude Code CLI 💻
+### **ACEClaudeCode** - Claude Code CLI 💻
 
 Self-improving coding agent using [Claude Code](https://claude.ai/code):
-
-**Features:** Claude Code CLI wrapper, automatic learning, task execution traces
-**[→ Claude Code Loop Example](examples/claude-code-loop/)**
-
-<details>
-<summary>Click to view code example</summary>
 
 ```python
 from ace import ACEClaudeCode
@@ -169,7 +143,23 @@ agent.save_skillbook("coding_expert.json")
 agent = ACEClaudeCode(working_dir="./project", skillbook_path="coding_expert.json")
 ```
 
-</details>
+**Features:** Claude Code CLI wrapper, automatic learning, task execution traces
+**[→ Claude Code Loop Example](examples/claude-code-loop/)**
+
+### **ACELangChain** - Complex Workflows ⛓️
+
+Wrap any LangChain chain/agent with learning:
+
+```python
+from ace import ACELangChain
+
+ace_chain = ACELangChain(runnable=your_langchain_chain)
+result = ace_chain.invoke({"question": "Your task"})  # Learns automatically
+```
+
+**Best for:** Multi-step workflows, tool-using agents
+
+**[→ Integration Guide](docs/INTEGRATION_GUIDE.md)** | **[→ Examples](examples/)**
 
 ---
 
@@ -190,6 +180,7 @@ ACE enables agents to learn from execution feedback: what works, what doesn't, a
 - 🚀 **100+ LLM Providers**: Works with OpenAI, Anthropic, Google, and more
 - 📊 **Production Observability**: Built-in Opik integration for enterprise monitoring
 - 🔄 **Smart Deduplication**: Automatically consolidates similar skills
+- 🧪 **Scientific Benchmarking**: Evaluate across 14+ datasets (MMLU, GSM8K, FiNER, etc.)
 
 ---
 

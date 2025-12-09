@@ -72,6 +72,14 @@ class BenchmarkTaskManager:
         except ImportError:
             pass
 
+        # Try to import and register Letta loader if available
+        try:
+            from .loaders.letta import LettaLoader
+
+            self._loaders["letta"] = LettaLoader()
+        except ImportError:
+            pass
+
         # Discover all available task configs
         self._discover_configs()
 
@@ -170,6 +178,10 @@ class BenchmarkTaskManager:
                 FiNEREnvironment,
                 XBRLMathEnvironment,
                 AppWorldEnvironment,
+                SWEBenchEnvironment,
+                LettaEnvironment,
+                MultipleChoiceEnvironment,
+                MathEnvironment,
                 GenericBenchmarkEnvironment,
             )
         except ImportError:
@@ -177,13 +189,43 @@ class BenchmarkTaskManager:
             return BenchmarkEnvironment
 
         task_name = config.task.lower()
+        task_type = config.metadata.get("task_type", "") if config.metadata else ""
 
+        # Check for specialized environments first
         if "finer" in task_name:
             return FiNEREnvironment
-        elif "xbrl" in task_name or "math" in task_name:
+        elif "xbrl" in task_name:
             return XBRLMathEnvironment
+        elif "letta" in task_name:
+            return LettaEnvironment
+        elif "swe" in task_name:
+            return SWEBenchEnvironment
         elif "appworld" in task_name:
             return AppWorldEnvironment
+
+        # Check for multiple-choice benchmarks
+        elif task_type == "multiple_choice" or task_name in (
+            "mmlu",
+            "hellaswag",
+            "arc_easy",
+            "arc_challenge",
+            "truthfulqa",
+        ):
+            return MultipleChoiceEnvironment
+
+        # Binary choice benchmarks (like WinoGrande)
+        elif task_type == "binary_choice" or task_name == "winogrande":
+            return MultipleChoiceEnvironment
+
+        # Check for math/numerical benchmarks
+        elif (
+            task_type == "numerical_reasoning"
+            or task_name in ("gsm8k", "simple_math")
+            or "math" in task_name
+            or "gsm" in task_name
+        ):
+            return MathEnvironment
+
         else:
             return GenericBenchmarkEnvironment
 

@@ -136,20 +136,45 @@ uv run python examples/browser-use/form-filler/baseline_form_filler.py        # 
 uv run python examples/browser-use/form-filler/ace_form_filler.py             # ACE-enhanced form filling
 ```
 
+### Running Benchmarks
+Scientific evaluation framework for measuring ACE performance across datasets.
+
+```bash
+# List available benchmarks
+uv run python scripts/run_benchmark.py list
+
+# Run baseline vs ACE comparison (recommended)
+uv run python scripts/run_benchmark.py simple_qa --limit 50 --compare
+
+# ACE-only evaluation with train/test split
+uv run python scripts/run_benchmark.py simple_qa --limit 50
+
+# Multi-epoch training with detailed output
+uv run python scripts/run_benchmark.py finer_ord --limit 100 --epochs 3 --save-detailed
+
+# Baseline-only (skip ACE learning)
+uv run python scripts/run_benchmark.py mmlu --limit 100 --skip-adaptation
+```
+
+**Available Benchmarks**: simple_qa, finer_ord, gsm8k, mmlu, hellaswag, arc_easy, arc_challenge, truthfulqa, winogrande, swe_bench, letta_bench, appworld
+
+**Key Options**:
+- `--compare`: Run both baseline and ACE, show improvement
+- `--epochs N`: Number of training epochs (default: 1)
+- `--skip-adaptation`: Baseline only (no ACE learning)
+- `--save-detailed`: Save per-sample results to JSON
+- `--model MODEL`: LLM model to use (default: gpt-4o-mini)
+
+See [benchmarks/README.md](benchmarks/README.md) for full documentation.
+
 ### Development Scripts (Research Only)
 ```bash
 # Note: These require local model weights and are not in PyPI package
 CUDA_VISIBLE_DEVICES=2,3 python scripts/run_questions.py
 CUDA_VISIBLE_DEVICES=2,3 python scripts/run_local_adapter.py
 python scripts/run_questions_direct.py
-
-# Benchmarking - Scientific evaluation framework
-uv run python scripts/run_benchmark.py simple_qa --limit 50              # ACE with train/test split
-uv run python scripts/run_benchmark.py simple_qa --limit 50 --compare    # Baseline vs ACE comparison
-uv run python scripts/run_benchmark.py finer_ord --limit 100 --epochs 3  # Multi-epoch training
-python scripts/compare_baseline_vs_ace.py                                # Analysis scripts
+python scripts/compare_baseline_vs_ace.py
 python scripts/analyze_ace_results.py
-python scripts/explain_ace_performance.py
 ```
 
 ## Architecture

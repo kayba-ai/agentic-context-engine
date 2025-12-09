@@ -1,0 +1,35 @@
+task: swe_bench
+version: "1.0"
+
+data:
+  source: huggingface
+  dataset_path: princeton-nlp/SWE-bench_Lite
+  split: test
+  limit: 50
+
+preprocessing:
+  question_template: |
+    Repository: {repo}
+    Issue: {problem_statement}
+
+    Base Commit: {base_commit}
+
+    Please provide a patch that resolves this issue.
+  ground_truth_field: patch
+  input_field: problem_statement
+
+metrics:
+  - name: resolved
+    weight: 1.0
+  - name: tests_passed
+    weight: 0.8
+  - name: partial_fix
+    weight: 0.3
+
+metadata:
+  description: "SWE-bench Lite - Software Engineering benchmark from real GitHub issues"
+  paper: "https://arxiv.org/abs/2310.06770"
+  domain: software_engineering
+  task_type: code_generation
+  evaluation_type: test_execution
+  requires_docker: true
