@@ -1,0 +1,32 @@
+# SWE-bench specific Dockerfile with Docker-in-Docker support
+FROM python:3.12-slim
+
+# Install system dependencies including Docker CLI
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    build-essential \
+    docker.io \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install SWE-bench and dependencies
+RUN pip install --no-cache-dir \
+    swebench \
+    datasets \
+    gitpython
+
+# Install ACE framework
+WORKDIR /app
+COPY . /app/
+RUN pip install -e .
+
+# Set up environment
+ENV BENCHMARK_CACHE_DIR=/data/cache
+ENV HF_DATASETS_CACHE=/data/huggingface
+ENV SWEBENCH_REPOS_DIR=/repos
+
+# Create directories
+RUN mkdir -p /data/cache /data/huggingface /repos /results
+
+# Default command
+CMD ["python", "-m", "scripts.run_benchmark", "swe_bench", "--help"]

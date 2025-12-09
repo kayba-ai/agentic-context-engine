@@ -1,0 +1,35 @@
+task: winogrande
+version: "1.0"
+
+data:
+  source: huggingface
+  dataset_path: allenai/winogrande
+  subset: winogrande_xl
+  split: validation
+  limit: 200
+
+preprocessing:
+  question_template: |
+    Complete the sentence by choosing the correct option:
+
+    {sentence}
+
+    Options:
+    1) {option1}
+    2) {option2}
+
+    Answer with just the number (1 or 2).
+  ground_truth_field: answer
+  input_field: sentence
+
+metrics:
+  - name: accuracy
+    weight: 1.0
+  - name: exact_match
+    weight: 1.0
+
+metadata:
+  description: "WinoGrande - Commonsense reasoning with pronoun resolution"
+  domain: "commonsense_reasoning"
+  task_type: "binary_choice"
+  num_choices: 2

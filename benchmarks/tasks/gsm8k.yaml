@@ -1,0 +1,33 @@
+task: gsm8k
+version: "1.0"
+
+data:
+  source: huggingface
+  dataset_path: openai/gsm8k
+  subset: main
+  split: test
+  limit: 200
+
+preprocessing:
+  question_template: |
+    Solve this math problem step by step:
+
+    {question}
+
+    Provide your final numerical answer.
+  ground_truth_field: answer
+  input_field: question
+
+metrics:
+  - name: exact_match
+    weight: 1.0
+  - name: within_1_percent
+    weight: 0.8
+  - name: within_5_percent
+    weight: 0.5
+
+metadata:
+  description: "Grade School Math 8K - Elementary math word problems"
+  domain: "mathematics"
+  task_type: "numerical_reasoning"
+  answer_format: "#### NUMBER"

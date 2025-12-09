@@ -1,0 +1,32 @@
+task: letta_bench
+version: "1.0"
+
+data:
+  source: letta
+  split: test
+  limit: 50
+  task_type: memory  # Options: memory, conversation, tool_use
+
+preprocessing:
+  question_template: |
+    {conversation_history}
+
+    Current query: {query}
+
+    Respond based on the conversation history and any relevant memories.
+  ground_truth_field: expected_response
+  input_field: query
+
+metrics:
+  - name: memory_recall
+    weight: 1.0
+  - name: response_quality
+    weight: 0.8
+  - name: conversation_coherence
+    weight: 0.6
+
+metadata:
+  description: "Letta benchmark for agent memory and conversation capabilities"
+  domain: agent_memory
+  task_type: conversation
+  evaluation_type: memory_recall

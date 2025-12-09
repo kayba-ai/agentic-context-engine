@@ -1,0 +1,47 @@
+# AppWorld Benchmark Dockerfile
+# Uses Python 3.11 with Pydantic v1 for AppWorld compatibility
+FROM python:3.11-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    build-essential \
+    docker.io \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create app directory
+WORKDIR /app
+
+# Install AppWorld and its dependencies first (requires Pydantic v1)
+RUN pip install --no-cache-dir \
+    appworld==0.1.3 \
+    litellm>=1.0.0 \
+    instructor>=0.5.0 \
+    tenacity>=8.0.0 \
+    python-dotenv>=1.0.0 \
+    datasets>=2.0.0 \
+    pyyaml>=6.0
+
+# Copy ACE framework (will need to handle Pydantic compatibility)
+COPY ace/ /app/ace/
+COPY benchmarks/ /app/benchmarks/
+COPY scripts/ /app/scripts/
+COPY pyproject.toml /app/
+
+# Create a minimal setup that works with Pydantic v1
+RUN pip install --no-cache-dir -e . --no-deps || true
+
+# Set up environment
+ENV BENCHMARK_CACHE_DIR=/data/cache
+ENV HF_DATASETS_CACHE=/data/huggingface
+ENV APPWORLD_DATA_DIR=/data/appworld
+
+# Create data directories
+RUN mkdir -p /data/cache /data/huggingface /data/results /data/appworld
+
+# Initialize AppWorld data
+RUN appworld install || true
+
+# Default command
+CMD ["python", "-m", "scripts.run_benchmark", "appworld", "--help"]

@@ -1,0 +1,101 @@
+version: '3.8'
+
+services:
+  ace-benchmark:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.benchmark
+    volumes:
+      - benchmark-cache:/data/cache
+      - benchmark-results:/data/results
+      - huggingface-cache:/data/huggingface
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - HF_TOKEN=${HF_TOKEN}
+    command: ["python", "-m", "scripts.run_benchmark", "finer_ord", "--limit", "50"]
+
+  appworld:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.appworld
+    volumes:
+      - appworld-data:/data/appworld
+      - benchmark-results:/data/results
+      - huggingface-cache:/data/huggingface
+      - /var/run/docker.sock:/var/run/docker.sock
+    privileged: true  # Required for AppWorld Docker execution
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - HF_TOKEN=${HF_TOKEN}
+      - APPWORLD_MODE=evaluation
+
+  swe-bench:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.swebench
+    volumes:
+      - swebench-repos:/repos
+      - benchmark-results:/results
+      - /var/run/docker.sock:/var/run/docker.sock
+    privileged: true  # Required for Docker-in-Docker
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - HF_TOKEN=${HF_TOKEN}
+
+  # Runner for all HuggingFace-based benchmarks
+  hf-benchmarks:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.benchmark
+    volumes:
+      - benchmark-cache:/data/cache
+      - benchmark-results:/data/results
+      - huggingface-cache:/data/huggingface
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - HF_TOKEN=${HF_TOKEN}
+    profiles:
+      - hf
+
+  # GSM8K benchmark runner
+  gsm8k:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.benchmark
+    volumes:
+      - benchmark-cache:/data/cache
+      - benchmark-results:/data/results
+      - huggingface-cache:/data/huggingface
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    command: ["python", "-m", "scripts.run_benchmark", "simple_math", "--limit", "100"]
+    profiles:
+      - gsm8k
+
+  # MMLU benchmark runner
+  mmlu:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.benchmark
+    volumes:
+      - benchmark-cache:/data/cache
+      - benchmark-results:/data/results
+      - huggingface-cache:/data/huggingface
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    command: ["python", "-m", "scripts.run_benchmark", "mmlu", "--limit", "100"]
+    profiles:
+      - mmlu
+
+volumes:
+  benchmark-cache:
+  benchmark-results:
+  huggingface-cache:
+  appworld-data:
+  swebench-repos:

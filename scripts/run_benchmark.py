@@ -18,6 +18,11 @@ from pathlib import Path
 from statistics import mean
 from typing import Dict, List, Any
 
+# Fix Windows console encoding for Unicode output
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 # Add project root to path
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
