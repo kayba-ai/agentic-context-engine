@@ -10,14 +10,6 @@ Navigation guide for all ACE examples. Each directory has its own detailed READM
 - **[seahorse_emoji_ace.py](seahorse_emoji_ace.py)** - Self-reflection demo
 - **[Quick Start Guide](../docs/QUICK_START.md)** - Step-by-step tutorial
 
-## 🚀 Quick Start Templates
-
-Copy-paste starting points for different providers:
-
-- **[starter-templates/quickstart_litellm.py](starter-templates/quickstart_litellm.py)** - LiteLLM (100+ providers)
-- **[starter-templates/langchain_starter_template.py](starter-templates/langchain_starter_template.py)** - LangChain integration
-- **[starter-templates/ollama_starter_template.py](starter-templates/ollama_starter_template.py)** - Local Ollama models
-
 ## 🧩 Integrations
 
 Add ACE learning to existing systems:
@@ -60,7 +52,6 @@ Shows the three-step integration: Inject → Execute → Learn
 **[prompts/](prompts/)** - Compare ACE prompt versions
 
 - [compare_v1_v2_prompts.py](prompts/compare_v1_v2_prompts.py) - v1.0 vs v2.0
-- [compare_v2_v2_1_prompts.py](prompts/compare_v2_v2_1_prompts.py) - v2.0 vs v2.1 (recommended)
 - [advanced_prompts_v2.py](prompts/advanced_prompts_v2.py) - Advanced techniques
 
 ### Skillbook Management

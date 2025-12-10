@@ -17,23 +17,6 @@ Shows improvements from v1.0 (simple) to v2.0 (enhanced):
 python compare_v1_v2_prompts.py
 ```
 
-### [compare_v2_v2_1_prompts.py](compare_v2_v2_1_prompts.py)
-**Compare v2.0 vs v2.1 prompts** (recommended)
-
-Shows latest improvements in v2.1:
-- MCP-inspired techniques (CRITICAL, MANDATORY keywords)
-- Quick reference headers
-- Explicit trigger conditions
-- Atomicity scoring
-- Visual indicators
-
-**Run:**
-```bash
-python compare_v2_v2_1_prompts.py
-```
-
-**Benchmark result:** v2.1 shows +17% success rate vs v1.0
-
 ### [advanced_prompts_v2.py](advanced_prompts_v2.py)
 **Advanced prompt engineering techniques**
 

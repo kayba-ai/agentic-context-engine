@@ -506,10 +506,10 @@ class Reflector:
         >>>
         >>> reflection = reflector.reflect(
         ...     question="What is 2+2?",
-        ...     context="Show your work",
         ...     agent_output=agent_output,
-        ...     execution_feedback="Correct!",
-        ...     skillbook=skillbook
+        ...     skillbook=skillbook,
+        ...     ground_truth="4",
+        ...     feedback="Correct!"
         ... )
         >>> print(reflection.key_insight)
         Successfully solved the arithmetic problem

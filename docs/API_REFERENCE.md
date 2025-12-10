@@ -148,7 +148,11 @@ Train on a batch of samples.
 from ace import OfflineACE
 from ace import Sample
 
-adapter = OfflineACE(agent, reflector, skill_manager)
+adapter = OfflineACE(
+    agent=agent,
+    reflector=reflector,
+    skill_manager=skill_manager
+)
 
 samples = [
     Sample(
@@ -566,7 +570,6 @@ See the [examples](../examples/) directory for complete working examples:
 - `skillbook_persistence.py` - Save/load strategies
 
 **By Category:**
-- [starter-templates/](../examples/starter-templates/) - Quick start templates
 - [langchain/](../examples/langchain/) - LangChain integration examples
 - [prompts/](../examples/prompts/) - Prompt engineering examples
 - [browser-use/](../examples/browser-use/) - Browser automation
