@@ -212,7 +212,7 @@ def test_checkpoint_saving(self):
         # Verify checkpoints exist
         checkpoints = os.listdir(tmpdir)
         self.assertGreater(len(checkpoints), 0)
-        self.assertIn("latest.json", checkpoints)
+        self.assertIn("ace_latest.json", checkpoints)
 ```
 
 ---

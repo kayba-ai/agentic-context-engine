@@ -257,7 +257,7 @@ class TestACELiteLLMConfiguration(unittest.TestCase):
         mock.choices = [
             MagicMock(
                 message=MagicMock(
-                    content='{"reasoning":"test","bullet_ids":[],"final_answer":"ok"}'
+                    content='{"reasoning":"test","skill_ids":[],"final_answer":"ok"}'
                 )
             )
         ]

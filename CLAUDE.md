@@ -286,8 +286,8 @@ results = adapter.run(
 ```
 
 **Output**:
-- `checkpoint_10.json`, `checkpoint_20.json`, etc. (numbered)
-- `latest.json` (always overwritten with most recent)
+- `ace_checkpoint_10.json`, `ace_checkpoint_20.json`, etc. (numbered)
+- `ace_latest.json` (always overwritten with most recent)
 
 **Use Cases**:
 - Resume training after interruption

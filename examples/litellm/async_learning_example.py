@@ -78,7 +78,7 @@ def run_async_learning():
     print(f"Processing {len(samples)} samples...")
     start = time.time()
 
-    # Async learning - Generator returns faster, learning in background
+    # Async learning - Agent returns faster, learning in background
     results = agent.learn(
         samples,
         environment,
@@ -130,7 +130,7 @@ def main():
     print("ACELiteLLM ASYNC LEARNING DEMO")
     print("=" * 60)
     print("\nThis demo shows the difference between sync and async modes.")
-    print("In async mode, Generator results return faster while learning")
+    print("In async mode, Agent results return faster while learning")
     print("continues in the background.")
 
     # Run sync demo
