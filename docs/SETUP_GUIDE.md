@@ -162,7 +162,12 @@ skillbook = Skillbook.load_from_file("my_skillbook.json")
 ```python
 from ace import OfflineACE
 
-adapter = OfflineACE(skillbook, agent, reflector, skill_manager)
+adapter = OfflineACE(
+    skillbook=skillbook,
+    agent=agent,
+    reflector=reflector,
+    skill_manager=skill_manager
+)
 
 # Save skillbook every 10 samples during training
 results = adapter.run(

@@ -514,7 +514,7 @@ for chunk in client.complete_with_stream("Write a story"):
 from ace.exceptions import ACEException
 
 try:
-    output = generator.generate(...)
+    output = agent.generate(...)
 except ACEException as e:
     print(f"ACE error: {e}")
 except Exception as e:
