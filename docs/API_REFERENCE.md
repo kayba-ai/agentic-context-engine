@@ -41,8 +41,7 @@ reflection = reflector.reflect(
     agent_output=output,
     skillbook=skillbook,
     ground_truth="4",
-    feedback="Correct!",
-    max_refinement_rounds=1
+    feedback="Correct!"
 )
 
 # Reflection contains:
