@@ -18,6 +18,11 @@ from pathlib import Path
 from statistics import mean
 from typing import Dict, List, Any
 
+# Fix Windows console encoding for Unicode output
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 # Add project root to path
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -197,12 +202,21 @@ def load_benchmark_data(
 
     for i, data in enumerate(raw_data):
         if args.benchmark == "appworld":
-            # AppWorld has special handling
-            sample = Sample(
-                question=data["instruction"],
-                context=f"Available APIs: {data['api_docs']}",
-                ground_truth="Task completion successful",
-            )
+            # AppWorld has special handling - may come pre-processed
+            if "question" in data and "ground_truth" in data:
+                sample = Sample(
+                    question=data["question"],
+                    ground_truth=data["ground_truth"],
+                    context=data.get("context", ""),
+                    metadata=data.get("metadata", {}),
+                )
+            else:
+                sample = Sample(
+                    question=data.get("instruction", ""),
+                    context=f"Available APIs: {data.get('api_docs', '')}",
+                    ground_truth="Task completion successful",
+                    metadata=data.get("metadata", {}),
+                )
         elif args.benchmark == "finer_ord":
             # FiNER now comes pre-processed from the loader
             sample = Sample(
@@ -211,74 +225,174 @@ def load_benchmark_data(
                 context=data.get("context", ""),
             )
         elif args.benchmark == "xbrl_math":
-            # XBRL-Math handling
-            sample = Sample(
-                question=data.get("question", ""),
-                context=data.get("context", ""),
-                ground_truth=str(data.get("answer", "")),
-            )
-        elif args.benchmark == "simple_qa":
-            # Squad/SQuAD handling - answers is a dict with text list
-            answers = data.get("answers", {})
-            if isinstance(answers, dict) and "text" in answers:
-                ground_truth = answers["text"][0] if answers["text"] else ""
+            # XBRL-Math handling - may come pre-processed
+            if "question" in data and "ground_truth" in data:
+                sample = Sample(
+                    question=data["question"],
+                    ground_truth=data["ground_truth"],
+                    context=data.get("context", ""),
+                )
             else:
-                ground_truth = str(answers) if answers else ""
+                sample = Sample(
+                    question=data.get("question", ""),
+                    context=data.get("context", ""),
+                    ground_truth=str(data.get("answer", "")),
+                )
+        elif args.benchmark == "simple_qa":
+            # Squad/SQuAD handling - may come pre-processed
+            if "question" in data and "ground_truth" in data:
+                sample = Sample(
+                    question=data["question"],
+                    ground_truth=data["ground_truth"],
+                    context=data.get("context", ""),
+                    metadata=data.get("metadata", {}),
+                )
+            else:
+                # Raw data - answers is a dict with text list
+                answers = data.get("answers", {})
+                if isinstance(answers, dict) and "text" in answers:
+                    ground_truth = answers["text"][0] if answers["text"] else ""
+                else:
+                    ground_truth = str(answers) if answers else ""
 
-            sample = Sample(
-                question=data["question"],
-                ground_truth=ground_truth,
-                context=data.get("context", ""),
-            )
+                sample = Sample(
+                    question=data["question"],
+                    ground_truth=ground_truth,
+                    context=data.get("context", ""),
+                )
         elif args.benchmark == "hellaswag":
-            # HellaSwag handling - format multiple choice and convert label
-            choices = data["endings"]
-            question = f"""Context: {data['ctx']}
+            # HellaSwag handling - may come pre-processed
+            if "question" in data and "ground_truth" in data:
+                sample = Sample(
+                    question=data["question"],
+                    ground_truth=data["ground_truth"],
+                    context=data.get("context", ""),
+                    metadata=data.get("metadata", {}),
+                )
+            else:
+                # Raw data - format multiple choice
+                choices = data.get("endings", [])
+                question = f"""Context: {data.get('ctx', '')}
 
 Which ending makes the most sense?
 
-A) {choices[0]}
-B) {choices[1]}
-C) {choices[2]}
-D) {choices[3]}
+A) {choices[0] if len(choices) > 0 else ''}
+B) {choices[1] if len(choices) > 1 else ''}
+C) {choices[2] if len(choices) > 2 else ''}
+D) {choices[3] if len(choices) > 3 else ''}
 
 Answer with just the letter (A, B, C, or D)."""
 
-            # Convert numeric label to letter
-            label_map = {"0": "A", "1": "B", "2": "C", "3": "D"}
-            ground_truth = label_map.get(str(data["label"]), "A")
+                # Convert numeric label to letter
+                label_map = {"0": "A", "1": "B", "2": "C", "3": "D"}
+                ground_truth = label_map.get(str(data.get("label", "0")), "A")
 
-            sample = Sample(question=question, ground_truth=ground_truth)
+                sample = Sample(question=question, ground_truth=ground_truth)
         elif args.benchmark in ["arc_easy", "arc_challenge"]:
-            # ARC handling - format multiple choice
-            choices = data["choices"]["text"]
-            question = f"""Question: {data['question']}
+            # ARC handling - may come pre-processed
+            if "question" in data and "ground_truth" in data:
+                sample = Sample(
+                    question=data["question"],
+                    ground_truth=data["ground_truth"],
+                    context=data.get("context", ""),
+                    metadata=data.get("metadata", {}),
+                )
+            else:
+                # Raw data - format multiple choice
+                choices_data = data.get("choices", {})
+                choices = choices_data.get("text", []) if isinstance(choices_data, dict) else []
+                question = f"""Question: {data.get('question', '')}
 
-A) {choices[0]}
-B) {choices[1]}
-C) {choices[2]}
-D) {choices[3]}
+A) {choices[0] if len(choices) > 0 else ''}
+B) {choices[1] if len(choices) > 1 else ''}
+C) {choices[2] if len(choices) > 2 else ''}
+D) {choices[3] if len(choices) > 3 else ''}
 
 Answer with just the letter (A, B, C, or D)."""
 
-            sample = Sample(question=question, ground_truth=data["answerKey"])
+                sample = Sample(question=question, ground_truth=data.get("answerKey", "A"))
         elif args.benchmark == "mmlu":
-            # MMLU handling - format multiple choice
-            choices = data["choices"]
-            question = f"""Question: {data['question']}
+            # MMLU handling - may come pre-processed from MultipleChoiceProcessor
+            if "question" in data and "ground_truth" in data:
+                # Already processed by processor
+                sample = Sample(
+                    question=data["question"],
+                    ground_truth=data["ground_truth"],
+                    context=data.get("context", ""),
+                    metadata=data.get("metadata", {}),
+                )
+            else:
+                # Raw data - format multiple choice
+                choices = data.get("choices", [])
+                question = f"""Question: {data.get('question', '')}
 
-A) {choices[0]}
-B) {choices[1]}
-C) {choices[2]}
-D) {choices[3]}
+A) {choices[0] if len(choices) > 0 else ''}
+B) {choices[1] if len(choices) > 1 else ''}
+C) {choices[2] if len(choices) > 2 else ''}
+D) {choices[3] if len(choices) > 3 else ''}
 
 Answer with just the letter (A, B, C, or D)."""
 
-            # Convert numeric answer to letter
-            answer_map = {0: "A", 1: "B", 2: "C", 3: "D"}
-            ground_truth = answer_map.get(data["answer"], "A")
+                # Convert numeric answer to letter
+                answer_map = {0: "A", 1: "B", 2: "C", 3: "D"}
+                ground_truth = answer_map.get(data.get("answer", 0), "A")
 
-            sample = Sample(question=question, ground_truth=ground_truth)
+                sample = Sample(question=question, ground_truth=ground_truth)
+        elif args.benchmark == "swe_bench":
+            # SWE-bench handling - software engineering bug fixes
+            hints = data.get("hints_text", "")
+            hints_section = f"\n\nHints: {hints}" if hints else ""
+
+            question = f"""Repository: {data.get('repo', 'unknown')}
+
+Issue: {data.get('problem_statement', '')}
+
+Base Commit: {data.get('base_commit', '')}{hints_section}
+
+Please analyze this issue and provide a patch (in unified diff format) that resolves it.
+Include your reasoning before the patch."""
+
+            sample = Sample(
+                question=question,
+                ground_truth=data.get("patch", ""),
+                context=data.get("test_patch", ""),
+                metadata=data.get("metadata", {}),
+            )
+        elif args.benchmark == "gsm8k":
+            # GSM8K math problems
+            question = f"""Solve this math problem step by step:
+
+{data.get('question', '')}
+
+Provide your final numerical answer after ####."""
+
+            # Extract final answer from GSM8K format (#### NUMBER)
+            import re
+            answer = data.get("answer", "")
+            match = re.search(r"####\s*(.+)", answer)
+            ground_truth = match.group(1).strip().replace(",", "") if match else answer
+
+            sample = Sample(
+                question=question,
+                ground_truth=ground_truth,
+                context=answer,  # Full solution as context
+            )
+        elif args.benchmark == "letta_bench":
+            # Letta benchmark handling
+            history = data.get("conversation_history", "")
+            query = data.get("query", "")
+
+            question = f"""{history}
+
+Current query: {query}
+
+Respond based on the conversation history and any relevant memories."""
+
+            sample = Sample(
+                question=question,
+                ground_truth=data.get("expected_response", ""),
+                metadata=data.get("metadata", {}),
+            )
         else:
             # Generic handling - check if already processed
             if "question" in data:

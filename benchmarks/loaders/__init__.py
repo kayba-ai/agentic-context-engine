@@ -2,11 +2,22 @@
 
 from ..base import DataLoader
 from .huggingface import HuggingFaceLoader
+from .swebench import SWEBenchLoader
+
+__all__ = ["DataLoader", "HuggingFaceLoader", "SWEBenchLoader"]
 
 # AppWorld loader is imported conditionally since appworld might not be installed
 try:
     from .appworld import AppWorldLoader
 
-    __all__ = ["DataLoader", "HuggingFaceLoader", "AppWorldLoader"]
+    __all__.append("AppWorldLoader")
 except ImportError:
-    __all__ = ["DataLoader", "HuggingFaceLoader"]
+    pass
+
+# Letta loader is imported conditionally since letta-evals might not be installed
+try:
+    from .letta import LettaLoader
+
+    __all__.append("LettaLoader")
+except ImportError:
+    pass

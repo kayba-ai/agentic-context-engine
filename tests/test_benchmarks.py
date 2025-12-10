@@ -297,6 +297,64 @@ data:
                 manager.get_config("nonexistent_benchmark")
 
 
+@unittest.skipUnless(BENCHMARKS_AVAILABLE, "Benchmarks module not available")
+@pytest.mark.unit
+class TestSWEBenchLoader(unittest.TestCase):
+    """Test SWE-bench loader functionality."""
+
+    def test_loader_supports_source(self):
+        """Test that loader reports correct supported source."""
+        from benchmarks.loaders.swebench import SWEBenchLoader
+
+        loader = SWEBenchLoader()
+        self.assertTrue(loader.supports_source("swebench"))
+        self.assertFalse(loader.supports_source("huggingface"))
+        self.assertFalse(loader.supports_source("other"))
+
+    @patch("datasets.load_dataset")
+    def test_loader_load_basic(self, mock_load_dataset):
+        """Test basic loading functionality."""
+        from benchmarks.loaders.swebench import SWEBenchLoader
+
+        # Mock dataset items
+        mock_items = [
+            {
+                "instance_id": "test__test-1",
+                "repo": "test/test-repo",
+                "base_commit": "abc123",
+                "problem_statement": "Fix the bug",
+                "hints_text": "Look at line 10",
+                "created_at": "2024-01-01",
+                "patch": "diff --git a/file.py",
+                "test_patch": "test patch",
+                "version": "1.0",
+                "FAIL_TO_PASS": "[]",
+                "PASS_TO_PASS": "[]",
+                "environment_setup_commit": "def456",
+            }
+        ]
+        mock_load_dataset.return_value = mock_items
+
+        loader = SWEBenchLoader()
+        results = list(loader.load(split="test", limit=1))
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["instance_id"], "test__test-1")
+        self.assertEqual(results[0]["repo"], "test/test-repo")
+        self.assertEqual(results[0]["problem_statement"], "Fix the bug")
+        self.assertEqual(results[0]["patch"], "diff --git a/file.py")
+        self.assertIn("metadata", results[0])
+
+    def test_loader_validates_docker(self):
+        """Test Docker validation (will fail gracefully if Docker not installed)."""
+        from benchmarks.loaders.swebench import SWEBenchLoader
+
+        loader = SWEBenchLoader()
+        # Should not raise, just return True or False
+        result = loader.validate_docker()
+        self.assertIsInstance(result, bool)
+
+
 @pytest.mark.integration
 class TestBenchmarkIntegration(unittest.TestCase):
     """Integration tests for the benchmarking system."""

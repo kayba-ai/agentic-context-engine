@@ -67,6 +67,11 @@ transformers = [
     "torch>=2.0.0",
     "accelerate>=0.20.0",
 ]
+benchmarks = [
+    "datasets>=2.14.0",
+    "pyyaml>=6.0.0",
+    "swebench>=4.1.0",
+]
 all = [
     "browser-use>=0.9.0",
     "opik>=1.8.0",
@@ -77,6 +82,8 @@ all = [
     "transformers>=4.30.0",
     "torch>=2.0.0",
     "accelerate>=0.20.0",
+    "datasets>=2.14.0",
+    "pyyaml>=6.0.0",
 ]
 
 [project.urls]
@@ -94,6 +101,8 @@ dev = [
     "mypy>=1.0.0",
     "pre-commit>=3.0.0",
     "git-changelog>=2.5.0",
+    "datasets>=2.14.0",
+    "pyyaml>=6.0.0",
 ]
 demos = [
     "browser-use>=0.9.0",
@@ -106,10 +115,11 @@ demos = [
 ]
 
 [tool.setuptools]
-packages = ["ace", "ace.llm_providers", "ace.observability"]
+packages = ["ace", "ace.llm_providers", "ace.observability", "ace.integrations", "ace.deduplication", "benchmarks", "benchmarks.loaders"]
 
 [tool.setuptools.package-data]
 ace = ["py.typed"]
+benchmarks = ["tasks/*.yaml", "tasks/*.toml", "tasks/**/*.yaml", "tasks/**/*.md"]
 
 [tool.black]
 line-length = 88

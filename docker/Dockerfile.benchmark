@@ -1,0 +1,28 @@
+# Base image for benchmark execution
+FROM python:3.12-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install benchmark dependencies
+COPY docker/requirements-benchmark.txt /tmp/
+RUN pip install --no-cache-dir -r /tmp/requirements-benchmark.txt
+
+# Install ACE framework
+WORKDIR /app
+COPY . /app/
+RUN pip install -e .
+
+# Set up benchmark environment
+ENV BENCHMARK_CACHE_DIR=/data/cache
+ENV HF_DATASETS_CACHE=/data/huggingface
+
+# Create data directories
+RUN mkdir -p /data/cache /data/huggingface /data/results
+
+# Default command
+CMD ["python", "-m", "scripts.run_benchmark", "--help"]
