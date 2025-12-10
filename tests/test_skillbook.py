@@ -1,4 +1,4 @@
-"""Tests for Playbook functionality including persistence."""
+"""Tests for Skillbook functionality including persistence."""
 
 import json
 import os
@@ -8,61 +8,61 @@ from pathlib import Path
 
 import pytest
 
-from ace import Playbook, DeltaBatch, DeltaOperation
+from ace import Skillbook, UpdateBatch, UpdateOperation
 
 
 @pytest.mark.unit
-class TestPlaybook(unittest.TestCase):
-    """Test Playbook class functionality."""
+class TestSkillbook(unittest.TestCase):
+    """Test Skillbook class functionality."""
 
     def setUp(self):
-        """Set up test playbook with sample data."""
-        self.playbook = Playbook()
+        """Set up test skillbook with sample data."""
+        self.skillbook = Skillbook()
 
-        # Add test bullets
-        self.bullet1 = self.playbook.add_bullet(
+        # Add test skills
+        self.skill1 = self.skillbook.add_skill(
             section="general",
             content="Always be clear",
             metadata={"helpful": 5, "harmful": 0},
         )
 
-        self.bullet2 = self.playbook.add_bullet(
+        self.skill2 = self.skillbook.add_skill(
             section="math",
             content="Show your work",
             metadata={"helpful": 3, "harmful": 1},
         )
 
-    def test_add_bullet(self):
-        """Test adding bullets to playbook."""
-        bullet = self.playbook.add_bullet(section="test", content="Test content")
+    def test_add_skill(self):
+        """Test adding skills to skillbook."""
+        skill = self.skillbook.add_skill(section="test", content="Test content")
 
-        self.assertIsNotNone(bullet)
-        self.assertEqual(bullet.section, "test")
-        self.assertEqual(bullet.content, "Test content")
-        self.assertEqual(len(self.playbook.bullets()), 3)
+        self.assertIsNotNone(skill)
+        self.assertEqual(skill.section, "test")
+        self.assertEqual(skill.content, "Test content")
+        self.assertEqual(len(self.skillbook.skills()), 3)
 
-    def test_update_bullet(self):
-        """Test updating existing bullet."""
-        updated = self.playbook.update_bullet(
-            self.bullet1.id, content="Updated content", metadata={"helpful": 10}
+    def test_update_skill(self):
+        """Test updating existing skill."""
+        updated = self.skillbook.update_skill(
+            self.skill1.id, content="Updated content", metadata={"helpful": 10}
         )
 
         self.assertIsNotNone(updated)
         self.assertEqual(updated.content, "Updated content")
         self.assertEqual(updated.helpful, 10)
 
-    def test_tag_bullet(self):
-        """Test tagging bullets."""
-        self.playbook.tag_bullet(self.bullet1.id, "helpful", 2)
-        bullet = self.playbook.get_bullet(self.bullet1.id)
+    def test_tag_skill(self):
+        """Test tagging skills."""
+        self.skillbook.tag_skill(self.skill1.id, "helpful", 2)
+        skill = self.skillbook.get_skill(self.skill1.id)
 
-        self.assertEqual(bullet.helpful, 7)  # 5 + 2
+        self.assertEqual(skill.helpful, 7)  # 5 + 2
 
-    def test_bullet_to_llm_dict_excludes_timestamps(self):
+    def test_skill_to_llm_dict_excludes_timestamps(self):
         """Test that to_llm_dict filters out created_at and updated_at."""
-        from ace.playbook import Bullet
+        from ace.skillbook import Skill
 
-        bullet = Bullet(
+        skill = Skill(
             id="test-001",
             section="test_section",
             content="Test strategy content",
@@ -73,7 +73,7 @@ class TestPlaybook(unittest.TestCase):
             updated_at="2025-01-02T00:00:00Z",
         )
 
-        llm_dict = bullet.to_llm_dict()
+        llm_dict = skill.to_llm_dict()
 
         # Should include LLM-relevant fields
         self.assertEqual(llm_dict["id"], "test-001")
@@ -90,77 +90,77 @@ class TestPlaybook(unittest.TestCase):
         # Should have exactly 6 fields
         self.assertEqual(len(llm_dict), 6)
 
-    def test_remove_bullet(self):
-        """Test removing bullets."""
-        self.playbook.remove_bullet(self.bullet1.id)
+    def test_remove_skill(self):
+        """Test removing skills."""
+        self.skillbook.remove_skill(self.skill1.id)
 
-        self.assertIsNone(self.playbook.get_bullet(self.bullet1.id))
-        self.assertEqual(len(self.playbook.bullets()), 1)
+        self.assertIsNone(self.skillbook.get_skill(self.skill1.id))
+        self.assertEqual(len(self.skillbook.skills()), 1)
 
-    def test_apply_delta(self):
-        """Test applying delta operations."""
-        delta = DeltaBatch(
-            reasoning="Test delta operations",
+    def test_apply_update(self):
+        """Test applying update operations."""
+        update = UpdateBatch(
+            reasoning="Test update operations",
             operations=[
-                DeltaOperation(type="ADD", section="new", content="New strategy"),
-                DeltaOperation(
+                UpdateOperation(type="ADD", section="new", content="New strategy"),
+                UpdateOperation(
                     type="UPDATE",
                     section="",  # Section is required but not used for UPDATE
-                    bullet_id=self.bullet1.id,
+                    skill_id=self.skill1.id,
                     content="Modified content",
                 ),
-                DeltaOperation(
+                UpdateOperation(
                     type="TAG",
                     section="",  # Section is required but not used for TAG
-                    bullet_id=self.bullet2.id,
+                    skill_id=self.skill2.id,
                     metadata={"harmful": 2},
                 ),
             ],
         )
 
-        self.playbook.apply_delta(delta)
+        self.skillbook.apply_update(update)
 
         # Check ADD operation
-        self.assertEqual(len(self.playbook.bullets()), 3)
+        self.assertEqual(len(self.skillbook.skills()), 3)
 
         # Check UPDATE operation
-        bullet1 = self.playbook.get_bullet(self.bullet1.id)
-        self.assertEqual(bullet1.content, "Modified content")
+        skill1 = self.skillbook.get_skill(self.skill1.id)
+        self.assertEqual(skill1.content, "Modified content")
 
         # Check TAG operation
-        bullet2 = self.playbook.get_bullet(self.bullet2.id)
-        self.assertEqual(bullet2.harmful, 3)  # 1 + 2
+        skill2 = self.skillbook.get_skill(self.skill2.id)
+        self.assertEqual(skill2.harmful, 3)  # 1 + 2
 
     def test_dumps_loads(self):
         """Test JSON serialization and deserialization."""
         # Serialize
-        json_str = self.playbook.dumps()
+        json_str = self.skillbook.dumps()
         self.assertIsInstance(json_str, str)
 
         # Verify it's valid JSON
         data = json.loads(json_str)
-        self.assertIn("bullets", data)
+        self.assertIn("skills", data)
         self.assertIn("sections", data)
 
         # Deserialize
-        loaded = Playbook.loads(json_str)
+        loaded = Skillbook.loads(json_str)
 
         # Verify content matches
-        self.assertEqual(len(loaded.bullets()), len(self.playbook.bullets()))
+        self.assertEqual(len(loaded.skills()), len(self.skillbook.skills()))
 
-        for original, loaded_bullet in zip(self.playbook.bullets(), loaded.bullets()):
-            self.assertEqual(original.id, loaded_bullet.id)
-            self.assertEqual(original.content, loaded_bullet.content)
-            self.assertEqual(original.helpful, loaded_bullet.helpful)
+        for original, loaded_skill in zip(self.skillbook.skills(), loaded.skills()):
+            self.assertEqual(original.id, loaded_skill.id)
+            self.assertEqual(original.content, loaded_skill.content)
+            self.assertEqual(original.helpful, loaded_skill.helpful)
 
     def test_save_to_file(self):
-        """Test saving playbook to file."""
+        """Test saving skillbook to file."""
         with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as f:
             temp_path = f.name
 
         try:
-            # Save playbook
-            self.playbook.save_to_file(temp_path)
+            # Save skillbook
+            self.skillbook.save_to_file(temp_path)
 
             # Verify file exists
             self.assertTrue(os.path.exists(temp_path))
@@ -169,9 +169,9 @@ class TestPlaybook(unittest.TestCase):
             with open(temp_path, "r") as f:
                 data = json.load(f)
 
-            self.assertIn("bullets", data)
+            self.assertIn("skills", data)
             self.assertIn("sections", data)
-            self.assertEqual(len(data["bullets"]), 2)
+            self.assertEqual(len(data["skills"]), 2)
 
         finally:
             # Clean up
@@ -179,29 +179,29 @@ class TestPlaybook(unittest.TestCase):
                 os.remove(temp_path)
 
     def test_load_from_file(self):
-        """Test loading playbook from file."""
+        """Test loading skillbook from file."""
         with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as f:
             temp_path = f.name
 
         try:
             # Save original
-            self.playbook.save_to_file(temp_path)
+            self.skillbook.save_to_file(temp_path)
 
             # Load from file
-            loaded = Playbook.load_from_file(temp_path)
+            loaded = Skillbook.load_from_file(temp_path)
 
             # Verify content matches
-            self.assertEqual(len(loaded.bullets()), 2)
+            self.assertEqual(len(loaded.skills()), 2)
 
-            loaded_bullets = {b.id: b for b in loaded.bullets()}
-            original_bullets = {b.id: b for b in self.playbook.bullets()}
+            loaded_skills = {b.id: b for b in loaded.skills()}
+            original_skills = {b.id: b for b in self.skillbook.skills()}
 
-            for bid, original in original_bullets.items():
-                loaded_bullet = loaded_bullets[bid]
-                self.assertEqual(loaded_bullet.content, original.content)
-                self.assertEqual(loaded_bullet.section, original.section)
-                self.assertEqual(loaded_bullet.helpful, original.helpful)
-                self.assertEqual(loaded_bullet.harmful, original.harmful)
+            for sid, original in original_skills.items():
+                loaded_skill = loaded_skills[sid]
+                self.assertEqual(loaded_skill.content, original.content)
+                self.assertEqual(loaded_skill.section, original.section)
+                self.assertEqual(loaded_skill.helpful, original.helpful)
+                self.assertEqual(loaded_skill.harmful, original.harmful)
 
         finally:
             # Clean up
@@ -211,25 +211,25 @@ class TestPlaybook(unittest.TestCase):
     def test_save_creates_parent_dirs(self):
         """Test that save_to_file creates parent directories if needed."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            nested_path = os.path.join(temp_dir, "nested", "dir", "playbook.json")
+            nested_path = os.path.join(temp_dir, "nested", "dir", "skillbook.json")
 
             # Parent dirs don't exist yet
             self.assertFalse(os.path.exists(os.path.dirname(nested_path)))
 
             # Save should create them
-            self.playbook.save_to_file(nested_path)
+            self.skillbook.save_to_file(nested_path)
 
             # Verify file was created
             self.assertTrue(os.path.exists(nested_path))
 
             # Verify we can load it back
-            loaded = Playbook.load_from_file(nested_path)
-            self.assertEqual(len(loaded.bullets()), 2)
+            loaded = Skillbook.load_from_file(nested_path)
+            self.assertEqual(len(loaded.skills()), 2)
 
     def test_load_nonexistent_file(self):
         """Test loading from non-existent file raises FileNotFoundError."""
         with self.assertRaises(FileNotFoundError) as context:
-            Playbook.load_from_file("nonexistent_file.json")
+            Skillbook.load_from_file("nonexistent_file.json")
 
         self.assertIn("not found", str(context.exception))
 
@@ -241,16 +241,16 @@ class TestPlaybook(unittest.TestCase):
 
         try:
             with self.assertRaises(json.JSONDecodeError):
-                Playbook.load_from_file(temp_path)
+                Skillbook.load_from_file(temp_path)
         finally:
             os.remove(temp_path)
 
     def test_as_prompt(self):
-        """Test playbook prompt generation in TOON format."""
-        prompt = self.playbook.as_prompt()
+        """Test skillbook prompt generation in TOON format."""
+        prompt = self.skillbook.as_prompt()
 
         # Check for TOON format with tab-delimited header
-        self.assertIn("bullets[2", prompt)  # Array length
+        self.assertIn("skills[2", prompt)  # Array length
         self.assertIn("{id", prompt)  # Field declarations
         self.assertIn("general", prompt)
         self.assertIn("math", prompt)
@@ -262,17 +262,17 @@ class TestPlaybook(unittest.TestCase):
 
         # Check helpful/harmful values are present as tab-separated numbers
         lines = prompt.split("\n")
-        data_lines = [line for line in lines if line and not line.startswith("bullets")]
-        self.assertEqual(len(data_lines), 2)  # Two bullet rows
+        data_lines = [line for line in lines if line and not line.startswith("skills")]
+        self.assertEqual(len(data_lines), 2)  # Two skill rows
 
-        # Check first bullet: general-00001\tgeneral\tAlways be clear\t5\t0\t0
+        # Check first skill: general-00001\tgeneral\tAlways be clear\t5\t0\t0
         self.assertIn("general-00001", data_lines[0])
         self.assertIn("Always be clear", data_lines[0])
         parts = data_lines[0].split("\t")
         self.assertEqual(parts[3], "5")  # helpful
         self.assertEqual(parts[4], "0")  # harmful
 
-        # Check second bullet: math-00002\tmath\tShow your work\t3\t1\t0
+        # Check second skill: math-00002\tmath\tShow your work\t3\t1\t0
         self.assertIn("math-00002", data_lines[1])
         self.assertIn("Show your work", data_lines[1])
         parts = data_lines[1].split("\t")
@@ -280,32 +280,32 @@ class TestPlaybook(unittest.TestCase):
         self.assertEqual(parts[4], "1")  # harmful
 
     def test_stats(self):
-        """Test playbook statistics."""
-        stats = self.playbook.stats()
+        """Test skillbook statistics."""
+        stats = self.skillbook.stats()
 
         self.assertEqual(stats["sections"], 2)
-        self.assertEqual(stats["bullets"], 2)
+        self.assertEqual(stats["skills"], 2)
         self.assertEqual(stats["tags"]["helpful"], 8)  # 5 + 3
         self.assertEqual(stats["tags"]["harmful"], 1)
         self.assertEqual(stats["tags"]["neutral"], 0)
 
-    def test_empty_playbook_serialization(self):
-        """Test that empty playbook can be saved and loaded."""
-        empty = Playbook()
+    def test_empty_skillbook_serialization(self):
+        """Test that empty skillbook can be saved and loaded."""
+        empty = Skillbook()
 
         with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as f:
             temp_path = f.name
 
         try:
-            # Save empty playbook
+            # Save empty skillbook
             empty.save_to_file(temp_path)
 
             # Load it back
-            loaded = Playbook.load_from_file(temp_path)
+            loaded = Skillbook.load_from_file(temp_path)
 
             # Verify it's empty
-            self.assertEqual(len(loaded.bullets()), 0)
-            self.assertEqual(loaded.stats()["bullets"], 0)
+            self.assertEqual(len(loaded.skills()), 0)
+            self.assertEqual(loaded.stats()["skills"], 0)
             self.assertEqual(loaded.stats()["sections"], 0)
 
         finally:
@@ -316,38 +316,38 @@ class TestPlaybook(unittest.TestCase):
         from toon import decode
 
         # Get TOON output
-        toon_output = self.playbook.as_prompt()
+        toon_output = self.skillbook.as_prompt()
 
         # Should be valid TOON - decode it
         decoded = decode(toon_output)
 
         # Verify structure
-        self.assertIn("bullets", decoded)
-        self.assertEqual(len(decoded["bullets"]), 2)
+        self.assertIn("skills", decoded)
+        self.assertEqual(len(decoded["skills"]), 2)
 
-        # Verify bullet IDs are preserved
-        bullet_ids = {b["id"] for b in decoded["bullets"]}
-        self.assertIn("general-00001", bullet_ids)
-        self.assertIn("math-00002", bullet_ids)
+        # Verify skill IDs are preserved
+        skill_ids = {b["id"] for b in decoded["skills"]}
+        self.assertIn("general-00001", skill_ids)
+        self.assertIn("math-00002", skill_ids)
 
-    def test_as_prompt_empty_playbook(self):
-        """Test that empty playbook is handled gracefully."""
-        empty = Playbook()
+    def test_as_prompt_empty_skillbook(self):
+        """Test that empty skillbook is handled gracefully."""
+        empty = Skillbook()
 
         # Should not crash
         result = empty.as_prompt()
 
-        # Should return valid TOON for empty bullets array
+        # Should return valid TOON for empty skills array
         self.assertIsInstance(result, str)
         self.assertGreater(len(result), 0)
 
     def test_markdown_debug_method(self):
         """Test that _as_markdown_debug() provides human-readable format."""
-        markdown = self.playbook._as_markdown_debug()
+        markdown = self.skillbook._as_markdown_debug()
 
         # Should be markdown format
         self.assertIn("##", markdown)  # Section headers
-        self.assertIn("- [", markdown)  # Bullet points
+        self.assertIn("- [", markdown)  # Skill points
         self.assertIn("general", markdown)  # Section name
         self.assertIn("Always be clear", markdown)  # Content
         self.assertIn("helpful=5", markdown)  # Counters

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ace-framework"
-version = "0.6.0"
+version = "0.7.1"
 description = "Build self-improving AI agents that learn from experience"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -60,6 +60,7 @@ langchain = [
     "langchain-openai>=0.3.35",
     "langchain-anthropic>=0.3.0",
     "langchain-litellm>=0.2.0",
+    "langgraph>=0.2.0",
 ]
 transformers = [
     "transformers>=4.30.0",
@@ -72,6 +73,7 @@ all = [
     "langchain-openai>=0.3.35",
     "langchain-anthropic>=0.3.0",
     "langchain-litellm>=0.2.0",
+    "langgraph>=0.2.0",
     "transformers>=4.30.0",
     "torch>=2.0.0",
     "accelerate>=0.20.0",

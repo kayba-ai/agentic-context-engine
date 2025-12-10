@@ -1,4 +1,4 @@
-"""Delta operations produced by the ACE Curator."""
+"""Update operations produced by the ACE SkillManager."""
 
 from __future__ import annotations
 
@@ -10,17 +10,17 @@ OperationType = Literal["ADD", "UPDATE", "TAG", "REMOVE"]
 
 
 @dataclass
-class DeltaOperation:
-    """Single mutation to apply to the playbook."""
+class UpdateOperation:
+    """Single mutation to apply to the skillbook."""
 
     type: OperationType
     section: str
     content: Optional[str] = None
-    bullet_id: Optional[str] = None
+    skill_id: Optional[str] = None
     metadata: Dict[str, int] = field(default_factory=dict)
 
     @classmethod
-    def from_json(cls, payload: Dict[str, object]) -> "DeltaOperation":
+    def from_json(cls, payload: Dict[str, object]) -> "UpdateOperation":
         # Filter metadata for TAG operations to only include valid tags
         metadata_raw = payload.get("metadata") or {}
         metadata: Dict[str, Any] = (
@@ -42,9 +42,9 @@ class DeltaOperation:
             content=(
                 str(payload["content"]) if payload.get("content") is not None else None
             ),
-            bullet_id=(
-                str(payload["bullet_id"])
-                if payload.get("bullet_id") is not None
+            skill_id=(
+                str(payload["skill_id"])
+                if payload.get("skill_id") is not None
                 else None
             ),
             metadata={str(k): int(v) for k, v in metadata.items()},
@@ -54,28 +54,28 @@ class DeltaOperation:
         data: Dict[str, object] = {"type": self.type, "section": self.section}
         if self.content is not None:
             data["content"] = self.content
-        if self.bullet_id is not None:
-            data["bullet_id"] = self.bullet_id
+        if self.skill_id is not None:
+            data["skill_id"] = self.skill_id
         if self.metadata:
             data["metadata"] = self.metadata
         return data
 
 
 @dataclass
-class DeltaBatch:
-    """Bundle of curator reasoning and operations."""
+class UpdateBatch:
+    """Bundle of skill manager reasoning and operations."""
 
     reasoning: str
-    operations: List[DeltaOperation] = field(default_factory=list)
+    operations: List[UpdateOperation] = field(default_factory=list)
 
     @classmethod
-    def from_json(cls, payload: Dict[str, object]) -> "DeltaBatch":
+    def from_json(cls, payload: Dict[str, object]) -> "UpdateBatch":
         ops_payload = payload.get("operations")
         operations = []
         if isinstance(ops_payload, Iterable):
             for item in ops_payload:
                 if isinstance(item, dict):
-                    operations.append(DeltaOperation.from_json(item))
+                    operations.append(UpdateOperation.from_json(item))
         return cls(reasoning=str(payload.get("reasoning", "")), operations=operations)
 
     def to_json(self) -> Dict[str, object]:

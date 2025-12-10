@@ -1,7 +1,7 @@
 """
 Integration tests for end-to-end ACE adaptation flows.
 
-These tests verify the complete workflow from sample → generate → reflect → curate.
+These tests verify the complete workflow from sample → generate → reflect → update skills.
 """
 
 import json
@@ -13,13 +13,13 @@ from typing import Any
 import pytest
 
 from ace import (
-    Curator,
+    SkillManager,
     EnvironmentResult,
-    Generator,
+    Agent,
     LLMClient,
-    OfflineAdapter,
-    OnlineAdapter,
-    Playbook,
+    OfflineACE,
+    OnlineACE,
+    Skillbook,
     Reflector,
     Sample,
     TaskEnvironment,
@@ -39,7 +39,7 @@ class MockLLMClient(LLMClient):
         self.call_count += 1
 
         # Detect role from prompt - check more specific markers first
-        # v2.1 prompts use "ACE Reflector", "ACE Curator", "ACE Generator"
+        # v2.1 prompts use "ACE Reflector", "ACE SkillManager", "ACE Agent"
         if "ACE Reflector" in prompt or "Reflector" in prompt:
             response = json.dumps(
                 {
@@ -48,28 +48,28 @@ class MockLLMClient(LLMClient):
                     "root_cause_analysis": "",
                     "correct_approach": "The correct approach was taken",
                     "key_insight": "Key insight from this iteration",
-                    "bullet_tags": [],
+                    "skill_tags": [],
                 }
             )
         elif (
-            "ACE Curator" in prompt or "Curator" in prompt or "delta" in prompt.lower()
+            "ACE SkillManager" in prompt
+            or "SkillManager" in prompt
+            or "update" in prompt.lower()
         ):
             response = json.dumps(
-                {"delta": {"reasoning": "No changes needed", "operations": []}}
+                {"update": {"reasoning": "No changes needed", "operations": []}}
             )
-        elif (
-            "ACE Generator" in prompt or "Generator" in prompt or "bullet_ids" in prompt
-        ):
+        elif "ACE Agent" in prompt or "Agent" in prompt or "skill_ids" in prompt:
             response = json.dumps(
                 {
                     "reasoning": "Mock reasoning",
                     "final_answer": "This is a correct mock answer",
-                    "bullet_ids": [],
+                    "skill_ids": [],
                 }
             )
         elif "helpful" in prompt.lower():
             response = json.dumps(
-                {"delta": {"reasoning": "No changes needed", "operations": []}}
+                {"update": {"reasoning": "No changes needed", "operations": []}}
             )
         else:
             # Generic response
@@ -79,17 +79,17 @@ class MockLLMClient(LLMClient):
 
     def complete_structured(self, prompt: str, response_model, **kwargs):
         """Mock structured output to prevent Instructor wrapping."""
-        from ace.delta import DeltaBatch
-        from ace.roles import CuratorOutput
+        from ace.updates import UpdateBatch
+        from ace.roles import SkillManagerOutput
 
         response = self.complete(prompt, **kwargs)
         data = json.loads(response.text)
 
-        # Special handling for CuratorOutput (delta is a dataclass, not Pydantic)
-        if response_model == CuratorOutput:
-            delta_data = data.get("delta", {})
-            delta = DeltaBatch.from_json(delta_data)
-            return CuratorOutput(delta=delta, raw=data)
+        # Special handling for SkillManagerOutput (update is a dataclass, not Pydantic)
+        if response_model == SkillManagerOutput:
+            update_data = data.get("update", {})
+            update = UpdateBatch.from_json(update_data)
+            return SkillManagerOutput(update=update, raw=data)
 
         return response_model.model_validate(data)
 
@@ -97,9 +97,9 @@ class MockLLMClient(LLMClient):
 class SimpleTestEnvironment(TaskEnvironment):
     """Simple environment that checks if answer contains 'correct'."""
 
-    def evaluate(self, sample: Sample, generator_output) -> EnvironmentResult:
+    def evaluate(self, sample: Sample, agent_output) -> EnvironmentResult:
         """Evaluate if answer contains 'correct'."""
-        answer = generator_output.final_answer
+        answer = agent_output.final_answer
         success = "correct" in answer.lower()
         feedback = "✓ Contains 'correct'" if success else "✗ Missing 'correct'"
 
@@ -117,17 +117,17 @@ class TestOfflineAdaptation(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures."""
         self.llm = MockLLMClient()
-        self.playbook = Playbook()
+        self.skillbook = Skillbook()
         self.environment = SimpleTestEnvironment()
 
     def test_single_sample_adaptation(self):
         """Test adaptation with a single sample."""
         # Create adapter
-        adapter = OfflineAdapter(
-            playbook=self.playbook,
-            generator=Generator(self.llm),
+        adapter = OfflineACE(
+            skillbook=self.skillbook,
+            agent=Agent(self.llm),
             reflector=Reflector(self.llm),
-            curator=Curator(self.llm),
+            skill_manager=SkillManager(self.llm),
         )
 
         # Create sample
@@ -144,18 +144,18 @@ class TestOfflineAdaptation(unittest.TestCase):
 
         # Verify results
         self.assertEqual(len(results), 1)
-        self.assertIsNotNone(results[0].generator_output)
+        self.assertIsNotNone(results[0].agent_output)
         self.assertIsNotNone(results[0].reflection)
-        self.assertIsNotNone(results[0].curator_output)
+        self.assertIsNotNone(results[0].skill_manager_output)
         self.assertIsNotNone(results[0].environment_result)
 
     def test_multi_sample_adaptation(self):
         """Test adaptation with multiple samples."""
-        adapter = OfflineAdapter(
-            playbook=self.playbook,
-            generator=Generator(self.llm),
+        adapter = OfflineACE(
+            skillbook=self.skillbook,
+            agent=Agent(self.llm),
             reflector=Reflector(self.llm),
-            curator=Curator(self.llm),
+            skill_manager=SkillManager(self.llm),
         )
 
         samples = [
@@ -167,16 +167,16 @@ class TestOfflineAdaptation(unittest.TestCase):
 
         self.assertEqual(len(results), 5)
         for i, result in enumerate(results):
-            self.assertIsNotNone(result.generator_output)
+            self.assertIsNotNone(result.agent_output)
             self.assertIsNotNone(result.reflection)
 
     def test_multi_epoch_training(self):
         """Test multi-epoch adaptation."""
-        adapter = OfflineAdapter(
-            playbook=self.playbook,
-            generator=Generator(self.llm),
+        adapter = OfflineACE(
+            skillbook=self.skillbook,
+            agent=Agent(self.llm),
             reflector=Reflector(self.llm),
-            curator=Curator(self.llm),
+            skill_manager=SkillManager(self.llm),
         )
 
         samples = [
@@ -190,15 +190,15 @@ class TestOfflineAdaptation(unittest.TestCase):
         # Should process 2 samples × 3 epochs = 6 total
         self.assertEqual(len(results), 6)
 
-    def test_playbook_evolution(self):
-        """Test that playbook evolves during adaptation."""
-        initial_bullets = len(self.playbook.bullets())
+    def test_skillbook_evolution(self):
+        """Test that skillbook evolves during adaptation."""
+        initial_skills = len(self.skillbook.skills())
 
-        adapter = OfflineAdapter(
-            playbook=self.playbook,
-            generator=Generator(self.llm),
+        adapter = OfflineACE(
+            skillbook=self.skillbook,
+            agent=Agent(self.llm),
             reflector=Reflector(self.llm),
-            curator=Curator(self.llm),
+            skill_manager=SkillManager(self.llm),
         )
 
         samples = [
@@ -207,20 +207,20 @@ class TestOfflineAdaptation(unittest.TestCase):
 
         adapter.run(samples, self.environment, epochs=1)
 
-        # Playbook should have more bullets (DummyLLMClient adds bullets)
-        final_bullets = len(self.playbook.bullets())
-        self.assertGreaterEqual(final_bullets, initial_bullets)
+        # Skillbook should have more skills (DummyLLMClient adds skills)
+        final_skills = len(self.skillbook.skills())
+        self.assertGreaterEqual(final_skills, initial_skills)
 
     def test_checkpoint_functionality(self):
         """Test checkpoint saving during offline adaptation."""
         with TemporaryDirectory() as tmpdir:
             checkpoint_dir = Path(tmpdir)
 
-            adapter = OfflineAdapter(
-                playbook=self.playbook,
-                generator=Generator(self.llm),
+            adapter = OfflineACE(
+                skillbook=self.skillbook,
+                agent=Agent(self.llm),
                 reflector=Reflector(self.llm),
-                curator=Curator(self.llm),
+                skill_manager=SkillManager(self.llm),
             )
 
             samples = [
@@ -249,16 +249,16 @@ class TestOnlineAdaptation(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures."""
         self.llm = MockLLMClient()
-        self.playbook = Playbook()
+        self.skillbook = Skillbook()
         self.environment = SimpleTestEnvironment()
 
     def test_single_sample_online(self):
         """Test online adaptation with a single sample."""
-        adapter = OnlineAdapter(
-            playbook=self.playbook,
-            generator=Generator(self.llm),
+        adapter = OnlineACE(
+            skillbook=self.skillbook,
+            agent=Agent(self.llm),
             reflector=Reflector(self.llm),
-            curator=Curator(self.llm),
+            skill_manager=SkillManager(self.llm),
         )
 
         samples = [
@@ -268,15 +268,15 @@ class TestOnlineAdaptation(unittest.TestCase):
         results = adapter.run(samples, self.environment)
 
         self.assertEqual(len(results), 1)
-        self.assertIsNotNone(results[0].generator_output)
+        self.assertIsNotNone(results[0].agent_output)
 
     def test_sequential_online_adaptation(self):
         """Test that online adaptation processes samples sequentially."""
-        adapter = OnlineAdapter(
-            playbook=self.playbook,
-            generator=Generator(self.llm),
+        adapter = OnlineACE(
+            skillbook=self.skillbook,
+            agent=Agent(self.llm),
             reflector=Reflector(self.llm),
-            curator=Curator(self.llm),
+            skill_manager=SkillManager(self.llm),
         )
 
         samples = [
@@ -285,54 +285,54 @@ class TestOnlineAdaptation(unittest.TestCase):
 
         results = adapter.run(samples, self.environment)
 
-        # Each sample should be processed with updated playbook
+        # Each sample should be processed with updated skillbook
         self.assertEqual(len(results), 3)
 
 
 @pytest.mark.integration
-class TestPlaybookPersistence(unittest.TestCase):
-    """Test playbook save/load functionality."""
+class TestSkillbookPersistence(unittest.TestCase):
+    """Test skillbook save/load functionality."""
 
     def test_save_load_roundtrip(self):
-        """Test that playbook can be saved and loaded."""
+        """Test that skillbook can be saved and loaded."""
         with TemporaryDirectory() as tmpdir:
-            playbook_path = Path(tmpdir) / "test_playbook.json"
+            skillbook_path = Path(tmpdir) / "test_skillbook.json"
 
-            # Create playbook with bullets
-            original = Playbook()
-            bullet = original.add_bullet(
+            # Create skillbook with skills
+            original = Skillbook()
+            skill = original.add_skill(
                 section="Testing",
                 content="Test strategy",
-                bullet_id="b1",
+                skill_id="b1",
                 metadata={"helpful": 5, "harmful": 1},
             )
 
             # Save
-            original.save_to_file(str(playbook_path))
+            original.save_to_file(str(skillbook_path))
 
             # Load
-            loaded = Playbook.load_from_file(str(playbook_path))
+            loaded = Skillbook.load_from_file(str(skillbook_path))
 
             # Verify
-            self.assertEqual(len(loaded.bullets()), len(original.bullets()))
-            self.assertEqual(loaded.bullets()[0].content, "Test strategy")
-            self.assertEqual(loaded.bullets()[0].helpful, 5)
+            self.assertEqual(len(loaded.skills()), len(original.skills()))
+            self.assertEqual(loaded.skills()[0].content, "Test strategy")
+            self.assertEqual(loaded.skills()[0].helpful, 5)
 
-    def test_evolved_playbook_persistence(self):
-        """Test that evolved playbook can be saved and reused."""
+    def test_evolved_skillbook_persistence(self):
+        """Test that evolved skillbook can be saved and reused."""
         with TemporaryDirectory() as tmpdir:
-            playbook_path = Path(tmpdir) / "evolved_playbook.json"
+            skillbook_path = Path(tmpdir) / "evolved_skillbook.json"
 
             # Train adapter
             llm = MockLLMClient()
-            playbook = Playbook()
+            skillbook = Skillbook()
             environment = SimpleTestEnvironment()
 
-            adapter = OfflineAdapter(
-                playbook=playbook,
-                generator=Generator(llm),
+            adapter = OfflineACE(
+                skillbook=skillbook,
+                agent=Agent(llm),
                 reflector=Reflector(llm),
-                curator=Curator(llm),
+                skill_manager=SkillManager(llm),
             )
 
             samples = [
@@ -341,16 +341,16 @@ class TestPlaybookPersistence(unittest.TestCase):
 
             adapter.run(samples, environment, epochs=1)
 
-            # Save evolved playbook
-            playbook.save_to_file(str(playbook_path))
+            # Save evolved skillbook
+            skillbook.save_to_file(str(skillbook_path))
 
-            # Create new adapter with loaded playbook
-            loaded_playbook = Playbook.load_from_file(str(playbook_path))
-            new_adapter = OfflineAdapter(
-                playbook=loaded_playbook,
-                generator=Generator(llm),
+            # Create new adapter with loaded skillbook
+            loaded_skillbook = Skillbook.load_from_file(str(skillbook_path))
+            new_adapter = OfflineACE(
+                skillbook=loaded_skillbook,
+                agent=Agent(llm),
                 reflector=Reflector(llm),
-                curator=Curator(llm),
+                skill_manager=SkillManager(llm),
             )
 
             # Verify it works
@@ -370,7 +370,7 @@ class TestErrorRecovery(unittest.TestCase):
         class FailingEnvironment(TaskEnvironment):
             """Environment that fails on specific questions."""
 
-            def evaluate(self, sample: Sample, generator_output) -> EnvironmentResult:
+            def evaluate(self, sample: Sample, agent_output) -> EnvironmentResult:
                 if "fail" in sample.question.lower():
                     raise ValueError("Simulated evaluation failure")
                 return EnvironmentResult(
@@ -378,14 +378,14 @@ class TestErrorRecovery(unittest.TestCase):
                 )
 
         llm = MockLLMClient()
-        playbook = Playbook()
+        skillbook = Skillbook()
         environment = FailingEnvironment()
 
-        adapter = OfflineAdapter(
-            playbook=playbook,
-            generator=Generator(llm),
+        adapter = OfflineACE(
+            skillbook=skillbook,
+            agent=Agent(llm),
             reflector=Reflector(llm),
-            curator=Curator(llm),
+            skill_manager=SkillManager(llm),
         )
 
         samples = [

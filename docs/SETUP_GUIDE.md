@@ -137,21 +137,21 @@ pip install ace-framework[observability]
 Opik automatically tracks:
 - Token usage per LLM call
 - Cost per operation
-- Generator/Reflector/Curator performance
-- Playbook evolution over time
+- Agent/Reflector/SkillManager performance
+- Skillbook evolution over time
 
 View dashboard: [comet.com/opik](https://www.comet.com/opik)
 
-### Playbook Storage
+### Skillbook Storage
 
 ```python
-from ace import Playbook
+from ace import Skillbook
 
-# Save playbook
-playbook.save_to_file("my_playbook.json")
+# Save skillbook
+skillbook.save_to_file("my_skillbook.json")
 
-# Load playbook
-playbook = Playbook.load_from_file("my_playbook.json")
+# Load skillbook
+skillbook = Skillbook.load_from_file("my_skillbook.json")
 
 # For production: Use database storage
 # PostgreSQL, SQLite, or vector stores supported
@@ -160,11 +160,11 @@ playbook = Playbook.load_from_file("my_playbook.json")
 ### Checkpoint Saving
 
 ```python
-from ace import OfflineAdapter
+from ace import OfflineACE
 
-adapter = OfflineAdapter(playbook, generator, reflector, curator)
+adapter = OfflineACE(skillbook, agent, reflector, skill_manager)
 
-# Save playbook every 10 samples during training
+# Save skillbook every 10 samples during training
 results = adapter.run(
     samples,
     environment,
@@ -214,11 +214,11 @@ client = LiteLLMClient(model="gpt-3.5-turbo")
 ### JSON Parse Failures
 
 ```python
-# Increase max_tokens for Curator/Reflector
-from ace import Curator, Reflector
+# Increase max_tokens for SkillManager/Reflector
+from ace import SkillManager, Reflector
 
 llm = LiteLLMClient(model="gpt-4o-mini", max_tokens=2048)  # Higher limit
-curator = Curator(llm)
+skill_manager = SkillManager(llm)
 reflector = Reflector(llm)
 ```
 

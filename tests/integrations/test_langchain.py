@@ -9,7 +9,7 @@ from unittest.mock import Mock, MagicMock, AsyncMock, patch
 pytest.importorskip("langchain_core")
 
 from ace.integrations import ACELangChain, LANGCHAIN_AVAILABLE
-from ace import Playbook, Bullet, LiteLLMClient
+from ace import Skillbook, Skill, LiteLLMClient
 
 
 class TestLangChainAvailability:
@@ -32,25 +32,25 @@ class TestACELangChainInitialization:
 
         assert agent.runnable is mock_runnable
         assert agent.is_learning is True  # Default
-        assert agent.playbook is not None
+        assert agent.skillbook is not None
         assert agent.reflector is not None
-        assert agent.curator is not None
+        assert agent.skill_manager is not None
         assert agent.output_parser is not None
 
-    def test_with_playbook_path(self):
-        """Should load existing playbook from path."""
+    def test_with_skillbook_path(self):
+        """Should load existing skillbook from path."""
         mock_runnable = Mock()
 
-        # Create temp playbook
+        # Create temp skillbook
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            f.write('{"bullets": []}')
-            playbook_path = f.name
+            f.write('{"skills": []}')
+            skillbook_path = f.name
 
         try:
-            agent = ACELangChain(runnable=mock_runnable, playbook_path=playbook_path)
-            assert agent.playbook is not None
+            agent = ACELangChain(runnable=mock_runnable, skillbook_path=skillbook_path)
+            assert agent.skillbook is not None
         finally:
-            Path(playbook_path).unlink()
+            Path(skillbook_path).unlink()
 
     def test_with_learning_disabled(self):
         """Should respect is_learning parameter."""
@@ -83,8 +83,8 @@ class TestACELangChainInitialization:
 class TestContextInjection:
     """Test _inject_context method."""
 
-    def test_empty_playbook_returns_unchanged(self):
-        """Should return input unchanged when playbook is empty."""
+    def test_empty_skillbook_returns_unchanged(self):
+        """Should return input unchanged when skillbook is empty."""
         mock_runnable = Mock()
         agent = ACELangChain(runnable=mock_runnable)
 
@@ -97,12 +97,12 @@ class TestContextInjection:
         assert result == {"input": "test"}
 
     def test_string_input_appends_context(self):
-        """Should append playbook context to string input."""
+        """Should append skillbook context to string input."""
         mock_runnable = Mock()
         agent = ACELangChain(runnable=mock_runnable)
 
-        # Add a bullet
-        agent.playbook.add_bullet("general", "Test strategy")
+        # Add a skill
+        agent.skillbook.add_skill("general", "Test strategy")
 
         result = agent._inject_context("What is ACE?")
 
@@ -115,8 +115,8 @@ class TestContextInjection:
         mock_runnable = Mock()
         agent = ACELangChain(runnable=mock_runnable)
 
-        # Add a bullet
-        agent.playbook.add_bullet("general", "Test strategy")
+        # Add a skill
+        agent.skillbook.add_skill("general", "Test strategy")
 
         original = {"input": "Question", "other": "data"}
         result = agent._inject_context(original)
@@ -127,13 +127,13 @@ class TestContextInjection:
         assert "Question" in result["input"]
         assert "Test strategy" in result["input"]
 
-    def test_dict_without_input_key_adds_playbook_context(self):
-        """Should add playbook_context key to dict."""
+    def test_dict_without_input_key_adds_skillbook_context(self):
+        """Should add skillbook_context key to dict."""
         mock_runnable = Mock()
         agent = ACELangChain(runnable=mock_runnable)
 
-        # Add a bullet
-        agent.playbook.add_bullet("general", "Test strategy")
+        # Add a skill
+        agent.skillbook.add_skill("general", "Test strategy")
 
         original = {"question": "What?", "data": "value"}
         result = agent._inject_context(original)
@@ -141,8 +141,8 @@ class TestContextInjection:
         assert isinstance(result, dict)
         assert "question" in result
         assert result["question"] == "What?"
-        assert "playbook_context" in result
-        assert "Test strategy" in result["playbook_context"]
+        assert "skillbook_context" in result
+        assert "Test strategy" in result["skillbook_context"]
 
 
 class TestOutputParser:
@@ -273,49 +273,49 @@ class TestLearningControl:
         assert agent.is_learning is True
 
 
-class TestPlaybookOperations:
-    """Test playbook save/load methods."""
+class TestSkillbookOperations:
+    """Test skillbook save/load methods."""
 
-    def test_save_playbook(self):
-        """Should save playbook to file."""
+    def test_save_skillbook(self):
+        """Should save skillbook to file."""
         mock_runnable = Mock()
         agent = ACELangChain(runnable=mock_runnable)
 
-        agent.playbook.add_bullet("general", "Test bullet")
+        agent.skillbook.add_skill("general", "Test skill")
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             temp_path = f.name
 
         try:
-            agent.save_playbook(temp_path)
+            agent.save_skillbook(temp_path)
 
             # Verify file exists and is valid JSON
-            loaded_playbook = Playbook.load_from_file(temp_path)
-            assert len(loaded_playbook.bullets()) == 1
-            assert loaded_playbook.bullets()[0].content == "Test bullet"
+            loaded_skillbook = Skillbook.load_from_file(temp_path)
+            assert len(loaded_skillbook.skills()) == 1
+            assert loaded_skillbook.skills()[0].content == "Test skill"
         finally:
             Path(temp_path).unlink()
 
-    def test_load_playbook(self):
-        """Should load playbook from file."""
+    def test_load_skillbook(self):
+        """Should load skillbook from file."""
         mock_runnable = Mock()
         agent = ACELangChain(runnable=mock_runnable)
 
-        # Create and save a playbook
-        temp_playbook = Playbook()
-        temp_playbook.add_bullet("general", "Loaded bullet")
+        # Create and save a skillbook
+        temp_skillbook = Skillbook()
+        temp_skillbook.add_skill("general", "Loaded skill")
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             temp_path = f.name
 
         try:
-            temp_playbook.save_to_file(temp_path)
+            temp_skillbook.save_to_file(temp_path)
 
             # Load it
-            agent.load_playbook(temp_path)
+            agent.load_skillbook(temp_path)
 
-            assert len(agent.playbook.bullets()) == 1
-            assert agent.playbook.bullets()[0].content == "Loaded bullet"
+            assert len(agent.skillbook.skills()) == 1
+            assert agent.skillbook.skills()[0].content == "Loaded skill"
         finally:
             Path(temp_path).unlink()
 
@@ -329,7 +329,7 @@ class TestReprMethod:
         mock_runnable.__class__.__name__ = "TestRunnable"
 
         agent = ACELangChain(runnable=mock_runnable, is_learning=True)
-        agent.playbook.add_bullet("general", "Test")
+        agent.skillbook.add_skill("general", "Test")
 
         repr_str = repr(agent)
 
@@ -409,3 +409,237 @@ class TestBackwardsCompatibility:
         from ace import LANGCHAIN_AVAILABLE as flag
 
         assert flag is True
+
+
+class TestLangGraphSupport:
+    """Test LangGraph CompiledStateGraph support."""
+
+    def test_langgraph_available_flag_import(self):
+        """Should be able to import LANGGRAPH_AVAILABLE flag."""
+        from ace.integrations.langchain import LANGGRAPH_AVAILABLE
+
+        # Flag should be bool (True if langgraph installed, False otherwise)
+        assert isinstance(LANGGRAPH_AVAILABLE, bool)
+
+    def test_is_langgraph_returns_false_for_mock_runnable(self):
+        """Should return False for non-LangGraph runnables."""
+        mock_runnable = Mock()
+        agent = ACELangChain(runnable=mock_runnable)
+
+        assert agent._is_langgraph() is False
+
+    def test_is_langgraph_returns_false_for_agent_executor(self):
+        """Should return False for AgentExecutor."""
+        # Mock AgentExecutor
+        mock_agent_executor = Mock()
+        mock_agent_executor.__class__.__name__ = "AgentExecutor"
+
+        agent = ACELangChain(runnable=mock_agent_executor)
+
+        # _is_langgraph should return False for AgentExecutor
+        assert agent._is_langgraph() is False
+
+    def test_extract_langgraph_output_extracts_last_ai_message(self):
+        """Should extract content from last AI message."""
+        mock_runnable = Mock()
+        agent = ACELangChain(runnable=mock_runnable)
+
+        # Create mock messages
+        human_msg = Mock()
+        human_msg.type = "human"
+        human_msg.content = "What is 2+2?"
+
+        ai_msg = Mock()
+        ai_msg.type = "ai"
+        ai_msg.content = "The answer is 4."
+
+        result = {"messages": [human_msg, ai_msg]}
+
+        output = agent._extract_langgraph_output(result)
+        assert output == "The answer is 4."
+
+    def test_extract_langgraph_output_skips_tool_messages(self):
+        """Should skip tool messages and return AI message."""
+        mock_runnable = Mock()
+        agent = ACELangChain(runnable=mock_runnable)
+
+        # Create mock messages
+        ai_msg = Mock()
+        ai_msg.type = "ai"
+        ai_msg.content = "The answer is 4."
+
+        tool_msg = Mock()
+        tool_msg.type = "tool"
+        tool_msg.content = "Tool result"
+
+        result = {"messages": [ai_msg, tool_msg]}
+
+        output = agent._extract_langgraph_output(result)
+        assert output == "The answer is 4."
+
+    def test_extract_langgraph_output_returns_empty_when_no_ai_message(self):
+        """Should return empty string if no AI message found."""
+        mock_runnable = Mock()
+        agent = ACELangChain(runnable=mock_runnable)
+
+        result = {"messages": []}
+
+        output = agent._extract_langgraph_output(result)
+        assert output == ""
+
+    def test_extract_langgraph_trace_builds_trace_string(self):
+        """Should build trace string from message history."""
+        mock_runnable = Mock()
+        agent = ACELangChain(runnable=mock_runnable)
+
+        # Create mock messages
+        human_msg = Mock()
+        human_msg.type = "human"
+        human_msg.content = "What is 2+2?"
+        human_msg.tool_calls = []
+
+        ai_msg = Mock()
+        ai_msg.type = "ai"
+        ai_msg.content = "The answer is 4."
+        ai_msg.tool_calls = []
+
+        result = {"messages": [human_msg, ai_msg]}
+
+        trace, steps = agent._extract_langgraph_trace(result)
+
+        assert "Human:" in trace
+        assert "What is 2+2?" in trace
+        assert "Assistant:" in trace
+        assert "The answer is 4." in trace
+        assert len(steps) == 0  # No tool calls
+
+    def test_extract_langgraph_trace_extracts_tool_calls(self):
+        """Should extract tool calls into intermediate_steps."""
+        mock_runnable = Mock()
+        agent = ACELangChain(runnable=mock_runnable)
+
+        # Create mock messages with tool call
+        human_msg = Mock()
+        human_msg.type = "human"
+        human_msg.content = "Calculate 2+2"
+        human_msg.tool_calls = []
+
+        ai_msg = Mock()
+        ai_msg.type = "ai"
+        ai_msg.content = ""
+        ai_msg.tool_calls = [{"name": "calculator", "args": {"expression": "2+2"}}]
+
+        tool_msg = Mock()
+        tool_msg.type = "tool"
+        tool_msg.content = "4"
+        tool_msg.tool_calls = []
+
+        result = {"messages": [human_msg, ai_msg, tool_msg]}
+
+        trace, steps = agent._extract_langgraph_trace(result)
+
+        assert "Tool Call: calculator" in trace
+        assert "Tool Result: 4" in trace
+        assert len(steps) == 1
+        assert steps[0][0]["name"] == "calculator"
+        assert steps[0][1] == "4"
+
+    def test_get_task_str_handles_message_format(self):
+        """Should extract task from LangGraph message format."""
+        mock_runnable = Mock()
+        agent = ACELangChain(runnable=mock_runnable)
+
+        # Create mock HumanMessage
+        human_msg = Mock()
+        human_msg.content = "What is the capital of France?"
+
+        input_data = {"messages": [human_msg]}
+
+        task = agent._get_task_str(input_data)
+        assert task == "What is the capital of France?"
+
+    def test_inject_context_handles_message_format(self):
+        """Should inject skillbook context into message format."""
+        mock_runnable = Mock()
+        agent = ACELangChain(runnable=mock_runnable)
+
+        # Add a skill to the skillbook
+        agent.skillbook.add_skill("general", "Test strategy")
+
+        # Create mock HumanMessage with proper constructor behavior
+        class MockHumanMessage:
+            def __init__(self, content):
+                self.content = content
+                self.type = "human"
+
+        human_msg = MockHumanMessage(content="Original question")
+        input_data = {"messages": [human_msg]}
+
+        result = agent._inject_context(input_data)
+
+        assert "messages" in result
+        assert "Test strategy" in result["messages"][0].content
+        assert "Original question" in result["messages"][0].content
+
+    def test_invoke_with_langgraph_result_extracts_output(self):
+        """Should extract output from LangGraph message format in invoke."""
+        mock_runnable = Mock()
+
+        # Create mock messages for result
+        ai_msg = Mock()
+        ai_msg.type = "ai"
+        ai_msg.content = "The final answer"
+
+        mock_runnable.invoke.return_value = {"messages": [ai_msg]}
+
+        agent = ACELangChain(runnable=mock_runnable, is_learning=False)
+
+        # Patch _is_langgraph to return True
+        with patch.object(agent, "_is_langgraph", return_value=True):
+            result = agent.invoke("test input")
+
+        assert result == "The final answer"
+
+    @pytest.mark.asyncio
+    async def test_ainvoke_with_langgraph_result_extracts_output(self):
+        """Should extract output from LangGraph message format in ainvoke."""
+        mock_runnable = Mock()
+
+        # Create mock messages for result
+        ai_msg = Mock()
+        ai_msg.type = "ai"
+        ai_msg.content = "The final answer"
+
+        mock_runnable.ainvoke = AsyncMock(return_value={"messages": [ai_msg]})
+
+        agent = ACELangChain(runnable=mock_runnable, is_learning=False)
+
+        # Patch _is_langgraph to return True
+        with patch.object(agent, "_is_langgraph", return_value=True):
+            result = await agent.ainvoke("test input")
+
+        assert result == "The final answer"
+
+    def test_invoke_with_langgraph_calls_learning_method(self):
+        """Should call _learn_with_langgraph_trace for LangGraph results."""
+        mock_runnable = Mock()
+
+        # Create mock messages for result
+        ai_msg = Mock()
+        ai_msg.type = "ai"
+        ai_msg.content = "The answer"
+
+        mock_runnable.invoke.return_value = {"messages": [ai_msg]}
+
+        agent = ACELangChain(runnable=mock_runnable, is_learning=True)
+
+        # Patch _is_langgraph to return True and learning method
+        with patch.object(agent, "_is_langgraph", return_value=True):
+            with patch.object(agent, "_learn_with_langgraph_trace") as mock_learn:
+                agent.invoke("test")
+
+                mock_learn.assert_called_once()
+                # Verify it was called with correct args
+                call_args = mock_learn.call_args[0]
+                assert call_args[0] == "test"
+                assert "messages" in call_args[1]

@@ -1,4 +1,4 @@
-"""Configuration for bullet deduplication."""
+"""Configuration for skill deduplication."""
 
 from dataclasses import dataclass
 from typing import Literal, Optional
@@ -6,15 +6,15 @@ from typing import Literal, Optional
 
 @dataclass
 class DeduplicationConfig:
-    """Configuration for bullet deduplication.
+    """Configuration for skill deduplication.
 
     Attributes:
         enabled: Whether deduplication is enabled (default: True)
         embedding_model: Model to use for computing embeddings
         embedding_provider: Provider for embeddings ('litellm' or 'sentence_transformers')
-        similarity_threshold: Minimum similarity score to consider bullets as similar
-        min_pairs_to_report: Minimum number of similar pairs before including in Curator prompt
-        within_section_only: If True, only compare bullets within the same section
+        similarity_threshold: Minimum similarity score to consider skills as similar
+        min_pairs_to_report: Minimum number of similar pairs before including in SkillManager prompt
+        within_section_only: If True, only compare skills within the same section
     """
 
     # Feature flags

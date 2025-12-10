@@ -68,6 +68,9 @@ class LiteLLMConfig:
     extra_headers: Optional[Dict[str, str]] = None  # Custom HTTP headers
     ssl_verify: Optional[Union[bool, str]] = None  # True/False or path to CA bundle
 
+    # Model-specific parameters (reasoning_effort, budget_tokens, etc.)
+    extra_params: Optional[Dict[str, Any]] = None
+
 
 class LiteLLMClient(LLMClient):
     """
@@ -152,6 +155,25 @@ class LiteLLMClient(LLMClient):
                 raise ValueError(
                     "Either 'model' parameter or 'config' with model must be provided"
                 )
+            # Separate known config fields from model-specific extra params
+            config_fields = {
+                "api_version",
+                "top_p",
+                "timeout",
+                "max_retries",
+                "metadata",
+                "azure_deployment",
+                "azure_api_key",
+                "azure_api_base",
+                "track_cost",
+                "max_budget",
+                "verbose",
+                "extra_headers",
+                "ssl_verify",
+            }
+            config_kwargs = {k: v for k, v in kwargs.items() if k in config_fields}
+            extra_params = {k: v for k, v in kwargs.items() if k not in config_fields}
+
             self.config = LiteLLMConfig(
                 model=model,
                 api_key=api_key,
@@ -160,7 +182,8 @@ class LiteLLMClient(LLMClient):
                 max_tokens=max_tokens,
                 fallbacks=fallbacks,
                 sampling_priority=sampling_priority,
-                **kwargs,
+                extra_params=extra_params if extra_params else None,
+                **config_kwargs,
             )
 
         super().__init__(model=model)
@@ -466,6 +489,10 @@ class LiteLLMClient(LLMClient):
                 # Non-critical: continue without span association
                 logger.debug(f"Failed to associate LLM call with Opik span: {e}")
 
+        # Add extra_params from config (reasoning_effort, budget_tokens, etc.)
+        if self.config.extra_params:
+            call_params.update(self.config.extra_params)
+
         # Add remaining kwargs (excluding ACE-specific and already-handled parameters)
         ace_specific_params = {
             "refinement_round",
@@ -595,6 +622,10 @@ class LiteLLMClient(LLMClient):
             except Exception as e:
                 # Non-critical: continue without span association
                 logger.debug(f"Failed to associate LLM call with Opik span: {e}")
+
+        # Add extra_params from config (reasoning_effort, budget_tokens, etc.)
+        if self.config.extra_params:
+            call_params.update(self.config.extra_params)
 
         # Add remaining kwargs (excluding ACE-specific and already-handled parameters)
         ace_specific_params = {

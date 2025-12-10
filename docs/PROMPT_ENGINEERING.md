@@ -24,7 +24,7 @@ This guide documents best practices for creating and optimizing ACE prompts, bas
 # GOOD - Clear identity with version and capabilities
 """
 # Identity and Metadata
-You are ACE Generator v2.0, an expert problem-solving agent.
+You are ACE Agent v2.0, an expert problem-solving agent.
 Prompt Version: 2.0.0
 Current Date: {current_date}
 Mode: Strategic Problem Solving
@@ -45,7 +45,7 @@ You are an assistant that helps solve problems.
 # GOOD - Hierarchical structure
 """
 ## Core Responsibilities
-1. Analyze questions using playbook
+1. Analyze questions using skillbook
 2. Apply relevant strategies
 
 ### Strategy Selection Protocol
@@ -73,13 +73,13 @@ Return JSON with your answer.
 ### Good Example:
 {
   "reasoning": "1. Breaking down 15 × 24: This is multiplication. 2. Using decomposition: 15 × (20 + 4)...",
-  "bullet_ids": ["bullet_023"],
+  "skill_ids": ["bullet_023"],
   "final_answer": "360"
 }
 
 ### Bad Example (DO NOT DO THIS):
 {
-  "reasoning": "Using the playbook strategies, the answer is clear.",
+  "reasoning": "Using the skillbook strategies, the answer is clear.",
   "final_answer": "360"
 }
 """
@@ -165,7 +165,7 @@ IF mathematical error in reasoning:
 # GOOD - Explicit anti-patterns
 """
 **NEVER** use these phrases:
-- "Based on the playbook"
+- "Based on the skillbook"
 - "The model was wrong"
 - "Should have known better"
 - "Obviously incorrect"
@@ -281,7 +281,7 @@ Verify each reasoning step before proceeding
 "Apply appropriate methods"
 
 # GOOD
-"Use methods from the playbook section 'algebra'"
+"Use methods from the skillbook section 'algebra'"
 "Apply the quadratic formula: x = (-b ± √(b²-4ac))/2a"
 ```
 
@@ -383,13 +383,13 @@ Track these metrics to evaluate prompt effectiveness:
 
 ```python
 # Old approach (v1)
-from ace.prompts import GENERATOR_PROMPT
-generator = Generator(llm, prompt_template=GENERATOR_PROMPT)
+from ace.prompts import AGENT_PROMPT
+agent = Agent(llm, prompt_template=AGENT_PROMPT)
 
 # Recommended approach (v2.1) - +17% success rate vs v1
 from ace.prompts_v2_1 import PromptManager
 manager = PromptManager(default_version="2.1")
-generator = Generator(llm, prompt_template=manager.get_generator_prompt())
+agent = Agent(llm, prompt_template=manager.get_agent_prompt())
 ```
 
 **Note:** v2.0 prompts are deprecated. Use v2.1 for best performance.

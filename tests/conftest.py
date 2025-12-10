@@ -9,7 +9,7 @@ from typing import Any, Dict, Type, TypeVar
 import pytest
 from pydantic import BaseModel
 
-from ace import Playbook, Sample, LLMClient
+from ace import Skillbook, Sample, LLMClient
 from ace.llm import LLMResponse
 
 T = TypeVar("T", bound=BaseModel)
@@ -106,53 +106,53 @@ def mock_llm_client():
 
 
 @pytest.fixture
-def empty_playbook():
-    """Provides an empty Playbook instance."""
-    return Playbook()
+def empty_skillbook():
+    """Provides an empty Skillbook instance."""
+    return Skillbook()
 
 
 @pytest.fixture
-def sample_playbook():
+def sample_skillbook():
     """
-    Provides a Playbook with sample bullets for testing.
+    Provides a Skillbook with sample skills for testing.
 
     Sections:
-        - general: 2 bullets
-        - math: 2 bullets
-        - reasoning: 1 bullet
+        - general: 2 skills
+        - math: 2 skills
+        - reasoning: 1 skill
     """
-    playbook = Playbook()
+    skillbook = Skillbook()
 
     # General section
-    playbook.add_bullet(
+    skillbook.add_skill(
         "general",
         "Be clear and concise in your answers",
         metadata={"helpful": 5, "harmful": 0},
     )
-    playbook.add_bullet(
+    skillbook.add_skill(
         "general",
         "Always provide context and examples",
         metadata={"helpful": 3, "harmful": 0},
     )
 
     # Math section
-    playbook.add_bullet(
+    skillbook.add_skill(
         "math", "Show your work step by step", metadata={"helpful": 8, "harmful": 0}
     )
-    playbook.add_bullet(
+    skillbook.add_skill(
         "math",
         "Verify calculations before presenting final answer",
         metadata={"helpful": 6, "harmful": 0},
     )
 
     # Reasoning section
-    playbook.add_bullet(
+    skillbook.add_skill(
         "reasoning",
         "Break complex problems into smaller parts",
         metadata={"helpful": 7, "harmful": 0},
     )
 
-    return playbook
+    return skillbook
 
 
 @pytest.fixture
@@ -184,7 +184,7 @@ def sample_training_sample(sample_question, sample_correct_answer):
     """
     Provides a Sample instance for training/testing.
 
-    Can be used with OfflineAdapter or OnlineAdapter.
+    Can be used with OfflineACE or OnlineACE.
     """
     return Sample(
         question=sample_question,
@@ -195,13 +195,13 @@ def sample_training_sample(sample_question, sample_correct_answer):
 
 
 @pytest.fixture
-def generator_valid_json():
-    """Provides valid JSON response for Generator."""
+def agent_valid_json():
+    """Provides valid JSON response for Agent."""
     return json.dumps(
         {
             "reasoning": "This is a simple addition problem.",
             "final_answer": "4",
-            "bullet_ids": [],
+            "skill_ids": [],
         }
     )
 
@@ -212,21 +212,21 @@ def reflector_valid_json():
     return json.dumps(
         {
             "analysis": "The answer is correct.",
-            "bullet_tags": [
-                {"bullet_id": "test_id_1", "tag": "helpful"},
-                {"bullet_id": "test_id_2", "tag": "neutral"},
+            "skill_tags": [
+                {"skill_id": "test_id_1", "tag": "helpful"},
+                {"skill_id": "test_id_2", "tag": "neutral"},
             ],
         }
     )
 
 
 @pytest.fixture
-def curator_add_operation_json():
-    """Provides valid JSON for Curator ADD operation."""
+def skill_manager_add_operation_json():
+    """Provides valid JSON for SkillManager ADD operation."""
     return json.dumps(
         {
             "reasoning": "Need to add a new strategy.",
-            "delta_batch": {
+            "update": {
                 "operations": [
                     {
                         "type": "ADD",
@@ -240,17 +240,17 @@ def curator_add_operation_json():
 
 
 @pytest.fixture
-def curator_tag_operation_json():
-    """Provides valid JSON for Curator TAG operation."""
+def skill_manager_tag_operation_json():
+    """Provides valid JSON for SkillManager TAG operation."""
     return json.dumps(
         {
-            "reasoning": "Updating bullet statistics.",
-            "delta_batch": {
+            "reasoning": "Updating skill statistics.",
+            "update": {
                 "operations": [
                     {
                         "type": "TAG",
                         "section": "general",
-                        "bullet_id": "test_bullet_id",
+                        "skill_id": "test_skill_id",
                         "metadata": {"helpful": 1},
                     }
                 ]

@@ -77,11 +77,11 @@ reports/
 docs/method_outline.md
 logs/
 
-# Generated playbook and result files
-*_playbook.json
-ace_domain_playbook.json
+# Generated skillbook and result files
+*_skillbook.json
+ace_domain_skillbook.json
 kayba_learned.json
-kayba_test_playbook.json
+kayba_test_skillbook.json
 my_agent.json
 my_trained_agent.json
 *.log

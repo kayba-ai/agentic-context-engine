@@ -2,11 +2,18 @@
 ACE + LangChain integration for learning from chain/agent execution.
 
 This module provides ACELangChain, a wrapper that adds ACE learning capabilities
-to any LangChain Runnable (chains, agents, custom runnables).
+to any LangChain Runnable (chains, agents, LangGraph graphs, custom runnables).
+
+Supported Runnable Types:
+- Simple chains: prompt | llm patterns
+- AgentExecutor: Tool-calling agents with intermediate step tracing
+- LangGraph CompiledStateGraph: Modern LangGraph agents (create_react_agent, etc.)
+- Custom runnables: Any LangChain Runnable
 
 When to Use ACELangChain:
 - Complex workflows: Multi-step LangChain chains
 - Tool-using agents: LangChain agents with tools
+- LangGraph agents: create_react_agent, create_tool_calling_agent, StateGraph
 - Custom runnables: Your own LangChain components
 - Production workflows: LangChain orchestration with learning
 
@@ -15,7 +22,7 @@ When NOT to Use ACELangChain:
 - Browser automation → Use ACEAgent (browser-use)
 - Custom agent (non-LangChain) → Use integration pattern (see docs)
 
-Example:
+Example (LangChain chain):
     from langchain.chains import LLMChain
     from langchain.prompts import PromptTemplate
     from langchain_openai import ChatOpenAI
@@ -33,17 +40,37 @@ Example:
     result = ace_chain.invoke({"question": "What is ACE?"})
 
     # Save learned strategies
-    ace_chain.save_playbook("chain_expert.json")
+    ace_chain.save_skillbook("chain_expert.json")
+
+Example (LangGraph agent):
+    from langchain_openai import ChatOpenAI
+    from langchain_core.messages import HumanMessage
+    from langgraph.prebuilt import create_react_agent
+    from ace.integrations import ACELangChain
+
+    # Create LangGraph agent
+    llm = ChatOpenAI(model="gpt-4")
+    tools = [...]
+    graph = create_react_agent(llm, tools)
+
+    # Wrap with ACE learning
+    ace_agent = ACELangChain(runnable=graph)
+
+    # Use with message format (LangGraph I/O)
+    result = ace_agent.invoke({"messages": [HumanMessage(content="What is 2+2?")]})
+    # Returns: "4" (extracted from AIMessage)
+
+    # ACE automatically extracts traces from message history for learning
 """
 
 from typing import TYPE_CHECKING, Any, Optional, Dict, Callable, List
 import asyncio
 import logging
 
-from ..playbook import Playbook
-from ..roles import Reflector, Curator, GeneratorOutput
+from ..skillbook import Skillbook
+from ..roles import Reflector, SkillManager, AgentOutput
 from ..prompts_v2_1 import PromptManager
-from .base import wrap_playbook_context
+from .base import wrap_skillbook_context
 
 if TYPE_CHECKING:
     from ..deduplication import DeduplicationConfig
@@ -65,6 +92,15 @@ except ImportError:
     AGENT_EXECUTOR_AVAILABLE = False
     AgentExecutor = None  # type: ignore
 
+# Try to import LangGraph CompiledStateGraph for LangGraph agent support
+try:
+    from langgraph.graph.state import CompiledStateGraph
+
+    LANGGRAPH_AVAILABLE = True
+except ImportError:
+    LANGGRAPH_AVAILABLE = False
+    CompiledStateGraph = None  # type: ignore
+
 logger = logging.getLogger(__name__)
 
 
@@ -77,13 +113,13 @@ class ACELangChain:
     to improve future executions.
 
     Pattern:
-        1. INJECT: Add playbook context to input
+        1. INJECT: Add skillbook context to input
         2. EXECUTE: Run the LangChain runnable
-        3. LEARN: Update playbook via Reflector + Curator
+        3. LEARN: Update skillbook via Reflector + SkillManager
 
     Attributes:
         runnable: The LangChain Runnable being wrapped
-        playbook: Learned strategies (Playbook instance)
+        skillbook: Learned strategies (Skillbook instance)
         is_learning: Whether learning is enabled
 
     Example:
@@ -97,10 +133,10 @@ class ACELangChain:
         ace_chain = ACELangChain(runnable=chain)
         result = ace_chain.invoke({"input": "What is 2+2?"})
 
-        # With existing playbook
+        # With existing skillbook
         ace_chain = ACELangChain(
             runnable=chain,
-            playbook_path="expert.json"
+            skillbook_path="expert.json"
         )
 
         # Async execution
@@ -111,7 +147,7 @@ class ACELangChain:
         self,
         runnable: Any,
         ace_model: str = "gpt-4o-mini",
-        playbook_path: Optional[str] = None,
+        skillbook_path: Optional[str] = None,
         is_learning: bool = True,
         async_learning: bool = False,
         output_parser: Optional[Callable[[Any], str]] = None,
@@ -122,15 +158,15 @@ class ACELangChain:
 
         Args:
             runnable: LangChain Runnable (chain, agent, custom)
-            ace_model: Model for ACE learning (Reflector/Curator)
-            playbook_path: Path to existing playbook (optional)
+            ace_model: Model for ACE learning (Reflector/SkillManager)
+            skillbook_path: Path to existing skillbook (optional)
             is_learning: Enable/disable learning (default: True)
             async_learning: Run learning in background for ainvoke() (default: False)
                            When True, ainvoke() returns immediately while
-                           Reflector/Curator process in background.
+                           Reflector/SkillManager process in background.
             output_parser: Custom function to parse runnable output to string
                           (default: converts to string)
-            dedup_config: Optional DeduplicationConfig for bullet deduplication
+            dedup_config: Optional DeduplicationConfig for skill deduplication
 
         Raises:
             ImportError: If LangChain is not installed
@@ -176,11 +212,11 @@ class ACELangChain:
         self._tasks_completed_count: int = 0
         self.output_parser = output_parser or self._default_output_parser
 
-        # Load or create playbook
-        if playbook_path:
-            self.playbook = Playbook.load_from_file(playbook_path)
+        # Load or create skillbook
+        if skillbook_path:
+            self.skillbook = Skillbook.load_from_file(skillbook_path)
         else:
-            self.playbook = Playbook()
+            self.skillbook = Skillbook()
 
         # Setup ACE learning components
         try:
@@ -206,9 +242,9 @@ class ACELangChain:
 
             dedup_manager = DeduplicationManager(dedup_config)
 
-        self.curator = Curator(
+        self.skill_manager = SkillManager(
             self.llm,
-            prompt_template=prompt_mgr.get_curator_prompt(),
+            prompt_template=prompt_mgr.get_skill_manager_prompt(),
             dedup_manager=dedup_manager,
         )
 
@@ -218,6 +254,9 @@ class ACELangChain:
 
         For AgentExecutor runnables, automatically enables intermediate step
         extraction to provide richer reasoning traces to the Reflector.
+
+        For LangGraph CompiledStateGraph runnables, automatically handles
+        message-based I/O format.
 
         Args:
             input: Input for the runnable (string, dict, etc.)
@@ -232,12 +271,16 @@ class ACELangChain:
 
             # Dict input
             result = ace_chain.invoke({"question": "What is ACE?"})
+
+            # LangGraph message format
+            result = ace_chain.invoke({"messages": [HumanMessage(content="What is ACE?")]})
         """
-        # Step 1: Inject playbook context
+        # Step 1: Inject skillbook context
         enhanced_input = self._inject_context(input)
 
-        # Step 2: Configure AgentExecutor for intermediate steps (if applicable)
+        # Step 2: Detect runnable type and configure
         is_agent = self._is_agent_executor()
+        is_langgraph = self._is_langgraph()
         original_setting = False
         if is_agent:
             original_setting = getattr(
@@ -267,6 +310,9 @@ class ACELangChain:
             if is_agent and isinstance(result, dict) and "intermediate_steps" in result:
                 # Rich trace from AgentExecutor
                 self._learn_with_trace(input, result)
+            elif is_langgraph and isinstance(result, dict) and "messages" in result:
+                # Rich trace from LangGraph message history
+                self._learn_with_langgraph_trace(input, result)
             else:
                 # Basic learning
                 self._learn(input, result)
@@ -274,6 +320,8 @@ class ACELangChain:
         # Step 5: Return clean output
         if is_agent and isinstance(result, dict) and "output" in result:
             return result["output"]
+        if is_langgraph and isinstance(result, dict) and "messages" in result:
+            return self._extract_langgraph_output(result)
         return result
 
     async def ainvoke(self, input: Any, **kwargs) -> Any:
@@ -282,6 +330,9 @@ class ACELangChain:
 
         For AgentExecutor runnables, automatically enables intermediate step
         extraction to provide richer reasoning traces to the Reflector.
+
+        For LangGraph CompiledStateGraph runnables, automatically handles
+        message-based I/O format.
 
         Args:
             input: Input for the runnable (string, dict, etc.)
@@ -298,12 +349,16 @@ class ACELangChain:
             result = await ace_chain.ainvoke({"input": "Question"})
             # Result returns immediately
             await ace_chain.wait_for_learning()  # Wait for learning to complete
+
+            # LangGraph message format
+            result = await ace_chain.ainvoke({"messages": [HumanMessage(content="Question")]})
         """
-        # Step 1: Inject playbook context
+        # Step 1: Inject skillbook context
         enhanced_input = self._inject_context(input)
 
-        # Step 2: Configure AgentExecutor for intermediate steps (if applicable)
+        # Step 2: Detect runnable type and configure
         is_agent = self._is_agent_executor()
+        is_langgraph = self._is_langgraph()
         original_setting = False
         if is_agent:
             original_setting = getattr(
@@ -337,65 +392,93 @@ class ACELangChain:
         # Step 4: Learn from result
         if self.is_learning:
             # Determine which learning method to use
-            use_trace = (
+            use_agent_trace = (
                 is_agent and isinstance(result, dict) and "intermediate_steps" in result
+            )
+            use_langgraph_trace = (
+                is_langgraph and isinstance(result, dict) and "messages" in result
             )
 
             if self._async_learning:
-                if use_trace:
+                if use_agent_trace:
                     task = asyncio.create_task(self._alearn_with_trace(input, result))
+                elif use_langgraph_trace:
+                    task = asyncio.create_task(
+                        self._alearn_with_langgraph_trace(input, result)
+                    )
                 else:
                     task = asyncio.create_task(self._alearn(input, result))
                 task.add_done_callback(self._on_task_done)
                 self._learning_tasks.append(task)
                 self._tasks_submitted_count += 1
             else:
-                if use_trace:
+                if use_agent_trace:
                     await self._alearn_with_trace(input, result)
+                elif use_langgraph_trace:
+                    await self._alearn_with_langgraph_trace(input, result)
                 else:
                     await self._alearn(input, result)
 
         # Step 5: Return clean output
         if is_agent and isinstance(result, dict) and "output" in result:
             return result["output"]
+        if is_langgraph and isinstance(result, dict) and "messages" in result:
+            return self._extract_langgraph_output(result)
         return result
 
     def _inject_context(self, input: Any) -> Any:
         """
-        Add playbook context to input.
+        Add skillbook context to input.
 
         Handles common input formats:
-        - String: Append playbook context
-        - Dict with "input" key: Enhance input field
-        - Dict without: Add playbook_context key
-        - Other: Return unchanged (no playbook strategies yet)
+        - String: Append skillbook context
+        - Dict with "messages" key: Enhance first HumanMessage (LangGraph format)
+        - Dict with "input" key: Enhance input field (AgentExecutor format)
+        - Dict without: Add skillbook_context key
+        - Other: Return unchanged (no skillbook strategies yet)
 
         Args:
             input: Original input
 
         Returns:
-            Enhanced input with playbook context
+            Enhanced input with skillbook context
         """
         # No context if no strategies yet
-        if not self.playbook or not self.playbook.bullets():
+        if not self.skillbook or not self.skillbook.skills():
             return input
 
-        playbook_context = wrap_playbook_context(self.playbook)
+        skillbook_context = wrap_skillbook_context(self.skillbook)
 
         # String input - append context
         if isinstance(input, str):
-            return f"{input}\n\n{playbook_context}"
+            return f"{input}\n\n{skillbook_context}"
+
+        # LangGraph message format - enhance first HumanMessage
+        if isinstance(input, dict) and "messages" in input:
+            messages = input["messages"]
+            if messages and hasattr(messages[0], "content"):
+                enhanced_messages = list(messages)
+                first_msg = enhanced_messages[0]
+                enhanced_content = f"{skillbook_context}\n\n{first_msg.content}"
+                # Create new message of the same type with enhanced content
+                enhanced_messages[0] = type(first_msg)(content=enhanced_content)
+                # Preserve other keys in the input dict
+                return {
+                    "messages": enhanced_messages,
+                    **{k: v for k, v in input.items() if k != "messages"},
+                }
+            return input
 
         # Dict input with "input" key - enhance that field
         if isinstance(input, dict) and "input" in input:
             enhanced = input.copy()
-            enhanced["input"] = f"{input['input']}\n\n{playbook_context}"
+            enhanced["input"] = f"{input['input']}\n\n{skillbook_context}"
             return enhanced
 
-        # Dict input without "input" key - add playbook_context key
+        # Dict input without "input" key - add skillbook_context key
         if isinstance(input, dict):
             enhanced = input.copy()
-            enhanced["playbook_context"] = playbook_context
+            enhanced["skillbook_context"] = skillbook_context
             return enhanced
 
         # Other types - return unchanged
@@ -432,14 +515,14 @@ class ACELangChain:
             # focus the learning on task patterns and output quality rather than
             # reasoning steps. This prevents the Reflector from generating
             # meta-strategies about the learning system itself.
-            generator_output = GeneratorOutput(
+            agent_output = AgentOutput(
                 reasoning=f"""Question/Task: {task}
 
 Chain Output: {output_str}
 
 Note: This is an external LangChain chain execution. Learning should focus on task patterns and output quality, not internal system behavior.""",
                 final_answer=output_str,
-                bullet_ids=[],  # LangChain runnables don't cite bullets
+                skill_ids=[],  # LangChain runnables don't cite skills
                 raw={"input": original_input, "output": result},
             )
 
@@ -449,22 +532,22 @@ Note: This is an external LangChain chain execution. Learning should focus on ta
             # Reflect: Analyze execution
             reflection = self.reflector.reflect(
                 question=task,
-                generator_output=generator_output,
-                playbook=self.playbook,
+                agent_output=agent_output,
+                skillbook=self.skillbook,
                 ground_truth=None,
                 feedback=feedback,
             )
 
-            # Curate: Generate playbook updates
-            curator_output = self.curator.curate(
+            # SkillManager: Generate skillbook updates
+            skill_manager_output = self.skill_manager.update_skills(
                 reflection=reflection,
-                playbook=self.playbook,
+                skillbook=self.skillbook,
                 question_context=f"task: {task}",
                 progress=task,
             )
 
             # Apply updates
-            self.playbook.apply_delta(curator_output.delta)
+            self.skillbook.apply_update(skill_manager_output.update)
 
         except Exception as e:
             logger.error(f"ACE learning failed: {e}")
@@ -493,7 +576,7 @@ Note: This is an external LangChain chain execution. Learning should focus on ta
 
             # Create adapter for Reflector interface
             # Note: Focus learning on task failure patterns, not system behavior
-            generator_output = GeneratorOutput(
+            agent_output = AgentOutput(
                 reasoning=f"""Question/Task: {task}
 
 Execution Result: FAILED
@@ -501,7 +584,7 @@ Error: {error_msg}
 
 Note: This is an external LangChain chain execution that failed. Learning should focus on task patterns that may have caused the failure, not internal system behavior.""",
                 final_answer=f"Failed: {error_msg}",
-                bullet_ids=[],
+                skill_ids=[],
                 raw={"input": original_input, "error": error_msg},
             )
 
@@ -511,22 +594,22 @@ Note: This is an external LangChain chain execution that failed. Learning should
             # Reflect on failure
             reflection = self.reflector.reflect(
                 question=task,
-                generator_output=generator_output,
-                playbook=self.playbook,
+                agent_output=agent_output,
+                skillbook=self.skillbook,
                 ground_truth=None,
                 feedback=feedback,
             )
 
-            # Curate: Learn from failure patterns
-            curator_output = self.curator.curate(
+            # SkillManager: Learn from failure patterns
+            skill_manager_output = self.skill_manager.update_skills(
                 reflection=reflection,
-                playbook=self.playbook,
+                skillbook=self.skillbook,
                 question_context=f"task: {task}",
                 progress=f"Failed: {task}",
             )
 
             # Apply updates
-            self.playbook.apply_delta(curator_output.delta)
+            self.skillbook.apply_update(skill_manager_output.update)
 
         except Exception as e:
             logger.error(f"ACE failure learning failed: {e}")
@@ -575,35 +658,92 @@ Note: This is an external LangChain chain execution that failed. Learning should
 
             reasoning = "\n".join(parts)
 
-            generator_output = GeneratorOutput(
+            agent_output = AgentOutput(
                 reasoning=reasoning,
                 final_answer=output,
-                bullet_ids=[],
+                skill_ids=[],
                 raw={"input": original_input, "output": result},
             )
 
             feedback = f"Agent completed task in {len(steps)} steps"
 
-            # Reflect and Curate
+            # Reflect and SkillManager
             reflection = self.reflector.reflect(
                 question=task,
-                generator_output=generator_output,
-                playbook=self.playbook,
+                agent_output=agent_output,
+                skillbook=self.skillbook,
                 ground_truth=None,
                 feedback=feedback,
             )
 
-            curator_output = self.curator.curate(
+            skill_manager_output = self.skill_manager.update_skills(
                 reflection=reflection,
-                playbook=self.playbook,
+                skillbook=self.skillbook,
                 question_context=f"task: {task}",
                 progress=task,
             )
 
-            self.playbook.apply_delta(curator_output.delta)
+            self.skillbook.apply_update(skill_manager_output.update)
 
         except Exception as e:
             logger.error(f"ACE learning with trace failed: {e}")
+            # Don't crash - continue without learning
+
+    def _learn_with_langgraph_trace(self, original_input: Any, result: Dict[str, Any]):
+        """
+        Learn from LangGraph execution with message history.
+
+        Extracts reasoning trace from LangGraph's message-based output format
+        and passes it to the Reflector for analysis.
+
+        Args:
+            original_input: Original input to runnable
+            result: LangGraph result dict with 'messages' key
+        """
+        try:
+            task = self._get_task_str(original_input)
+            output = self._extract_langgraph_output(result)
+            trace, steps = self._extract_langgraph_trace(result)
+
+            num_messages = len(result.get("messages", []))
+
+            reasoning = f"""Question/Task: {task}
+
+=== LANGGRAPH EXECUTION TRACE ({num_messages} messages) ===
+{trace}
+=== END TRACE ===
+
+Final Answer: {output}"""
+
+            agent_output = AgentOutput(
+                reasoning=reasoning,
+                final_answer=output,
+                skill_ids=[],
+                raw={"input": original_input, "output": result},
+            )
+
+            feedback = f"LangGraph agent completed in {num_messages} messages"
+
+            # Reflect and SkillManager
+            reflection = self.reflector.reflect(
+                question=task,
+                agent_output=agent_output,
+                skillbook=self.skillbook,
+                ground_truth=None,
+                feedback=feedback,
+            )
+
+            skill_manager_output = self.skill_manager.update_skills(
+                reflection=reflection,
+                skillbook=self.skillbook,
+                question_context=f"task: {task}",
+                progress=task,
+            )
+
+            self.skillbook.apply_update(skill_manager_output.update)
+
+        except Exception as e:
+            logger.error(f"ACE LangGraph learning failed: {e}")
             # Don't crash - continue without learning
 
     async def _alearn(self, original_input: Any, result: Any):
@@ -632,6 +772,19 @@ Note: This is an external LangChain chain execution that failed. Learning should
         preventing event loop blocking when async_learning=True.
         """
         await asyncio.to_thread(self._learn_with_trace, original_input, result)
+
+    async def _alearn_with_langgraph_trace(
+        self, original_input: Any, result: Dict[str, Any]
+    ):
+        """
+        Async version of _learn_with_langgraph_trace for background execution.
+
+        Uses asyncio.to_thread() to run sync learning in a thread pool,
+        preventing event loop blocking when async_learning=True.
+        """
+        await asyncio.to_thread(
+            self._learn_with_langgraph_trace, original_input, result
+        )
 
     def _on_task_done(self, task: asyncio.Task) -> None:
         """Callback when a learning task completes (success or failure)."""
@@ -755,11 +908,102 @@ Note: This is an external LangChain chain execution that failed. Learning should
             return False
         return isinstance(self.runnable, AgentExecutor)
 
+    def _is_langgraph(self) -> bool:
+        """
+        Check if the wrapped runnable is a LangGraph CompiledStateGraph.
+
+        LangGraph agents (from create_react_agent, create_tool_calling_agent,
+        or custom StateGraph().compile()) use message-based I/O format:
+        - Input: {"messages": [HumanMessage(...)]}
+        - Output: {"messages": [HumanMessage, AIMessage, ToolMessage, ...]}
+        """
+        if not LANGGRAPH_AVAILABLE or CompiledStateGraph is None:
+            return False
+        return isinstance(self.runnable, CompiledStateGraph)
+
+    def _extract_langgraph_output(self, result: Dict[str, Any]) -> str:
+        """
+        Extract final answer from LangGraph message-based output.
+
+        Finds the last AIMessage with content (skipping tool messages).
+
+        Args:
+            result: LangGraph result dict with "messages" key
+
+        Returns:
+            Final answer string, or empty string if not found
+        """
+        messages = result.get("messages", [])
+        # Find last AIMessage with content (not a tool message)
+        for msg in reversed(messages):
+            if hasattr(msg, "content") and msg.content:
+                # Skip tool messages
+                msg_type = getattr(msg, "type", msg.__class__.__name__.lower())
+                if msg_type != "tool":
+                    return str(msg.content)
+        return ""
+
+    def _extract_langgraph_trace(
+        self, result: Dict[str, Any]
+    ) -> tuple[str, List[tuple[Any, Any]]]:
+        """
+        Extract reasoning trace and intermediate steps from LangGraph output.
+
+        Parses the message history to build a reasoning trace for the Reflector
+        and extracts tool calls/observations as intermediate_steps.
+
+        Args:
+            result: LangGraph result dict with "messages" key
+
+        Returns:
+            Tuple of (trace_string, intermediate_steps_list)
+        """
+        messages = result.get("messages", [])
+        parts = []
+        intermediate_steps: List[tuple[Any, Any]] = []
+
+        for msg in messages:
+            msg_type = getattr(msg, "type", msg.__class__.__name__.lower())
+            content = getattr(msg, "content", str(msg))
+
+            if msg_type == "human":
+                parts.append(f"Human: {str(content)[:300]}")
+            elif msg_type == "ai":
+                if content:
+                    parts.append(f"Assistant: {str(content)[:300]}")
+                # Extract tool calls if present
+                tool_calls = getattr(msg, "tool_calls", [])
+                for tc in tool_calls:
+                    tool_name = (
+                        tc.get("name", "unknown")
+                        if isinstance(tc, dict)
+                        else getattr(tc, "name", "unknown")
+                    )
+                    parts.append(f"  Tool Call: {tool_name}")
+                    # Add to intermediate_steps with None observation (filled later)
+                    intermediate_steps.append((tc, None))
+            elif msg_type == "tool":
+                parts.append(f"Tool Result: {str(content)[:300]}")
+                # Match with last tool call that has no observation
+                for i in range(len(intermediate_steps) - 1, -1, -1):
+                    if intermediate_steps[i][1] is None:
+                        tc = intermediate_steps[i][0]
+                        intermediate_steps[i] = (tc, content)
+                        break
+
+        return "\n".join(parts), intermediate_steps
+
     def _get_task_str(self, original_input: Any) -> str:
         """Extract task string from input."""
         if isinstance(original_input, str):
             return original_input
         elif isinstance(original_input, dict):
+            # Handle LangGraph message format
+            if "messages" in original_input:
+                messages = original_input["messages"]
+                if messages and hasattr(messages[0], "content"):
+                    return str(messages[0].content)
+            # Handle standard dict formats
             return (
                 original_input.get("input")
                 or original_input.get("question")
@@ -768,41 +1012,41 @@ Note: This is an external LangChain chain execution that failed. Learning should
             )
         return str(original_input)
 
-    def save_playbook(self, path: str):
+    def save_skillbook(self, path: str):
         """
-        Save learned playbook to file.
+        Save learned skillbook to file.
 
         Args:
             path: File path to save to
 
         Example:
-            ace_chain.save_playbook("chain_expert.json")
+            ace_chain.save_skillbook("chain_expert.json")
         """
-        self.playbook.save_to_file(path)
+        self.skillbook.save_to_file(path)
 
-    def load_playbook(self, path: str):
+    def load_skillbook(self, path: str):
         """
-        Load playbook from file (replaces current).
+        Load skillbook from file (replaces current).
 
         Args:
             path: File path to load from
 
         Example:
-            ace_chain.load_playbook("expert.json")
+            ace_chain.load_skillbook("expert.json")
         """
-        self.playbook = Playbook.load_from_file(path)
+        self.skillbook = Skillbook.load_from_file(path)
 
     def enable_learning(self):
-        """Enable learning (allows learn() to update playbook)."""
+        """Enable learning (allows learn() to update skillbook)."""
         self.is_learning = True
 
     def disable_learning(self):
-        """Disable learning (prevents learn() from updating playbook)."""
+        """Disable learning (prevents learn() from updating skillbook)."""
         self.is_learning = False
 
     def get_strategies(self) -> str:
         """
-        Get current playbook strategies as formatted text.
+        Get current skillbook strategies as formatted text.
 
         Returns:
             Formatted string with learned strategies (empty if none)
@@ -811,19 +1055,19 @@ Note: This is an external LangChain chain execution that failed. Learning should
             strategies = ace_chain.get_strategies()
             print(strategies)
         """
-        if not self.playbook or not self.playbook.bullets():
+        if not self.skillbook or not self.skillbook.skills():
             return ""
-        return wrap_playbook_context(self.playbook)
+        return wrap_skillbook_context(self.skillbook)
 
     def __repr__(self) -> str:
         """String representation."""
-        bullets_count = len(self.playbook.bullets()) if self.playbook else 0
+        skills_count = len(self.skillbook.skills()) if self.skillbook else 0
         return (
             f"ACELangChain("
             f"runnable={self.runnable.__class__.__name__}, "
-            f"strategies={bullets_count}, "
+            f"strategies={skills_count}, "
             f"learning={'enabled' if self.is_learning else 'disabled'})"
         )
 
 
-__all__ = ["ACELangChain", "LANGCHAIN_AVAILABLE"]
+__all__ = ["ACELangChain", "LANGCHAIN_AVAILABLE", "LANGGRAPH_AVAILABLE"]

@@ -3,25 +3,25 @@
 ACE + Browser-Use Form Filler Demo
 
 Shows ACE learning to improve at filling web forms.
-Uses OnlineAdapter for incremental learning after each form.
+Uses OnlineACE for incremental learning after each form.
 """
 
 import asyncio
 from typing import Dict
 from dotenv import load_dotenv
 
-from browser_use import Agent, Browser, ChatOpenAI
+from browser_use import Agent as BrowserAgent, Browser, ChatOpenAI
 
 from ace import (
     LiteLLMClient,
-    Generator,
+    Agent as ACEAgent,
     Reflector,
-    Curator,
-    OnlineAdapter,
+    SkillManager,
+    OnlineACE,
     Sample,
     TaskEnvironment,
     EnvironmentResult,
-    Playbook,
+    Skillbook,
 )
 from ace.observability import configure_opik
 
@@ -38,7 +38,7 @@ class FormFillEnvironment(TaskEnvironment):
         self.headless = headless
         self.model = model
 
-    def evaluate(self, sample: Sample, generator_output):
+    def evaluate(self, sample: Sample, agent_output):
         """Run browser automation and evaluate the result."""
 
         # Extract form data from sample
@@ -46,8 +46,8 @@ class FormFillEnvironment(TaskEnvironment):
             sample.context
         )  # Simple eval for demo - in production use proper parsing
 
-        # Get strategy from generator
-        strategy = generator_output.final_answer
+        # Get strategy from agent
+        strategy = agent_output.final_answer
 
         # Run browser automation
         result = asyncio.run(self._fill_form(form_data, strategy))
@@ -102,7 +102,7 @@ Output when done:
 SUCCESS: Form filled successfully
 ERROR: <reason>"""
 
-            agent = Agent(
+            browser_agent = BrowserAgent(
                 task=task,
                 llm=llm,
                 browser=browser,
@@ -111,7 +111,7 @@ ERROR: <reason>"""
             )
 
             # Run with timeout
-            history = await asyncio.wait_for(agent.run(), timeout=240.0)
+            history = await asyncio.wait_for(browser_agent.run(), timeout=240.0)
 
             # Parse result
             output = history.final_result() if hasattr(history, "final_result") else ""
@@ -178,14 +178,14 @@ def main():
     for i, form in enumerate(forms, 1):
         print(f"  {i}. {form['name']}")
 
-    # Create ACE components with OnlineAdapter
+    # Create ACE components with OnlineACE
     llm = LiteLLMClient(model="gpt-4o-mini", temperature=0.7)
 
-    adapter = OnlineAdapter(
-        playbook=Playbook(),
-        generator=Generator(llm),
+    adapter = OnlineACE(
+        skillbook=Skillbook(),
+        agent=ACEAgent(llm),
         reflector=Reflector(llm),
-        curator=Curator(llm),
+        skill_manager=SkillManager(llm),
         max_refinement_rounds=2,
     )
 
@@ -207,7 +207,7 @@ def main():
             )
         )
 
-    # Run OnlineAdapter - it processes samples one by one and learns after each!
+    # Run OnlineACE - it processes samples one by one and learns after each!
     results = adapter.run(samples, environment)
 
     # Show results
@@ -235,20 +235,20 @@ def main():
         f"\n✅ Success rate: {successful}/{len(results)} ({100*successful/len(results):.1f}%)"
     )
     print(f"⚡ Average steps: {avg_steps:.1f}")
-    print(f"🧠 Strategies learned: {len(adapter.playbook.bullets())}")
+    print(f"🧠 Strategies learned: {len(adapter.skillbook.skills())}")
 
     # Show learned strategies
-    if adapter.playbook.bullets():
+    if adapter.skillbook.skills():
         print(f"\n🎯 Learned Strategies:")
-        for i, bullet in enumerate(adapter.playbook.bullets(), 1):
-            print(f"  {i}. {bullet.content}")
+        for i, skill in enumerate(adapter.skillbook.skills(), 1):
+            print(f"  {i}. {skill.content}")
 
-    # Save playbook
+    # Save skillbook
     from pathlib import Path
 
-    playbook_path = Path("ace_form_playbook.json")
-    adapter.playbook.save_to_file(str(playbook_path))
-    print(f"\n💾 Playbook saved to {playbook_path}")
+    skillbook_path = Path("ace_form_skillbook.json")
+    adapter.skillbook.save_to_file(str(skillbook_path))
+    print(f"\n💾 Skillbook saved to {skillbook_path}")
 
 
 if __name__ == "__main__":

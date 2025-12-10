@@ -30,9 +30,9 @@ uv run python examples/browser-use/form-filler/baseline_browser_use.py
 ### ace_browser_use.py Features
 
 1. **Local HTTP Server**: Automatically serves form.html on localhost:8765
-2. **Strategy Planning**: Generator creates step-by-step form filling plan
+2. **Strategy Planning**: Agent creates step-by-step form filling plan
 3. **Browser Execution**: Browser-use agent follows the plan
-4. **Learning Loop**: Reflects on performance and updates playbook
+4. **Learning Loop**: Reflects on performance and updates skillbook
 5. **Token Tracking**: Monitors ACE and browser-use token usage
 
 ### Task Files
@@ -80,7 +80,7 @@ The form.html is served automatically:
 
 **First task:**
 ```
-Generator creates action plan (dict format):
+Agent creates action plan (dict format):
 {
   "1": "Navigate to the form URL",
   "2": "Fill in the First Name field",
@@ -105,7 +105,7 @@ Generator creates action plan (dict format):
 ### Token Usage Tracking
 
 Automatically tracks and reports:
-- **ACE tokens**: Generator + Reflector + Curator
+- **ACE tokens**: Agent + Reflector + SkillManager
 - **Browser-use tokens**: Browser automation agent
 - **Per-task breakdown**: See costs for each sample
 
@@ -115,9 +115,9 @@ Automatically tracks and reports:
    🤖 Browser Tokens:     12,834 total   2,566.8 per task
 
    Role breakdown:
-   🎯 Generator:      850 tokens  (strategy planning)
+   🎯 Agent:          850 tokens  (strategy planning)
    🔍 Reflector:      720 tokens  (performance analysis)
-   📝 Curator:        880 tokens  (playbook updates)
+   📝 SkillManager:   880 tokens  (skillbook updates)
 ```
 
 ### Opik Integration
@@ -182,9 +182,9 @@ Follow these steps:
 - Try absolute path to form.html
 
 **JSON parsing errors**
-- Generator should return dict format
-- Check `generator_output.final_answer` structure
-- Enable debug output with `print("GENERATOR OUTPUT:", generator_output)`
+- Agent should return dict format
+- Check `agent_output.final_answer` structure
+- Enable debug output with `print("AGENT OUTPUT:", agent_output)`
 
 ## Advanced Usage
 

@@ -28,8 +28,8 @@ if str(ROOT) not in sys.path:
 #     EvolutionTracker, AttributionAnalyzer, InteractionTracer, ExplainabilityVisualizer
 # )
 from ace.adaptation import AdapterStepResult, Sample
-from ace.roles import GeneratorOutput, ReflectorOutput, CuratorOutput
-from ace.playbook import Playbook
+from ace.roles import AgentOutput, ReflectorOutput, SkillManagerOutput
+from ace.skillbook import Skillbook
 
 
 def parse_args() -> argparse.Namespace:
@@ -124,11 +124,11 @@ def reconstruct_step_results(
         )
 
         # Reconstruct outputs (simplified)
-        generator_output = GeneratorOutput(
+        agent_output = AgentOutput(
             reasoning=result.get("reasoning", ""),
             final_answer=result.get("prediction", ""),
-            bullet_ids=result.get("bullet_ids", []),
-            raw=result.get("generator_raw", {}),
+            skill_ids=result.get("skill_ids", []),
+            raw=result.get("agent_raw", {}),
         )
 
         # Note: Full reconstruction would need the original objects
@@ -136,11 +136,11 @@ def reconstruct_step_results(
         step_results.append(
             {
                 "sample": sample,
-                "generator_output": generator_output,
+                "agent_output": agent_output,
                 "metrics": result.get("metrics", {}),
                 "feedback": result.get("feedback", ""),
                 "reflection_raw": result.get("reflection", {}),
-                "curator_raw": result.get("curator_output", {}),
+                "skill_manager_raw": result.get("skill_manager_output", {}),
             }
         )
 
@@ -148,8 +148,8 @@ def reconstruct_step_results(
 
 
 def analyze_evolution_patterns(results: List[Dict[str, Any]]) -> EvolutionTracker:
-    """Analyze playbook evolution patterns."""
-    print("🔍 Analyzing playbook evolution patterns...")
+    """Analyze skillbook evolution patterns."""
+    print("🔍 Analyzing skillbook evolution patterns...")
 
     tracker = EvolutionTracker()
 
@@ -168,13 +168,13 @@ def analyze_evolution_patterns(results: List[Dict[str, Any]]) -> EvolutionTracke
             epochs_data[epoch] = []
         epochs_data[epoch].append(result)
 
-    # Simulate playbook snapshots
+    # Simulate skillbook snapshots
     for epoch, epoch_results in epochs_data.items():
         for step, result in enumerate(epoch_results):
-            # Create mock playbook snapshot
+            # Create mock skillbook snapshot
             metrics = result.get("metrics", {})
             tracker.take_snapshot(
-                playbook=Playbook(),  # Would need actual playbook state
+                skillbook=Skillbook(),  # Would need actual skillbook state
                 epoch=epoch,
                 step=step,
                 performance_metrics=metrics,
@@ -191,23 +191,23 @@ def analyze_strategy_attribution(results: List[Dict[str, Any]]) -> AttributionAn
     analyzer = AttributionAnalyzer()
 
     for i, result in enumerate(results):
-        # Extract bullet usage if available
-        bullet_ids = result.get("bullet_ids", [])
+        # Extract skill usage if available
+        skill_ids = result.get("skill_ids", [])
 
-        # Try to extract bullet info from reflection bullet_tags if available
-        if not bullet_ids and "reflection" in result:
+        # Try to extract skill info from reflection skill_tags if available
+        if not skill_ids and "reflection" in result:
             reflection = result["reflection"]
-            if isinstance(reflection, dict) and "bullet_tags" in reflection:
-                bullet_tags = reflection["bullet_tags"]
-                if isinstance(bullet_tags, list):
-                    bullet_ids = [
+            if isinstance(reflection, dict) and "skill_tags" in reflection:
+                skill_tags = reflection["skill_tags"]
+                if isinstance(skill_tags, list):
+                    skill_ids = [
                         tag.get("id", f"tag_{i}_{j}")
-                        for j, tag in enumerate(bullet_tags)
+                        for j, tag in enumerate(skill_tags)
                     ]
 
-        # Create mock bullet IDs if none available (for demonstration)
-        if not bullet_ids:
-            bullet_ids = [f"strategy_{i % 3}"]  # Create some variety for demo
+        # Create mock skill IDs if none available (for demonstration)
+        if not skill_ids:
+            skill_ids = [f"strategy_{i % 3}"]  # Create some variety for demo
 
         metrics = result.get("metrics", {})
         sample_id = result.get("sample_id", f"sample_{i}")
@@ -217,8 +217,8 @@ def analyze_strategy_attribution(results: List[Dict[str, Any]]) -> AttributionAn
         if "f1" in metrics:
             success = metrics["f1"] > 0.5
 
-        analyzer.record_bullet_usage(
-            bullet_ids=bullet_ids,
+        analyzer.record_skill_usage(
+            skill_ids=skill_ids,
             performance_metrics=metrics,
             sample_id=sample_id,
             epoch=1,  # Simplified
@@ -242,10 +242,10 @@ def analyze_role_interactions(results: List[Dict[str, Any]]) -> InteractionTrace
         context = result.get("context", "")
 
         # Mock interaction data (would need actual role outputs)
-        generator_output = GeneratorOutput(
+        agent_output = AgentOutput(
             reasoning=result.get("reasoning", ""),
             final_answer=result.get("prediction", ""),
-            bullet_ids=result.get("bullet_ids", []),
+            skill_ids=result.get("skill_ids", []),
             raw={},
         )
 
@@ -255,12 +255,13 @@ def analyze_role_interactions(results: List[Dict[str, Any]]) -> InteractionTrace
             root_cause_analysis="",
             correct_approach="",
             key_insight="",
-            bullet_tags=[],
+            skill_tags=[],
             raw=result.get("reflection", {}),
         )
 
-        curator_output = CuratorOutput(
-            delta=None, raw=result.get("curator_output", {})  # Would need actual delta
+        skill_manager_output = SkillManagerOutput(
+            update=None,
+            raw=result.get("skill_manager_output", {}),  # Would need actual update
         )
 
         # Record simplified interaction
@@ -330,7 +331,7 @@ def generate_insights(
             insights.append(
                 "🎯 High strategy survival rate indicates effective strategy curation"
             )
-        if summary.get("bullet_growth", 0) > 10:
+        if summary.get("skill_growth", 0) > 10:
             insights.append(
                 "📈 Significant strategy expansion suggests active learning"
             )
@@ -347,7 +348,7 @@ def generate_insights(
         if top_contributors:
             best_strategy = top_contributors[0]
             insights.append(
-                f"🏆 Best strategy: {best_strategy['bullet_id']} (score: {best_strategy['attribution_score']:.3f})"
+                f"🏆 Best strategy: {best_strategy['skill_id']} (score: {best_strategy['attribution_score']:.3f})"
             )
 
         synergies = report["strategy_synergies"][:3]
@@ -388,12 +389,12 @@ def print_summary_report(
         print(f"\n📈 EVOLUTION ANALYSIS:")
         print(f"  Total Strategies: {summary.get('total_strategies', 0)}")
         print(f"  Survival Rate: {summary.get('survival_rate', 0):.1%}")
-        print(f"  Strategy Growth: {summary.get('bullet_growth', 0):+d}")
+        print(f"  Strategy Growth: {summary.get('skill_growth', 0):+d}")
 
     if attribution_analyzer:
         report = attribution_analyzer.generate_attribution_report()
         print(f"\n🎯 ATTRIBUTION ANALYSIS:")
-        print(f"  Active Strategies: {report['summary']['active_bullets']}")
+        print(f"  Active Strategies: {report['summary']['active_skills']}")
         print(
             f"  Avg Attribution Score: {report['summary']['avg_attribution_score']:.3f}"
         )
@@ -404,7 +405,7 @@ def print_summary_report(
             print(f"\n🏆 TOP CONTRIBUTORS:")
             for i, contributor in enumerate(top_contributors, 1):
                 print(
-                    f"  {i}. {contributor['bullet_id'][:12]} (Score: {contributor['attribution_score']:.3f})"
+                    f"  {i}. {contributor['skill_id'][:12]} (Score: {contributor['attribution_score']:.3f})"
                 )
 
     if interaction_tracer:
@@ -518,13 +519,13 @@ def main():
             visualizer = ExplainabilityVisualizer()
 
             if evolution_tracker:
-                plot_path = output_dir / "playbook_evolution.png"
-                visualizer.plot_playbook_evolution(evolution_tracker, plot_path)
+                plot_path = output_dir / "skillbook_evolution.png"
+                visualizer.plot_skillbook_evolution(evolution_tracker, plot_path)
                 print(f"📈 Evolution plot saved: {plot_path}")
 
             if attribution_analyzer:
                 plot_path = output_dir / "attribution_analysis.png"
-                visualizer.plot_bullet_attribution(
+                visualizer.plot_skill_attribution(
                     attribution_analyzer, save_path=plot_path
                 )
                 print(f"🎯 Attribution plot saved: {plot_path}")

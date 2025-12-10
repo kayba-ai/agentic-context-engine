@@ -33,17 +33,17 @@ Example:
     agent.learn(samples, SimpleEnvironment())
 
     # Save learned knowledge
-    agent.save_playbook("my_agent.json")
+    agent.save_skillbook("my_agent.json")
 
     # Load in next session
-    agent = ACELiteLLM(model="gpt-4o-mini", playbook_path="my_agent.json")
+    agent = ACELiteLLM(model="gpt-4o-mini", skillbook_path="my_agent.json")
 """
 
 from typing import TYPE_CHECKING, List, Optional, Dict, Any, Tuple, Union
 
-from ..playbook import Playbook
-from ..roles import Generator, Reflector, Curator, GeneratorOutput
-from ..adaptation import OfflineAdapter, Sample, TaskEnvironment
+from ..skillbook import Skillbook
+from ..roles import Agent, Reflector, SkillManager, AgentOutput
+from ..adaptation import OfflineACE, Sample, TaskEnvironment
 from ..prompts_v2_1 import PromptManager
 
 if TYPE_CHECKING:
@@ -54,7 +54,7 @@ class ACELiteLLM:
     """
     LiteLLM integration with ACE learning.
 
-    Bundles Generator, Reflector, Curator, and Playbook into a simple interface
+    Bundles Agent, Reflector, SkillManager, and Skillbook into a simple interface
     powered by LiteLLM (supports 100+ LLM providers).
 
     Perfect for:
@@ -65,7 +65,7 @@ class ACELiteLLM:
 
     Insight Level: Micro
         Uses the full ACE loop with TaskEnvironment for ground truth evaluation.
-        The learn() method runs OfflineAdapter which evaluates correctness and
+        The learn() method runs OfflineACE which evaluates correctness and
         learns from whether answers are right or wrong.
         See docs/COMPLETE_GUIDE_TO_ACE.md for details.
 
@@ -75,7 +75,7 @@ class ACELiteLLM:
     - Integration pattern: Custom agent systems (see docs)
 
     Attributes:
-        playbook: Learned strategies (Playbook instance)
+        skillbook: Learned strategies (Skillbook instance)
         is_learning: Whether learning is enabled
         model: LiteLLM model name
 
@@ -94,8 +94,8 @@ class ACELiteLLM:
         agent.learn(samples, SimpleEnvironment(), epochs=1)
 
         # Save and load
-        agent.save_playbook("learned.json")
-        agent2 = ACELiteLLM(model="gpt-4o-mini", playbook_path="learned.json")
+        agent.save_skillbook("learned.json")
+        agent2 = ACELiteLLM(model="gpt-4o-mini", skillbook_path="learned.json")
     """
 
     def __init__(
@@ -110,7 +110,7 @@ class ACELiteLLM:
         extra_headers: Optional[Dict[str, str]] = None,
         ssl_verify: Optional[Union[bool, str]] = None,
         # ACE-specific settings
-        playbook_path: Optional[str] = None,
+        skillbook_path: Optional[str] = None,
         is_learning: bool = True,
         dedup_config: Optional["DeduplicationConfig"] = None,
         # Pass-through for advanced LiteLLM options
@@ -128,9 +128,9 @@ class ACELiteLLM:
             base_url: Custom API endpoint URL (e.g., http://localhost:1234/v1)
             extra_headers: Custom HTTP headers dict (e.g., {"X-Tenant-ID": "abc"})
             ssl_verify: SSL verification. False to disable, or path to CA bundle.
-            playbook_path: Path to existing playbook (optional)
+            skillbook_path: Path to existing skillbook (optional)
             is_learning: Enable/disable learning (default: True)
-            dedup_config: Optional DeduplicationConfig for bullet deduplication
+            dedup_config: Optional DeduplicationConfig for skill deduplication
             **llm_kwargs: Additional LiteLLM parameters (timeout, max_retries, etc.)
 
         Raises:
@@ -163,10 +163,10 @@ class ACELiteLLM:
                 ssl_verify="/path/to/internal-ca.pem"
             )
 
-            # With existing playbook
+            # With existing skillbook
             agent = ACELiteLLM(
                 model="gpt-4o-mini",
-                playbook_path="expert.json"
+                skillbook_path="expert.json"
             )
 
             # With deduplication
@@ -190,11 +190,11 @@ class ACELiteLLM:
         self.is_learning = is_learning
         self.dedup_config = dedup_config
 
-        # Load or create playbook
-        if playbook_path:
-            self.playbook = Playbook.load_from_file(playbook_path)
+        # Load or create skillbook
+        if skillbook_path:
+            self.skillbook = Skillbook.load_from_file(skillbook_path)
         else:
-            self.playbook = Playbook()
+            self.skillbook = Skillbook()
 
         # Create LLM client with configuration
         self.llm = LiteLLMClient(
@@ -210,28 +210,26 @@ class ACELiteLLM:
 
         # Create ACE components with v2.1 prompts
         prompt_mgr = PromptManager()
-        self.generator = Generator(
-            self.llm, prompt_template=prompt_mgr.get_generator_prompt()
-        )
+        self.agent = Agent(self.llm, prompt_template=prompt_mgr.get_agent_prompt())
         self.reflector = Reflector(
             self.llm, prompt_template=prompt_mgr.get_reflector_prompt()
         )
-        self.curator = Curator(
-            self.llm, prompt_template=prompt_mgr.get_curator_prompt()
+        self.skill_manager = SkillManager(
+            self.llm, prompt_template=prompt_mgr.get_skill_manager_prompt()
         )
 
-        # Store adapter reference for async learning control
-        self._adapter: Optional[OfflineAdapter] = None
+        # Store ACE reference for async learning control
+        self._ace: Optional[OfflineACE] = None
 
         # Store last interaction for learn_from_feedback()
-        self._last_interaction: Optional[Tuple[str, GeneratorOutput]] = None
+        self._last_interaction: Optional[Tuple[str, AgentOutput]] = None
 
     def ask(self, question: str, context: str = "") -> str:
         """
-        Ask a question and get an answer (uses current playbook).
+        Ask a question and get an answer (uses current skillbook).
 
-        This uses the ACE Generator with the current playbook's learned strategies.
-        The full GeneratorOutput trace is stored internally for potential learning
+        This uses the ACE Agent with the current skillbook's learned strategies.
+        The full AgentOutput trace is stored internally for potential learning
         via learn_from_feedback().
 
         Args:
@@ -255,8 +253,8 @@ class ACELiteLLM:
             # Learn from feedback
             agent.learn_from_feedback(feedback="correct")
         """
-        result = self.generator.generate(
-            question=question, context=context, playbook=self.playbook
+        result = self.agent.generate(
+            question=question, context=context, skillbook=self.skillbook
         )
         # Store full trace for potential learning via learn_from_feedback()
         self._last_interaction = (question, result)
@@ -275,7 +273,7 @@ class ACELiteLLM:
         """
         Learn from examples (offline learning).
 
-        Uses OfflineAdapter to learn from a batch of samples.
+        Uses OfflineACE to learn from a batch of samples.
 
         Insight Level: Micro
             This is micro-level learning with ground truth evaluation.
@@ -287,15 +285,15 @@ class ACELiteLLM:
             environment: TaskEnvironment for evaluating results
             epochs: Number of training epochs (default: 1)
             async_learning: Run learning in background (default: False)
-                           When True, Generator returns immediately while
-                           Reflector/Curator process in background.
+                           When True, Agent returns immediately while
+                           Reflector/SkillManager process in background.
             max_reflector_workers: Number of parallel Reflector threads
                                   (default: 3, only used when async_learning=True)
-            checkpoint_interval: Save playbook every N samples (optional)
+            checkpoint_interval: Save skillbook every N samples (optional)
             checkpoint_dir: Directory for checkpoints (optional)
 
         Returns:
-            List of AdapterStepResult from training
+            List of ACEStepResult from training
 
         Example:
             from ace import Sample, SimpleEnvironment
@@ -308,7 +306,7 @@ class ACELiteLLM:
             agent = ACELiteLLM()
             results = agent.learn(samples, SimpleEnvironment(), epochs=1)
 
-            print(f"Learned {len(agent.playbook.bullets())} strategies")
+            print(f"Learned {len(agent.skillbook.skills())} strategies")
 
             # Async learning example
             results = agent.learn(
@@ -323,19 +321,19 @@ class ACELiteLLM:
         if not self.is_learning:
             raise ValueError("Learning is disabled. Set is_learning=True first.")
 
-        # Create offline adapter
-        self._adapter = OfflineAdapter(
-            playbook=self.playbook,
-            generator=self.generator,
+        # Create offline ACE
+        self._ace = OfflineACE(
+            skillbook=self.skillbook,
+            agent=self.agent,
             reflector=self.reflector,
-            curator=self.curator,
+            skill_manager=self.skill_manager,
             async_learning=async_learning,
             max_reflector_workers=max_reflector_workers,
             dedup_config=self.dedup_config,
         )
 
         # Run learning
-        results = self._adapter.run(
+        results = self._ace.run(
             samples=samples,
             environment=environment,
             epochs=epochs,
@@ -354,8 +352,8 @@ class ACELiteLLM:
         """
         Learn from the last ask() interaction.
 
-        Uses the stored GeneratorOutput trace from the previous ask() call.
-        This allows the Reflector to analyze the full reasoning and bullet
+        Uses the stored AgentOutput trace from the previous ask() call.
+        This allows the Reflector to analyze the full reasoning and skill
         citations, not just the final answer.
 
         Follows the `learn_from_X` naming pattern from other ACE integrations
@@ -397,64 +395,64 @@ class ACELiteLLM:
         if self._last_interaction is None:
             return False
 
-        question, generator_output = self._last_interaction
+        question, agent_output = self._last_interaction
 
         # Run Reflector with full trace context
         reflection = self.reflector.reflect(
             question=question,
-            generator_output=generator_output,  # Full trace: reasoning, bullet_ids
-            playbook=self.playbook,
+            agent_output=agent_output,  # Full trace: reasoning, skill_ids
+            skillbook=self.skillbook,
             ground_truth=ground_truth,
             feedback=feedback,
         )
 
-        # Run Curator to generate playbook updates
-        curator_output = self.curator.curate(
+        # Run SkillManager to generate skillbook updates
+        skill_manager_output = self.skill_manager.update_skills(
             reflection=reflection,
-            playbook=self.playbook,
+            skillbook=self.skillbook,
             question_context=f"User interaction: {question}",
             progress="Learning from user feedback",
         )
 
-        # Apply updates to playbook
-        self.playbook.apply_delta(curator_output.delta)
+        # Apply updates to skillbook
+        self.skillbook.apply_update(skill_manager_output.update)
         return True
 
-    def save_playbook(self, path: str):
+    def save_skillbook(self, path: str):
         """
-        Save learned playbook to file.
+        Save learned skillbook to file.
 
         Args:
             path: File path to save to (creates parent dirs if needed)
 
         Example:
-            agent.save_playbook("my_agent.json")
+            agent.save_skillbook("my_agent.json")
         """
-        self.playbook.save_to_file(path)
+        self.skillbook.save_to_file(path)
 
-    def load_playbook(self, path: str):
+    def load_skillbook(self, path: str):
         """
-        Load playbook from file (replaces current playbook).
+        Load skillbook from file (replaces current skillbook).
 
         Args:
             path: File path to load from
 
         Example:
-            agent.load_playbook("expert.json")
+            agent.load_skillbook("expert.json")
         """
-        self.playbook = Playbook.load_from_file(path)
+        self.skillbook = Skillbook.load_from_file(path)
 
     def enable_learning(self):
-        """Enable learning (allows learn() to update playbook)."""
+        """Enable learning (allows learn() to update skillbook)."""
         self.is_learning = True
 
     def disable_learning(self):
-        """Disable learning (prevents learn() from updating playbook)."""
+        """Disable learning (prevents learn() from updating skillbook)."""
         self.is_learning = False
 
     def get_strategies(self) -> str:
         """
-        Get current playbook strategies as formatted text.
+        Get current skillbook strategies as formatted text.
 
         Returns:
             Formatted string with learned strategies (empty if none)
@@ -463,11 +461,11 @@ class ACELiteLLM:
             strategies = agent.get_strategies()
             print(strategies)
         """
-        if not self.playbook or not self.playbook.bullets():
+        if not self.skillbook or not self.skillbook.skills():
             return ""
-        from .base import wrap_playbook_context
+        from .base import wrap_skillbook_context
 
-        return wrap_playbook_context(self.playbook)
+        return wrap_skillbook_context(self.skillbook)
 
     def wait_for_learning(self, timeout: Optional[float] = None) -> bool:
         """
@@ -488,9 +486,9 @@ class ACELiteLLM:
             if success:
                 print("Learning complete!")
         """
-        if self._adapter is None:
+        if self._ace is None:
             return True
-        return self._adapter.wait_for_learning(timeout)
+        return self._ace.wait_for_learning(timeout)
 
     @property
     def learning_stats(self) -> Dict[str, Any]:
@@ -502,15 +500,15 @@ class ACELiteLLM:
             - async_learning: Whether async mode is enabled
             - pending: Number of samples still being processed
             - completed: Number of samples processed
-            - queue_size: Reflections waiting for Curator
+            - queue_size: Reflections waiting for SkillManager
 
         Example:
             stats = agent.learning_stats
             print(f"Pending: {stats['pending']}")
         """
-        if self._adapter is None:
+        if self._ace is None:
             return {"async_learning": False, "pending": 0, "completed": 0}
-        return self._adapter.learning_stats
+        return self._ace.learning_stats
 
     def stop_async_learning(self):
         """
@@ -524,15 +522,15 @@ class ACELiteLLM:
             # Decide to stop early...
             agent.stop_async_learning()
         """
-        if self._adapter:
-            self._adapter.stop_async_learning()
+        if self._ace:
+            self._ace.stop_async_learning()
 
     def __repr__(self) -> str:
         """String representation."""
-        bullets_count = len(self.playbook.bullets()) if self.playbook else 0
+        skills_count = len(self.skillbook.skills()) if self.skillbook else 0
         return (
             f"ACELiteLLM(model='{self.model}', "
-            f"strategies={bullets_count}, "
+            f"strategies={skills_count}, "
             f"learning={'enabled' if self.is_learning else 'disabled'})"
         )
 

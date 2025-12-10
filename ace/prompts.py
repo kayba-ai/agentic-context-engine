@@ -3,50 +3,50 @@ Prompt templates for ACE roles - fully customizable for your use case.
 
 These default prompts are adapted from the ACE paper. You can customize them
 to better suit your specific task by providing your own templates when
-initializing the Generator, Reflector, and Curator.
+initializing the Agent, Reflector, and SkillManager.
 
 Customization Example:
-    >>> from ace import Generator
+    >>> from ace import Agent
     >>> from ace.llm_providers import LiteLLMClient
     >>>
-    >>> # Custom generator prompt for code tasks
-    >>> code_generator_prompt = '''
-    ... You are a senior developer. Use the playbook to write clean code.
+    >>> # Custom agent prompt for code tasks
+    >>> code_agent_prompt = '''
+    ... You are a senior developer. Use the skillbook to write clean code.
     ...
-    ... Playbook: {playbook}
+    ... Skillbook: {skillbook}
     ... Reflection: {reflection}
     ... Task: {question}
     ... Requirements: {context}
     ...
     ... Return JSON with:
     ... - reasoning: Your approach
-    ... - bullet_ids: Applied strategies
+    ... - skill_ids: Applied strategies
     ... - final_answer: The code solution
     ... '''
     >>>
     >>> client = LiteLLMClient(model="gpt-4")
-    >>> generator = Generator(client, prompt_template=code_generator_prompt)
+    >>> agent = Agent(client, prompt_template=code_agent_prompt)
 
 Prompt Variables:
-    Generator:
-        - {playbook}: Current playbook strategies
+    Agent:
+        - {skillbook}: Current skillbook strategies
         - {reflection}: Recent reflection context
         - {question}: The question/task to solve
         - {context}: Additional requirements or context
 
     Reflector:
         - {question}: Original question
-        - {reasoning}: Generator's reasoning
-        - {prediction}: Generator's answer
+        - {reasoning}: Agent's reasoning
+        - {prediction}: Agent's answer
         - {ground_truth}: Correct answer if available
         - {feedback}: Environment feedback
-        - {playbook_excerpt}: Relevant playbook bullets used
+        - {skillbook_excerpt}: Relevant skillbook skills used
 
-    Curator:
+    SkillManager:
         - {progress}: Training progress summary
-        - {stats}: Playbook statistics
+        - {stats}: Skillbook statistics
         - {reflection}: Latest reflection analysis
-        - {playbook}: Current full playbook
+        - {skillbook}: Current full skillbook
         - {question_context}: Question and feedback context
 
 Tips for Custom Prompts:
@@ -57,13 +57,13 @@ Tips for Custom Prompts:
     5. Iterate based on the quality of generated strategies
 """
 
-# Default Generator prompt - produces answers using playbook strategies
-GENERATOR_PROMPT = """\
-You are an expert assistant that must solve the task using the provided playbook of strategies.
-Apply relevant bullets, avoid known mistakes, and show step-by-step reasoning.
+# Default Agent prompt - produces answers using skillbook strategies
+AGENT_PROMPT = """\
+You are an expert assistant that must solve the task using the provided skillbook of strategies.
+Apply relevant skills, avoid known mistakes, and show step-by-step reasoning.
 
-Playbook:
-{playbook}
+Skillbook:
+{skillbook}
 
 Recent reflection:
 {reflection}
@@ -77,7 +77,7 @@ Additional context:
 Respond with a compact JSON object:
 {{
   "reasoning": "<step-by-step chain of thought>",
-  "bullet_ids": ["<id1>", "<id2>", "..."],
+  "skill_ids": ["<id1>", "<id2>", "..."],
   "final_answer": "<concise final answer>"
 }}
 """
@@ -85,8 +85,8 @@ Respond with a compact JSON object:
 
 # Default Reflector prompt - analyzes what went right/wrong
 REFLECTOR_PROMPT = """\
-You are a senior reviewer diagnosing the generator's trajectory.
-Use the playbook, model reasoning, and feedback to identify mistakes and actionable insights.
+You are a senior reviewer diagnosing the agent's trajectory.
+Use the skillbook, model reasoning, and feedback to identify mistakes and actionable insights.
 Output must be a single valid JSON object. Do NOT include analysis text or explanations outside the JSON.
 Begin the response with `{{` and end with `}}`.
 
@@ -97,8 +97,8 @@ Model reasoning:
 Model prediction: {prediction}
 Ground truth (if available): {ground_truth}
 Feedback: {feedback}
-Playbook excerpts consulted:
-{playbook_excerpt}
+Skillbook excerpts consulted:
+{skillbook_excerpt}
 
 Return JSON:
 {{
@@ -107,27 +107,27 @@ Return JSON:
   "root_cause_analysis": "<why it happened>",
   "correct_approach": "<what should be done>",
   "key_insight": "<reusable takeaway>",
-  "bullet_tags": [
-    {{"id": "<bullet-id>", "tag": "helpful|harmful|neutral"}}
+  "skill_tags": [
+    {{"id": "<skill-id>", "tag": "helpful|harmful|neutral"}}
   ]
 }}
 """
 
 
-# Default Curator prompt - updates playbook based on reflections
-CURATOR_PROMPT = """\
-You are the curator of the ACE playbook. Merge the latest reflection into structured updates.
-Only add genuinely new material. Do not regenerate the entire playbook.
+# Default SkillManager prompt - updates skillbook based on reflections
+SKILL_MANAGER_PROMPT = """\
+You are the skill manager of the ACE skillbook. Merge the latest reflection into structured updates.
+Only add genuinely new material. Do not regenerate the entire skillbook.
 Respond with a single valid JSON object only—no analysis or extra narration.
 
 Training progress: {progress}
-Playbook stats: {stats}
+Skillbook stats: {stats}
 
 Recent reflection:
 {reflection}
 
-Current playbook:
-{playbook}
+Current skillbook:
+{skillbook}
 
 Question context:
 {question_context}
@@ -139,11 +139,15 @@ Respond with JSON:
     {{
       "type": "ADD|UPDATE|TAG|REMOVE",
       "section": "<section name>",
-      "content": "<bullet text>",
-      "bullet_id": "<optional existing id>",
+      "content": "<skill text>",
+      "skill_id": "<optional existing id>",
       "metadata": {{"helpful": 1, "harmful": 0}}
     }}
   ]
 }}
 If no updates are required, return an empty list for "operations".
 """
+
+# Backward compatibility aliases
+GENERATOR_PROMPT = AGENT_PROMPT
+CURATOR_PROMPT = SKILL_MANAGER_PROMPT

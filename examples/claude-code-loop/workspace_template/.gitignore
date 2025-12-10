@@ -1,0 +1,18 @@
+# Source code is cloned from external repo
+source/
+
+# Claude Code working directory
+.agent/
+
+# Build artifacts
+target/node_modules/
+target/package-lock.json
+*.log
+
+# Python
+__pycache__/
+*.pyc
+.env
+
+# OS
+.DS_Store

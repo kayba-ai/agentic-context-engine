@@ -72,7 +72,7 @@ ACE learns at different levels depending on the setup:
 
 | Level | Context | What ACE Sees | Use Case |
 |-------|---------|---------------|----------|
-| **Micro** | With TaskEnvironment | Request → response → ground truth/feedback | OfflineAdapter, OnlineAdapter |
+| **Micro** | With TaskEnvironment | Request → response → ground truth/feedback | OfflineACE, OnlineACE |
 | **Meso** | AgentExecutor | Thoughts → tool calls → observations → answer | ACELangChain with agents |
 
 **Micro-level** (full ACE loop): Uses TaskEnvironment with ground truth to evaluate correctness. The Reflector learns from whether the answer was right or wrong.
@@ -81,7 +81,7 @@ ACE learns at different levels depending on the setup:
 
 ```python
 # Micro: Full ACE loop with environment
-adapter = OfflineAdapter(playbook, generator, reflector, curator)
+adapter = OfflineACE(skillbook, agent, reflector, skill_manager)
 adapter.run(samples, environment)  # Micro learning with ground truth
 
 # Meso: AgentExecutor reasoning trace (automatic!)
@@ -100,18 +100,18 @@ All examples follow the same three-step pattern:
 2. **EXECUTE**: Your LangChain chain/agent runs normally
 3. **LEARN**: ACE analyzes results and updates strategies
 
-### Playbook Persistence
+### Skillbook Persistence
 
 Learned strategies are saved as JSON files:
 
 ```python
 # Save learned knowledge
-ace_chain.save_playbook("my_expert.json")
+ace_chain.save_skillbook("my_expert.json")
 
 # Load in next session
 ace_chain = ACELangChain(
     runnable=chain,
-    playbook_path="my_expert.json"
+    skillbook_path="my_expert.json"
 )
 ```
 
@@ -202,7 +202,7 @@ OPENAI_API_KEY=sk-...
 
 Check that:
 1. Learning is enabled: `ace_chain.is_learning == True`
-2. Playbook is being saved: `ace_chain.save_playbook("file.json")`
+2. Skillbook is being saved: `ace_chain.save_skillbook("file.json")`
 3. Check file contents: `cat file.json`
 
 ### High API costs

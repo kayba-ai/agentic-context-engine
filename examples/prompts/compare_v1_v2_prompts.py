@@ -14,16 +14,16 @@ from typing import Dict, Any, List
 
 from ace import (
     LiteLLMClient,
-    Generator,
+    Agent,
     Reflector,
-    Curator,
-    OfflineAdapter,
+    SkillManager,
+    OfflineACE,
     Sample,
     TaskEnvironment,
     EnvironmentResult,
-    Playbook,
+    Skillbook,
 )
-from ace.prompts import GENERATOR_PROMPT, REFLECTOR_PROMPT, CURATOR_PROMPT
+from ace.prompts import AGENT_PROMPT, REFLECTOR_PROMPT, SKILL_MANAGER_PROMPT
 from ace.prompts_v2_1 import (
     PromptManager,
     validate_prompt_output,
@@ -36,32 +36,30 @@ load_dotenv()
 class ComparisonEnvironment(TaskEnvironment):
     """Environment that tracks detailed metrics for comparison."""
 
-    def evaluate(self, sample, generator_output):
+    def evaluate(self, sample, agent_output):
         """Evaluate with detailed metric tracking."""
         # Check correctness
         # Try numeric comparison first
         try:
             expected = float(sample.ground_truth)
-            actual = float(generator_output.final_answer)
+            actual = float(agent_output.final_answer)
             correct = abs(expected - actual) < 0.0001
         except:
             # Fall back to text comparison
-            correct = (
-                sample.ground_truth.lower() in generator_output.final_answer.lower()
-            )
+            correct = sample.ground_truth.lower() in agent_output.final_answer.lower()
 
         # Track additional metrics
         metrics = {
             "correct": correct,
-            "has_reasoning": bool(generator_output.reasoning),
-            "reasoning_length": len(generator_output.reasoning),
-            "cited_bullets": len(generator_output.bullet_ids),
-            "answer_length": len(generator_output.final_answer),
+            "has_reasoning": bool(agent_output.reasoning),
+            "reasoning_length": len(agent_output.reasoning),
+            "cited_skills": len(agent_output.skill_ids),
+            "answer_length": len(agent_output.final_answer),
         }
 
         # Check for confidence if available (v2 feature)
-        if hasattr(generator_output, "raw"):
-            raw = generator_output.raw
+        if hasattr(agent_output, "raw"):
+            raw = agent_output.raw
             if "answer_confidence" in raw:
                 metrics["has_confidence"] = True
                 metrics["confidence_value"] = raw["answer_confidence"]
@@ -69,9 +67,9 @@ class ComparisonEnvironment(TaskEnvironment):
                 metrics["has_confidence"] = False
 
             if "confidence_scores" in raw:
-                metrics["has_bullet_confidence"] = True
+                metrics["has_skill_confidence"] = True
             else:
-                metrics["has_bullet_confidence"] = False
+                metrics["has_skill_confidence"] = False
 
         return EnvironmentResult(
             feedback="Correct!" if correct else "Incorrect",
@@ -85,25 +83,28 @@ def run_comparison_test(llm_client, samples, environment, version="v1"):
 
     if version == "v1":
         # Use v1 prompts
-        generator = Generator(llm_client, prompt_template=GENERATOR_PROMPT)
+        agent = Agent(llm_client, prompt_template=AGENT_PROMPT)
         reflector = Reflector(llm_client, prompt_template=REFLECTOR_PROMPT)
-        curator = Curator(llm_client, prompt_template=CURATOR_PROMPT)
+        skill_manager = SkillManager(llm_client, prompt_template=SKILL_MANAGER_PROMPT)
         print("\n📝 Using v1 prompts (original)")
     else:
         # Use v2 prompts
         manager = PromptManager()
-        generator = Generator(
-            llm_client, prompt_template=manager.get_generator_prompt()
-        )
+        agent = Agent(llm_client, prompt_template=manager.get_agent_prompt())
         reflector = Reflector(
             llm_client, prompt_template=manager.get_reflector_prompt()
         )
-        curator = Curator(llm_client, prompt_template=manager.get_curator_prompt())
+        skill_manager = SkillManager(
+            llm_client, prompt_template=manager.get_skill_manager_prompt()
+        )
         print("\n🚀 Using v2 prompts (enhanced)")
 
     # Create adapter
-    adapter = OfflineAdapter(
-        playbook=Playbook(), generator=generator, reflector=reflector, curator=curator
+    adapter = OfflineACE(
+        skillbook=Skillbook(),
+        agent=agent,
+        reflector=reflector,
+        skill_manager=skill_manager,
     )
 
     # Run adaptation
@@ -117,16 +118,16 @@ def run_comparison_test(llm_client, samples, environment, version="v1"):
         "total": len(results),
         "has_reasoning": 0,
         "avg_reasoning_length": 0,
-        "avg_bullets_cited": 0,
+        "avg_skills_cited": 0,
         "has_confidence": 0,
-        "has_bullet_confidence": 0,
+        "has_skill_confidence": 0,
         "json_errors": 0,
         "elapsed_time": elapsed_time,
-        "playbook_size": len(adapter.playbook.bullets()),
+        "skillbook_size": len(adapter.skillbook.skills()),
     }
 
     reasoning_lengths = []
-    bullets_cited = []
+    skills_cited = []
     confidence_values = []
 
     for result in results:
@@ -139,39 +140,39 @@ def run_comparison_test(llm_client, samples, environment, version="v1"):
             metrics["has_reasoning"] += 1
             reasoning_lengths.append(result_metrics.get("reasoning_length", 0))
 
-        bullets_cited.append(result_metrics.get("cited_bullets", 0))
+        skills_cited.append(result_metrics.get("cited_skills", 0))
 
         if result_metrics.get("has_confidence"):
             metrics["has_confidence"] += 1
             confidence_values.append(result_metrics.get("confidence_value", 0))
 
-        if result_metrics.get("has_bullet_confidence"):
-            metrics["has_bullet_confidence"] += 1
+        if result_metrics.get("has_skill_confidence"):
+            metrics["has_skill_confidence"] += 1
 
     # Calculate averages
     if reasoning_lengths:
         metrics["avg_reasoning_length"] = sum(reasoning_lengths) / len(
             reasoning_lengths
         )
-    if bullets_cited:
-        metrics["avg_bullets_cited"] = sum(bullets_cited) / len(bullets_cited)
+    if skills_cited:
+        metrics["avg_skills_cited"] = sum(skills_cited) / len(skills_cited)
     if confidence_values:
         metrics["avg_confidence"] = sum(confidence_values) / len(confidence_values)
 
     # Test JSON compliance for a sample output
     if results:
         try:
-            output = results[0].generator_output
+            output = results[0].agent_output
             if hasattr(output, "raw"):
                 json_str = json.dumps(output.raw)
-                is_valid, errors = validate_prompt_output(json_str, "generator")
+                is_valid, errors = validate_prompt_output(json_str, "agent")
                 metrics["json_valid"] = is_valid
                 metrics["validation_errors"] = errors
         except Exception as e:
             metrics["json_valid"] = False
             metrics["validation_errors"] = [str(e)]
 
-    return metrics, adapter.playbook
+    return metrics, adapter.skillbook
 
 
 def print_comparison_results(v1_metrics, v2_metrics):
@@ -208,12 +209,12 @@ def print_comparison_results(v1_metrics, v2_metrics):
         ) * 100
         print(f"  ✅ v2 reasoning is {improvement:.0f}% more detailed")
 
-    # Bullet citations
+    # Skill citations
     print(f"\n📌 STRATEGY USAGE")
-    print(f"  v1 avg bullets cited: {v1_metrics.get('avg_bullets_cited', 0):.1f}")
-    print(f"  v2 avg bullets cited: {v2_metrics.get('avg_bullets_cited', 0):.1f}")
-    print(f"  v1 playbook size: {v1_metrics['playbook_size']}")
-    print(f"  v2 playbook size: {v2_metrics['playbook_size']}")
+    print(f"  v1 avg skills cited: {v1_metrics.get('avg_skills_cited', 0):.1f}")
+    print(f"  v2 avg skills cited: {v2_metrics.get('avg_skills_cited', 0):.1f}")
+    print(f"  v1 skillbook size: {v1_metrics['skillbook_size']}")
+    print(f"  v2 skillbook size: {v2_metrics['skillbook_size']}")
 
     # v2-specific features
     print(f"\n🆕 V2-SPECIFIC FEATURES")
@@ -223,7 +224,7 @@ def print_comparison_results(v1_metrics, v2_metrics):
     if v2_metrics.get("has_confidence", 0) > 0:
         print(f"  Avg confidence: {v2_metrics.get('avg_confidence', 0):.2%}")
     print(
-        f"  Bullet confidence: {v2_metrics.get('has_bullet_confidence', 0)}/{v2_metrics['total']} samples"
+        f"  Skill confidence: {v2_metrics.get('has_skill_confidence', 0)}/{v2_metrics['total']} samples"
     )
 
     # JSON compliance
@@ -324,13 +325,13 @@ def main():
 
     # Test v1 prompts
     print("\n" + "-" * 50)
-    v1_metrics, v1_playbook = run_comparison_test(
+    v1_metrics, v1_skillbook = run_comparison_test(
         llm, samples, environment, version="v1"
     )
 
     # Test v2 prompts
     print("\n" + "-" * 50)
-    v2_metrics, v2_playbook = run_comparison_test(
+    v2_metrics, v2_skillbook = run_comparison_test(
         llm, samples, environment, version="v2"
     )
 
@@ -340,13 +341,13 @@ def main():
     # Show sample strategies learned
     print("\n📚 SAMPLE STRATEGIES LEARNED")
 
-    if v1_playbook.bullets():
+    if v1_skillbook.skills():
         print("\nv1 First Strategy:")
-        print(f"  {v1_playbook.bullets()[0].content[:150]}...")
+        print(f"  {v1_skillbook.skills()[0].content[:150]}...")
 
-    if v2_playbook.bullets():
+    if v2_skillbook.skills():
         print("\nv2 First Strategy:")
-        print(f"  {v2_playbook.bullets()[0].content[:150]}...")
+        print(f"  {v2_skillbook.skills()[0].content[:150]}...")
 
     # Domain-specific comparison (if time permits)
     print("\n" + "=" * 70)

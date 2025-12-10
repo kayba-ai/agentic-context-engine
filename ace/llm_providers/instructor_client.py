@@ -38,9 +38,9 @@ class InstructorClient:
         >>> base_llm = LiteLLMClient(model="gpt-4")
         >>> instructor_llm = InstructorClient(base_llm)
         >>>
-        >>> # Use with Generator/Reflector/Curator
-        >>> from ace import Generator, GeneratorOutput
-        >>> generator = Generator(instructor_llm)
+        >>> # Use with Agent/Reflector/SkillManager
+        >>> from ace import Agent, AgentOutput
+        >>> agent = Agent(instructor_llm)
 
     Features:
         - Automatic Pydantic validation
@@ -135,10 +135,10 @@ class InstructorClient:
             ValidationError: If validation fails after max_retries
 
         Example:
-            >>> from ace.roles import GeneratorOutput
+            >>> from ace.roles import AgentOutput
             >>> output = instructor_llm.complete_structured(
             ...     prompt="What is 2+2?",
-            ...     response_model=GeneratorOutput
+            ...     response_model=AgentOutput
             ... )
             >>> print(output.final_answer)
             4
@@ -178,6 +178,16 @@ class InstructorClient:
             top_p_value = kwargs.get("top_p", config.top_p)
             if top_p_value is not None:
                 call_params["top_p"] = top_p_value
+
+            # Forward authentication and HTTP settings (Issue #44)
+            if config.api_key:
+                call_params["api_key"] = config.api_key
+            if config.api_base:
+                call_params["api_base"] = config.api_base
+            if config.extra_headers:
+                call_params["extra_headers"] = config.extra_headers
+            if config.ssl_verify is not None:
+                call_params["ssl_verify"] = config.ssl_verify
 
             # Apply Claude parameter resolution to avoid temperature + top_p conflict
             sampling_priority = getattr(config, "sampling_priority", "temperature")
@@ -221,6 +231,6 @@ def wrap_with_instructor(
         >>>
         >>> base_llm = LiteLLMClient(model="gpt-4")
         >>> llm = wrap_with_instructor(base_llm)
-        >>> generator = Generator(llm)  # Auto-validates
+        >>> agent = Agent(llm)  # Auto-validates
     """
     return InstructorClient(llm, mode=mode, max_retries=max_retries)

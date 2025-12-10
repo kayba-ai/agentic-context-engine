@@ -37,28 +37,28 @@ warnings.warn(
 )
 
 # ================================
-# GENERATOR PROMPT - VERSION 2.0
+# AGENT PROMPT - VERSION 2.0
 # ================================
 
-GENERATOR_V2_PROMPT = """\
+AGENT_V2_PROMPT = """\
 # Identity and Metadata
-You are ACE Generator v2.0, an expert problem-solving agent.
+You are ACE Agent v2.0, an expert problem-solving agent.
 Prompt Version: 2.0.0
 Current Date: {current_date}
 Mode: Strategic Problem Solving
 Confidence Threshold: 0.7
 
 ## Core Responsibilities
-1. Analyze questions using accumulated playbook strategies
-2. Apply relevant bullets with confidence scoring
+1. Analyze questions using accumulated skillbook strategies
+2. Apply relevant skills with confidence scoring
 3. Show step-by-step reasoning with clear justification
 4. Produce accurate, complete answers
 
-## Playbook Application Protocol
+## Skillbook Application Protocol
 
 ### Step 1: Analyze Available Strategies
-Examine the playbook and identify relevant bullets:
-{playbook}
+Examine the skillbook and identify relevant skills:
+{skillbook}
 
 ### Step 2: Consider Recent Reflection
 Integrate learnings from recent analysis:
@@ -73,9 +73,9 @@ Additional Context: {context}
 Follow this EXACT procedure:
 
 1. **Strategy Selection**
-   - ONLY use bullets with confidence > 0.7 relevance
+   - ONLY use skills with confidence > 0.7 relevance
    - NEVER apply conflicting strategies simultaneously
-   - If no relevant bullets exist, state "no_applicable_strategies"
+   - If no relevant skills exist, state "no_applicable_strategies"
 
 2. **Reasoning Chain**
    - Begin with problem decomposition
@@ -93,11 +93,11 @@ Follow this EXACT procedure:
 **MUST** follow these rules:
 - ALWAYS include step-by-step reasoning
 - NEVER skip intermediate calculations or logic
-- ALWAYS cite specific bullet IDs when applying strategies
+- ALWAYS cite specific skill IDs when applying strategies
 - NEVER guess or fabricate information
 
 **NEVER** do these:
-- Say "based on the playbook" without specific bullet citations
+- Say "based on the skillbook" without specific skill citations
 - Provide partial or incomplete answers
 - Mix unrelated strategies
 - Include meta-commentary like "I will now apply..."
@@ -108,7 +108,7 @@ Return a SINGLE valid JSON object with this EXACT schema:
 
 {{
   "reasoning": "<detailed step-by-step chain of thought with numbered steps>",
-  "bullet_ids": ["<id1>", "<id2>"],
+  "skill_ids": ["<id1>", "<id2>"],
   "confidence_scores": {{"<id1>": 0.85, "<id2>": 0.92}},
   "final_answer": "<complete, direct answer to the question>",
   "answer_confidence": 0.95
@@ -118,17 +118,17 @@ Return a SINGLE valid JSON object with this EXACT schema:
 
 ### Good Example:
 {{
-  "reasoning": "1. Breaking down 15 × 24: This is a multiplication problem. 2. Applying bullet_023 (multiplication by decomposition): 15 × 24 = 15 × (20 + 4). 3. Computing: 15 × 20 = 300. 4. Computing: 15 × 4 = 60. 5. Adding: 300 + 60 = 360.",
-  "bullet_ids": ["bullet_023"],
-  "confidence_scores": {{"bullet_023": 0.95}},
+  "reasoning": "1. Breaking down 15 × 24: This is a multiplication problem. 2. Applying skill_023 (multiplication by decomposition): 15 × 24 = 15 × (20 + 4). 3. Computing: 15 × 20 = 300. 4. Computing: 15 × 4 = 60. 5. Adding: 300 + 60 = 360.",
+  "skill_ids": ["skill_023"],
+  "confidence_scores": {{"skill_023": 0.95}},
   "final_answer": "360",
   "answer_confidence": 1.0
 }}
 
 ### Bad Example (DO NOT DO THIS):
 {{
-  "reasoning": "Using the playbook strategies, the answer is clear.",
-  "bullet_ids": [],
+  "reasoning": "Using the skillbook strategies, the answer is clear.",
+  "skill_ids": [],
   "final_answer": "360"
 }}
 
@@ -143,6 +143,9 @@ If JSON generation fails:
 Begin response with `{{` and end with `}}`
 """
 
+# Backward compatibility alias
+GENERATOR_V2_PROMPT = AGENT_V2_PROMPT
+
 
 # ================================
 # REFLECTOR PROMPT - VERSION 2.0
@@ -156,7 +159,7 @@ Analysis Mode: Diagnostic Review
 Tagging Protocol: Evidence-Based
 
 ## Core Mission
-Diagnose generator performance through systematic analysis of reasoning, outcomes, and strategy application.
+Diagnose agent performance through systematic analysis of reasoning, outcomes, and strategy application.
 
 ## Input Analysis
 
@@ -167,9 +170,9 @@ Model Prediction: {prediction}
 Ground Truth: {ground_truth}
 Environment Feedback: {feedback}
 
-### Playbook Context
+### Skillbook Context
 Strategies Consulted:
-{playbook_excerpt}
+{skillbook_excerpt}
 
 ## Analysis Protocol
 
@@ -260,7 +263,7 @@ Every analysis MUST extract from the actual execution:
 - Specific error identification with line numbers if applicable
 - Root cause analysis beyond surface symptoms
 - Actionable corrections with examples
-- Evidence-based bullet tagging
+- Evidence-based skill tagging
 
 **NEVER** use these phrases:
 - "The model was wrong"
@@ -281,9 +284,9 @@ Return ONLY a valid JSON object:
   "correct_approach": "<detailed correct method with example>",
   "key_insight": "<reusable learning for future problems>",
   "confidence_in_analysis": 0.95,
-  "bullet_tags": [
+  "skill_tags": [
     {{
-      "id": "<bullet-id>",
+      "id": "<skill-id>",
       "tag": "helpful|harmful|neutral",
       "justification": "<specific evidence for this tag>"
     }}
@@ -294,16 +297,16 @@ Return ONLY a valid JSON object:
 
 ### For Calculation Error:
 {{
-  "reasoning": "1. Generator attempted 15 × 24 using decomposition. 2. Correctly decomposed to 15 × (20 + 4). 3. ERROR at step 3: Calculated 15 × 20 = 310 instead of 300.",
+  "reasoning": "1. Agent attempted 15 × 24 using decomposition. 2. Correctly decomposed to 15 × (20 + 4). 3. ERROR at step 3: Calculated 15 × 20 = 310 instead of 300.",
   "error_identification": "Arithmetic error in multiplication",
   "error_location": "Step 3 of reasoning chain",
   "root_cause_analysis": "Multiplication error: 15 × 2 = 30, so 15 × 20 = 300, not 310",
   "correct_approach": "15 × 24 = 15 × 20 + 15 × 4 = 300 + 60 = 360",
   "key_insight": "Always verify intermediate calculations in multi-step problems",
   "confidence_in_analysis": 1.0,
-  "bullet_tags": [
+  "skill_tags": [
     {{
-      "id": "bullet_023",
+      "id": "skill_023",
       "tag": "neutral",
       "justification": "Strategy was correct but execution had arithmetic error"
     }}
@@ -315,29 +318,29 @@ Begin response with `{{` and end with `}}`
 
 
 # ================================
-# CURATOR PROMPT - VERSION 2.0
+# SKILL_MANAGER PROMPT - VERSION 2.0
 # ================================
 
-CURATOR_V2_PROMPT = """\
+SKILL_MANAGER_V2_PROMPT = """\
 # Identity and Metadata
-You are ACE Curator v2.0, the strategic playbook architect.
+You are ACE SkillManager v2.0, the strategic skillbook architect.
 Prompt Version: 2.0.0
-Update Protocol: Incremental Delta Operations
+Update Protocol: Incremental Update Operations
 Quality Threshold: High-Value Additions Only
 
-## Playbook Management Mission
-Transform reflections into high-quality playbook updates through selective, incremental improvements.
+## Skillbook Management Mission
+Transform reflections into high-quality skillbook updates through selective, incremental improvements.
 
 ## Current State Analysis
 
 Training Progress: {progress}
-Playbook Statistics: {stats}
+Skillbook Statistics: {stats}
 
 ### Recent Reflection
 {reflection}
 
-### Current Playbook
-{playbook}
+### Current Skillbook
+{skillbook}
 
 ### Question Context
 {question_context}
@@ -389,7 +392,7 @@ IF strategy proved particularly effective:
 4. What MEASURABLE improvement can be captured from this experience?
 
 ### Transform Experience to Strategy:
- Single Reflection → Multiple Focused Bullets:
+ Single Reflection → Multiple Focused Skills:
 
   - Reflection: "Tool X completed task in N steps" →
     - Strategy 1: "Use Tool X for task type Y - provides reliable results"
@@ -406,11 +409,11 @@ IF strategy proved particularly effective:
     - Strategy 3: "Enter Value Z in the designated field"
 
   Key Pattern: Break each reflection into its component learnings
-  - What tool/method worked → Tool selection bullet
-  - How it was used → Implementation bullet
-  - What to avoid → Avoidance bullet
-  - Performance metrics → Timing/expectation bullet
-  - Error patterns → Error handling bullet
+  - What tool/method worked → Tool selection skill
+  - How it was used → Implementation skill
+  - What to avoid → Avoidance skill
+  - Performance metrics → Timing/expectation skill
+  - Error patterns → Error handling skill
 
 **NEVER create generic strategies** - always base on the specific execution details provided.
 
@@ -437,7 +440,7 @@ IF strategy proved particularly effective:
       "type": "ADD",
       "section": "multiplication",
       "content": "For two-digit multiplication (e.g., 23 × 45): Use area model - break into (20+3) × (40+5), compute four products, then sum",
-      "bullet_id": "",
+      "skill_id": "",
       "metadata": {{"helpful": 1, "harmful": 0}}
     }}
   ]
@@ -452,7 +455,7 @@ Respond with JSON:
       "type": "ADD",
       "section": "",
       "content": "Be careful with calculations",
-      "bullet_id": "",
+      "skill_id": "",
       "metadata": {{"helpful": 0, "harmful": 0}}
     }}
   ]
@@ -466,7 +469,7 @@ Respond with JSON:
 **Requirements for UPDATE:**
 - MUST preserve valuable original content
 - MUST meaningfully improve the strategy
-- Reference specific bullet_id
+- Reference specific skill_id
 
 ### TAG Operations - Use when:
 - Reflection provides evidence of effectiveness
@@ -487,7 +490,7 @@ Respond with JSON:
 3. Does it conflict with existing strategies?
 4. Will it improve future performance?
 
-**NEVER add bullets that say:**
+**NEVER add skills that say:**
 - "Be careful with..."
 - "Always double-check..."
 - "Consider all aspects..."
@@ -497,13 +500,13 @@ Respond with JSON:
 ## Deduplication Protocol
 
 Before ADD operations:
-1. Search existing bullets for similar strategies
+1. Search existing skills for similar strategies
 2. If 70% similar: UPDATE instead of ADD
 3. If addressing same problem differently: ADD with distinction note
 
 ## Output Format
 
-Return ONLY a valid JSON object for each generated bullet:
+Return ONLY a valid JSON object for each generated skill:
 
 {{
   "reasoning": "<analysis of what updates are needed and why>",
@@ -512,9 +515,9 @@ Return ONLY a valid JSON object for each generated bullet:
       "type": "ADD|UPDATE|TAG|REMOVE",
       "section": "<category like 'algebra', 'geometry', 'problem_solving'>",
       "content": "<specific, actionable strategy with example>",
-      "bullet_id": "<required for UPDATE/TAG/REMOVE>",
+      "skill_id": "<required for UPDATE/TAG/REMOVE>",
       "metadata": {{"helpful": 1, "harmful": 0}},
-      "justification": "<why this operation improves the playbook>"
+      "justification": "<why this operation improves the skillbook>"
     }}
   ]
 }}
@@ -529,7 +532,7 @@ Return ONLY a valid JSON object for each generated bullet:
       "type": "ADD",
       "section": "algebra",
       "content": "When solving quadratic equations ax²+bx+c=0: First try factoring. If integer factors don't work, use quadratic formula x = (-b ± √(b²-4ac))/2a. Example: x²-5x+6=0 factors to (x-2)(x-3)=0, so x=2 or x=3",
-      "bullet_id": "",
+      "skill_id": "",
       "metadata": {{"helpful": 1, "harmful": 0}}
     }}
   ]
@@ -543,33 +546,36 @@ Return ONLY a valid JSON object for each generated bullet:
       "type": "UPDATE",
       "section": "geometry",
       "content": "Pythagorean theorem a²+b²=c² applies to right triangles only. For non-right triangles, use law of cosines: c² = a²+b²-2ab·cos(C). Check for right angle (90°) before applying Pythagorean theorem",
-      "bullet_id": "bullet_045",
+      "skill_id": "skill_045",
       "metadata": {{"helpful": 1, "harmful": 0}}
     }}
   ]
 }}
 
-## Playbook Size Management
+## Skillbook Size Management
 
-IF playbook exceeds 50 strategies:
+IF skillbook exceeds 50 strategies:
 - Prioritize UPDATE over ADD
 - Merge similar strategies
-- Remove lowest-performing bullets
+- Remove lowest-performing skills
 - Focus on quality over quantity
 
 If no updates needed, return empty operations list.
 Begin response with `{{` and end with `}}`
 """
 
+# Backward compatibility alias
+CURATOR_V2_PROMPT = SKILL_MANAGER_V2_PROMPT
+
 
 # ================================
 # DOMAIN-SPECIFIC VARIANTS
 # ================================
 
-# Mathematics-specific Generator
-GENERATOR_MATH_PROMPT = """\
+# Mathematics-specific Agent
+AGENT_MATH_PROMPT = """\
 # Identity and Metadata
-You are ACE Math Generator v2.0, specialized in mathematical problem-solving.
+You are ACE Math Agent v2.0, specialized in mathematical problem-solving.
 Prompt Version: 2.0.0-math
 Calculation Verification: Required
 Precision: 6 decimal places where applicable
@@ -591,8 +597,8 @@ Precision: 6 decimal places where applicable
 2. Contradiction: Assume opposite → Derive contradiction
 3. Induction: Base case → Inductive hypothesis → Inductive step
 
-## Playbook Application
-{playbook}
+## Skillbook Application
+{skillbook}
 
 ## Recent Reflection
 {reflection}
@@ -635,7 +641,7 @@ Check answer by substitution or alternative method
   "problem_type": "<classification>",
   "reasoning": "<numbered step-by-step solution>",
   "calculations": ["<step1>", "<step2>", ...],
-  "bullet_ids": ["<id1>", "<id2>"],
+  "skill_ids": ["<id1>", "<id2>"],
   "verification": "<check of answer>",
   "final_answer": "<answer with units if applicable>",
   "confidence": 0.95
@@ -644,11 +650,14 @@ Check answer by substitution or alternative method
 Begin response with `{{` and end with `}}`
 """
 
+# Backward compatibility alias
+GENERATOR_MATH_PROMPT = AGENT_MATH_PROMPT
 
-# Code-specific Generator
-GENERATOR_CODE_PROMPT = """\
+
+# Code-specific Agent
+AGENT_CODE_PROMPT = """\
 # Identity and Metadata
-You are ACE Code Generator v2.0, specialized in software development.
+You are ACE Code Agent v2.0, specialized in software development.
 Prompt Version: 2.0.0-code
 Language Preference: Python (unless specified)
 Code Style: PEP 8 / Industry Standards
@@ -668,8 +677,8 @@ Code Style: PEP 8 / Industry Standards
 4. Add edge case handling
 5. Include basic tests
 
-## Playbook Application
-{playbook}
+## Skillbook Application
+{skillbook}
 
 ## Recent Reflection
 {reflection}
@@ -714,7 +723,7 @@ Suggest test cases
 {{
   "approach": "<architectural/algorithmic approach>",
   "reasoning": "<why this approach>",
-  "bullet_ids": ["<relevant strategies>"],
+  "skill_ids": ["<relevant strategies>"],
   "code": "<complete implementation>",
   "complexity": {{"time": "O(n)", "space": "O(1)"}},
   "test_cases": ["<test1>", "<test2>"],
@@ -724,6 +733,9 @@ Suggest test cases
 
 Begin response with `{{` and end with `}}`
 """
+
+# Backward compatibility alias
+GENERATOR_CODE_PROMPT = AGENT_CODE_PROMPT
 
 
 # ================================
@@ -743,30 +755,30 @@ class PromptManager:
 
     Example:
         >>> manager = PromptManager()
-        >>> prompt = manager.get_generator_prompt(domain="math", version="2.0")
+        >>> prompt = manager.get_agent_prompt(domain="math", version="2.0")
         >>> # Use prompt with your LLM
     """
 
     # Version registry
     PROMPTS = {
-        "generator": {
-            "1.0": "ace.prompts.GENERATOR_PROMPT",
-            "2.0": GENERATOR_V2_PROMPT,
-            "2.0-math": GENERATOR_MATH_PROMPT,
-            "2.0-code": GENERATOR_CODE_PROMPT,
-            "2.1": "ace.prompts_v2_1.GENERATOR_V2_1_PROMPT",
-            "2.1-math": "ace.prompts_v2_1.GENERATOR_MATH_V2_1_PROMPT",
-            "2.1-code": "ace.prompts_v2_1.GENERATOR_CODE_V2_1_PROMPT",
+        "agent": {
+            "1.0": "ace.prompts.AGENT_PROMPT",
+            "2.0": AGENT_V2_PROMPT,
+            "2.0-math": AGENT_MATH_PROMPT,
+            "2.0-code": AGENT_CODE_PROMPT,
+            "2.1": "ace.prompts_v2_1.AGENT_V2_1_PROMPT",
+            "2.1-math": "ace.prompts_v2_1.AGENT_MATH_V2_1_PROMPT",
+            "2.1-code": "ace.prompts_v2_1.AGENT_CODE_V2_1_PROMPT",
         },
         "reflector": {
             "1.0": "ace.prompts.REFLECTOR_PROMPT",
             "2.0": REFLECTOR_V2_PROMPT,
             "2.1": "ace.prompts_v2_1.REFLECTOR_V2_1_PROMPT",
         },
-        "curator": {
-            "1.0": "ace.prompts.CURATOR_PROMPT",
-            "2.0": CURATOR_V2_PROMPT,
-            "2.1": "ace.prompts_v2_1.CURATOR_V2_1_PROMPT",
+        "skill_manager": {
+            "1.0": "ace.prompts.SKILL_MANAGER_PROMPT",
+            "2.0": SKILL_MANAGER_V2_PROMPT,
+            "2.1": "ace.prompts_v2_1.SKILL_MANAGER_V2_1_PROMPT",
         },
     }
 
@@ -780,11 +792,11 @@ class PromptManager:
         self.default_version = default_version
         self.usage_stats: Dict[str, int] = {}
 
-    def get_generator_prompt(
+    def get_agent_prompt(
         self, domain: Optional[str] = None, version: Optional[str] = None
     ) -> str:
         """
-        Get generator prompt for specific domain and version.
+        Get agent prompt for specific domain and version.
 
         Args:
             domain: Domain (math, code, etc.) or None for general
@@ -795,12 +807,12 @@ class PromptManager:
         """
         version = version or self.default_version
 
-        if domain and f"{version}-{domain}" in self.PROMPTS["generator"]:
+        if domain and f"{version}-{domain}" in self.PROMPTS["agent"]:
             prompt_key = f"{version}-{domain}"
         else:
             prompt_key = version
 
-        prompt = self.PROMPTS["generator"].get(prompt_key)
+        prompt = self.PROMPTS["agent"].get(prompt_key)
         if isinstance(prompt, str) and prompt.startswith("ace."):
             # Handle v1 and v2.1 prompt references
             module_parts = prompt.split(".")
@@ -814,7 +826,7 @@ class PromptManager:
                 prompt = getattr(prompts, prompt.split(".")[-1])
 
         # Track usage
-        self._track_usage(f"generator-{prompt_key}")
+        self._track_usage(f"agent-{prompt_key}")
 
         # Add current date if v2 prompt
         if prompt is not None and "{current_date}" in prompt:
@@ -824,7 +836,7 @@ class PromptManager:
 
         if prompt is None:
             raise ValueError(
-                f"No generator prompt found for version {version}, domain {domain}"
+                f"No agent prompt found for version {version}, domain {domain}"
             )
 
         return prompt
@@ -853,10 +865,10 @@ class PromptManager:
 
         return prompt
 
-    def get_curator_prompt(self, version: Optional[str] = None) -> str:
-        """Get curator prompt for specific version."""
+    def get_skill_manager_prompt(self, version: Optional[str] = None) -> str:
+        """Get skill manager prompt for specific version."""
         version = version or self.default_version
-        prompt = self.PROMPTS["curator"].get(version)
+        prompt = self.PROMPTS["skill_manager"].get(version)
 
         if isinstance(prompt, str) and prompt.startswith("ace."):
             # Handle v1 and v2.1 prompt references
@@ -870,10 +882,10 @@ class PromptManager:
 
                 prompt = getattr(prompts, prompt.split(".")[-1])
 
-        self._track_usage(f"curator-{version}")
+        self._track_usage(f"skill_manager-{version}")
 
         if prompt is None:
-            raise ValueError(f"No curator prompt found for version {version}")
+            raise ValueError(f"No skill manager prompt found for version {version}")
 
         return prompt
 
@@ -905,7 +917,7 @@ def validate_prompt_output(output: str, role: str) -> tuple[bool, list[str]]:
 
     Args:
         output: The LLM output to validate
-        role: The role (generator, reflector, curator)
+        role: The role (agent, reflector, skill_manager)
 
     Returns:
         (is_valid, error_messages)
@@ -922,8 +934,8 @@ def validate_prompt_output(output: str, role: str) -> tuple[bool, list[str]]:
         return False, errors
 
     # Role-specific validation
-    if role == "generator":
-        required = ["reasoning", "bullet_ids", "final_answer"]
+    if role in ("agent", "generator"):  # Support both names
+        required = ["reasoning", "skill_ids", "final_answer"]
         for field in required:
             if field not in data:
                 errors.append(f"Missing required field: {field}")
@@ -934,18 +946,18 @@ def validate_prompt_output(output: str, role: str) -> tuple[bool, list[str]]:
                     errors.append(f"Invalid confidence score: {score}")
 
     elif role == "reflector":
-        required = ["reasoning", "error_identification", "bullet_tags"]
+        required = ["reasoning", "error_identification", "skill_tags"]
         for field in required:
             if field not in data:
                 errors.append(f"Missing required field: {field}")
 
-        for tag in data.get("bullet_tags", []):
+        for tag in data.get("skill_tags", []):
             if tag.get("tag") not in ["helpful", "harmful", "neutral"]:
                 errors.append(
                     f"Invalid tag: {tag.get('tag')} - only 'helpful', 'harmful', 'neutral' allowed"
                 )
 
-    elif role == "curator":
+    elif role in ("skill_manager", "curator"):  # Support both names
         required = ["reasoning", "operations"]
         for field in required:
             if field not in data:
@@ -971,36 +983,36 @@ Replace your imports:
 
 ```python
 # Old (v1)
-from ace.prompts import GENERATOR_PROMPT, REFLECTOR_PROMPT, CURATOR_PROMPT
+from ace.prompts import AGENT_PROMPT, REFLECTOR_PROMPT, SKILL_MANAGER_PROMPT
 
 # New (v2)
 from ace.prompts_v2 import PromptManager
 
 manager = PromptManager(default_version="2.0")
-generator_prompt = manager.get_generator_prompt()
+agent_prompt = manager.get_agent_prompt()
 reflector_prompt = manager.get_reflector_prompt()
-curator_prompt = manager.get_curator_prompt()
+skill_manager_prompt = manager.get_skill_manager_prompt()
 ```
 
 ## Using Domain-Specific Prompts
 
 ```python
-# Math-specific generator
-math_prompt = manager.get_generator_prompt(domain="math")
+# Math-specific agent
+math_prompt = manager.get_agent_prompt(domain="math")
 
-# Code-specific generator
-code_prompt = manager.get_generator_prompt(domain="code")
+# Code-specific agent
+code_prompt = manager.get_agent_prompt(domain="code")
 ```
 
 ## Custom Prompts with v2 Structure
 
 ```python
-from ace.prompts_v2 import GENERATOR_V2_PROMPT
+from ace.prompts_v2 import AGENT_V2_PROMPT
 
 # Use v2 as template
-custom_prompt = GENERATOR_V2_PROMPT.replace(
-    "You are ACE Generator v2.0",
-    "You are MyCustom Generator v1.0"
+custom_prompt = AGENT_V2_PROMPT.replace(
+    "You are ACE Agent v2.0",
+    "You are MyCustom Agent v1.0"
 )
 # Add your modifications...
 ```
@@ -1008,7 +1020,7 @@ custom_prompt = GENERATOR_V2_PROMPT.replace(
 ## Key Improvements in v2
 
 1. **Structured Output**: Stricter JSON schemas with validation
-2. **Confidence Scores**: Generators now output confidence levels
+2. **Confidence Scores**: Agents now output confidence levels
 3. **Better Error Handling**: Explicit error recovery procedures
 4. **Domain Optimization**: Specialized prompts for math/code
 5. **Anti-Patterns**: Explicit "NEVER do this" instructions

@@ -4,27 +4,27 @@ Complete API documentation for the ACE Framework.
 
 ## Core Components
 
-### Generator
+### Agent
 
-The Generator produces answers using the current playbook of strategies.
+The Agent produces answers using the current skillbook of strategies.
 
 ```python
-from ace import Generator, LiteLLMClient
+from ace import Agent, LiteLLMClient
 
 client = LiteLLMClient(model="gpt-4")
-generator = Generator(client)
+agent = Agent(client)
 
-output = generator.generate(
+output = agent.generate(
     question="What is 2+2?",
     context="Show your work",
-    playbook=playbook,
+    skillbook=skillbook,
     reflection=None  # Optional reflection from previous attempt
 )
 
 # Output contains:
 # - output.final_answer: The generated answer
 # - output.reasoning: Step-by-step reasoning
-# - output.bullet_ids: List of playbook strategies used
+# - output.skill_ids: List of skillbook strategies used
 ```
 
 ### Reflector
@@ -38,8 +38,8 @@ reflector = Reflector(client)
 
 reflection = reflector.reflect(
     question="What is 2+2?",
-    generator_output=output,
-    playbook=playbook,
+    agent_output=output,
+    skillbook=skillbook,
     ground_truth="4",
     feedback="Correct!",
     max_refinement_rounds=1
@@ -51,40 +51,40 @@ reflection = reflector.reflect(
 # - reflection.root_cause_analysis: Why it went wrong
 # - reflection.correct_approach: What should have been done
 # - reflection.key_insight: Main lesson learned
-# - reflection.bullet_tags: List of (bullet_id, tag) pairs
+# - reflection.skill_tags: List of (skill_id, tag) pairs
 ```
 
-### Curator
+### SkillManager
 
-The Curator transforms reflections into playbook updates.
+The SkillManager transforms reflections into skillbook updates.
 
 ```python
-from ace import Curator
+from ace import SkillManager
 
-curator = Curator(client)
+skill_manager = SkillManager(client)
 
-curator_output = curator.curate(
+skill_manager_output = skill_manager.curate(
     reflection=reflection,
-    playbook=playbook,
+    skillbook=skillbook,
     question_context="Math problems",
     progress="3/5 correct"
 )
 
 # Apply the updates
-playbook.apply_delta(curator_output.delta)
+skillbook.apply_update(skill_manager_output.update)
 ```
 
-## Playbook Management
+## Skillbook Management
 
-### Creating a Playbook
+### Creating a Skillbook
 
 ```python
-from ace import Playbook
+from ace import Skillbook
 
-playbook = Playbook()
+skillbook = Skillbook()
 
 # Add a strategy
-bullet = playbook.add_bullet(
+skill = skillbook.add_skill(
     section="Math Strategies",
     content="Break complex problems into smaller steps",
     metadata={"helpful": 5, "harmful": 0, "neutral": 1}
@@ -95,20 +95,20 @@ bullet = playbook.add_bullet(
 
 ```python
 # Save to file
-playbook.save_to_file("my_strategies.json")
+skillbook.save_to_file("my_strategies.json")
 
 # Load from file
-loaded_playbook = Playbook.load_from_file("my_strategies.json")
+loaded_skillbook = Skillbook.load_from_file("my_strategies.json")
 ```
 
-### Playbook Statistics
+### Skillbook Statistics
 
 ```python
-stats = playbook.stats()
+stats = skillbook.stats()
 # Returns:
 # {
 #   "sections": 3,
-#   "bullets": 15,
+#   "skills": 15,
 #   "tags": {
 #     "helpful": 45,
 #     "harmful": 5,
@@ -117,9 +117,9 @@ stats = playbook.stats()
 # }
 ```
 
-## Bullet Deduplication
+## Skill Deduplication
 
-Optional feature to detect and consolidate similar bullets using embeddings.
+Optional feature to detect and consolidate similar skills using embeddings.
 
 ### DeduplicationConfig
 
@@ -140,15 +140,15 @@ agent = ACELiteLLM(model="gpt-4o-mini", dedup_config=config)
 
 ## Adapters
 
-### OfflineAdapter
+### OfflineACE
 
 Train on a batch of samples.
 
 ```python
-from ace import OfflineAdapter
+from ace import OfflineACE
 from ace.types import Sample
 
-adapter = OfflineAdapter(generator, reflector, curator)
+adapter = OfflineACE(agent, reflector, skill_manager)
 
 samples = [
     Sample(
@@ -167,23 +167,23 @@ results = adapter.run(
 )
 ```
 
-### OnlineAdapter
+### OnlineACE
 
 Learn from tasks one at a time.
 
 ```python
-from ace import OnlineAdapter
+from ace import OnlineACE
 
-adapter = OnlineAdapter(
-    playbook=existing_playbook,
-    generator=generator,
+adapter = OnlineACE(
+    skillbook=existing_skillbook,
+    agent=agent,
     reflector=reflector,
-    curator=curator
+    skill_manager=skill_manager
 )
 
 for task in tasks:
     result = adapter.process(task, environment)
-    # Playbook updates automatically after each task
+    # Skillbook updates automatically after each task
 ```
 
 ## Integrations
@@ -205,16 +205,16 @@ answer1 = agent.ask("What is the capital of France?")
 answer2 = agent.ask("What about Spain?")
 
 # Save learned strategies
-agent.playbook.save_to_file("learned_strategies.json")
+agent.skillbook.save_to_file("learned_strategies.json")
 
 # Load and continue learning
-agent2 = ACELiteLLM.from_playbook("learned_strategies.json", model="gpt-4o-mini")
+agent2 = ACELiteLLM.from_skillbook("learned_strategies.json", model="gpt-4o-mini")
 ```
 
 **Parameters:**
 - `model`: LiteLLM model identifier (e.g., "gpt-4o-mini", "claude-3-5-sonnet")
-- `playbook`: Optional existing Playbook to start with
-- `ace_model`: Model for Reflector/Curator (defaults to same as main model)
+- `skillbook`: Optional existing Skillbook to start with
+- `ace_model`: Model for Reflector/SkillManager (defaults to same as main model)
 - `**llm_kwargs`: Additional arguments passed to LiteLLMClient
 
 ### ACEAgent (browser-use)
@@ -233,13 +233,13 @@ agent = ACEAgent(llm=llm)
 await agent.run(task="Find the top post on Hacker News")
 await agent.run(task="Search for ACE framework on GitHub")
 
-# Playbook improves with each task
-print(f"Learned {len(agent.playbook.bullets())} strategies")
+# Skillbook improves with each task
+print(f"Learned {len(agent.skillbook.skills())} strategies")
 ```
 
 **Parameters:**
 - `llm`: Browser-use ChatBrowserUse instance
-- `playbook`: Optional existing Playbook
+- `skillbook`: Optional existing Skillbook
 - `ace_model`: Model for learning (defaults to "gpt-4o-mini")
 
 **Requires:** `pip install browser-use` (optional dependency)
@@ -266,13 +266,13 @@ ace_chain = ACELangChain(runnable=chain)
 result1 = ace_chain.invoke({"question": "What is 2+2?"})
 result2 = ace_chain.invoke({"question": "What is 10*5?"})
 
-# Access learned playbook
-ace_chain.save_playbook("langchain_learned.json")
+# Access learned skillbook
+ace_chain.save_skillbook("langchain_learned.json")
 ```
 
 **Parameters:**
 - `runnable`: Any LangChain Runnable (chains, agents, etc.)
-- `playbook`: Optional existing Playbook
+- `skillbook`: Optional existing Skillbook
 - `ace_model`: Model for learning (defaults to "gpt-4o-mini")
 - `environment`: Custom evaluation environment (optional)
 
@@ -298,9 +298,9 @@ from ace import TaskEnvironment, EnvironmentResult
 class SimpleEnvironment(TaskEnvironment):
     """Basic environment for testing - checks if ground truth appears in answer."""
 
-    def evaluate(self, sample, generator_output):
+    def evaluate(self, sample, agent_output):
         # Simple substring matching (case-insensitive)
-        correct = str(sample.ground_truth).lower() in str(generator_output.final_answer).lower()
+        correct = str(sample.ground_truth).lower() in str(agent_output.final_answer).lower()
 
         return EnvironmentResult(
             feedback="Correct!" if correct else "Incorrect",
@@ -309,7 +309,7 @@ class SimpleEnvironment(TaskEnvironment):
 
 # Usage
 env = SimpleEnvironment()
-result = env.evaluate(sample, generator_output)
+result = env.evaluate(sample, agent_output)
 ```
 
 ### Custom Environments
@@ -382,14 +382,14 @@ sample = Sample(
 )
 ```
 
-### GeneratorOutput
+### AgentOutput
 
 ```python
 @dataclass
-class GeneratorOutput:
+class AgentOutput:
     reasoning: str
     final_answer: str
-    bullet_ids: List[str]
+    skill_ids: List[str]
     raw: Dict[str, Any]
 ```
 
@@ -403,7 +403,7 @@ class ReflectorOutput:
     root_cause_analysis: str
     correct_approach: str
     key_insight: str
-    bullet_tags: List[BulletTag]
+    skill_tags: List[SkillTag]
     raw: Dict[str, Any]
 ```
 
@@ -417,23 +417,23 @@ class EnvironmentResult:
     metrics: Optional[Dict[str, float]] = None
 ```
 
-## Delta Operations
+## Update Operations
 
-### DeltaOperation Types
+### UpdateOperation Types
 
-- `ADD`: Add new bullet to playbook
-- `UPDATE`: Update existing bullet content
+- `ADD`: Add new skill to skillbook
+- `UPDATE`: Update existing skill content
 - `TAG`: Update helpful/harmful/neutral counts
-- `REMOVE`: Remove bullet from playbook
+- `REMOVE`: Remove skill from skillbook
 
 ```python
-from ace.delta import DeltaOperation
+from ace.updates import UpdateOperation
 
-op = DeltaOperation(
+op = UpdateOperation(
     type="ADD",
     section="Math Strategies",
     content="Always check your work",
-    bullet_id="math-00001"
+    skill_id="math-00001"
 )
 ```
 
@@ -442,9 +442,9 @@ op = DeltaOperation(
 ### Using Default Prompts
 
 ```python
-from ace.prompts import GENERATOR_PROMPT, REFLECTOR_PROMPT, CURATOR_PROMPT
+from ace.prompts import AGENT_PROMPT, REFLECTOR_PROMPT, SKILL_MANAGER_PROMPT
 
-generator = Generator(client, prompt_template=GENERATOR_PROMPT)
+agent = Agent(client, prompt_template=AGENT_PROMPT)
 ```
 
 ### Using v2.1 Prompts (Recommended)
@@ -456,9 +456,9 @@ from ace.prompts_v2_1 import PromptManager
 
 manager = PromptManager(default_version="2.1")
 
-generator = Generator(
+agent = Agent(
     client,
-    prompt_template=manager.get_generator_prompt(domain="math")
+    prompt_template=manager.get_agent_prompt(domain="math")
 )
 ```
 
@@ -468,17 +468,17 @@ generator = Generator(
 
 ```python
 custom_prompt = '''
-Playbook: {playbook}
+Skillbook: {skillbook}
 Question: {question}
 Context: {context}
 
 Generate a JSON response with:
 - reasoning: Your step-by-step thought process
-- bullet_ids: List of playbook IDs you used
+- skill_ids: List of skillbook IDs you used
 - final_answer: Your answer
 '''
 
-generator = Generator(client, prompt_template=custom_prompt)
+agent = Agent(client, prompt_template=custom_prompt)
 ```
 
 ## Async Operations
@@ -551,7 +551,7 @@ logging.getLogger("ace").setLevel(logging.DEBUG)
 
 1. **Start with SimpleEnvironment**: Get basic training working first
 2. **Use fallback models**: Ensure reliability in production
-3. **Save playbooks regularly**: Preserve learned strategies
+3. **Save skillbooks regularly**: Preserve learned strategies
 4. **Monitor costs**: Track token usage with metrics
 5. **Test with dummy mode**: Validate logic without API calls
 6. **Use appropriate epochs**: 2-3 epochs usually sufficient
@@ -563,7 +563,7 @@ See the [examples](../examples/) directory for complete working examples:
 
 **Core Examples:**
 - `simple_ace_example.py` - Basic usage
-- `playbook_persistence.py` - Save/load strategies
+- `skillbook_persistence.py` - Save/load strategies
 
 **By Category:**
 - [starter-templates/](../examples/starter-templates/) - Quick start templates

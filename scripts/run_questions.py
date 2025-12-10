@@ -20,11 +20,11 @@ if str(ROOT) not in sys.path:
 
 from ace import (  # noqa: E402
     AdapterStepResult,
-    Curator,
+    SkillManager,
     EnvironmentResult,
-    Generator,
-    OfflineAdapter,
-    Playbook,
+    Agent,
+    OfflineACE,
+    Skillbook,
     Reflector,
     Sample,
     TaskEnvironment,
@@ -49,9 +49,9 @@ class FireInvestigationEnvironment(TaskEnvironment):
     def _similarity(a: str, b: str) -> float:
         return SequenceMatcher(None, a.strip(), b.strip()).ratio()
 
-    def evaluate(self, sample: QuestionSample, generator_output) -> EnvironmentResult:
+    def evaluate(self, sample: QuestionSample, agent_output) -> EnvironmentResult:
         ground_truth = sample.ground_truth or ""
-        prediction = generator_output.final_answer or ""
+        prediction = agent_output.final_answer or ""
         score = self._similarity(prediction, ground_truth)
         status = "aligned" if score >= self.similarity_threshold else "divergent"
         feedback = (
@@ -149,7 +149,7 @@ def truncate(text: str, limit: int = 120) -> str:
 def build_report(
     args: argparse.Namespace,
     results: List[AdapterStepResult],
-    playbook: Playbook,
+    skillbook: Skillbook,
 ) -> str:
     stats = summarize_results(results)
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
@@ -173,7 +173,7 @@ def build_report(
     for step in results:
         score = step.environment_result.metrics.get("similarity", 0.0)
         question = truncate(step.sample.question)
-        final_answer = truncate(step.generator_output.final_answer or "")
+        final_answer = truncate(step.agent_output.final_answer or "")
         lines.append(
             f"| {step.sample.sample_id} | {score:.2%} | {question} | {final_answer} |"
         )
@@ -190,7 +190,7 @@ def build_report(
         lines.append("")
         lines.append("**Model Final Answer**")
         lines.append("")
-        lines.append(step.generator_output.final_answer or "(empty)")
+        lines.append(step.agent_output.final_answer or "(empty)")
         lines.append("")
         lines.append("**Reference Answer**")
         lines.append("")
@@ -204,13 +204,15 @@ def build_report(
         lines.append("")
         lines.append(json.dumps(step.reflection.raw, ensure_ascii=False, indent=2))
         lines.append("")
-        lines.append("**Curator Operations**")
+        lines.append("**SkillManager Operations**")
         lines.append("")
-        lines.append(json.dumps(step.curator_output.raw, ensure_ascii=False, indent=2))
+        lines.append(
+            json.dumps(step.skill_manager_output.raw, ensure_ascii=False, indent=2)
+        )
         lines.append("")
-    lines.append("## Final Playbook")
+    lines.append("## Final Skillbook")
     lines.append("")
-    lines.append(playbook.as_prompt() or "(playbook is empty)")
+    lines.append(skillbook.as_prompt() or "(skillbook is empty)")
     lines.append("")
     return "\n".join(lines)
 
@@ -234,14 +236,14 @@ def main() -> None:
         device_map="auto",
     )
 
-    generator = Generator(client)
+    agent = Agent(client)
     reflector = Reflector(client)
-    curator = Curator(client)
-    adapter = OfflineAdapter(
-        playbook=Playbook(),
-        generator=generator,
+    skill_manager = SkillManager(client)
+    adapter = OfflineACE(
+        skillbook=Skillbook(),
+        agent=agent,
         reflector=reflector,
-        curator=curator,
+        skill_manager=skill_manager,
         max_refinement_rounds=3,
     )
 
@@ -252,7 +254,7 @@ def main() -> None:
     print("Starting offline adaptation...")
     results = adapter.run(samples, environment, epochs=args.epochs)
 
-    report_markdown = build_report(args, results, adapter.playbook)
+    report_markdown = build_report(args, results, adapter.skillbook)
     output_path = Path(args.output)
     ensure_parent(output_path)
     output_path.write_text(report_markdown, encoding="utf-8")

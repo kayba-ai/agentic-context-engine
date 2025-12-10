@@ -25,9 +25,9 @@ class GenericBenchmarkEnvironment(BenchmarkEnvironment):
     Can be used for most text-based benchmarks with straightforward evaluation.
     """
 
-    def evaluate(self, sample: Sample, generator_output) -> EnvironmentResult:
-        """Evaluate generator output using configured metrics."""
-        prediction = generator_output.final_answer or ""
+    def evaluate(self, sample: Sample, agent_output) -> EnvironmentResult:
+        """Evaluate agent output using configured metrics."""
+        prediction = agent_output.final_answer or ""
         ground_truth = sample.ground_truth or ""
 
         # Compute metrics based on configuration
@@ -59,9 +59,9 @@ class FiNEREnvironment(BenchmarkEnvironment):
     token-level and entity-level evaluation metrics.
     """
 
-    def evaluate(self, sample: Sample, generator_output) -> EnvironmentResult:
+    def evaluate(self, sample: Sample, agent_output) -> EnvironmentResult:
         """Evaluate NER predictions with entity-level metrics."""
-        prediction = generator_output.final_answer or ""
+        prediction = agent_output.final_answer or ""
 
         # Extract entities from prediction and ground truth
         predicted_entities = self._extract_entities(prediction, sample)
@@ -253,9 +253,9 @@ class XBRLMathEnvironment(BenchmarkEnvironment):
     focusing on accuracy of calculations and understanding of financial relationships.
     """
 
-    def evaluate(self, sample: Sample, generator_output) -> EnvironmentResult:
+    def evaluate(self, sample: Sample, agent_output) -> EnvironmentResult:
         """Evaluate numerical reasoning for financial calculations."""
-        prediction = generator_output.final_answer or ""
+        prediction = agent_output.final_answer or ""
         ground_truth = sample.ground_truth or ""
 
         # Extract numerical answer from prediction
@@ -376,12 +376,12 @@ class AppWorldEnvironment(BenchmarkEnvironment):
     API interactions, task completion, and execution success metrics.
     """
 
-    def evaluate(self, sample: Sample, generator_output) -> EnvironmentResult:
+    def evaluate(self, sample: Sample, agent_output) -> EnvironmentResult:
         """Evaluate agent execution in AppWorld environment."""
         # AppWorld evaluation is typically done through the world.execute() method
         # This environment focuses on analyzing the execution results
 
-        prediction = generator_output.final_answer or ""
+        prediction = agent_output.final_answer or ""
 
         # Extract execution results from sample metadata if available
         execution_results = self._extract_execution_results(sample)

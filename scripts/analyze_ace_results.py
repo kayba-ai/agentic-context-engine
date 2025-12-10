@@ -46,19 +46,21 @@ def analyze_ace_run(detailed_results_file):
     first_result = data["results"][0]
 
     has_reflection = "reflection" in first_result
-    has_curator = "curator_output" in first_result
+    has_skill_manager = "skill_manager_output" in first_result
 
     print(f"  ✅ Reflection component: {'Working' if has_reflection else 'Missing'}")
-    print(f"  ✅ Curator component: {'Working' if has_curator else 'Missing'}")
+    print(
+        f"  ✅ SkillManager component: {'Working' if has_skill_manager else 'Missing'}"
+    )
 
     if has_reflection:
         reflection = first_result["reflection"]
         print(f"  ✅ Reflection fields: {list(reflection.keys())}")
 
-    if has_curator:
-        curator = first_result["curator_output"]
-        operations = curator.get("operations", [])
-        print(f"  ✅ Curator operations: {len(operations)} operations")
+    if has_skill_manager:
+        skill_manager = first_result["skill_manager_output"]
+        operations = skill_manager.get("operations", [])
+        print(f"  ✅ SkillManager operations: {len(operations)} operations")
         if operations:
             op_types = [op["type"] for op in operations]
             print(f"      Operation types: {set(op_types)}")
@@ -86,9 +88,9 @@ def analyze_ace_run(detailed_results_file):
         print(f"    Epoch {i+1}: F1={f1:.3f}")
 
         # Show if any learning artifacts exist
-        if "used_bullets" in epoch_result:
-            bullets = epoch_result.get("used_bullets", [])
-            print(f"              Used {len(bullets)} learned strategies")
+        if "used_skills" in epoch_result:
+            skills = epoch_result.get("used_skills", [])
+            print(f"              Used {len(skills)} learned strategies")
 
     # Performance comparison across epochs
     print(f"\n📈 PERFORMANCE ACROSS EPOCHS:")
@@ -116,7 +118,7 @@ def analyze_ace_run(detailed_results_file):
         "unique_samples": unique_samples,
         "max_epochs": max_epochs,
         "total_evaluations": len(data["results"]),
-        "has_learning": has_reflection and has_curator,
+        "has_learning": has_reflection and has_skill_manager,
         "epoch_1_avg": avg_epoch_1 if epoch_1_f1s else 0,
         "epoch_2_avg": avg_epoch_2 if epoch_2_f1s else 0,
     }

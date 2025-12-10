@@ -65,13 +65,13 @@ Complete example showing ACE offline training with Helicone replay data.
 
 **What it does:**
 - Loads Helicone traces and extracts question-response pairs
-- Uses `ReplayGenerator` to replay historical responses (no new LLM calls for generation)
-- Trains Reflector and Curator to learn from historical interactions
+- Uses `ReplayAgent` to replay historical responses (no new LLM calls for generation)
+- Trains Reflector and SkillManager to learn from historical interactions
 - **Automatic Opik observability tracking** for all operations
-- Saves learned playbook for future use
+- Saves learned skillbook for future use
 
 **Features:**
-- 💰 **Cost-effective**: No LLM calls for generation (only Reflector/Curator)
+- 💰 **Cost-effective**: No LLM calls for generation (only Reflector/SkillManager)
 - 📊 **Full observability**: Opik tracks which responses are replayed, coverage metrics
 - 🔍 **Debug-friendly**: See exactly which questions are in your mapping vs. using defaults
 - 🎯 **Production learning**: Train from real production data
@@ -146,7 +146,7 @@ This script:
 1. Loads Helicone traces using `helicone_loader.py`
 2. Creates training samples
 3. Runs ACE offline adaptation
-4. Saves learned playbook
+4. Saves learned skillbook
 
 ## What ACE Learns
 
@@ -189,7 +189,7 @@ If your Helicone export format differs, modify the parsing logic in `HeliconeLoa
 2. Place it in `.private/helicone/`
 3. Run the loader to verify parsing works
 4. Run the full ACE training pipeline
-5. Analyze the learned playbook
+5. Analyze the learned skillbook
 
 ## Questions?
 

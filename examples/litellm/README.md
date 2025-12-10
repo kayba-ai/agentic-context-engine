@@ -21,7 +21,7 @@ samples = [Sample(question="What is Python?", ground_truth="A programming langua
 agent.learn(samples, SimpleEnvironment())
 
 # Save knowledge
-agent.save_playbook("learned.json")
+agent.save_skillbook("learned.json")
 ```
 
 ## Examples

@@ -71,14 +71,15 @@ def example_basic_chain():
         print(f"Answer: {result.content}")
 
     # Check learned strategies
-    print(f"\nLearned {len(ace_chain.playbook.bullets())} strategies")
+    print(f"\nLearned {len(ace_chain.skillbook.skills())} strategies")
 
-    # Save playbook
-    ace_chain.save_playbook("simple_chain_learned.json")
-    print("\nPlaybook saved to: simple_chain_learned.json")
+    # Save skillbook in the same directory as this script
+    skillbook_path = os.path.join(os.path.dirname(__file__), "simple_chain_learned.json")
+    ace_chain.save_skillbook(skillbook_path)
+    print(f"\nSkillbook saved to: {skillbook_path}")
 
 
-def example_reuse_playbook():
+def example_reuse_skillbook():
     """Example 2: Reusing learned strategies from a previous session."""
     print("\n" + "=" * 60)
     print("Example 2: Reusing Learned Strategies")
@@ -88,9 +89,10 @@ def example_reuse_playbook():
         print("Please set ANTHROPIC_API_KEY in your .env file")
         return
 
-    # Check if playbook exists
-    if not os.path.exists("simple_chain_learned.json"):
-        print("No playbook found. Run Example 1 first!")
+    # Check if skillbook exists
+    skillbook_path = os.path.join(os.path.dirname(__file__), "simple_chain_learned.json")
+    if not os.path.exists(skillbook_path):
+        print("No skillbook found. Run Example 1 first!")
         return
 
     # Create chain
@@ -98,15 +100,15 @@ def example_reuse_playbook():
     llm = ChatAnthropic(temperature=0, model="claude-sonnet-4-5-20250929")
     chain = prompt | llm
 
-    # Load existing playbook
+    # Load existing skillbook
     ace_chain = ACELangChain(
         runnable=chain,
         ace_model="claude-sonnet-4-5-20250929",
-        playbook_path="simple_chain_learned.json",
+        skillbook_path=skillbook_path,
         is_learning=True,
     )
 
-    print(f"Loaded {len(ace_chain.playbook.bullets())} strategies from playbook")
+    print(f"Loaded {len(ace_chain.skillbook.skills())} strategies from skillbook")
 
     # Test with a new question
     question = "What is the smallest prime number?"
@@ -118,9 +120,9 @@ def example_reuse_playbook():
     print("\n" + "-" * 60)
     print("Current Strategies:")
     print("-" * 60)
-    for i, bullet in enumerate(ace_chain.playbook.bullets()[:3], 1):
-        score = f"+{bullet.helpful}/-{bullet.harmful}"
-        print(f"{i}. [{bullet.id}] {bullet.content[:80]}...")
+    for i, skill in enumerate(ace_chain.skillbook.skills()[:3], 1):
+        score = f"+{skill.helpful}/-{skill.harmful}"
+        print(f"{i}. [{skill.id}] {skill.content[:80]}...")
         print(f"   Score: {score}")
 
 
@@ -144,13 +146,13 @@ def example_learning_control():
         runnable=chain, ace_model="claude-sonnet-4-5-20250929", is_learning=False
     )
 
-    print("Initial strategies:", len(ace_chain.playbook.bullets()))
+    print("Initial strategies:", len(ace_chain.skillbook.skills()))
 
     # Run without learning
     print("\nRunning WITHOUT learning (warm-up phase):")
     result = ace_chain.invoke({"input": "What is 2+2?"})
     print(f"Answer: {result.content}")
-    print("Strategies after:", len(ace_chain.playbook.bullets()))
+    print("Strategies after:", len(ace_chain.skillbook.skills()))
 
     # Enable learning
     ace_chain.enable_learning()
@@ -160,7 +162,7 @@ def example_learning_control():
     print("\nRunning WITH learning:")
     result = ace_chain.invoke({"input": "What is 3+3?"})
     print(f"Answer: {result.content}")
-    print("Strategies after:", len(ace_chain.playbook.bullets()))
+    print("Strategies after:", len(ace_chain.skillbook.skills()))
 
 
 async def example_async_chain():
@@ -239,7 +241,7 @@ def main():
 
     # Run sync examples
     example_basic_chain()
-    example_reuse_playbook()
+    example_reuse_skillbook()
     example_learning_control()
     example_custom_output_parser()
 

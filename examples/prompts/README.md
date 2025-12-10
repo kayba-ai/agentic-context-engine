@@ -50,19 +50,19 @@ Demonstrates:
 from ace.prompts_v2_1 import PromptManager
 
 prompt_mgr = PromptManager()
-generator = Generator(llm, prompt_template=prompt_mgr.get_generator_prompt())
+agent = Agent(llm, prompt_template=prompt_mgr.get_agent_prompt())
 reflector = Reflector(llm, prompt_template=prompt_mgr.get_reflector_prompt())
-curator = Curator(llm, prompt_template=prompt_mgr.get_curator_prompt())
+skill_manager = SkillManager(llm, prompt_template=prompt_mgr.get_skill_manager_prompt())
 ```
 
 **For learning/tutorials:** v1.0 is simpler (default)
 ```python
-from ace import Generator, Reflector, Curator
+from ace import Agent, Reflector, SkillManager
 
 # Uses v1.0 prompts by default
-generator = Generator(llm)
+agent = Agent(llm)
 reflector = Reflector(llm)
-curator = Curator(llm)
+skill_manager = SkillManager(llm)
 ```
 
 ## See Also

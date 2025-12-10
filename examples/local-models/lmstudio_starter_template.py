@@ -53,7 +53,7 @@ def main():
 
     # 1. Create ACELiteLLM agent with LM Studio
     print("\n🤖 Creating ACELiteLLM agent with LM Studio...")
-    playbook_path = Path(__file__).parent / "lmstudio_learned_strategies.json"
+    skillbook_path = Path(__file__).parent / "lmstudio_learned_strategies.json"
 
     # LM Studio configuration for LiteLLM
     import os
@@ -65,7 +65,7 @@ def main():
         max_tokens=1024,
         temperature=0.2,
         is_learning=True,
-        playbook_path=str(playbook_path) if playbook_path.exists() else None,
+        skillbook_path=str(skillbook_path) if skillbook_path.exists() else None,
     )
 
     # 2. Try asking questions before learning
@@ -102,7 +102,7 @@ def main():
 
     # 5. Check results
     print(f"\n📊 Trained on {len(results)} samples")
-    print(f"📚 Playbook now has {len(agent.playbook.bullets())} strategies")
+    print(f"📚 Skillbook now has {len(agent.skillbook.skills())} strategies")
 
     # 6. Test with learned knowledge
     print("\n🧠 Testing agent after learning:")
@@ -123,26 +123,24 @@ def main():
             print(f"❌ Error: {e}")
 
     # Show learned strategies
-    if agent.playbook.bullets():
+    if agent.skillbook.skills():
         print("\n💡 Learned strategies:")
-        for i, bullet in enumerate(agent.playbook.bullets()[:3], 1):
-            helpful = bullet.helpful
-            harmful = bullet.harmful
+        for i, skill in enumerate(agent.skillbook.skills()[:3], 1):
+            helpful = skill.helpful
+            harmful = skill.harmful
             score = f"(+{helpful}/-{harmful})"
             content_preview = (
-                bullet.content[:80] + "..."
-                if len(bullet.content) > 80
-                else bullet.content
+                skill.content[:80] + "..." if len(skill.content) > 80 else skill.content
             )
             print(f"  {i}. {content_preview} {score}")
 
     # 7. Save learned knowledge for future use
     try:
-        agent.save_playbook(playbook_path)
-        print(f"\n💾 Saved learned strategies to {playbook_path}")
+        agent.save_skillbook(skillbook_path)
+        print(f"\n💾 Saved learned strategies to {skillbook_path}")
         print("   Restart the script to load these strategies automatically!")
     except Exception as e:
-        print(f"❌ Failed to save playbook: {e}")
+        print(f"❌ Failed to save skillbook: {e}")
 
     print("\n🎉 LM Studio ACE integration complete!")
 

@@ -1,7 +1,7 @@
 """
 Tests for async learning infrastructure.
 
-Tests for ThreadSafePlaybook, AsyncLearningPipeline, and adapter async mode.
+Tests for ThreadSafeSkillbook, AsyncLearningPipeline, and adapter async mode.
 """
 
 import json
@@ -13,12 +13,12 @@ from typing import List
 import pytest
 
 from ace import (
-    Curator,
+    SkillManager,
     EnvironmentResult,
-    Generator,
-    OfflineAdapter,
-    OnlineAdapter,
-    Playbook,
+    Agent,
+    OfflineACE,
+    OnlineACE,
+    Skillbook,
     Reflector,
     Sample,
     TaskEnvironment,
@@ -27,10 +27,10 @@ from ace.async_learning import (
     AsyncLearningPipeline,
     LearningTask,
     ReflectionResult,
-    ThreadSafePlaybook,
+    ThreadSafeSkillbook,
 )
-from ace.delta import DeltaBatch
-from ace.roles import BulletTag, GeneratorOutput, ReflectorOutput, CuratorOutput
+from ace.updates import UpdateBatch
+from ace.roles import SkillTag, AgentOutput, ReflectorOutput, SkillManagerOutput
 
 # Import MockLLMClient from conftest
 from tests.conftest import MockLLMClient
@@ -41,13 +41,13 @@ from tests.conftest import MockLLMClient
 # ---------------------------------------------------------------------------
 
 
-def make_generator_response(answer: str = "correct answer") -> str:
-    """Create a valid Generator JSON response."""
+def make_agent_response(answer: str = "correct answer") -> str:
+    """Create a valid Agent JSON response."""
     return json.dumps(
         {
             "reasoning": "Test reasoning",
             "final_answer": answer,
-            "bullet_ids": [],
+            "skill_ids": [],
         }
     )
 
@@ -61,16 +61,16 @@ def make_reflector_response() -> str:
             "root_cause_analysis": "",
             "correct_approach": "The approach was correct",
             "key_insight": "Always verify the answer",
-            "bullet_tags": [],
+            "skill_tags": [],
         }
     )
 
 
-def make_curator_response() -> str:
-    """Create a valid Curator JSON response with empty deltas."""
+def make_skill_manager_response() -> str:
+    """Create a valid SkillManager JSON response with empty updates."""
     return json.dumps(
         {
-            "delta": {"reasoning": "No changes needed", "operations": []},
+            "update": {"reasoning": "No changes needed", "operations": []},
         }
     )
 
@@ -78,9 +78,9 @@ def make_curator_response() -> str:
 class SimpleTestEnvironment(TaskEnvironment):
     """Simple environment for testing."""
 
-    def evaluate(self, sample: Sample, generator_output) -> EnvironmentResult:
+    def evaluate(self, sample: Sample, agent_output) -> EnvironmentResult:
         """Evaluate if answer contains 'correct'."""
-        answer = generator_output.final_answer
+        answer = agent_output.final_answer
         success = "correct" in answer.lower()
         feedback = "✓ Contains 'correct'" if success else "✗ Missing 'correct'"
 
@@ -92,53 +92,53 @@ class SimpleTestEnvironment(TaskEnvironment):
 
 
 # ---------------------------------------------------------------------------
-# ThreadSafePlaybook Tests
+# ThreadSafeSkillbook Tests
 # ---------------------------------------------------------------------------
 
 
-class TestThreadSafePlaybook(unittest.TestCase):
-    """Test thread-safe playbook wrapper."""
+class TestThreadSafeSkillbook(unittest.TestCase):
+    """Test thread-safe skillbook wrapper."""
 
     def test_lock_free_reads(self):
         """Test that reads work without blocking."""
-        playbook = Playbook()
-        playbook.add_bullet("Test", "Test content", bullet_id="b1")
-        ts_playbook = ThreadSafePlaybook(playbook)
+        skillbook = Skillbook()
+        skillbook.add_skill("Test", "Test content", skill_id="b1")
+        ts_skillbook = ThreadSafeSkillbook(skillbook)
 
         # Reads should work
-        self.assertIn("Test content", ts_playbook.as_prompt())
-        self.assertEqual(len(ts_playbook.bullets()), 1)
-        self.assertIsNotNone(ts_playbook.get_bullet("b1"))
+        self.assertIn("Test content", ts_skillbook.as_prompt())
+        self.assertEqual(len(ts_skillbook.skills()), 1)
+        self.assertIsNotNone(ts_skillbook.get_skill("b1"))
         # Check actual stats keys
-        stats = ts_playbook.stats()
-        self.assertIn("bullets", stats)
+        stats = ts_skillbook.stats()
+        self.assertIn("skills", stats)
 
     def test_locked_writes(self):
         """Test that writes are thread-safe."""
-        playbook = Playbook()
-        ts_playbook = ThreadSafePlaybook(playbook)
+        skillbook = Skillbook()
+        ts_skillbook = ThreadSafeSkillbook(skillbook)
 
-        # Add bullet through thread-safe wrapper
-        ts_playbook.add_bullet("Test", "Content 1", bullet_id="b1")
-        self.assertEqual(len(ts_playbook.bullets()), 1)
+        # Add skill through thread-safe wrapper
+        ts_skillbook.add_skill("Test", "Content 1", skill_id="b1")
+        self.assertEqual(len(ts_skillbook.skills()), 1)
 
-        # Update bullet
-        ts_playbook.update_bullet("b1", content="Updated content")
-        self.assertEqual(ts_playbook.get_bullet("b1").content, "Updated content")
+        # Update skill
+        ts_skillbook.update_skill("b1", content="Updated content")
+        self.assertEqual(ts_skillbook.get_skill("b1").content, "Updated content")
 
-        # Tag bullet
-        ts_playbook.tag_bullet("b1", "helpful")
-        self.assertEqual(ts_playbook.get_bullet("b1").helpful, 1)
+        # Tag skill
+        ts_skillbook.tag_skill("b1", "helpful")
+        self.assertEqual(ts_skillbook.get_skill("b1").helpful, 1)
 
-        # Remove bullet
-        ts_playbook.remove_bullet("b1")
-        self.assertEqual(len(ts_playbook.bullets()), 0)
+        # Remove skill
+        ts_skillbook.remove_skill("b1")
+        self.assertEqual(len(ts_skillbook.skills()), 0)
 
     def test_concurrent_writes(self):
         """Test that concurrent writes don't cause race conditions."""
-        playbook = Playbook()
-        playbook.add_bullet("Test", "Concurrent test", bullet_id="b1")
-        ts_playbook = ThreadSafePlaybook(playbook)
+        skillbook = Skillbook()
+        skillbook.add_skill("Test", "Concurrent test", skill_id="b1")
+        ts_skillbook = ThreadSafeSkillbook(skillbook)
 
         num_threads = 10
         increments_per_thread = 100
@@ -147,7 +147,7 @@ class TestThreadSafePlaybook(unittest.TestCase):
         def increment_tags():
             try:
                 for _ in range(increments_per_thread):
-                    ts_playbook.tag_bullet("b1", "helpful")
+                    ts_skillbook.tag_skill("b1", "helpful")
             except Exception as e:
                 errors.append(e)
 
@@ -162,9 +162,9 @@ class TestThreadSafePlaybook(unittest.TestCase):
         self.assertEqual(len(errors), 0)
 
         # Final count should be correct
-        bullet = ts_playbook.get_bullet("b1")
+        skill = ts_skillbook.get_skill("b1")
         expected_count = num_threads * increments_per_thread
-        self.assertEqual(bullet.helpful, expected_count)
+        self.assertEqual(skill.helpful, expected_count)
 
 
 # ---------------------------------------------------------------------------
@@ -177,7 +177,7 @@ class TestAsyncLearningPipeline(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures."""
-        self.playbook = Playbook()
+        self.skillbook = Skillbook()
 
     def _create_mock_llm(self, responses: List[str]) -> MockLLMClient:
         """Create MockLLMClient with queued responses."""
@@ -189,12 +189,12 @@ class TestAsyncLearningPipeline(unittest.TestCase):
         """Test pipeline start/stop lifecycle."""
         # Use separate LLMs for each role
         reflector_llm = self._create_mock_llm([])
-        curator_llm = self._create_mock_llm([])
+        skill_manager_llm = self._create_mock_llm([])
 
         pipeline = AsyncLearningPipeline(
-            playbook=self.playbook,
+            skillbook=self.skillbook,
             reflector=Reflector(reflector_llm),
-            curator=Curator(curator_llm),
+            skill_manager=SkillManager(skill_manager_llm),
         )
 
         # Not running initially
@@ -216,12 +216,12 @@ class TestAsyncLearningPipeline(unittest.TestCase):
     def test_submit_before_start(self):
         """Test that submit returns None before pipeline starts."""
         reflector_llm = self._create_mock_llm([])
-        curator_llm = self._create_mock_llm([])
+        skill_manager_llm = self._create_mock_llm([])
 
         pipeline = AsyncLearningPipeline(
-            playbook=self.playbook,
+            skillbook=self.skillbook,
             reflector=Reflector(reflector_llm),
-            curator=Curator(curator_llm),
+            skill_manager=SkillManager(skill_manager_llm),
         )
 
         task = self._create_dummy_task()
@@ -232,12 +232,12 @@ class TestAsyncLearningPipeline(unittest.TestCase):
         """Test submitting and processing a task."""
         # Create separate LLMs for each role
         reflector_llm = self._create_mock_llm([make_reflector_response()])
-        curator_llm = self._create_mock_llm([make_curator_response()])
+        skill_manager_llm = self._create_mock_llm([make_skill_manager_response()])
 
         pipeline = AsyncLearningPipeline(
-            playbook=self.playbook,
+            skillbook=self.skillbook,
             reflector=Reflector(reflector_llm),
-            curator=Curator(curator_llm),
+            skill_manager=SkillManager(skill_manager_llm),
             max_reflector_workers=2,
         )
 
@@ -256,7 +256,7 @@ class TestAsyncLearningPipeline(unittest.TestCase):
             stats = pipeline.stats
             self.assertEqual(stats["tasks_submitted"], 1)
             self.assertEqual(stats["reflections_completed"], 1)
-            self.assertEqual(stats["curations_completed"], 1)
+            self.assertEqual(stats["skill_updates_completed"], 1)
             self.assertEqual(stats["tasks_failed"], 0)
         finally:
             pipeline.stop(wait=False)
@@ -267,12 +267,14 @@ class TestAsyncLearningPipeline(unittest.TestCase):
         reflector_llm = self._create_mock_llm(
             [make_reflector_response() for _ in range(3)]
         )
-        curator_llm = self._create_mock_llm([make_curator_response() for _ in range(3)])
+        skill_manager_llm = self._create_mock_llm(
+            [make_skill_manager_response() for _ in range(3)]
+        )
 
         pipeline = AsyncLearningPipeline(
-            playbook=self.playbook,
+            skillbook=self.skillbook,
             reflector=Reflector(reflector_llm),
-            curator=Curator(curator_llm),
+            skill_manager=SkillManager(skill_manager_llm),
             max_reflector_workers=3,
         )
 
@@ -289,7 +291,7 @@ class TestAsyncLearningPipeline(unittest.TestCase):
             stats = pipeline.stats
             self.assertEqual(stats["tasks_submitted"], 3)
             self.assertEqual(stats["reflections_completed"], 3)
-            self.assertEqual(stats["curations_completed"], 3)
+            self.assertEqual(stats["skill_updates_completed"], 3)
         finally:
             pipeline.stop(wait=False)
 
@@ -297,16 +299,16 @@ class TestAsyncLearningPipeline(unittest.TestCase):
         """Test completion callback invocation."""
         completions: List[tuple] = []
 
-        def on_complete(task, curator_output):
-            completions.append((task, curator_output))
+        def on_complete(task, skill_manager_output):
+            completions.append((task, skill_manager_output))
 
         reflector_llm = self._create_mock_llm([make_reflector_response()])
-        curator_llm = self._create_mock_llm([make_curator_response()])
+        skill_manager_llm = self._create_mock_llm([make_skill_manager_response()])
 
         pipeline = AsyncLearningPipeline(
-            playbook=self.playbook,
+            skillbook=self.skillbook,
             reflector=Reflector(reflector_llm),
-            curator=Curator(curator_llm),
+            skill_manager=SkillManager(skill_manager_llm),
             on_complete=on_complete,
         )
 
@@ -330,10 +332,10 @@ class TestAsyncLearningPipeline(unittest.TestCase):
             context="Test context",
             ground_truth="correct",
         )
-        generator_output = GeneratorOutput(
+        agent_output = AgentOutput(
             reasoning="Test reasoning",
             final_answer="Test answer correct",
-            bullet_ids=[],
+            skill_ids=[],
         )
         env_result = EnvironmentResult(
             feedback="Test feedback",
@@ -342,7 +344,7 @@ class TestAsyncLearningPipeline(unittest.TestCase):
         )
         return LearningTask(
             sample=sample,
-            generator_output=generator_output,
+            agent_output=agent_output,
             environment_result=env_result,
             epoch=1,
             step_index=step_index,
@@ -357,12 +359,12 @@ class TestAsyncLearningPipeline(unittest.TestCase):
 
 
 @pytest.mark.integration
-class TestOfflineAdapterAsyncMode(unittest.TestCase):
-    """Test OfflineAdapter with async learning mode."""
+class TestOfflineACEAsyncMode(unittest.TestCase):
+    """Test OfflineACE with async learning mode."""
 
     def setUp(self):
         """Set up test fixtures."""
-        self.playbook = Playbook()
+        self.skillbook = Skillbook()
         self.environment = SimpleTestEnvironment()
 
     def _create_mock_llm(self, responses: List[str]) -> MockLLMClient:
@@ -374,15 +376,15 @@ class TestOfflineAdapterAsyncMode(unittest.TestCase):
     def test_sync_mode_unchanged(self):
         """Test that sync mode still works as before."""
         # Each role gets its own LLM with appropriate responses
-        generator_llm = self._create_mock_llm([make_generator_response()])
+        agent_llm = self._create_mock_llm([make_agent_response()])
         reflector_llm = self._create_mock_llm([make_reflector_response()])
-        curator_llm = self._create_mock_llm([make_curator_response()])
+        skill_manager_llm = self._create_mock_llm([make_skill_manager_response()])
 
-        adapter = OfflineAdapter(
-            playbook=self.playbook,
-            generator=Generator(generator_llm),
+        adapter = OfflineACE(
+            skillbook=self.skillbook,
+            agent=Agent(agent_llm),
             reflector=Reflector(reflector_llm),
-            curator=Curator(curator_llm),
+            skill_manager=SkillManager(skill_manager_llm),
             async_learning=False,  # Sync mode (default)
         )
 
@@ -392,26 +394,26 @@ class TestOfflineAdapterAsyncMode(unittest.TestCase):
 
         # Verify results have all fields populated (sync mode)
         self.assertEqual(len(results), 1)
-        self.assertIsNotNone(results[0].generator_output)
+        self.assertIsNotNone(results[0].agent_output)
         self.assertIsNotNone(results[0].reflection)  # Populated in sync mode
-        self.assertIsNotNone(results[0].curator_output)  # Populated in sync mode
+        self.assertIsNotNone(results[0].skill_manager_output)  # Populated in sync mode
 
     def test_async_mode_basic(self):
-        """Test async mode returns results with None reflection/curator."""
+        """Test async mode returns results with None reflection/skill_manager."""
         # Each role gets its own LLM with appropriate responses
-        generator_llm = self._create_mock_llm(
-            [make_generator_response() for _ in range(3)]
-        )
+        agent_llm = self._create_mock_llm([make_agent_response() for _ in range(3)])
         reflector_llm = self._create_mock_llm(
             [make_reflector_response() for _ in range(3)]
         )
-        curator_llm = self._create_mock_llm([make_curator_response() for _ in range(3)])
+        skill_manager_llm = self._create_mock_llm(
+            [make_skill_manager_response() for _ in range(3)]
+        )
 
-        adapter = OfflineAdapter(
-            playbook=self.playbook,
-            generator=Generator(generator_llm),
+        adapter = OfflineACE(
+            skillbook=self.skillbook,
+            agent=Agent(agent_llm),
             reflector=Reflector(reflector_llm),
-            curator=Curator(curator_llm),
+            skill_manager=SkillManager(skill_manager_llm),
             async_learning=True,  # Async mode
         )
 
@@ -430,29 +432,29 @@ class TestOfflineAdapterAsyncMode(unittest.TestCase):
         # Results should be returned
         self.assertEqual(len(results), 3)
         for result in results:
-            self.assertIsNotNone(result.generator_output)
+            self.assertIsNotNone(result.agent_output)
             # In async mode, these are None (processing in background)
             self.assertIsNone(result.reflection)
-            self.assertIsNone(result.curator_output)
+            self.assertIsNone(result.skill_manager_output)
 
         # Clean up async pipeline
         adapter.stop_async_learning(wait=False)
 
     def test_async_mode_with_wait(self):
         """Test async mode that waits for learning completion."""
-        generator_llm = self._create_mock_llm(
-            [make_generator_response() for _ in range(3)]
-        )
+        agent_llm = self._create_mock_llm([make_agent_response() for _ in range(3)])
         reflector_llm = self._create_mock_llm(
             [make_reflector_response() for _ in range(3)]
         )
-        curator_llm = self._create_mock_llm([make_curator_response() for _ in range(3)])
+        skill_manager_llm = self._create_mock_llm(
+            [make_skill_manager_response() for _ in range(3)]
+        )
 
-        adapter = OfflineAdapter(
-            playbook=self.playbook,
-            generator=Generator(generator_llm),
+        adapter = OfflineACE(
+            skillbook=self.skillbook,
+            agent=Agent(agent_llm),
             reflector=Reflector(reflector_llm),
-            curator=Curator(curator_llm),
+            skill_manager=SkillManager(skill_manager_llm),
             async_learning=True,
         )
 
@@ -473,19 +475,19 @@ class TestOfflineAdapterAsyncMode(unittest.TestCase):
         # Check learning stats
         stats = adapter.learning_stats
         self.assertEqual(stats["tasks_submitted"], 3)
-        self.assertEqual(stats["curations_completed"], 3)
+        self.assertEqual(stats["skill_updates_completed"], 3)
 
     def test_wait_for_learning_method(self):
         """Test explicit wait_for_learning method."""
-        generator_llm = self._create_mock_llm([make_generator_response()])
+        agent_llm = self._create_mock_llm([make_agent_response()])
         reflector_llm = self._create_mock_llm([make_reflector_response()])
-        curator_llm = self._create_mock_llm([make_curator_response()])
+        skill_manager_llm = self._create_mock_llm([make_skill_manager_response()])
 
-        adapter = OfflineAdapter(
-            playbook=self.playbook,
-            generator=Generator(generator_llm),
+        adapter = OfflineACE(
+            skillbook=self.skillbook,
+            agent=Agent(agent_llm),
             reflector=Reflector(reflector_llm),
-            curator=Curator(curator_llm),
+            skill_manager=SkillManager(skill_manager_llm),
             async_learning=True,
         )
 
@@ -500,22 +502,22 @@ class TestOfflineAdapterAsyncMode(unittest.TestCase):
 
         # Now stats should show completion
         stats = adapter.learning_stats
-        self.assertEqual(stats["curations_completed"], 1)
+        self.assertEqual(stats["skill_updates_completed"], 1)
 
         # Clean up
         adapter.stop_async_learning(wait=False)
 
     def test_learning_stats_property(self):
         """Test learning_stats property."""
-        generator_llm = self._create_mock_llm([make_generator_response()])
+        agent_llm = self._create_mock_llm([make_agent_response()])
         reflector_llm = self._create_mock_llm([make_reflector_response()])
-        curator_llm = self._create_mock_llm([make_curator_response()])
+        skill_manager_llm = self._create_mock_llm([make_skill_manager_response()])
 
-        adapter = OfflineAdapter(
-            playbook=self.playbook,
-            generator=Generator(generator_llm),
+        adapter = OfflineACE(
+            skillbook=self.skillbook,
+            agent=Agent(agent_llm),
             reflector=Reflector(reflector_llm),
-            curator=Curator(curator_llm),
+            skill_manager=SkillManager(skill_manager_llm),
             async_learning=True,
         )
 
@@ -533,12 +535,12 @@ class TestOfflineAdapterAsyncMode(unittest.TestCase):
 
 
 @pytest.mark.integration
-class TestOnlineAdapterAsyncMode(unittest.TestCase):
-    """Test OnlineAdapter with async learning mode."""
+class TestOnlineACEAsyncMode(unittest.TestCase):
+    """Test OnlineACE with async learning mode."""
 
     def setUp(self):
         """Set up test fixtures."""
-        self.playbook = Playbook()
+        self.skillbook = Skillbook()
         self.environment = SimpleTestEnvironment()
 
     def _create_mock_llm(self, responses: List[str]) -> MockLLMClient:
@@ -548,20 +550,20 @@ class TestOnlineAdapterAsyncMode(unittest.TestCase):
         return llm
 
     def test_online_async_mode(self):
-        """Test OnlineAdapter async mode."""
-        generator_llm = self._create_mock_llm(
-            [make_generator_response() for _ in range(3)]
-        )
+        """Test OnlineACE async mode."""
+        agent_llm = self._create_mock_llm([make_agent_response() for _ in range(3)])
         reflector_llm = self._create_mock_llm(
             [make_reflector_response() for _ in range(3)]
         )
-        curator_llm = self._create_mock_llm([make_curator_response() for _ in range(3)])
+        skill_manager_llm = self._create_mock_llm(
+            [make_skill_manager_response() for _ in range(3)]
+        )
 
-        adapter = OnlineAdapter(
-            playbook=self.playbook,
-            generator=Generator(generator_llm),
+        adapter = OnlineACE(
+            skillbook=self.skillbook,
+            agent=Agent(agent_llm),
             reflector=Reflector(reflector_llm),
-            curator=Curator(curator_llm),
+            skill_manager=SkillManager(skill_manager_llm),
             async_learning=True,
         )
 
@@ -589,12 +591,12 @@ class TestLearningTask(unittest.TestCase):
     def test_creation_with_defaults(self):
         """Test LearningTask creation with default values."""
         sample = Sample(question="Q", context="C", ground_truth="A")
-        gen_output = GeneratorOutput(reasoning="R", final_answer="A", bullet_ids=[])
+        agent_out = AgentOutput(reasoning="R", final_answer="A", skill_ids=[])
         env_result = EnvironmentResult(feedback="F", ground_truth="A", metrics={})
 
         task = LearningTask(
             sample=sample,
-            generator_output=gen_output,
+            agent_output=agent_out,
             environment_result=env_result,
             epoch=1,
             step_index=0,
@@ -614,11 +616,11 @@ class TestReflectionResult(unittest.TestCase):
     def test_creation(self):
         """Test ReflectionResult creation."""
         sample = Sample(question="Q", context="C", ground_truth="A")
-        gen_output = GeneratorOutput(reasoning="R", final_answer="A", bullet_ids=[])
+        agent_out = AgentOutput(reasoning="R", final_answer="A", skill_ids=[])
         env_result = EnvironmentResult(feedback="F", ground_truth="A", metrics={})
         task = LearningTask(
             sample=sample,
-            generator_output=gen_output,
+            agent_output=agent_out,
             environment_result=env_result,
             epoch=1,
             step_index=0,
@@ -628,7 +630,7 @@ class TestReflectionResult(unittest.TestCase):
             reasoning="Analysis reasoning",
             correct_approach="The correct approach",
             key_insight="Key insight learned",
-            bullet_tags=[],
+            skill_tags=[],
         )
 
         result = ReflectionResult(task=task, reflection=reflection)

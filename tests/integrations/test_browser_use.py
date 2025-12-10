@@ -9,34 +9,34 @@ pytest.importorskip("browser_use")
 
 from ace.integrations import (
     ACEAgent,
-    wrap_playbook_context,
+    wrap_skillbook_context,
     BROWSER_USE_AVAILABLE,
 )
-from ace import Playbook, Bullet, LiteLLMClient
+from ace import Skillbook, Skill, LiteLLMClient
 
 
-class TestWrapPlaybookContext:
-    """Test the wrap_playbook_context helper function."""
+class TestWrapSkillbookContext:
+    """Test the wrap_skillbook_context helper function."""
 
-    def test_empty_playbook(self):
-        """Should return empty string for empty playbook."""
-        playbook = Playbook()
-        result = wrap_playbook_context(playbook)
+    def test_empty_skillbook(self):
+        """Should return empty string for empty skillbook."""
+        skillbook = Skillbook()
+        result = wrap_skillbook_context(skillbook)
         assert result == ""
 
-    def test_with_bullets(self):
-        """Should format bullets with explanation."""
-        playbook = Playbook()
-        playbook.add_bullet("general", "Always check search box first")
-        playbook.add_bullet("general", "Scroll before clicking")
+    def test_with_skills(self):
+        """Should format skills with explanation."""
+        skillbook = Skillbook()
+        skillbook.add_skill("general", "Always check search box first")
+        skillbook.add_skill("general", "Scroll before clicking")
 
-        result = wrap_playbook_context(playbook)
+        result = wrap_skillbook_context(skillbook)
 
         # Should contain header
         assert "Strategic Knowledge" in result
         assert "Learned from Experience" in result
 
-        # Should contain bullets
+        # Should contain skills
         assert "Always check search box first" in result
         assert "Scroll before clicking" in result
 
@@ -44,16 +44,16 @@ class TestWrapPlaybookContext:
         assert "How to use these strategies" in result
         assert "success rates" in result
 
-    def test_bullet_scores_shown(self):
+    def test_skill_scores_shown(self):
         """Should show helpful/harmful scores."""
-        playbook = Playbook()
-        bullet = playbook.add_bullet(
+        skillbook = Skillbook()
+        skill = skillbook.add_skill(
             "general", "Test strategy", metadata={"helpful": 5, "harmful": 2}
         )
 
-        result = wrap_playbook_context(playbook)
+        result = wrap_skillbook_context(skillbook)
 
-        # Should show the bullet content
+        # Should show the skill content
         assert "Test strategy" in result
 
 
@@ -73,9 +73,9 @@ class TestACEAgentInitialization:
 
         assert agent.browser_llm is not None
         assert agent.is_learning is True  # Default
-        assert agent.playbook is not None
+        assert agent.skillbook is not None
         assert agent.reflector is not None
-        assert agent.curator is not None
+        assert agent.skill_manager is not None
 
     def test_with_ace_model(self):
         """Should accept ace_model parameter."""
@@ -121,29 +121,29 @@ class TestACEAgentInitialization:
 
         assert agent.is_learning is False
         # Should still create components for potential later use
-        assert agent.playbook is not None
+        assert agent.skillbook is not None
 
-    def test_with_playbook_path(self):
-        """Should load playbook from path."""
+    def test_with_skillbook_path(self):
+        """Should load skillbook from path."""
         from browser_use import ChatBrowserUse
 
-        # Create a temporary playbook
+        # Create a temporary skillbook
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            playbook_path = f.name
+            skillbook_path = f.name
 
         try:
-            # Create and save playbook
-            playbook = Playbook()
-            playbook.add_bullet("general", "Pre-loaded strategy")
-            playbook.save_to_file(playbook_path)
+            # Create and save skillbook
+            skillbook = Skillbook()
+            skillbook.add_skill("general", "Pre-loaded strategy")
+            skillbook.save_to_file(skillbook_path)
 
             # Load in ACEAgent
-            agent = ACEAgent(llm=ChatBrowserUse(), playbook_path=playbook_path)
+            agent = ACEAgent(llm=ChatBrowserUse(), skillbook_path=skillbook_path)
 
-            assert len(agent.playbook.bullets()) == 1
-            assert agent.playbook.bullets()[0].content == "Pre-loaded strategy"
+            assert len(agent.skillbook.skills()) == 1
+            assert agent.skillbook.skills()[0].content == "Pre-loaded strategy"
         finally:
-            Path(playbook_path).unlink(missing_ok=True)
+            Path(skillbook_path).unlink(missing_ok=True)
 
     def test_with_task_in_constructor(self):
         """Should accept task in constructor."""
@@ -172,30 +172,30 @@ class TestACEAgentLearningControl:
         agent.enable_learning()
         assert agent.is_learning is True
 
-    def test_playbook_operations(self):
-        """Should support save/load playbook."""
+    def test_skillbook_operations(self):
+        """Should support save/load skillbook."""
         from browser_use import ChatBrowserUse
 
         agent = ACEAgent(llm=ChatBrowserUse())
 
-        # Add a bullet manually
-        agent.playbook.add_bullet("general", "Test strategy")
+        # Add a skill manually
+        agent.skillbook.add_skill("general", "Test strategy")
 
         # Save
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            playbook_path = f.name
+            skillbook_path = f.name
 
         try:
-            agent.save_playbook(playbook_path)
+            agent.save_skillbook(skillbook_path)
 
             # Load in new agent
             agent2 = ACEAgent(llm=ChatBrowserUse())
-            agent2.load_playbook(playbook_path)
+            agent2.load_skillbook(skillbook_path)
 
-            assert len(agent2.playbook.bullets()) == 1
-            assert agent2.playbook.bullets()[0].content == "Test strategy"
+            assert len(agent2.skillbook.skills()) == 1
+            assert agent2.skillbook.skills()[0].content == "Test strategy"
         finally:
-            Path(playbook_path).unlink(missing_ok=True)
+            Path(skillbook_path).unlink(missing_ok=True)
 
     def test_get_strategies(self):
         """Should return formatted strategies."""
@@ -203,12 +203,12 @@ class TestACEAgentLearningControl:
 
         agent = ACEAgent(llm=ChatBrowserUse())
 
-        # Empty playbook
+        # Empty skillbook
         strategies = agent.get_strategies()
         assert strategies == ""
 
-        # With bullets
-        agent.playbook.add_bullet("general", "Strategy 1")
+        # With skills
+        agent.skillbook.add_skill("general", "Strategy 1")
         strategies = agent.get_strategies()
         assert "Strategy 1" in strategies
         assert "Strategic Knowledge" in strategies
@@ -488,7 +488,7 @@ class TestACEAgentIntegration:
         # This would run actual browser automation
         # Skipped in automated tests
         # await agent.run(task="Find top HN post")
-        # assert len(agent.playbook.bullets()) > 0
+        # assert len(agent.skillbook.skills()) > 0
 
         pass
 
@@ -512,51 +512,51 @@ class TestPromptVersionUsage:
         # v2.1 has enhanced structure with QUICK REFERENCE
         assert "QUICK REFERENCE" in agent.reflector.prompt_template
 
-    def test_curator_uses_v2_1(self):
-        """Should use v2.1 prompt for Curator."""
+    def test_skill_manager_uses_v2_1(self):
+        """Should use v2.1 prompt for SkillManager."""
         from browser_use import ChatBrowserUse
 
         agent = ACEAgent(llm=ChatBrowserUse())
 
-        # Verify Curator uses v2.1
-        assert agent.curator.prompt_template is not None
+        # Verify SkillManager uses v2.1
+        assert agent.skill_manager.prompt_template is not None
         assert (
-            "v2.1" in agent.curator.prompt_template
-            or "2.1" in agent.curator.prompt_template
+            "v2.1" in agent.skill_manager.prompt_template
+            or "2.1" in agent.skill_manager.prompt_template
         )
         # v2.1 has atomicity scoring
-        assert "atomicity" in agent.curator.prompt_template.lower()
+        assert "atomicity" in agent.skill_manager.prompt_template.lower()
 
-    def test_playbook_wrapper_uses_canonical_function(self):
+    def test_skillbook_wrapper_uses_canonical_function(self):
         """Should use canonical wrap function from prompts_v2_1."""
-        from ace.integrations.base import wrap_playbook_context
-        from ace.prompts_v2_1 import wrap_playbook_for_external_agent
-        from ace import Playbook
+        from ace.integrations.base import wrap_skillbook_context
+        from ace.prompts_v2_1 import wrap_skillbook_for_external_agent
+        from ace import Skillbook
 
-        playbook = Playbook()
-        playbook.add_bullet("general", "Test strategy")
+        skillbook = Skillbook()
+        skillbook.add_skill("general", "Test strategy")
 
         # Both functions should produce identical output
-        result1 = wrap_playbook_context(playbook)
-        result2 = wrap_playbook_for_external_agent(playbook)
+        result1 = wrap_skillbook_context(skillbook)
+        result2 = wrap_skillbook_for_external_agent(skillbook)
 
         assert result1 == result2
         assert "📚 Available Strategic Knowledge" in result1
         assert "Test strategy" in result1
 
-    def test_playbook_wrapper_includes_usage_instructions(self):
-        """Should include PLAYBOOK_USAGE_INSTRUCTIONS constant."""
-        from ace.integrations.base import wrap_playbook_context
-        from ace import Playbook
+    def test_skillbook_wrapper_includes_usage_instructions(self):
+        """Should include SKILLBOOK_USAGE_INSTRUCTIONS constant."""
+        from ace.integrations.base import wrap_skillbook_context
+        from ace import Skillbook
 
-        playbook = Playbook()
-        playbook.add_bullet("general", "Test strategy")
+        skillbook = Skillbook()
+        skillbook.add_skill("general", "Test strategy")
 
-        result = wrap_playbook_context(playbook)
+        result = wrap_skillbook_context(skillbook)
 
         # Should include instructions from constant
         assert "How to use these strategies" in result
-        assert "Review bullets relevant to your current task" in result
+        assert "Review skills relevant to your current task" in result
         assert "Prioritize strategies with high success rates" in result
         assert "These are learned patterns, not rigid rules" in result
 
@@ -631,31 +631,31 @@ class TestCitationExtraction:
 
         assert cited_ids == []
 
-    def test_filters_invalid_bullet_ids_against_playbook(self):
+    def test_filters_invalid_skill_ids_against_skillbook(self):
         """
-        Test that cited IDs are validated against playbook in Reflector call.
+        Test that cited IDs are validated against skillbook in Reflector call.
 
-        This ensures only valid bullet IDs (that exist in playbook) are passed
+        This ensures only valid skill IDs (that exist in skillbook) are passed
         to the Reflector, preventing errors from hallucinated or invalid citations.
         """
         from browser_use import ChatBrowserUse
         from unittest.mock import MagicMock
-        from ace import Playbook
+        from ace import Skillbook
 
-        # Create agent with playbook containing specific bullets
-        playbook = Playbook()
-        bullet1 = playbook.add_bullet("navigation", "Always scroll before clicking")
-        bullet2 = playbook.add_bullet("extraction", "Use CSS selectors for data")
+        # Create agent with skillbook containing specific skills
+        skillbook = Skillbook()
+        skill1 = skillbook.add_skill("navigation", "Always scroll before clicking")
+        skill2 = skillbook.add_skill("extraction", "Use CSS selectors for data")
 
-        agent = ACEAgent(llm=ChatBrowserUse(), playbook=playbook)
+        agent = ACEAgent(llm=ChatBrowserUse(), skillbook=skillbook)
 
         # Mock history with thoughts containing BOTH valid and invalid IDs
         mock_thought = MagicMock()
         # Valid: navigation-00001, extraction-00001
         # Invalid: nonexistent-99999, fake-12345
         mock_thought.thinking = (
-            f"Following [{bullet1.id}], I scrolled first. "
-            f"Then using [nonexistent-99999] and [{bullet2.id}]. "
+            f"Following [{skill1.id}], I scrolled first. "
+            f"Then using [nonexistent-99999] and [{skill2.id}]. "
             f"Also tried [fake-12345]."
         )
 
@@ -665,8 +665,8 @@ class TestCitationExtraction:
         mock_history.number_of_steps.return_value = 2
         mock_history.history = []  # Empty history for trace extraction
 
-        # Capture what bullet_ids are passed to GeneratorOutput
-        captured_bullet_ids = None
+        # Capture what skill_ids are passed to AgentOutput
+        captured_skill_ids = None
 
         original_build = agent._build_rich_feedback
 
@@ -675,31 +675,31 @@ class TestCitationExtraction:
 
         agent._build_rich_feedback = patched_build
 
-        # Mock Reflector to capture generator_output
+        # Mock Reflector to capture agent_output
         from ace import ReflectorOutput
 
         def capture_reflect(*args, **kwargs):
-            nonlocal captured_bullet_ids
-            gen_output = kwargs.get("generator_output")
-            if gen_output:
-                captured_bullet_ids = gen_output.bullet_ids
+            nonlocal captured_skill_ids
+            agent_output = kwargs.get("agent_output")
+            if agent_output:
+                captured_skill_ids = agent_output.skill_ids
             return ReflectorOutput(
                 reasoning="mock",
                 error_identification="none",
                 root_cause_analysis="none",
                 correct_approach="continue",
                 key_insight="test",
-                bullet_tags=[],
+                skill_tags=[],
                 raw={},
             )
 
         agent.reflector.reflect = capture_reflect
 
-        # Mock curator
-        from ace import CuratorOutput, DeltaBatch
+        # Mock skill_manager
+        from ace import SkillManagerOutput, UpdateBatch
 
-        agent.curator.curate = lambda *args, **kwargs: CuratorOutput(
-            delta=DeltaBatch(reasoning="mock", operations=[]), raw={}
+        agent.skill_manager.update_skills = lambda *args, **kwargs: SkillManagerOutput(
+            update=UpdateBatch(reasoning="mock", operations=[]), raw={}
         )
 
         # Run learning
@@ -712,28 +712,28 @@ class TestCitationExtraction:
         )
 
         # ASSERTIONS: Only valid IDs should be passed
-        assert captured_bullet_ids is not None, "bullet_ids not captured"
+        assert captured_skill_ids is not None, "skill_ids not captured"
 
         # Should contain valid IDs
         assert (
-            bullet1.id in captured_bullet_ids
-        ), f"Valid ID {bullet1.id} should be included"
+            skill1.id in captured_skill_ids
+        ), f"Valid ID {skill1.id} should be included"
         assert (
-            bullet2.id in captured_bullet_ids
-        ), f"Valid ID {bullet2.id} should be included"
+            skill2.id in captured_skill_ids
+        ), f"Valid ID {skill2.id} should be included"
 
         # Should NOT contain invalid IDs
         assert (
-            "nonexistent-99999" not in captured_bullet_ids
+            "nonexistent-99999" not in captured_skill_ids
         ), "Invalid ID should be filtered out"
         assert (
-            "fake-12345" not in captured_bullet_ids
+            "fake-12345" not in captured_skill_ids
         ), "Invalid ID should be filtered out"
 
         # Should have exactly 2 IDs (the valid ones)
         assert (
-            len(captured_bullet_ids) == 2
-        ), f"Expected 2 valid IDs, got {len(captured_bullet_ids)}: {captured_bullet_ids}"
+            len(captured_skill_ids) == 2
+        ), f"Expected 2 valid IDs, got {len(captured_skill_ids)}: {captured_skill_ids}"
 
 
 @pytest.mark.requires_api
@@ -748,7 +748,7 @@ class TestBackwardsCompatibility:
 
     def test_can_import_helper_from_ace(self):
         """Should import helper function from ace package."""
-        from ace import wrap_playbook_context as imported_wrap
+        from ace import wrap_skillbook_context as imported_wrap
 
         assert imported_wrap is not None
 
@@ -763,7 +763,7 @@ class TestBackwardsCompatibility:
         Critical test: Verify full execution trace is passed to Reflector in reasoning field.
 
         This test ensures that the browser execution trace (thoughts, actions, results)
-        is passed to the Reflector via GeneratorOutput.reasoning, not just a task description.
+        is passed to the Reflector via AgentOutput.reasoning, not just a task description.
 
         Regression test for: Initial query duplication and missing trace in reasoning field.
         """
@@ -814,13 +814,13 @@ class TestBackwardsCompatibility:
         mock_history.history = [mock_step1, mock_step2]
 
         # Capture what gets passed to Reflector
-        captured_generator_output = None
+        captured_agent_output = None
 
         original_reflect = agent.reflector.reflect
 
         def capture_reflect(*args, **kwargs):
-            nonlocal captured_generator_output
-            captured_generator_output = kwargs.get("generator_output")
+            nonlocal captured_agent_output
+            captured_agent_output = kwargs.get("agent_output")
             # Return a mock reflection to avoid actual LLM call
             from ace import ReflectorOutput
 
@@ -830,17 +830,17 @@ class TestBackwardsCompatibility:
                 root_cause_analysis="none",
                 correct_approach="continue",
                 key_insight="test",
-                bullet_tags=[],
+                skill_tags=[],
                 raw={},
             )
 
         agent.reflector.reflect = capture_reflect
 
-        # Also mock curator to avoid LLM call
-        from ace import CuratorOutput, DeltaBatch
+        # Also mock skill_manager to avoid LLM call
+        from ace import SkillManagerOutput, UpdateBatch
 
-        agent.curator.curate = lambda *args, **kwargs: CuratorOutput(
-            delta=DeltaBatch(reasoning="mock", operations=[]), raw={}
+        agent.skill_manager.update_skills = lambda *args, **kwargs: SkillManagerOutput(
+            update=UpdateBatch(reasoning="mock", operations=[]), raw={}
         )
 
         # Call _learn_from_execution
@@ -853,9 +853,9 @@ class TestBackwardsCompatibility:
         )
 
         # CRITICAL ASSERTIONS
-        assert captured_generator_output is not None, "GeneratorOutput not captured"
+        assert captured_agent_output is not None, "AgentOutput not captured"
 
-        reasoning = captured_generator_output.reasoning
+        reasoning = captured_agent_output.reasoning
 
         # 1. Reasoning should NOT just be the task description
         assert (

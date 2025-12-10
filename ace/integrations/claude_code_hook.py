@@ -51,8 +51,8 @@ for _env_path in _env_paths:
         load_dotenv(_env_path)
         break
 
-from ..playbook import Playbook, Bullet
-from ..roles import Reflector, Curator, GeneratorOutput, ReflectorOutput
+from ..skillbook import Skillbook, Skill
+from ..roles import Reflector, SkillManager, AgentOutput, ReflectorOutput
 from ..llm_providers import LiteLLMClient
 from ..prompts_v2_1 import PromptManager
 
@@ -400,11 +400,11 @@ class SkillGenerator:
         """
         self.skill_dir = skill_dir
 
-    def _group_by_section(self, bullets: List[Bullet]) -> Dict[str, List[Bullet]]:
-        """Group bullets by section, sorted by effectiveness within each."""
-        sections: Dict[str, List[Bullet]] = {}
-        for bullet in bullets:
-            sections.setdefault(bullet.section, []).append(bullet)
+    def _group_by_section(self, skills: List[Skill]) -> Dict[str, List[Skill]]:
+        """Group skills by section, sorted by effectiveness within each."""
+        sections: Dict[str, List[Skill]] = {}
+        for skill in skills:
+            sections.setdefault(skill.section, []).append(skill)
         # Sort each section by effectiveness
         for section in sections:
             sections[section] = sorted(
@@ -446,42 +446,42 @@ No strategies learned yet. Strategies will appear here as you use Claude Code.
 
 {self._footer()}"""
 
-    def _top_strategies(self, bullets: List[Bullet]) -> str:
+    def _top_strategies(self, skills: List[Skill]) -> str:
         lines = ["## Top Strategies (by effectiveness)"]
-        for i, b in enumerate(bullets, 1):
-            score = f"({b.helpful}↑ {b.harmful}↓)"
-            lines.append(f"{i}. {b.content} {score}")
+        for i, s in enumerate(skills, 1):
+            score = f"({s.helpful}↑ {s.harmful}↓)"
+            lines.append(f"{i}. {s.content} {score}")
         return "\n".join(lines)
 
-    def _section_inline(self, section: str, bullets: List[Bullet]) -> str:
+    def _section_inline(self, section: str, skills: List[Skill]) -> str:
         """Render a section inline (for small sections in main SKILL.md)."""
         title = section.replace("_", " ").title()
         lines = [f"## {title}"]
-        for b in bullets:
-            score = f"({b.helpful}↑ {b.harmful}↓)"
-            lines.append(f"- {b.content} {score}")
+        for s in skills:
+            score = f"({s.helpful}↑ {s.harmful}↓)"
+            lines.append(f"- {s.content} {score}")
         return "\n".join(lines)
 
-    def _category_index(self, large_sections: Dict[str, List[Bullet]]) -> str:
+    def _category_index(self, large_sections: Dict[str, List[Skill]]) -> str:
         """Generate index of category files for progressive disclosure."""
         if not large_sections:
             return ""
         lines = ["## Categories"]
         lines.append("For detailed strategies, read the relevant category file:")
         for section in sorted(large_sections.keys()):
-            bullets = large_sections[section]
+            skills = large_sections[section]
             title = section.replace("_", " ").title()
             filename = section.replace("_", "-") + ".md"
             lines.append(
-                f"- **{title}**: `categories/{filename}` ({len(bullets)} strategies)"
+                f"- **{title}**: `categories/{filename}` ({len(skills)} strategies)"
             )
         return "\n".join(lines)
 
-    def _antipatterns(self, bullets: List[Bullet]) -> str:
+    def _antipatterns(self, skills: List[Skill]) -> str:
         lines = ["## Antipatterns (avoid these)"]
-        for b in bullets:
-            score = f"({b.harmful} failures)"
-            lines.append(f"- ⚠️ {b.content} {score}")
+        for s in skills:
+            score = f"({s.harmful} failures)"
+            lines.append(f"- ⚠️ {s.content} {score}")
         return "\n".join(lines)
 
     def _footer(self) -> str:
@@ -491,9 +491,9 @@ No strategies learned yet. Strategies will appear here as you use Claude Code.
 
     def generate_main(
         self,
-        sorted_bullets: List[Bullet],
-        large_sections: Dict[str, List[Bullet]],
-        small_sections: Dict[str, List[Bullet]],
+        sorted_skills: List[Skill],
+        large_sections: Dict[str, List[Skill]],
+        small_sections: Dict[str, List[Skill]],
     ) -> str:
         """Generate main SKILL.md with top strategies and category index."""
         all_sections = list(large_sections.keys()) + list(small_sections.keys())
@@ -501,9 +501,9 @@ No strategies learned yet. Strategies will appear here as you use Claude Code.
         parts.append(self._intro())
 
         # Top 10 strategies (always shown)
-        top_bullets = sorted_bullets[:10]
-        if top_bullets:
-            parts.append(self._top_strategies(top_bullets))
+        top_skills = sorted_skills[:10]
+        if top_skills:
+            parts.append(self._top_strategies(top_skills))
 
         # Category index for large sections (progressive disclosure)
         if large_sections:
@@ -514,26 +514,26 @@ No strategies learned yet. Strategies will appear here as you use Claude Code.
             parts.append(self._section_inline(section, small_sections[section]))
 
         # Antipatterns
-        antipatterns = [b for b in sorted_bullets if b.harmful > b.helpful]
+        antipatterns = [s for s in sorted_skills if s.harmful > s.helpful]
         if antipatterns:
             parts.append(self._antipatterns(antipatterns[:5]))
 
         parts.append(self._footer())
         return "\n\n".join(parts)
 
-    def generate_category(self, section: str, bullets: List[Bullet]) -> str:
+    def generate_category(self, section: str, skills: List[Skill]) -> str:
         """Generate a category file for a specific section."""
         title = section.replace("_", " ").title()
         lines = [f"# {title} Strategies"]
         lines.append("")
-        for b in bullets:
-            score = f"({b.helpful}↑ {b.harmful}↓)"
-            lines.append(f"- {b.content} {score}")
+        for s in skills:
+            score = f"({s.helpful}↑ {s.harmful}↓)"
+            lines.append(f"- {s.content} {score}")
         lines.append("")
         lines.append(self._footer())
         return "\n".join(lines)
 
-    def save(self, playbook: Playbook) -> Path:
+    def save(self, skillbook: Skillbook) -> Path:
         """
         Save skill files with progressive disclosure.
 
@@ -542,40 +542,42 @@ No strategies learned yet. Strategies will appear here as you use Claude Code.
         - categories/*.md: Detailed strategies for large sections
 
         Args:
-            playbook: ACE Playbook to generate skill from
+            skillbook: ACE Skillbook to generate skill from
 
         Returns:
             Path to saved SKILL.md file
         """
         self.skill_dir.mkdir(parents=True, exist_ok=True)
 
-        bullets = playbook.bullets()
-        if not bullets:
+        skills = skillbook.skills()
+        if not skills:
             content = self._empty_skill()
             skill_path = self.skill_dir / "SKILL.md"
             skill_path.write_text(content, encoding="utf-8")
             return skill_path
 
-        # Sort all bullets by effectiveness
-        sorted_bullets = sorted(
-            bullets, key=lambda b: (b.helpful - b.harmful, b.helpful), reverse=True
+        # Sort all skills by effectiveness
+        sorted_skills = sorted(
+            skills, key=lambda s: (s.helpful - s.harmful, s.helpful), reverse=True
         )
 
         # Group by section
-        sections = self._group_by_section(bullets)
+        sections = self._group_by_section(skills)
 
         # Split into large (get own file) and small (stay inline)
         large_sections = {
-            s: b for s, b in sections.items() if len(b) >= self.MIN_BULLETS_FOR_CATEGORY
+            s: sk
+            for s, sk in sections.items()
+            if len(sk) >= self.MIN_BULLETS_FOR_CATEGORY
         }
         small_sections = {
-            s: b for s, b in sections.items() if len(b) < self.MIN_BULLETS_FOR_CATEGORY
+            s: sk
+            for s, sk in sections.items()
+            if len(sk) < self.MIN_BULLETS_FOR_CATEGORY
         }
 
         # Generate and save main SKILL.md
-        main_content = self.generate_main(
-            sorted_bullets, large_sections, small_sections
-        )
+        main_content = self.generate_main(sorted_skills, large_sections, small_sections)
         skill_path = self.skill_dir / "SKILL.md"
         skill_path.write_text(main_content, encoding="utf-8")
         logger.info(f"Saved skill file to {skill_path}")
@@ -584,9 +586,9 @@ No strategies learned yet. Strategies will appear here as you use Claude Code.
         if large_sections:
             categories_dir = self.skill_dir / "categories"
             categories_dir.mkdir(exist_ok=True)
-            for section, section_bullets in large_sections.items():
+            for section, section_skills in large_sections.items():
                 filename = section.replace("_", "-") + ".md"
-                cat_content = self.generate_category(section, section_bullets)
+                cat_content = self.generate_category(section, section_skills)
                 cat_path = categories_dir / filename
                 cat_path.write_text(cat_content, encoding="utf-8")
                 logger.info(f"Saved category file to {cat_path}")
@@ -594,19 +596,19 @@ No strategies learned yet. Strategies will appear here as you use Claude Code.
         return skill_path
 
     # Keep old generate() for backwards compatibility
-    def generate(self, playbook: Playbook) -> str:
+    def generate(self, skillbook: Skillbook) -> str:
         """Generate SKILL.md content (legacy method, use save() for full feature)."""
-        bullets = playbook.bullets()
-        if not bullets:
+        skills = skillbook.skills()
+        if not skills:
             return self._empty_skill()
 
-        sorted_bullets = sorted(
-            bullets, key=lambda b: (b.helpful - b.harmful, b.helpful), reverse=True
+        sorted_skills = sorted(
+            skills, key=lambda s: (s.helpful - s.harmful, s.helpful), reverse=True
         )
-        sections = self._group_by_section(bullets)
+        sections = self._group_by_section(skills)
 
         # For legacy generate(), put everything inline
-        return self.generate_main(sorted_bullets, {}, sections)
+        return self.generate_main(sorted_skills, {}, sections)
 
 
 # ============================================================================
@@ -636,9 +638,9 @@ class ACEHookLearner:
 
         Args:
             cwd: Working directory (project root) for skill storage
-            playbook_path: Where to store the persistent playbook (default: project/.claude/skills/ace-learnings/playbook.json)
+            playbook_path: Where to store the persistent skillbook (default: project/.claude/skills/ace-learnings/playbook.json)
             skill_dir: Where to write the skill file (default: project/.claude/skills/ace-learnings/)
-            ace_model: Model for ACE Reflector/Curator
+            ace_model: Model for ACE Reflector/SkillManager
             ace_llm: Custom LLM client (overrides ace_model)
         """
         self.cwd = cwd
@@ -647,16 +649,16 @@ class ACEHookLearner:
         project_skill_dir = skill_dir or get_project_skill_dir(cwd)
         self.skill_dir = project_skill_dir
         self.skill_generator = SkillGenerator(project_skill_dir)
-        self.playbook_path = playbook_path or (project_skill_dir / "playbook.json")
+        self.skillbook_path = playbook_path or (project_skill_dir / "playbook.json")
         self.transcript_parser = TranscriptParser()
 
-        # Load or create playbook
-        if self.playbook_path.exists():
-            self.playbook = Playbook.load_from_file(str(self.playbook_path))
-            logger.info(f"Loaded playbook with {len(self.playbook.bullets())} bullets")
+        # Load or create skillbook
+        if self.skillbook_path.exists():
+            self.skillbook = Skillbook.load_from_file(str(self.skillbook_path))
+            logger.info(f"Loaded skillbook with {len(self.skillbook.skills())} skills")
         else:
-            self.playbook = Playbook()
-            logger.info("Created new playbook")
+            self.skillbook = Skillbook()
+            logger.info("Created new skillbook")
 
         # Create ACE components with v2.1 prompts for better effectiveness
         self.ace_llm = ace_llm or LiteLLMClient(model=ace_model, max_tokens=2048)
@@ -664,8 +666,8 @@ class ACEHookLearner:
         self.reflector = Reflector(
             self.ace_llm, prompt_template=prompt_mgr.get_reflector_prompt()
         )
-        self.curator = Curator(
-            self.ace_llm, prompt_template=prompt_mgr.get_curator_prompt()
+        self.skill_manager = SkillManager(
+            self.ace_llm, prompt_template=prompt_mgr.get_skill_manager_prompt()
         )
 
     @retry(
@@ -674,13 +676,13 @@ class ACEHookLearner:
         reraise=True,
     )
     def _run_reflector_with_retry(
-        self, task: str, generator_output: GeneratorOutput, feedback: str
+        self, task: str, agent_output: AgentOutput, feedback: str
     ):
         """Run Reflector with retry on transient failures."""
         return self.reflector.reflect(
             question=task,
-            generator_output=generator_output,
-            playbook=self.playbook,
+            agent_output=agent_output,
+            skillbook=self.skillbook,
             ground_truth=None,
             feedback=feedback,
         )
@@ -690,11 +692,11 @@ class ACEHookLearner:
         wait=wait_exponential(multiplier=1, min=2, max=10),
         reraise=True,
     )
-    def _run_curator_with_retry(self, reflection, cwd: str, progress: str):
-        """Run Curator with retry on transient failures."""
-        return self.curator.curate(
+    def _run_skill_manager_with_retry(self, reflection, cwd: str, progress: str):
+        """Run SkillManager with retry on transient failures."""
+        return self.skill_manager.update_skills(
             reflection=reflection,
-            playbook=self.playbook,
+            skillbook=self.skillbook,
             question_context=f"Claude Code session in {cwd}",
             progress=progress,
         )
@@ -710,7 +712,7 @@ class ACEHookLearner:
 
         Args:
             hook_input: Parsed hook input containing transcript_path and cwd
-            ace_model: Model for ACE Reflector/Curator
+            ace_model: Model for ACE Reflector/SkillManager
 
         Returns:
             True if learning succeeded, False otherwise
@@ -761,13 +763,13 @@ class ACEHookLearner:
                     task = turn.user_prompt[:200]
                     break
 
-            # Create GeneratorOutput for Reflector
-            generator_output = GeneratorOutput(
+            # Create AgentOutput for Reflector
+            agent_output = AgentOutput(
                 reasoning=transcript.to_execution_trace(),
                 final_answer=(
                     transcript.turns[-1].assistant_text if transcript.turns else ""
                 ),
-                bullet_ids=[],
+                skill_ids=[],
                 raw={
                     "total_tools": transcript.total_tool_calls,
                     "failed_tools": transcript.failed_tool_calls,
@@ -778,28 +780,28 @@ class ACEHookLearner:
             logger.info("Running Reflector...")
             reflection = self._run_reflector_with_retry(
                 task=task,
-                generator_output=generator_output,
+                agent_output=agent_output,
                 feedback=transcript.get_feedback(),
             )
 
-            # Run Curator with retry
-            logger.info("Running Curator...")
-            curator_output = self._run_curator_with_retry(
+            # Run SkillManager with retry
+            logger.info("Running SkillManager...")
+            skill_manager_output = self._run_skill_manager_with_retry(
                 reflection=reflection,
                 cwd=transcript.cwd,
                 progress=f"{transcript.successful_tool_calls}/{transcript.total_tool_calls} successful",
             )
 
-            # Update playbook
-            self.playbook.apply_delta(curator_output.delta)
-            logger.info(f"Playbook now has {len(self.playbook.bullets())} bullets")
+            # Update skillbook
+            self.skillbook.apply_update(skill_manager_output.update)
+            logger.info(f"Skillbook now has {len(self.skillbook.skills())} skills")
 
-            # Save playbook
-            self.playbook_path.parent.mkdir(parents=True, exist_ok=True)
-            self.playbook.save_to_file(str(self.playbook_path))
+            # Save skillbook
+            self.skillbook_path.parent.mkdir(parents=True, exist_ok=True)
+            self.skillbook.save_to_file(str(self.skillbook_path))
 
             # Update skill file
-            self.skill_generator.save(self.playbook)
+            self.skill_generator.save(self.skillbook)
 
             return True
 
@@ -949,45 +951,45 @@ def show_insights(args):
     try:
         project_root = get_project_context(args)
         skill_dir = get_project_skill_dir(str(project_root))
-        playbook_path = skill_dir / "playbook.json"
+        skillbook_path = skill_dir / "playbook.json"
     except NotInProjectError as e:
         print(str(e), file=sys.stderr)
         return
 
-    if not playbook_path.exists():
+    if not skillbook_path.exists():
         print("No insights yet. ACE will learn from your Claude Code sessions.")
         return
 
     try:
-        from ..playbook import Playbook
+        from ..skillbook import Skillbook
 
-        playbook = Playbook.load_from_file(str(playbook_path))
-        bullets = playbook.bullets()
+        skillbook = Skillbook.load_from_file(str(skillbook_path))
+        skills = skillbook.skills()
 
-        if not bullets:
+        if not skills:
             print("No insights yet. ACE will learn from your Claude Code sessions.")
             return
 
-        print(f"ACE Learned Strategies ({len(bullets)} total)")
+        print(f"ACE Learned Strategies ({len(skills)} total)")
         print(f"Project: {project_root}\n")
 
         # Group by section
         sections: dict = {}
-        for bullet in bullets:
-            section = bullet.section
+        for skill in skills:
+            section = skill.section
             if section not in sections:
                 sections[section] = []
-            sections[section].append(bullet)
+            sections[section].append(skill)
 
-        for section, section_bullets in sorted(sections.items()):
+        for section, section_skills in sorted(sections.items()):
             print(f"## {section.replace('_', ' ').title()}")
-            for b in section_bullets:
-                score = f"({b.helpful}↑ {b.harmful}↓)"
-                print(f"  [{b.id}] {b.content} {score}")
+            for s in section_skills:
+                score = f"({s.helpful}↑ {s.harmful}↓)"
+                print(f"  [{s.id}] {s.content} {score}")
             print()
 
     except Exception as e:
-        print(f"Error reading playbook: {e}")
+        print(f"Error reading skillbook: {e}")
 
 
 def remove_insight(args):
@@ -995,31 +997,31 @@ def remove_insight(args):
     try:
         project_root = get_project_context(args)
         skill_dir = get_project_skill_dir(str(project_root))
-        playbook_path = skill_dir / "playbook.json"
+        skillbook_path = skill_dir / "playbook.json"
     except NotInProjectError as e:
         print(str(e), file=sys.stderr)
         return
 
-    if not playbook_path.exists():
-        print(f"No playbook found for project: {project_root}")
+    if not skillbook_path.exists():
+        print(f"No skillbook found for project: {project_root}")
         return
 
     try:
-        from ..playbook import Playbook
+        from ..skillbook import Skillbook
 
-        playbook = Playbook.load_from_file(str(playbook_path))
+        skillbook = Skillbook.load_from_file(str(skillbook_path))
 
-        # Find bullet by ID or partial match
+        # Find skill by ID or partial match
         insight_id = args.id
-        bullets = playbook.bullets()
+        skills = skillbook.skills()
         target = None
-        for b in bullets:
+        for s in skills:
             if (
-                b.id == insight_id
-                or insight_id in b.id
-                or insight_id.lower() in b.content.lower()
+                s.id == insight_id
+                or insight_id in s.id
+                or insight_id.lower() in s.content.lower()
             ):
-                target = b
+                target = s
                 break
 
         if not target:
@@ -1027,13 +1029,13 @@ def remove_insight(args):
             print("Use 'ace-learn insights' to see available insights.")
             return
 
-        # Remove the bullet
-        playbook.remove_bullet(target.id)
-        playbook.save_to_file(str(playbook_path))
+        # Remove the skill
+        skillbook.remove_skill(target.id)
+        skillbook.save_to_file(str(skillbook_path))
 
         # Regenerate skill file
         generator = SkillGenerator(skill_dir)
-        generator.save(playbook)
+        generator.save(skillbook)
 
         print(f"Removed: {target.content}")
 
@@ -1051,22 +1053,22 @@ def clear_insights(args):
     try:
         project_root = get_project_context(args)
         skill_dir = get_project_skill_dir(str(project_root))
-        playbook_path = skill_dir / "playbook.json"
+        skillbook_path = skill_dir / "playbook.json"
         skill_path = skill_dir / "SKILL.md"
     except NotInProjectError as e:
         print(str(e), file=sys.stderr)
         return
 
     try:
-        from ..playbook import Playbook
+        from ..skillbook import Skillbook
 
-        # Create empty playbook
-        playbook = Playbook()
-        playbook.save_to_file(str(playbook_path))
+        # Create empty skillbook
+        skillbook = Skillbook()
+        skillbook.save_to_file(str(skillbook_path))
 
         # Regenerate empty skill file
         generator = SkillGenerator(skill_dir)
-        generator.save(playbook)
+        generator.save(skillbook)
 
         print(f"All insights cleared for project: {project_root}")
         print("ACE will start fresh.")

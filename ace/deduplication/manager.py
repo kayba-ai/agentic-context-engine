@@ -19,39 +19,39 @@ from .operations import (
 from .prompts import format_pair_for_logging, generate_similarity_report
 
 if TYPE_CHECKING:
-    from ..playbook import Playbook
+    from ..skillbook import Skillbook
 
 logger = logging.getLogger(__name__)
 
 
 class DeduplicationManager:
-    """Manages similarity detection and feeds info to Curator.
+    """Manages similarity detection and feeds info to SkillManager.
 
     This class coordinates:
-    1. Computing/updating embeddings for bullets
-    2. Detecting similar bullet pairs
-    3. Generating similarity reports for the Curator prompt
-    4. Parsing and applying consolidation operations from Curator
+    1. Computing/updating embeddings for skills
+    2. Detecting similar skill pairs
+    3. Generating similarity reports for the SkillManager prompt
+    4. Parsing and applying consolidation operations from SkillManager
 
     Usage:
         manager = DeduplicationManager(config)
-        report = manager.get_similarity_report(playbook)
-        # Include report in Curator prompt...
-        # After Curator responds:
-        manager.apply_operations_from_response(curator_response, playbook)
+        report = manager.get_similarity_report(skillbook)
+        # Include report in SkillManager prompt...
+        # After SkillManager responds:
+        manager.apply_operations_from_response(skill_manager_response, skillbook)
     """
 
     def __init__(self, config: Optional[DeduplicationConfig] = None):
         self.config = config or DeduplicationConfig()
         self.detector = SimilarityDetector(config)
 
-    def get_similarity_report(self, playbook: "Playbook") -> Optional[str]:
-        """Generate similarity report to include in Curator prompt.
+    def get_similarity_report(self, skillbook: "Skillbook") -> Optional[str]:
+        """Generate similarity report to include in SkillManager prompt.
 
-        This should be called BEFORE the Curator runs.
+        This should be called BEFORE the SkillManager runs.
 
         Args:
-            playbook: The playbook to analyze
+            skillbook: The skillbook to analyze
 
         Returns:
             Formatted similarity report string, or None if no similar pairs found
@@ -60,11 +60,11 @@ class DeduplicationManager:
         if not self.config.enabled:
             return None
 
-        # Ensure all bullets have embeddings
-        self.detector.ensure_embeddings(playbook)
+        # Ensure all skills have embeddings
+        self.detector.ensure_embeddings(skillbook)
 
         # Detect similar pairs
-        similar_pairs = self.detector.detect_similar_pairs(playbook)
+        similar_pairs = self.detector.detect_similar_pairs(skillbook)
 
         if len(similar_pairs) < self.config.min_pairs_to_report:
             if similar_pairs:
@@ -75,9 +75,9 @@ class DeduplicationManager:
             return None
 
         # Log found pairs
-        logger.info(f"Found {len(similar_pairs)} similar bullet pairs")
-        for bullet_a, bullet_b, similarity in similar_pairs:
-            logger.debug(format_pair_for_logging(bullet_a, bullet_b, similarity))
+        logger.info(f"Found {len(similar_pairs)} similar skill pairs")
+        for skill_a, skill_b, similarity in similar_pairs:
+            logger.debug(format_pair_for_logging(skill_a, skill_b, similarity))
 
         # Generate report
         return generate_similarity_report(similar_pairs)
@@ -85,10 +85,10 @@ class DeduplicationManager:
     def parse_consolidation_operations(
         self, response_data: Dict[str, Any]
     ) -> List[ConsolidationOperation]:
-        """Parse consolidation operations from Curator response.
+        """Parse consolidation operations from SkillManager response.
 
         Args:
-            response_data: Parsed JSON response from Curator
+            response_data: Parsed JSON response from SkillManager
 
         Returns:
             List of ConsolidationOperation objects
@@ -119,14 +119,14 @@ class DeduplicationManager:
                 elif op_type == "DELETE":
                     operations.append(
                         DeleteOp(
-                            bullet_id=raw_op.get("bullet_id", ""),
+                            skill_id=raw_op.get("skill_id", ""),
                             reasoning=raw_op.get("reasoning", ""),
                         )
                     )
                 elif op_type == "KEEP":
                     operations.append(
                         KeepOp(
-                            bullet_ids=raw_op.get("bullet_ids", []),
+                            skill_ids=raw_op.get("skill_ids", []),
                             differentiation=raw_op.get("differentiation", ""),
                             reasoning=raw_op.get("reasoning", ""),
                         )
@@ -134,7 +134,7 @@ class DeduplicationManager:
                 elif op_type == "UPDATE":
                     operations.append(
                         UpdateOp(
-                            bullet_id=raw_op.get("bullet_id", ""),
+                            skill_id=raw_op.get("skill_id", ""),
                             new_content=raw_op.get("new_content", ""),
                             reasoning=raw_op.get("reasoning", ""),
                         )
@@ -150,36 +150,36 @@ class DeduplicationManager:
     def apply_operations(
         self,
         operations: List[ConsolidationOperation],
-        playbook: "Playbook",
+        skillbook: "Skillbook",
     ) -> None:
-        """Apply consolidation operations to the playbook.
+        """Apply consolidation operations to the skillbook.
 
         Args:
             operations: List of operations to apply
-            playbook: Playbook to modify
+            skillbook: Skillbook to modify
         """
         if not operations:
             return
 
         logger.info(f"Applying {len(operations)} consolidation operations")
-        apply_consolidation_operations(operations, playbook)
+        apply_consolidation_operations(operations, skillbook)
 
     def apply_operations_from_response(
         self,
         response_data: Dict[str, Any],
-        playbook: "Playbook",
+        skillbook: "Skillbook",
     ) -> List[ConsolidationOperation]:
-        """Parse and apply consolidation operations from Curator response.
+        """Parse and apply consolidation operations from SkillManager response.
 
         Convenience method that combines parse and apply.
 
         Args:
-            response_data: Parsed JSON response from Curator
-            playbook: Playbook to modify
+            response_data: Parsed JSON response from SkillManager
+            skillbook: Skillbook to modify
 
         Returns:
             List of operations that were applied
         """
         operations = self.parse_consolidation_operations(response_data)
-        self.apply_operations(operations, playbook)
+        self.apply_operations(operations, skillbook)
         return operations

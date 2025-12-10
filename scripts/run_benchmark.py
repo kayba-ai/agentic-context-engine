@@ -31,12 +31,12 @@ except ImportError:
     pass
 
 from ace import (
-    Generator,
+    Agent,
     Reflector,
-    Curator,
-    OfflineAdapter,
-    OnlineAdapter,
-    Playbook,
+    SkillManager,
+    OfflineACE,
+    OnlineACE,
+    Skillbook,
 )
 from ace.llm_providers import LiteLLMClient
 from ace import Sample
@@ -114,7 +114,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--online-mode",
         action="store_true",
-        help="Use online learning (OnlineAdapter) instead of offline adaptation",
+        help="Use online learning (OnlineACE) instead of offline adaptation",
     )
     parser.add_argument(
         "--prompt-version",
@@ -427,25 +427,25 @@ def create_ace_components(client: LiteLLMClient, prompt_version: str):
             from ace.prompts_v2 import PromptManager
 
             manager = PromptManager()
-            generator = Generator(
-                client, prompt_template=manager.get_generator_prompt()
-            )
+            agent = Agent(client, prompt_template=manager.get_agent_prompt())
             reflector = Reflector(
                 client, prompt_template=manager.get_reflector_prompt()
             )
-            curator = Curator(client, prompt_template=manager.get_curator_prompt())
+            skill_manager = SkillManager(
+                client, prompt_template=manager.get_skill_manager_prompt()
+            )
         except ImportError:
             print("Warning: v2 prompts not available, falling back to v1")
-            generator = Generator(client)
+            agent = Agent(client)
             reflector = Reflector(client)
-            curator = Curator(client)
+            skill_manager = SkillManager(client)
     else:
         # Use default v1 prompts
-        generator = Generator(client)
+        agent = Agent(client)
         reflector = Reflector(client)
-        curator = Curator(client)
+        skill_manager = SkillManager(client)
 
-    return generator, reflector, curator
+    return agent, reflector, skill_manager
 
 
 def split_samples(samples: List[Sample], split_ratio: float):
@@ -471,7 +471,7 @@ def run_evaluation(
 
     # Create LLM client and ACE components with appropriate prompts
     client = create_llm_client(args)
-    generator, reflector, curator = create_ace_components(client, args.prompt_version)
+    agent, reflector, skill_manager = create_ace_components(client, args.prompt_version)
     environment = manager.get_benchmark(args.benchmark)
 
     results = []
@@ -483,15 +483,15 @@ def run_evaluation(
         if not args.quiet:
             print("🔬 Running BASELINE evaluation (no adaptation)")
 
-        playbook = Playbook()
+        skillbook = Skillbook()
 
         for i, sample in enumerate(samples):
             if not args.quiet and i % 10 == 0:
                 print(f"Progress: {i}/{len(samples)} samples processed")
 
             # Generate response
-            output = generator.generate(
-                question=sample.question, context=sample.context, playbook=playbook
+            output = agent.generate(
+                question=sample.question, context=sample.context, skillbook=skillbook
             )
 
             # Evaluate
@@ -533,11 +533,11 @@ def run_evaluation(
             if not args.quiet:
                 print("🔄 Running ONLINE LEARNING evaluation")
 
-            adapter = OnlineAdapter(
-                playbook=Playbook(),
-                generator=generator,
+            adapter = OnlineACE(
+                skillbook=Skillbook(),
+                agent=agent,
                 reflector=reflector,
-                curator=curator,
+                skill_manager=skill_manager,
                 max_refinement_rounds=args.max_refinement_rounds,
                 enable_observability=True,
             )
@@ -551,7 +551,7 @@ def run_evaluation(
                     {
                         "sample_id": f"{args.benchmark}_{step_idx:04d}",
                         "question": step.sample.question,
-                        "prediction": step.generator_output.final_answer,
+                        "prediction": step.agent_output.final_answer,
                         "ground_truth": step.sample.ground_truth,
                         "metrics": step.environment_result.metrics,
                         "feedback": step.environment_result.feedback,
@@ -575,11 +575,11 @@ def run_evaluation(
             if not args.quiet:
                 print(f"🧠 Running OFFLINE LEARNING evaluation ({args.epochs} epochs)")
 
-            adapter = OfflineAdapter(
-                playbook=Playbook(),
-                generator=generator,
+            adapter = OfflineACE(
+                skillbook=Skillbook(),
+                agent=agent,
                 reflector=reflector,
-                curator=curator,
+                skill_manager=skill_manager,
                 max_refinement_rounds=args.max_refinement_rounds,
                 enable_observability=True,
             )
@@ -598,7 +598,7 @@ def run_evaluation(
                         {
                             "sample_id": f"{args.benchmark}_train_{step_idx:04d}",
                             "question": step.sample.question,
-                            "prediction": step.generator_output.final_answer,
+                            "prediction": step.agent_output.final_answer,
                             "ground_truth": step.sample.ground_truth,
                             "metrics": step.environment_result.metrics,
                             "feedback": step.environment_result.feedback,
@@ -606,17 +606,17 @@ def run_evaluation(
                         }
                     )
 
-            # Test on unseen test samples using learned playbook
+            # Test on unseen test samples using learned skillbook
             if len(test_samples) > 0:
                 if not args.quiet:
                     print(f"🧪 Testing on {len(test_samples)} unseen samples...")
 
                 for i, sample in enumerate(test_samples):
-                    # Generate response with learned playbook
-                    output = generator.generate(
+                    # Generate response with learned skillbook
+                    output = agent.generate(
                         question=sample.question,
                         context=sample.context,
-                        playbook=adapter.playbook,
+                        skillbook=adapter.skillbook,
                     )
 
                     # Evaluate

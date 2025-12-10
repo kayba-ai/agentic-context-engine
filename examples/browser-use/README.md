@@ -10,16 +10,16 @@ ACE enables browser automation agents to **learn from their execution feedback**
 ```
 Task → [browser-use Agent] → Execution Result
          ↑                           ↓
-     Playbook ← [Curator] ← [Reflector] ← Feedback
-     (context)  (updates)   (analyzes)
+     Skillbook ← [SkillManager] ← [Reflector] ← Feedback
+     (context)     (updates)       (analyzes)
 ```
 
 Instead of static prompts, ACEAgent:
 
-1. **Injects** playbook context into browser-use Agent
+1. **Injects** skillbook context into browser-use Agent
 2. **Executes** browser tasks using browser-use
 3. **Reflects** on execution feedback (what worked/failed)
-4. **Curates** lessons into the playbook
+4. **Updates** lessons into the skillbook
 5. **Improves** on subsequent tasks
 
 ## 📁 Folder Structure
@@ -46,7 +46,7 @@ Each example folder contains:
 - ACE version (WITH learning)
 - Baseline version (WITHOUT learning for comparison)
 - Example-specific utilities (*_utils.py)
-- Results images and saved playbooks
+- Results images and saved skillbooks
 
 ## 🚀 Quick Start
 
@@ -152,7 +152,7 @@ uv run python examples/browser-use/domain-checker/ace_domain_checker.py
 - Performance improves across tasks
 - Learns efficient patterns
 - Adapts strategies based on feedback
-- Builds reusable playbook
+- Builds reusable skillbook
 
 ## 🛠️ Create Your Own Use Case
 
@@ -168,7 +168,7 @@ from browser_use import ChatBrowserUse
 agent = ACEAgent(
     llm=ChatBrowserUse(),                    # Browser automation LLM
     ace_model="claude-haiku-4-5-20251001",   # ACE learning LLM
-    playbook_path=str(playbook_path) if playbook_path.exists() else None,
+    skillbook_path=str(skillbook_path) if skillbook_path.exists() else None,
     max_steps=25,                            # Browser automation steps
     calculate_cost=True                      # Track usage
 )
@@ -195,8 +195,8 @@ Browse `domain-checker/` or `form-filler/` examples and modify them for your nee
 **ACEAgent**: Integration wrapper that adds ACE learning to browser-use:
 1. **browser-use Agent**: Executes browser automation tasks
 2. **Reflector**: Analyzes execution feedback (errors, successes, efficiency)
-3. **Curator**: Updates playbook with learned lessons
-4. **Playbook**: Persistent knowledge base injected as context
+3. **SkillManager**: Updates skillbook with learned lessons
+4. **Skillbook**: Persistent knowledge base injected as context
 
 ACEAgent uses the Integration Pattern - browser-use handles execution, ACE handles learning!
 
@@ -204,7 +204,7 @@ ACEAgent uses the Integration Pattern - browser-use handles execution, ACE handl
 
 **ACEAgent** automatically learns from each task execution:
 - Analyzes what worked and what failed
-- Updates strategies in the playbook
+- Updates strategies in the skillbook
 - Applies learned lessons to future tasks
 
 ### Browser Integration

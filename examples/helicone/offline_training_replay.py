@@ -7,13 +7,13 @@ actual responses instead of generating new ones. This allows ACE to learn
 from past successful interactions without making new LLM calls.
 
 Features:
-- Uses ReplayGenerator (no LLM calls for generation - free!)
+- Uses ReplayAgent (no LLM calls for generation - free!)
 - Automatic Opik observability tracking for all operations
 - Learns from real production data
 
 Setup:
 1. Place your Helicone JSON export in: ../../.private/helicone/oneline.json
-2. Set ANTHROPIC_API_KEY for Reflector and Curator (they still need LLM)
+2. Set ANTHROPIC_API_KEY for Reflector and SkillManager (they still need LLM)
 3. (Optional) Install Opik for observability: pip install ace-framework[observability]
 4. Run: python offline_training_replay.py
 
@@ -21,7 +21,7 @@ Observability:
 If Opik is installed, you'll get automatic tracking of:
 - Which historical responses are being replayed
 - Question coverage (found vs. default responses)
-- Reflector and Curator learning patterns
+- Reflector and SkillManager learning patterns
 - View traces at: https://www.comet.com/opik
 """
 
@@ -33,14 +33,14 @@ from dotenv import load_dotenv
 
 
 from ace import (
-    ReplayGenerator,
+    ReplayAgent,
     Reflector,
-    Curator,
-    OfflineAdapter,
+    SkillManager,
+    OfflineACE,
     Sample,
     TaskEnvironment,
     EnvironmentResult,
-    Playbook,
+    Skillbook,
     LiteLLMClient,
 )
 from ace.prompts_v2_1 import PromptManager
@@ -58,14 +58,14 @@ class SimpleHeliconeEnvironment(TaskEnvironment):
     based on your use case (e.g., checking for errors, quality metrics, etc.)
     """
 
-    def evaluate(self, sample: Sample, generator_output):
+    def evaluate(self, sample: Sample, agent_output):
         """
         Evaluate the replayed response.
 
         For now, we assume all replayed responses are valid since they
         came from actual production usage. You can add custom logic here.
         """
-        response = generator_output.final_answer.strip()
+        response = agent_output.final_answer.strip()
 
         # Basic validation
         is_valid = len(response) > 0
@@ -178,12 +178,12 @@ def main():
     MAX_SAMPLES = 20  # Start small for testing
     EPOCHS = 2
     MODEL = "claude-sonnet-4-20250514"
-    PLAYBOOK_OUTPUT = "helicone_replay_playbook.json"
+    SKILLBOOK_OUTPUT = "helicone_replay_skillbook.json"
 
-    # Check for API key (needed for Reflector and Curator)
+    # Check for API key (needed for Reflector and SkillManager)
     if not os.getenv("ANTHROPIC_API_KEY"):
         print("⚠️  Please set ANTHROPIC_API_KEY in your .env file")
-        print("   This is required for Reflector and Curator")
+        print("   This is required for Reflector and SkillManager")
         return
 
     # 1. Load Helicone trace
@@ -205,7 +205,7 @@ def main():
     print(f"   Cost: ${trace.cost:.4f}")
     print(f"   Turns: {len(trace.conversation)}\n")
 
-    # 2. Build response mapping for ReplayGenerator
+    # 2. Build response mapping for ReplayAgent
     print("🔄 Building response mapping from trace...")
     response_mapping = build_response_mapping(trace)
     print(f"✅ Extracted {len(response_mapping)} question-response pairs\n")
@@ -226,22 +226,24 @@ def main():
 
     # 4. Create ACE components
     print(f"🧠 Initializing ACE components...")
-    print(f"   Generator: ReplayGenerator (uses historical data)")
+    print(f"   Agent: ReplayAgent (uses historical data)")
     print(f"   Reflector: {MODEL} (with v2 prompts)")
-    print(f"   Curator: {MODEL} (with v2 prompts)\n")
+    print(f"   SkillManager: {MODEL} (with v2 prompts)\n")
 
-    # Create LLM client for Reflector and Curator
+    # Create LLM client for Reflector and SkillManager
     llm = LiteLLMClient(model=MODEL, temperature=0.7)
 
     # Create prompt manager for v2 prompts
     prompt_manager = PromptManager(default_version="2.0")
 
-    # Create ACE adapter with ReplayGenerator and v2 prompts
-    adapter = OfflineAdapter(
-        playbook=Playbook(),
-        generator=ReplayGenerator(response_mapping),
+    # Create ACE adapter with ReplayAgent and v2 prompts
+    adapter = OfflineACE(
+        skillbook=Skillbook(),
+        agent=ReplayAgent(response_mapping),
         reflector=Reflector(llm, prompt_template=prompt_manager.get_reflector_prompt()),
-        curator=Curator(llm, prompt_template=prompt_manager.get_curator_prompt()),
+        skill_manager=SkillManager(
+            llm, prompt_template=prompt_manager.get_skill_manager_prompt()
+        ),
     )
 
     # 5. Create environment
@@ -259,7 +261,7 @@ def main():
     print("📊 Training Results")
     print("=" * 70)
     print(f"✅ Processed {len(results)} samples")
-    print(f"📚 Playbook now has {len(adapter.playbook.bullets())} learned strategies")
+    print(f"📚 Skillbook now has {len(adapter.skillbook.skills())} learned strategies")
 
     # Calculate success metrics
     if results:
@@ -270,17 +272,17 @@ def main():
         print(f"📈 Success rate: {success_rate:.1f}% ({successful}/{len(results)})")
 
     # Show top learned strategies
-    if adapter.playbook.bullets():
+    if adapter.skillbook.skills():
         print(f"\n🎯 Top Learned Strategies:")
-        for i, bullet in enumerate(adapter.playbook.bullets()[:5], 1):
-            score = bullet.helpful - bullet.harmful
-            print(f"\n{i}. {bullet.content[:100]}...")
-            print(f"   Score: +{bullet.helpful}/-{bullet.harmful} (net: {score})")
+        for i, skill in enumerate(adapter.skillbook.skills()[:5], 1):
+            score = skill.helpful - skill.harmful
+            print(f"\n{i}. {skill.content[:100]}...")
+            print(f"   Score: +{skill.helpful}/-{skill.harmful} (net: {score})")
 
-    # 8. Save playbook
-    playbook_path = Path(PLAYBOOK_OUTPUT)
-    adapter.playbook.save_to_file(str(playbook_path))
-    print(f"\n💾 Playbook saved to: {playbook_path}")
+    # 8. Save skillbook
+    skillbook_path = Path(SKILLBOOK_OUTPUT)
+    adapter.skillbook.save_to_file(str(skillbook_path))
+    print(f"\n💾 Skillbook saved to: {skillbook_path}")
 
     # 9. Show trace analytics
     print(f"\n📊 Original Trace Analytics:")

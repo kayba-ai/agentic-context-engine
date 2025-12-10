@@ -39,8 +39,8 @@ async def main():
             print(f"❌ Failed: {e}")
 
     # Save learned strategies
-    agent.save_playbook("playbook.json")
-    print(f"💾 Saved {len(agent.playbook.bullets())} learned strategies")
+    agent.save_skillbook("skillbook.json")
+    print(f"💾 Saved {len(agent.skillbook.skills())} learned strategies")
 
 
 if __name__ == "__main__":

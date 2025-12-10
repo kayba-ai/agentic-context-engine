@@ -3,7 +3,7 @@
 Helicone Data ACE Training Boilerplate
 
 Loads Helicone JSONL request/response logs and trains ACE to learn from them.
-Uses OfflineAdapter for batch learning over the dataset.
+Uses OfflineACE for batch learning over the dataset.
 """
 
 import json
@@ -16,14 +16,14 @@ from dotenv import load_dotenv
 
 from ace import (
     LiteLLMClient,
-    Generator,
+    Agent,
     Reflector,
-    Curator,
-    OfflineAdapter,
+    SkillManager,
+    OfflineACE,
     Sample,
     TaskEnvironment,
     EnvironmentResult,
-    Playbook,
+    Skillbook,
 )
 
 # Load environment variables
@@ -38,7 +38,7 @@ class HeliconeEnvironment(TaskEnvironment):
     You can improve this later to add more sophisticated evaluation logic.
     """
 
-    def evaluate(self, sample: Sample, generator_output):
+    def evaluate(self, sample: Sample, agent_output):
         """
         Evaluate the generator's response against the ground truth.
 
@@ -46,7 +46,7 @@ class HeliconeEnvironment(TaskEnvironment):
         - Check if response is non-empty
         - Simple similarity check (can be improved)
         """
-        response = generator_output.final_answer.strip()
+        response = agent_output.final_answer.strip()
         ground_truth = sample.ground_truth.strip() if sample.ground_truth else ""
 
         # Basic validation
@@ -171,7 +171,7 @@ def main():
     MAX_SAMPLES = 50  # Start small for testing
     EPOCHS = 1
     MODEL = "claude-sonnet-4-20250514"  # Model from Helicone data
-    PLAYBOOK_OUTPUT = "helicone_learned_playbook.json"
+    SKILLBOOK_OUTPUT = "helicone_learned_skillbook.json"
 
     print("\n" + "=" * 60)
     print("Helicone Data ACE Training")
@@ -199,11 +199,11 @@ def main():
 
     # 3. Create ACE components
     print("🧠 Initializing ACE components...")
-    adapter = OfflineAdapter(
-        playbook=Playbook(),
-        generator=Generator(llm),
+    adapter = OfflineACE(
+        skillbook=Skillbook(),
+        agent=Agent(llm),
         reflector=Reflector(llm),
-        curator=Curator(llm),
+        skill_manager=SkillManager(llm),
     )
 
     # 4. Create environment
@@ -220,21 +220,19 @@ def main():
     print("📊 Training Results")
     print("=" * 60)
     print(f"✅ Trained on {len(results)} samples")
-    print(f"📚 Playbook now has {len(adapter.playbook.bullets())} learned strategies")
+    print(f"📚 Skillbook now has {len(adapter.skillbook.skills())} learned strategies")
 
     # Show learned strategies
-    if adapter.playbook.bullets():
+    if adapter.skillbook.skills():
         print("\n🎯 Top Learned Strategies:")
-        for i, bullet in enumerate(adapter.playbook.bullets()[:5], 1):
-            print(f"\n{i}. {bullet.content}")
-            print(
-                f"   Helpful: {bullet.helpful_count} | Harmful: {bullet.harmful_count}"
-            )
+        for i, skill in enumerate(adapter.skillbook.skills()[:5], 1):
+            print(f"\n{i}. {skill.content}")
+            print(f"   Helpful: {skill.helpful} | Harmful: {skill.harmful}")
 
-    # 7. Save playbook
-    playbook_path = Path(PLAYBOOK_OUTPUT)
-    adapter.playbook.save_to_file(str(playbook_path))
-    print(f"\n💾 Playbook saved to: {playbook_path}")
+    # 7. Save skillbook
+    skillbook_path = Path(SKILLBOOK_OUTPUT)
+    adapter.skillbook.save_to_file(str(skillbook_path))
+    print(f"\n💾 Skillbook saved to: {skillbook_path}")
 
     print("\n" + "=" * 60)
     print("✨ Training complete!")

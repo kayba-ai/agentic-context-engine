@@ -1,4 +1,4 @@
-"""Similarity detection for bullet deduplication."""
+"""Similarity detection for skill deduplication."""
 
 from __future__ import annotations
 
@@ -9,13 +9,13 @@ from ..features import has_litellm, has_numpy, has_sentence_transformers
 from .config import DeduplicationConfig
 
 if TYPE_CHECKING:
-    from ..playbook import Bullet, Playbook
+    from ..skillbook import Skill, Skillbook
 
 logger = logging.getLogger(__name__)
 
 
 class SimilarityDetector:
-    """Detect similar bullet pairs using cosine similarity on embeddings."""
+    """Detect similar skill pairs using cosine similarity on embeddings."""
 
     def __init__(self, config: Optional[DeduplicationConfig] = None):
         self.config = config or DeduplicationConfig()
@@ -164,66 +164,66 @@ class SimilarityDetector:
             return 0.0
         return float(dot / (norm_a * norm_b))
 
-    def ensure_embeddings(self, playbook: "Playbook") -> int:
-        """Ensure all active bullets have embeddings computed.
+    def ensure_embeddings(self, skillbook: "Skillbook") -> int:
+        """Ensure all active skills have embeddings computed.
 
         Args:
-            playbook: Playbook to process
+            skillbook: Skillbook to process
 
         Returns:
             Number of embeddings computed
         """
-        bullets_needing_embeddings = [
-            b for b in playbook.bullets() if b.embedding is None
+        skills_needing_embeddings = [
+            s for s in skillbook.skills() if s.embedding is None
         ]
 
-        if not bullets_needing_embeddings:
+        if not skills_needing_embeddings:
             return 0
 
-        texts = [b.content for b in bullets_needing_embeddings]
+        texts = [s.content for s in skills_needing_embeddings]
         embeddings = self.compute_embeddings_batch(texts)
 
         count = 0
-        for bullet, embedding in zip(bullets_needing_embeddings, embeddings):
+        for skill, embedding in zip(skills_needing_embeddings, embeddings):
             if embedding is not None:
-                bullet.embedding = embedding
+                skill.embedding = embedding
                 count += 1
 
-        logger.info(f"Computed {count} embeddings for bullets")
+        logger.info(f"Computed {count} embeddings for skills")
         return count
 
     def detect_similar_pairs(
         self,
-        playbook: "Playbook",
+        skillbook: "Skillbook",
         threshold: Optional[float] = None,
-    ) -> List[Tuple["Bullet", "Bullet", float]]:
-        """Find all pairs of bullets with similarity >= threshold.
+    ) -> List[Tuple["Skill", "Skill", float]]:
+        """Find all pairs of skills with similarity >= threshold.
 
         Args:
-            playbook: Playbook to search
+            skillbook: Skillbook to search
             threshold: Similarity threshold (default: config.similarity_threshold)
 
         Returns:
-            List of (bullet_a, bullet_b, similarity_score) tuples,
+            List of (skill_a, skill_b, similarity_score) tuples,
             sorted by similarity score descending
         """
         threshold = threshold or self.config.similarity_threshold
-        similar_pairs: List[Tuple["Bullet", "Bullet", float]] = []
+        similar_pairs: List[Tuple["Skill", "Skill", float]] = []
 
-        # Get active bullets only
-        bullets = playbook.bullets(include_invalid=False)
+        # Get active skills only
+        skills = skillbook.skills(include_invalid=False)
 
         # Group by section if configured
         if self.config.within_section_only:
             sections: dict[str, list] = {}
-            for bullet in bullets:
-                sections.setdefault(bullet.section, []).append(bullet)
+            for skill in skills:
+                sections.setdefault(skill.section, []).append(skill)
 
-            for section_bullets in sections.values():
-                pairs = self._find_similar_in_list(section_bullets, playbook, threshold)
+            for section_skills in sections.values():
+                pairs = self._find_similar_in_list(section_skills, skillbook, threshold)
                 similar_pairs.extend(pairs)
         else:
-            similar_pairs = self._find_similar_in_list(bullets, playbook, threshold)
+            similar_pairs = self._find_similar_in_list(skills, skillbook, threshold)
 
         # Sort by similarity descending
         similar_pairs.sort(key=lambda x: x[2], reverse=True)
@@ -231,30 +231,30 @@ class SimilarityDetector:
 
     def _find_similar_in_list(
         self,
-        bullets: List["Bullet"],
-        playbook: "Playbook",
+        skills: List["Skill"],
+        skillbook: "Skillbook",
         threshold: float,
-    ) -> List[Tuple["Bullet", "Bullet", float]]:
-        """Find similar pairs within a list of bullets."""
-        pairs: List[Tuple["Bullet", "Bullet", float]] = []
+    ) -> List[Tuple["Skill", "Skill", float]]:
+        """Find similar pairs within a list of skills."""
+        pairs: List[Tuple["Skill", "Skill", float]] = []
 
-        for i, bullet_a in enumerate(bullets):
-            if bullet_a.embedding is None:
+        for i, skill_a in enumerate(skills):
+            if skill_a.embedding is None:
                 continue
 
-            for bullet_b in bullets[i + 1 :]:
-                if bullet_b.embedding is None:
+            for skill_b in skills[i + 1 :]:
+                if skill_b.embedding is None:
                     continue
 
                 # Skip pairs with existing KEEP decisions
-                if playbook.has_keep_decision(bullet_a.id, bullet_b.id):
+                if skillbook.has_keep_decision(skill_a.id, skill_b.id):
                     continue
 
                 similarity = self.cosine_similarity(
-                    bullet_a.embedding, bullet_b.embedding
+                    skill_a.embedding, skill_b.embedding
                 )
 
                 if similarity >= threshold:
-                    pairs.append((bullet_a, bullet_b, similarity))
+                    pairs.append((skill_a, skill_b, similarity))
 
         return pairs

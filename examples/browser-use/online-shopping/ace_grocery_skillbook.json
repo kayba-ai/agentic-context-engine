@@ -1,0 +1,118 @@
+{
+  "skills": {
+    "web_interaction_patterns-00001": {
+      "id": "web_interaction_patterns-00001",
+      "section": "web_interaction_patterns",
+      "content": "Use shadowRoot.querySelector() for elements hidden in shadow DOM",
+      "helpful": 0,
+      "harmful": 0,
+      "neutral": 0,
+      "created_at": "2025-11-24T23:27:19.739470+00:00",
+      "updated_at": "2025-11-24T23:27:19.739486+00:00"
+    },
+    "web_interaction_patterns-00002": {
+      "id": "web_interaction_patterns-00002",
+      "section": "web_interaction_patterns",
+      "content": "Implement getAllShadowRoots() recursive traversal when querySelector fails",
+      "helpful": 0,
+      "harmful": 0,
+      "neutral": 0,
+      "created_at": "2025-11-24T23:27:19.739513+00:00",
+      "updated_at": "2025-11-24T23:27:19.739518+00:00"
+    },
+    "interaction_fallback_strategies-00003": {
+      "id": "interaction_fallback_strategies-00003",
+      "section": "interaction_fallback_strategies",
+      "content": "Switch to keyboard navigation (Tab + Space) when DOM click() fails",
+      "helpful": 0,
+      "harmful": 0,
+      "neutral": 0,
+      "created_at": "2025-11-24T23:27:19.739530+00:00",
+      "updated_at": "2025-11-24T23:27:19.739534+00:00"
+    },
+    "interaction_fallback_strategies-00004": {
+      "id": "interaction_fallback_strategies-00004",
+      "section": "interaction_fallback_strategies",
+      "content": "Attempt API endpoint POST for add-to-cart when UI interaction fails",
+      "helpful": 0,
+      "harmful": 0,
+      "neutral": 0,
+      "created_at": "2025-11-24T23:27:19.739543+00:00",
+      "updated_at": "2025-11-24T23:27:19.739547+00:00"
+    },
+    "task_completion_patterns-00005": {
+      "id": "task_completion_patterns-00005",
+      "section": "task_completion_patterns",
+      "content": "Abandon DOM manipulation approach after 10 consecutive identical failures",
+      "helpful": 0,
+      "harmful": 0,
+      "neutral": 0,
+      "created_at": "2025-11-24T23:27:19.739557+00:00",
+      "updated_at": "2025-11-24T23:27:19.739560+00:00"
+    },
+    "task_completion_patterns-00006": {
+      "id": "task_completion_patterns-00006",
+      "section": "task_completion_patterns",
+      "content": "Never mark task complete if core requirement remains unmet",
+      "helpful": 0,
+      "harmful": 0,
+      "neutral": 0,
+      "created_at": "2025-11-24T23:27:19.739571+00:00",
+      "updated_at": "2025-11-24T23:27:19.739576+00:00"
+    },
+    "search_pattern_alternatives-00007": {
+      "id": "search_pattern_alternatives-00007",
+      "section": "search_pattern_alternatives",
+      "content": "Use category link clicking instead of search input submission on SPAs",
+      "helpful": 1,
+      "harmful": 0,
+      "neutral": 0,
+      "created_at": "2025-11-24T23:27:19.739587+00:00",
+      "updated_at": "2025-11-24T23:27:19.739592+00:00"
+    },
+    "error_diagnosis-00008": {
+      "id": "error_diagnosis-00008",
+      "section": "error_diagnosis",
+      "content": "Consistent querySelector(null) indicates element in shadow DOM, not missing",
+      "helpful": 0,
+      "harmful": 0,
+      "neutral": 0,
+      "created_at": "2025-11-24T23:27:19.739601+00:00",
+      "updated_at": "2025-11-24T23:27:19.739605+00:00"
+    },
+    "task_analysis-00009": {
+      "id": "task_analysis-00009",
+      "section": "task_analysis",
+      "content": "Information gathering succeeded (5 items identified, prices correct) - interaction layer failed",
+      "helpful": 0,
+      "harmful": 0,
+      "neutral": 0,
+      "created_at": "2025-11-24T23:27:19.739616+00:00",
+      "updated_at": "2025-11-24T23:27:19.739619+00:00"
+    }
+  },
+  "sections": {
+    "web_interaction_patterns": [
+      "web_interaction_patterns-00001",
+      "web_interaction_patterns-00002"
+    ],
+    "interaction_fallback_strategies": [
+      "interaction_fallback_strategies-00003",
+      "interaction_fallback_strategies-00004"
+    ],
+    "task_completion_patterns": [
+      "task_completion_patterns-00005",
+      "task_completion_patterns-00006"
+    ],
+    "search_pattern_alternatives": [
+      "search_pattern_alternatives-00007"
+    ],
+    "error_diagnosis": [
+      "error_diagnosis-00008"
+    ],
+    "task_analysis": [
+      "task_analysis-00009"
+    ]
+  },
+  "next_id": 9
+}

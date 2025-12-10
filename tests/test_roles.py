@@ -1,4 +1,4 @@
-"""Unit tests for Generator, Reflector, and Curator roles."""
+"""Unit tests for Agent, Reflector, and SkillManager roles."""
 
 import unittest
 from pathlib import Path
@@ -6,13 +6,13 @@ import tempfile
 
 import pytest
 
-from ace import Generator, Reflector, Curator, Playbook
+from ace import Agent, Reflector, SkillManager, Skillbook
 from ace.roles import (
     _safe_json_loads,
-    GeneratorOutput,
+    AgentOutput,
     ReflectorOutput,
-    CuratorOutput,
-    BulletTag,
+    SkillManagerOutput,
+    SkillTag,
 )
 
 
@@ -85,12 +85,12 @@ class TestSafeJsonLoads(unittest.TestCase):
 
 
 @pytest.mark.unit
-class TestGenerator(unittest.TestCase):
-    """Test Generator role."""
+class TestAgent(unittest.TestCase):
+    """Test Agent role."""
 
     def setUp(self):
         """Set up test fixtures."""
-        self.playbook = Playbook()
+        self.skillbook = Skillbook()
         # Import mock from conftest
         from tests.conftest import MockLLMClient
 
@@ -99,39 +99,37 @@ class TestGenerator(unittest.TestCase):
     def test_generate_basic(self):
         """Test basic generation with valid JSON response."""
         self.mock_llm.set_response(
-            '{"reasoning": "Test reasoning", "final_answer": "42", "bullet_ids": []}'
+            '{"reasoning": "Test reasoning", "final_answer": "42", "skill_ids": []}'
         )
 
-        generator = Generator(self.mock_llm)
-        output = generator.generate(
+        agent = Agent(self.mock_llm)
+        output = agent.generate(
             question="What is the answer?",
             context="Test context",
-            playbook=self.playbook,
+            skillbook=self.skillbook,
         )
 
         self.assertEqual(output.final_answer, "42")
         self.assertEqual(output.reasoning, "Test reasoning")
-        self.assertEqual(len(output.bullet_ids), 0)
+        self.assertEqual(len(output.skill_ids), 0)
 
-    def test_generate_with_playbook_bullets(self):
-        """Test generation uses bullets from playbook."""
-        bullet = self.playbook.add_bullet(
-            "math", "Show your work", bullet_id="math-001"
-        )
+    def test_generate_with_skillbook_skills(self):
+        """Test generation uses skills from skillbook."""
+        skill = self.skillbook.add_skill("math", "Show your work", skill_id="math-001")
 
         self.mock_llm.set_response(
             '{"reasoning": "Following [math-001], I will show my work to solve", "final_answer": "4"}'
         )
 
-        generator = Generator(self.mock_llm)
-        output = generator.generate(
+        agent = Agent(self.mock_llm)
+        output = agent.generate(
             question="What is 2+2?",
             context="Calculate step by step",
-            playbook=self.playbook,
+            skillbook=self.skillbook,
         )
 
         self.assertEqual(output.final_answer, "4")
-        self.assertIn("math-001", output.bullet_ids)
+        self.assertIn("math-001", output.skill_ids)
 
     def test_generate_with_reflection(self):
         """Test generation with reflection from previous attempt."""
@@ -139,11 +137,11 @@ class TestGenerator(unittest.TestCase):
             '{"reasoning": "Improved answer", "final_answer": "Better"}'
         )
 
-        generator = Generator(self.mock_llm)
-        output = generator.generate(
+        agent = Agent(self.mock_llm)
+        output = agent.generate(
             question="Test?",
             context="",
-            playbook=self.playbook,
+            skillbook=self.skillbook,
             reflection="Previous attempt was incorrect",
         )
 
@@ -151,24 +149,22 @@ class TestGenerator(unittest.TestCase):
         prompt = self.mock_llm.call_history[0]["prompt"]
         self.assertIn("Previous attempt was incorrect", prompt)
 
-    def test_generate_filters_invalid_bullet_ids(self):
+    def test_generate_filters_invalid_skill_ids(self):
         """Test that citations are extracted from reasoning."""
         self.mock_llm.set_response(
             '{"reasoning": "Following [strategy-001] and [math-002], but also [content-123] works", "final_answer": "OK"}'
         )
 
-        generator = Generator(self.mock_llm)
-        output = generator.generate(
-            question="Test?", context="", playbook=self.playbook
-        )
+        agent = Agent(self.mock_llm)
+        output = agent.generate(question="Test?", context="", skillbook=self.skillbook)
 
         # Should extract cited IDs from reasoning
         self.assertEqual(
-            len(output.bullet_ids), 3
+            len(output.skill_ids), 3
         )  # "strategy-001", "math-002", "content-123"
-        self.assertIn("strategy-001", output.bullet_ids)
-        self.assertIn("math-002", output.bullet_ids)
-        self.assertIn("content-123", output.bullet_ids)
+        self.assertIn("strategy-001", output.skill_ids)
+        self.assertIn("math-002", output.skill_ids)
+        self.assertIn("content-123", output.skill_ids)
 
 
 @pytest.mark.unit
@@ -177,7 +173,7 @@ class TestReflector(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures."""
-        self.playbook = Playbook()
+        self.skillbook = Skillbook()
         from tests.conftest import MockLLMClient
 
         self.mock_llm = MockLLMClient()
@@ -185,37 +181,37 @@ class TestReflector(unittest.TestCase):
     def test_reflect_basic(self):
         """Test basic reflection with valid JSON."""
         self.mock_llm.set_response(
-            '{"reasoning": "Answer is correct", "error_identification": "", "root_cause_analysis": "", "correct_approach": "", "key_insight": "", "bullet_tags": []}'
+            '{"reasoning": "Answer is correct", "error_identification": "", "root_cause_analysis": "", "correct_approach": "", "key_insight": "", "skill_tags": []}'
         )
 
         reflector = Reflector(self.mock_llm)
-        generator_output = GeneratorOutput(
+        agent_output = AgentOutput(
             reasoning="2+2 equals 4",
             final_answer="4",
-            bullet_ids=[],
+            skill_ids=[],
             raw={},
         )
 
         reflection = reflector.reflect(
             question="What is 2+2?",
-            generator_output=generator_output,
-            playbook=self.playbook,
+            agent_output=agent_output,
+            skillbook=self.skillbook,
             ground_truth="4",
             feedback="Correct!",
         )
 
         self.assertEqual(reflection.reasoning, "Answer is correct")
-        self.assertEqual(len(reflection.bullet_tags), 0)
+        self.assertEqual(len(reflection.skill_tags), 0)
 
-    def test_reflect_with_bullet_tagging_helpful(self):
-        """Test reflector tags bullets as helpful."""
-        bullet = self.playbook.add_bullet("math", "Show your work", bullet_id="b1")
+    def test_reflect_with_skill_tagging_helpful(self):
+        """Test reflector tags skills as helpful."""
+        skill = self.skillbook.add_skill("math", "Show your work", skill_id="b1")
 
         self.mock_llm.set_response(
             """
         {
             "reasoning": "Good use of step-by-step approach", "error_identification": "", "root_cause_analysis": "", "correct_approach": "", "key_insight": "",
-            "bullet_tags": [
+            "skill_tags": [
                 {"id": "b1", "tag": "helpful"}
             ]
         }
@@ -223,36 +219,34 @@ class TestReflector(unittest.TestCase):
         )
 
         reflector = Reflector(self.mock_llm)
-        generator_output = GeneratorOutput(
-            reasoning="Used bullet b1 for step-by-step",
+        agent_output = AgentOutput(
+            reasoning="Used skill b1 for step-by-step",
             final_answer="4",
-            bullet_ids=["b1"],
+            skill_ids=["b1"],
             raw={},
         )
 
         reflection = reflector.reflect(
             question="What is 2+2?",
-            generator_output=generator_output,
-            playbook=self.playbook,
+            agent_output=agent_output,
+            skillbook=self.skillbook,
             ground_truth="4",
             feedback="Correct",
         )
 
-        self.assertEqual(len(reflection.bullet_tags), 1)
-        self.assertEqual(reflection.bullet_tags[0].id, "b1")
-        self.assertEqual(reflection.bullet_tags[0].tag, "helpful")
+        self.assertEqual(len(reflection.skill_tags), 1)
+        self.assertEqual(reflection.skill_tags[0].id, "b1")
+        self.assertEqual(reflection.skill_tags[0].tag, "helpful")
 
-    def test_reflect_with_bullet_tagging_harmful(self):
-        """Test reflector tags bullets as harmful."""
-        bullet = self.playbook.add_bullet(
-            "math", "Skip showing work", bullet_id="b_bad"
-        )
+    def test_reflect_with_skill_tagging_harmful(self):
+        """Test reflector tags skills as harmful."""
+        skill = self.skillbook.add_skill("math", "Skip showing work", skill_id="b_bad")
 
         self.mock_llm.set_response(
             """
         {
             "reasoning": "Skipping work led to error", "error_identification": "", "root_cause_analysis": "", "correct_approach": "", "key_insight": "",
-            "bullet_tags": [
+            "skill_tags": [
                 {"id": "b_bad", "tag": "harmful"}
             ]
         }
@@ -260,40 +254,40 @@ class TestReflector(unittest.TestCase):
         )
 
         reflector = Reflector(self.mock_llm)
-        generator_output = GeneratorOutput(
+        agent_output = AgentOutput(
             reasoning="Skipped work as suggested",
             final_answer="5",
-            bullet_ids=["b_bad"],
+            skill_ids=["b_bad"],
             raw={},
         )
 
         reflection = reflector.reflect(
             question="What is 2+2?",
-            generator_output=generator_output,
-            playbook=self.playbook,
+            agent_output=agent_output,
+            skillbook=self.skillbook,
             ground_truth="4",
             feedback="Incorrect!",
         )
 
-        self.assertEqual(len(reflection.bullet_tags), 1)
-        self.assertEqual(reflection.bullet_tags[0].id, "b_bad")
-        self.assertEqual(reflection.bullet_tags[0].tag, "harmful")
+        self.assertEqual(len(reflection.skill_tags), 1)
+        self.assertEqual(reflection.skill_tags[0].id, "b_bad")
+        self.assertEqual(reflection.skill_tags[0].tag, "harmful")
 
     def test_reflect_without_ground_truth(self):
         """Test reflection works without ground truth."""
         self.mock_llm.set_response(
-            '{"reasoning": "Cannot verify without ground truth", "error_identification": "", "root_cause_analysis": "", "correct_approach": "", "key_insight": "", "bullet_tags": []}'
+            '{"reasoning": "Cannot verify without ground truth", "error_identification": "", "root_cause_analysis": "", "correct_approach": "", "key_insight": "", "skill_tags": []}'
         )
 
         reflector = Reflector(self.mock_llm)
-        generator_output = GeneratorOutput(
-            reasoning="Test", final_answer="Answer", bullet_ids=[], raw={}
+        agent_output = AgentOutput(
+            reasoning="Test", final_answer="Answer", skill_ids=[], raw={}
         )
 
         reflection = reflector.reflect(
             question="Open-ended question?",
-            generator_output=generator_output,
-            playbook=self.playbook,
+            agent_output=agent_output,
+            skillbook=self.skillbook,
             ground_truth=None,
             feedback="Response looks reasonable",
         )
@@ -302,22 +296,22 @@ class TestReflector(unittest.TestCase):
 
 
 @pytest.mark.unit
-class TestCurator(unittest.TestCase):
-    """Test Curator role."""
+class TestSkillManager(unittest.TestCase):
+    """Test SkillManager role."""
 
     def setUp(self):
         """Set up test fixtures."""
-        self.playbook = Playbook()
+        self.skillbook = Skillbook()
         from tests.conftest import MockLLMClient
 
         self.mock_llm = MockLLMClient()
 
-    def test_curate_basic_add_operation(self):
-        """Test basic curation with ADD operation."""
+    def test_update_skills_basic_add_operation(self):
+        """Test basic skill management with ADD operation."""
         self.mock_llm.set_response(
             """
         {
-            "delta": {
+            "update": {
                 "reasoning": "Need to add verification strategy",
                 "operations": [
                     {
@@ -331,45 +325,46 @@ class TestCurator(unittest.TestCase):
         """
         )
 
-        curator = Curator(self.mock_llm)
+        skill_manager = SkillManager(self.mock_llm)
         reflection = ReflectorOutput(
             reasoning="Missing verification step",
             error_identification="",
             root_cause_analysis="",
             correct_approach="",
             key_insight="",
-            bullet_tags=[],
+            skill_tags=[],
             raw={},
         )
 
-        curator_output = curator.curate(
+        skill_manager_output = skill_manager.update_skills(
             reflection=reflection,
-            playbook=self.playbook,
+            skillbook=self.skillbook,
             question_context="Math problem",
             progress="1/10",
         )
 
-        self.assertEqual(len(curator_output.delta.operations), 1)
-        self.assertEqual(curator_output.delta.operations[0].type, "ADD")
-        self.assertEqual(curator_output.delta.operations[0].section, "math")
+        self.assertEqual(len(skill_manager_output.update.operations), 1)
+        self.assertEqual(skill_manager_output.update.operations[0].type, "ADD")
+        self.assertEqual(skill_manager_output.update.operations[0].section, "math")
         self.assertEqual(
-            curator_output.delta.operations[0].content, "Always verify calculations"
+            skill_manager_output.update.operations[0].content,
+            "Always verify calculations",
         )
 
-    def test_curate_tag_operation(self):
-        """Test TAG operation updates bullet metadata."""
-        bullet = self.playbook.add_bullet("math", "Show your work", bullet_id="b1")
+    def test_update_skills_tag_operation(self):
+        """Test TAG operation updates skill metadata."""
+        skill = self.skillbook.add_skill("math", "Show your work", skill_id="b1")
 
         self.mock_llm.set_response(
             """
         {
-            "delta": {
-                "reasoning": "Bullet b1 was helpful",
+            "update": {
+                "reasoning": "Skill b1 was helpful",
                 "operations": [
                     {
                         "type": "TAG",
                         "section": "math",
-                        "bullet_id": "b1",
+                        "skill_id": "b1",
                         "metadata": {"helpful": 1}
                     }
                 ]
@@ -378,34 +373,36 @@ class TestCurator(unittest.TestCase):
         """
         )
 
-        curator = Curator(self.mock_llm)
+        skill_manager = SkillManager(self.mock_llm)
         reflection = ReflectorOutput(
-            reasoning="Bullet helped solve problem",
+            reasoning="Skill helped solve problem",
             error_identification="",
             root_cause_analysis="",
             correct_approach="",
             key_insight="",
-            bullet_tags=[],
+            skill_tags=[],
             raw={},
         )
 
-        curator_output = curator.curate(
+        skill_manager_output = skill_manager.update_skills(
             reflection=reflection,
-            playbook=self.playbook,
+            skillbook=self.skillbook,
             question_context="Math",
             progress="1/1",
         )
 
-        self.assertEqual(curator_output.delta.operations[0].type, "TAG")
-        self.assertEqual(curator_output.delta.operations[0].bullet_id, "b1")
-        self.assertEqual(curator_output.delta.operations[0].metadata["helpful"], 1)
+        self.assertEqual(skill_manager_output.update.operations[0].type, "TAG")
+        self.assertEqual(skill_manager_output.update.operations[0].skill_id, "b1")
+        self.assertEqual(
+            skill_manager_output.update.operations[0].metadata["helpful"], 1
+        )
 
-    def test_curate_multiple_operations(self):
-        """Test multiple operations in one delta batch."""
+    def test_update_skills_multiple_operations(self):
+        """Test multiple operations in one update batch."""
         self.mock_llm.set_response(
             """
         {
-            "delta": {
+            "update": {
                 "reasoning": "Add new strategy and tag existing one",
                 "operations": [
                     {
@@ -416,7 +413,7 @@ class TestCurator(unittest.TestCase):
                     {
                         "type": "TAG",
                         "section": "math",
-                        "bullet_id": "b1",
+                        "skill_id": "b1",
                         "metadata": {"helpful": 1}
                     }
                 ]
@@ -425,132 +422,132 @@ class TestCurator(unittest.TestCase):
         """
         )
 
-        curator = Curator(self.mock_llm)
+        skill_manager = SkillManager(self.mock_llm)
         reflection = ReflectorOutput(
             reasoning="Multiple changes needed",
             error_identification="",
             root_cause_analysis="",
             correct_approach="",
             key_insight="",
-            bullet_tags=[],
+            skill_tags=[],
             raw={},
         )
 
-        curator_output = curator.curate(
+        skill_manager_output = skill_manager.update_skills(
             reflection=reflection,
-            playbook=self.playbook,
+            skillbook=self.skillbook,
             question_context="Physics",
             progress="5/10",
         )
 
-        self.assertEqual(len(curator_output.delta.operations), 2)
-        self.assertEqual(curator_output.delta.operations[0].type, "ADD")
-        self.assertEqual(curator_output.delta.operations[1].type, "TAG")
+        self.assertEqual(len(skill_manager_output.update.operations), 2)
+        self.assertEqual(skill_manager_output.update.operations[0].type, "ADD")
+        self.assertEqual(skill_manager_output.update.operations[1].type, "TAG")
 
-    def test_curate_empty_operations(self):
-        """Test curation with no operations needed."""
+    def test_update_skills_empty_operations(self):
+        """Test skill management with no operations needed."""
         self.mock_llm.set_response(
             """
         {
-            "delta": {
-                "reasoning": "Playbook is already sufficient",
+            "update": {
+                "reasoning": "Skillbook is already sufficient",
                 "operations": []
             }
         }
         """
         )
 
-        curator = Curator(self.mock_llm)
+        skill_manager = SkillManager(self.mock_llm)
         reflection = ReflectorOutput(
             reasoning="Everything looks good",
             error_identification="",
             root_cause_analysis="",
             correct_approach="",
             key_insight="",
-            bullet_tags=[],
+            skill_tags=[],
             raw={},
         )
 
-        curator_output = curator.curate(
+        skill_manager_output = skill_manager.update_skills(
             reflection=reflection,
-            playbook=self.playbook,
+            skillbook=self.skillbook,
             question_context="Test",
             progress="10/10",
         )
 
-        self.assertEqual(len(curator_output.delta.operations), 0)
-        self.assertIn("sufficient", curator_output.delta.reasoning)
+        self.assertEqual(len(skill_manager_output.update.operations), 0)
+        self.assertIn("sufficient", skill_manager_output.update.reasoning)
 
 
-class TestExtractCitedBulletIds(unittest.TestCase):
-    """Test bullet ID extraction utility."""
+class TestExtractCitedSkillIds(unittest.TestCase):
+    """Test skill ID extraction utility."""
 
     def test_extract_single_id(self):
-        """Extract single bullet ID."""
-        from ace.roles import extract_cited_bullet_ids
+        """Extract single skill ID."""
+        from ace.roles import extract_cited_skill_ids
 
         text = "Following [general-00042], I will proceed."
-        result = extract_cited_bullet_ids(text)
+        result = extract_cited_skill_ids(text)
         self.assertEqual(result, ["general-00042"])
 
     def test_extract_multiple_ids(self):
         """Extract multiple IDs in order."""
-        from ace.roles import extract_cited_bullet_ids
+        from ace.roles import extract_cited_skill_ids
 
         text = "Using [general-00042] and [geo-00003] strategies."
-        result = extract_cited_bullet_ids(text)
+        result = extract_cited_skill_ids(text)
         self.assertEqual(result, ["general-00042", "geo-00003"])
 
     def test_deduplicate_preserving_order(self):
         """Deduplicate while preserving first occurrence."""
-        from ace.roles import extract_cited_bullet_ids
+        from ace.roles import extract_cited_skill_ids
 
         text = "Start with [id-001], then [id-002], revisit [id-001]."
-        result = extract_cited_bullet_ids(text)
+        result = extract_cited_skill_ids(text)
         self.assertEqual(result, ["id-001", "id-002"])
 
     def test_no_ids_found(self):
         """Return empty list when no IDs."""
-        from ace.roles import extract_cited_bullet_ids
+        from ace.roles import extract_cited_skill_ids
 
-        text = "This has no bullet citations at all."
-        result = extract_cited_bullet_ids(text)
+        text = "This has no skill citations at all."
+        result = extract_cited_skill_ids(text)
         self.assertEqual(result, [])
 
     def test_mixed_with_noise(self):
         """Extract IDs ignoring other bracketed content."""
-        from ace.roles import extract_cited_bullet_ids
+        from ace.roles import extract_cited_skill_ids
 
         text = "Use [strategy-123] but not [this is not an id] or [123]."
-        result = extract_cited_bullet_ids(text)
+        result = extract_cited_skill_ids(text)
         self.assertEqual(result, ["strategy-123"])
 
     def test_various_section_names(self):
         """Handle different section naming conventions."""
-        from ace.roles import extract_cited_bullet_ids
+        from ace.roles import extract_cited_skill_ids
 
         text = "[general-001] [content_extraction-042] [API_calls-999]"
-        result = extract_cited_bullet_ids(text)
+        result = extract_cited_skill_ids(text)
         self.assertEqual(
             result, ["general-001", "content_extraction-042", "API_calls-999"]
         )
 
     def test_empty_string(self):
         """Handle empty input."""
-        from ace.roles import extract_cited_bullet_ids
+        from ace.roles import extract_cited_skill_ids
 
-        self.assertEqual(extract_cited_bullet_ids(""), [])
+        self.assertEqual(extract_cited_skill_ids(""), [])
 
     def test_multiline_text(self):
         """Extract from multiline text."""
-        from ace.roles import extract_cited_bullet_ids
+        from ace.roles import extract_cited_skill_ids
 
         text = """
         Step 1: Following [setup-001], initialize.
         Step 2: Apply [process-042] for data.
         Step 3: Using [setup-001] again.
         """
-        result = extract_cited_bullet_ids(text)
+        result = extract_cited_skill_ids(text)
         self.assertEqual(result, ["setup-001", "process-042"])
 
 

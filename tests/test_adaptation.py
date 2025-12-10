@@ -6,20 +6,20 @@ import pytest
 from ace import (
     DummyLLMClient,
     EnvironmentResult,
-    OfflineAdapter,
-    Playbook,
+    OfflineACE,
+    Skillbook,
     Sample,
     TaskEnvironment,
-    Generator,
+    Agent,
     Reflector,
-    Curator,
+    SkillManager,
 )
 
 
 class SimpleQAEnvironment(TaskEnvironment):
-    def evaluate(self, sample: Sample, generator_output) -> EnvironmentResult:
+    def evaluate(self, sample: Sample, agent_output) -> EnvironmentResult:
         ground_truth = sample.ground_truth or ""
-        prediction = generator_output.final_answer
+        prediction = agent_output.final_answer
         correct = prediction.strip().lower() == ground_truth.strip().lower()
         feedback = (
             "correct" if correct else f"expected {ground_truth} but got {prediction}"
@@ -32,14 +32,14 @@ class SimpleQAEnvironment(TaskEnvironment):
 
 
 @pytest.mark.unit
-class OfflineAdapterTest(unittest.TestCase):
-    def test_single_step_updates_playbook(self) -> None:
+class OfflineACETest(unittest.TestCase):
+    def test_single_step_updates_skillbook(self) -> None:
         client = DummyLLMClient()
         client.queue(
             json.dumps(
                 {
-                    "reasoning": "The answer is given in the playbook.",
-                    "bullet_ids": [],
+                    "reasoning": "The answer is given in the skillbook.",
+                    "skill_ids": [],
                     "final_answer": "42",
                 }
             )
@@ -50,16 +50,16 @@ class OfflineAdapterTest(unittest.TestCase):
                     "reasoning": "Prediction matches ground truth.",
                     "error_identification": "",
                     "root_cause_analysis": "",
-                    "correct_approach": "Keep leveraging the playbook.",
+                    "correct_approach": "Keep leveraging the skillbook.",
                     "key_insight": "Store that 42 is the default answer.",
-                    "bullet_tags": [],
+                    "skill_tags": [],
                 }
             )
         )
         client.queue(
             json.dumps(
                 {
-                    "delta": {
+                    "update": {
                         "reasoning": "Adding a reminder for future tasks.",
                         "operations": [
                             {
@@ -74,16 +74,16 @@ class OfflineAdapterTest(unittest.TestCase):
             )
         )
 
-        playbook = Playbook()
-        generator = Generator(client)
+        skillbook = Skillbook()
+        agent = Agent(client)
         reflector = Reflector(client)
-        curator = Curator(client)
+        skill_manager = SkillManager(client)
 
-        adapter = OfflineAdapter(
-            playbook=playbook,
-            generator=generator,
+        adapter = OfflineACE(
+            skillbook=skillbook,
+            agent=agent,
             reflector=reflector,
-            curator=curator,
+            skill_manager=skill_manager,
             max_refinement_rounds=1,
         )
 
@@ -95,9 +95,9 @@ class OfflineAdapterTest(unittest.TestCase):
         results = adapter.run([sample], environment, epochs=1)
 
         self.assertEqual(len(results), 1)
-        self.assertEqual(results[0].generator_output.final_answer, "42")
-        self.assertGreaterEqual(playbook.stats()["sections"], 1)
-        self.assertTrue(any("life" in bullet.content for bullet in playbook.bullets()))
+        self.assertEqual(results[0].agent_output.final_answer, "42")
+        self.assertGreaterEqual(skillbook.stats()["sections"], 1)
+        self.assertTrue(any("life" in skill.content for skill in skillbook.skills()))
 
 
 if __name__ == "__main__":

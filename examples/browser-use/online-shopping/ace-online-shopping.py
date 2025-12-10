@@ -40,7 +40,7 @@ def get_ace_token_usage(
     """Query Opik for ACE token usage only.
 
     Returns:
-        tuple: (ace_tokens, generator_tokens, reflector_tokens, curator_tokens)
+        tuple: (ace_tokens, agent_tokens, reflector_tokens, skill_manager_tokens)
     """
     try:
         if not opik:
@@ -84,9 +84,9 @@ def get_ace_token_usage(
                 print(f"   ⚠️ Failed to search '{project}' project: {e}")
 
         # Track individual ACE role tokens
-        generator_tokens = 0
+        agent_tokens = 0
         reflector_tokens = 0
-        curator_tokens = 0
+        skill_manager_tokens = 0
 
         print(f"   🔍 Processing {len(all_traces)} total traces...")
 
@@ -97,7 +97,7 @@ def get_ace_token_usage(
 
             if any(
                 role in trace_name_lower
-                for role in ["generator", "reflector", "curator"]
+                for role in ["agent", "reflector", "skill_manager"]
             ):
                 print(f"      📋 ACE Trace: '{trace_name}'")
 
@@ -122,25 +122,25 @@ def get_ace_token_usage(
                         print(f"         ⚠️ Failed to get spans: {e}")
 
                 # Classify by role
-                if "generator" in trace_name_lower:
-                    generator_tokens += total_tokens
-                    print(f"         🎯 Added to Generator")
+                if "agent" in trace_name_lower:
+                    agent_tokens += total_tokens
+                    print(f"         🎯 Added to Agent")
                 elif "reflector" in trace_name_lower:
                     reflector_tokens += total_tokens
                     print(f"         🔍 Added to Reflector")
-                elif "curator" in trace_name_lower:
-                    curator_tokens += total_tokens
-                    print(f"         📝 Added to Curator")
+                elif "skill_manager" in trace_name_lower:
+                    skill_manager_tokens += total_tokens
+                    print(f"         📝 Added to SkillManager")
 
         # Calculate total ACE tokens
-        ace_tokens = generator_tokens + reflector_tokens + curator_tokens
+        ace_tokens = agent_tokens + reflector_tokens + skill_manager_tokens
 
         print(f"   📊 ACE Role breakdown:")
-        print(f"      🎯 Generator: {generator_tokens} tokens")
+        print(f"      🎯 Agent: {agent_tokens} tokens")
         print(f"      🔍 Reflector: {reflector_tokens} tokens")
-        print(f"      📝 Curator: {curator_tokens} tokens")
+        print(f"      📝 SkillManager: {skill_manager_tokens} tokens")
 
-        return (ace_tokens, generator_tokens, reflector_tokens, curator_tokens)
+        return (ace_tokens, agent_tokens, reflector_tokens, skill_manager_tokens)
 
     except Exception as e:
         print(f"   Warning: Could not retrieve token usage from Opik: {e}")
@@ -203,24 +203,24 @@ async def main():
     print("🧠 Automated shopping with learning!")
     print("=" * 60)
 
-    # Setup playbook persistence
-    playbook_path = Path(__file__).parent / "ace_grocery_playbook.json"
+    # Setup skillbook persistence
+    skillbook_path = Path(__file__).parent / "ace_grocery_skillbook.json"
 
     # Create ACE agent - handles everything automatically!
     agent = ACEAgent(
         llm=ChatBrowserUse(),  # Browser automation LLM
         ace_model="claude-haiku-4-5-20251001",  # ACE learning LLM
         ace_max_tokens=4096,  # Enough for shopping analysis
-        playbook_path=str(playbook_path) if playbook_path.exists() else None,
+        skillbook_path=str(skillbook_path) if skillbook_path.exists() else None,
         max_steps=30,  # Browser automation steps
         calculate_cost=True,  # Track usage
     )
 
     # Show current knowledge
-    if playbook_path.exists():
-        print(f"📚 Loaded {len(agent.playbook.bullets())} learned strategies")
+    if skillbook_path.exists():
+        print(f"📚 Loaded {len(agent.skillbook.skills())} learned strategies")
     else:
-        print("🆕 Starting with empty playbook - learning from scratch")
+        print("🆕 Starting with empty skillbook - learning from scratch")
 
     print(f"\n🎯 Task: Shop for 5 essential items at Migros")
     print("💡 ACE will learn from this shopping experience\n")
@@ -275,10 +275,45 @@ async def main():
         time.sleep(5)  # Wait for Opik to index final traces
         (
             ace_tokens,
-            generator_tokens,
+            agent_tokens,
             reflector_tokens,
-            curator_tokens,
+            skill_manager_tokens,
         ) = get_ace_token_usage(run_start_time)
+
+        # Calculate accuracy (updated correct items)
+        correct_items = 0
+        if hasattr(history, "final_result"):
+            result_text = history.final_result()
+            # Check for correct cheapest items
+            correct_items += (
+                1 if "Valflora" in result_text and "1.40" in result_text else 0
+            )  # Milk
+            correct_items += (
+                1
+                if "M-Budget" in result_text
+                and "eggs" in result_text
+                and "4.25" in result_text
+                else 0
+            )  # Eggs
+            correct_items += (
+                1
+                if "M-Budget" in result_text
+                and ("Bananas" in result_text or "bananas" in result_text)
+                and "1.20" in result_text
+                else 0
+            )  # Bananas (must be M-Budget 1.20)
+            correct_items += (
+                1
+                if "M-Classic" in result_text
+                and "butter" in result_text
+                and "7.80" in result_text
+                else 0
+            )  # Butter (M-Classic 7.80)
+            correct_items += (
+                1 if "Fleur de Pains" in result_text and "3.40" in result_text else 0
+            )  # Bread
+
+        accuracy_pct = (correct_items / 5) * 100
 
         print(f"\n📊 PERFORMANCE METRICS:")
         print("-" * 60)
@@ -286,16 +321,17 @@ async def main():
         print(f"🤖 Browser-use tokens: {browseruse_tokens:,}")
         print(f"🧠 ACE learning tokens: {ace_tokens:,}")
         print(f"💰 Total tokens: {browseruse_tokens + ace_tokens:,}")
+        print(f"🎯 Accuracy: {correct_items}/5 ({accuracy_pct:.0f}%)")
 
     except Exception as e:
         print(f"\n❌ Shopping failed: {e}")
         print("🧠 ACE will still learn from this failure")
 
     # Save learned strategies
-    agent.save_playbook(str(playbook_path))
+    agent.save_skillbook(str(skillbook_path))
 
     # Show what ACE learned
-    strategies = agent.playbook.bullets()
+    strategies = agent.skillbook.skills()
     print(f"\n🎯 LEARNED STRATEGIES: {len(strategies)} total")
     print("-" * 60)
 
@@ -303,19 +339,19 @@ async def main():
         # Show recent strategies (last 3)
         recent_strategies = strategies[-3:] if len(strategies) > 3 else strategies
 
-        for i, bullet in enumerate(recent_strategies, 1):
-            helpful = bullet.helpful
-            harmful = bullet.harmful
+        for i, skill in enumerate(recent_strategies, 1):
+            helpful = skill.helpful
+            harmful = skill.harmful
             effectiveness = (
                 "✅" if helpful > harmful else "⚠️" if helpful == harmful else "❌"
             )
-            print(f"{i}. {effectiveness} {bullet.content}")
+            print(f"{i}. {effectiveness} {skill.content}")
             print(f"   (+{helpful}/-{harmful})")
 
         if len(strategies) > 3:
             print(f"   ... and {len(strategies) - 3} older strategies")
 
-        print(f"\n💾 Strategies saved to: {playbook_path}")
+        print(f"\n💾 Strategies saved to: {skillbook_path}")
         print("🔄 Next run will use these learned strategies automatically!")
     else:
         print("No new strategies learned (task may have failed)")

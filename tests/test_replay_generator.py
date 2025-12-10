@@ -2,21 +2,21 @@ import unittest
 
 import pytest
 
-from ace import ReplayGenerator, Playbook, Sample
+from ace import ReplayAgent, Skillbook, Sample
 
 
 @pytest.mark.unit
-class ReplayGeneratorTest(unittest.TestCase):
-    """Test ReplayGenerator backward compatibility and new sample-based mode."""
+class ReplayAgentTest(unittest.TestCase):
+    """Test ReplayAgent backward compatibility and new sample-based mode."""
 
     def test_dict_based_mode_backward_compatibility(self):
         """Test original dict-based mode still works."""
         responses = {"What is 2+2?": "4", "What is Python?": "A programming language"}
-        generator = ReplayGenerator(responses)
+        agent = ReplayAgent(responses)
 
         # Test successful lookup
-        output = generator.generate(
-            question="What is 2+2?", context="", playbook=Playbook()
+        output = agent.generate(
+            question="What is 2+2?", context="", skillbook=Skillbook()
         )
 
         self.assertEqual(output.final_answer, "4")
@@ -29,10 +29,10 @@ class ReplayGeneratorTest(unittest.TestCase):
     def test_dict_based_mode_with_default(self):
         """Test fallback to default response when question not found."""
         responses = {"Known question": "Known answer"}
-        generator = ReplayGenerator(responses, default_response="I don't know")
+        agent = ReplayAgent(responses, default_response="I don't know")
 
-        output = generator.generate(
-            question="Unknown question", context="", playbook=Playbook()
+        output = agent.generate(
+            question="Unknown question", context="", skillbook=Skillbook()
         )
 
         self.assertEqual(output.final_answer, "I don't know")
@@ -44,10 +44,13 @@ class ReplayGeneratorTest(unittest.TestCase):
     def test_sample_based_mode_dict_direct(self):
         """Test new sample-based mode with response in dict."""
         sample = {"question": "What is ACE?", "response": "Agentic Context Engineering"}
-        generator = ReplayGenerator()  # No dict needed
+        agent = ReplayAgent()  # No dict needed
 
-        output = generator.generate(
-            question=sample["question"], context="", playbook=Playbook(), sample=sample
+        output = agent.generate(
+            question=sample["question"],
+            context="",
+            skillbook=Skillbook(),
+            sample=sample,
         )
 
         self.assertEqual(output.final_answer, "Agentic Context Engineering")
@@ -62,10 +65,13 @@ class ReplayGeneratorTest(unittest.TestCase):
             "question": "What is the best framework?",
             "metadata": {"response": "ACE Framework"},
         }
-        generator = ReplayGenerator()
+        agent = ReplayAgent()
 
-        output = generator.generate(
-            question=sample["question"], context="", playbook=Playbook(), sample=sample
+        output = agent.generate(
+            question=sample["question"],
+            context="",
+            skillbook=Skillbook(),
+            sample=sample,
         )
 
         self.assertEqual(output.final_answer, "ACE Framework")
@@ -80,10 +86,10 @@ class ReplayGeneratorTest(unittest.TestCase):
             ground_truth="10",
             metadata={"response": "The answer is 10"},
         )
-        generator = ReplayGenerator()
+        agent = ReplayAgent()
 
-        output = generator.generate(
-            question=sample.question, context="", playbook=Playbook(), sample=sample
+        output = agent.generate(
+            question=sample.question, context="", skillbook=Skillbook(), sample=sample
         )
 
         self.assertEqual(output.final_answer, "The answer is 10")
@@ -94,13 +100,13 @@ class ReplayGeneratorTest(unittest.TestCase):
     def test_priority_sample_over_dict(self):
         """Test that sample response takes priority over dict lookup."""
         responses = {"What is 2+2?": "4"}
-        generator = ReplayGenerator(responses)
+        agent = ReplayAgent(responses)
 
         # Provide both dict and sample - sample should win
         sample = {"question": "What is 2+2?", "response": "5 (from sample)"}
 
-        output = generator.generate(
-            question="What is 2+2?", context="", playbook=Playbook(), sample=sample
+        output = agent.generate(
+            question="What is 2+2?", context="", skillbook=Skillbook(), sample=sample
         )
 
         self.assertEqual(output.final_answer, "5 (from sample)")
@@ -111,13 +117,13 @@ class ReplayGeneratorTest(unittest.TestCase):
     def test_fallback_to_dict_when_sample_has_no_response(self):
         """Test fallback to dict when sample exists but has no response."""
         responses = {"What is 2+2?": "4"}
-        generator = ReplayGenerator(responses)
+        agent = ReplayAgent(responses)
 
         # Sample without response field
         sample = {"question": "What is 2+2?"}
 
-        output = generator.generate(
-            question="What is 2+2?", context="", playbook=Playbook(), sample=sample
+        output = agent.generate(
+            question="What is 2+2?", context="", skillbook=Skillbook(), sample=sample
         )
 
         self.assertEqual(output.final_answer, "4")
@@ -126,19 +132,19 @@ class ReplayGeneratorTest(unittest.TestCase):
         )
 
     def test_empty_responses_dict_initialization(self):
-        """Test that ReplayGenerator can be initialized without responses dict."""
-        generator = ReplayGenerator()
+        """Test that ReplayAgent can be initialized without responses dict."""
+        agent = ReplayAgent()
 
-        self.assertIsNotNone(generator.responses)
-        self.assertEqual(len(generator.responses), 0)
-        self.assertEqual(generator.default_response, "")
+        self.assertIsNotNone(agent.responses)
+        self.assertEqual(len(agent.responses), 0)
+        self.assertEqual(agent.default_response, "")
 
     def test_none_responses_dict_initialization(self):
-        """Test that ReplayGenerator handles None responses gracefully."""
-        generator = ReplayGenerator(responses=None)
+        """Test that ReplayAgent handles None responses gracefully."""
+        agent = ReplayAgent(responses=None)
 
-        self.assertIsNotNone(generator.responses)
-        self.assertEqual(len(generator.responses), 0)
+        self.assertIsNotNone(agent.responses)
+        self.assertEqual(len(agent.responses), 0)
 
 
 if __name__ == "__main__":

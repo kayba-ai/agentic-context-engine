@@ -6,7 +6,7 @@ Complete guide for testing ACE agents and validating performance.
 
 ACE testing focuses on three key areas:
 1. **Correctness**: Does the agent produce accurate answers?
-2. **Learning**: Does the playbook improve over time?
+2. **Learning**: Does the skillbook improve over time?
 3. **Robustness**: Does the system handle edge cases?
 
 ---
@@ -46,95 +46,95 @@ python -m unittest discover -s tests -v
 
 ## Unit Testing
 
-### Testing Playbook Operations
+### Testing Skillbook Operations
 
 ```python
 import unittest
-from ace import Playbook
+from ace import Skillbook
 
-class TestPlaybook(unittest.TestCase):
-    def test_add_and_retrieve_bullet(self):
-        playbook = Playbook()
+class TestSkillbook(unittest.TestCase):
+    def test_add_and_retrieve_skill(self):
+        skillbook = Skillbook()
 
-        bullet = playbook.add_bullet(
+        skill = skillbook.add_skill(
             section="Test",
             content="Test strategy"
         )
 
-        retrieved = playbook.get_bullet(bullet.id)
+        retrieved = skillbook.get_skill(skill.id)
         self.assertEqual(retrieved.content, "Test strategy")
 
     def test_save_and_load(self):
-        playbook = Playbook()
-        playbook.add_bullet("Section", "Content")
+        skillbook = Skillbook()
+        skillbook.add_skill("Section", "Content")
 
-        playbook.save_to_file("test.json")
-        loaded = Playbook.load_from_file("test.json")
+        skillbook.save_to_file("test.json")
+        loaded = Skillbook.load_from_file("test.json")
 
-        self.assertEqual(len(loaded.bullets()), 1)
+        self.assertEqual(len(loaded.skills()), 1)
 ```
 
-### Testing Generator
+### Testing Agent
 
 ```python
-from ace import Generator, DummyLLMClient, Playbook
+from ace import Agent, DummyLLMClient, Skillbook
 
-class TestGenerator(unittest.TestCase):
+class TestAgent(unittest.TestCase):
     def setUp(self):
         self.client = DummyLLMClient()
-        self.generator = Generator(self.client)
-        self.playbook = Playbook()
+        self.agent = Agent(self.client)
+        self.skillbook = Skillbook()
 
-    def test_generate_with_empty_playbook(self):
-        output = self.generator.generate(
+    def test_generate_with_empty_skillbook(self):
+        output = self.agent.generate(
             question="What is 2+2?",
             context="",
-            playbook=self.playbook
+            skillbook=self.skillbook
         )
 
         self.assertIsNotNone(output.final_answer)
         self.assertIsNotNone(output.reasoning)
 
-    def test_generate_uses_playbook(self):
-        bullet = self.playbook.add_bullet(
+    def test_generate_uses_skillbook(self):
+        skill = self.skillbook.add_skill(
             section="Math",
             content="Show step-by-step work"
         )
 
-        output = self.generator.generate(
+        output = self.agent.generate(
             question="What is 10*5?",
             context="",
-            playbook=self.playbook
+            skillbook=self.skillbook
         )
 
-        # Generator should cite the bullet
-        self.assertIn(bullet.id, output.bullet_ids)
+        # Agent should cite the skill
+        self.assertIn(skill.id, output.skill_ids)
 ```
 
-### Testing Reflector & Curator
+### Testing Reflector & SkillManager
 
 ```python
-from ace import Reflector, Curator, GeneratorOutput
+from ace import Reflector, SkillManager, AgentOutput
 
-class TestReflectorCurator(unittest.TestCase):
+class TestReflectorSkillManager(unittest.TestCase):
     def setUp(self):
         self.client = DummyLLMClient()
         self.reflector = Reflector(self.client)
-        self.curator = Curator(self.client)
-        self.playbook = Playbook()
+        self.skill_manager = SkillManager(self.client)
+        self.skillbook = Skillbook()
 
     def test_reflection(self):
-        gen_output = GeneratorOutput(
+        agent_output = AgentOutput(
             reasoning="Solved math problem",
             final_answer="4",
-            bullet_ids=[],
+            skill_ids=[],
             raw={}
         )
 
         reflection = self.reflector.reflect(
             question="What is 2+2?",
-            generator_output=gen_output,
-            playbook=self.playbook,
+            agent_output=agent_output,
+            skillbook=self.skillbook,
             feedback="Correct answer"
         )
 
@@ -143,14 +143,14 @@ class TestReflectorCurator(unittest.TestCase):
     def test_curation(self):
         reflection = self.reflector.reflect(...)
 
-        curator_output = self.curator.curate(
+        skill_manager_output = self.skill_manager.curate(
             reflection=reflection,
-            playbook=self.playbook,
+            skillbook=self.skillbook,
             question_context="Math problem",
             progress="Task 1/10"
         )
 
-        self.assertIsNotNone(curator_output.delta)
+        self.assertIsNotNone(skill_manager_output.update)
 ```
 
 ---
@@ -160,7 +160,7 @@ class TestReflectorCurator(unittest.TestCase):
 ### End-to-End Learning Cycle
 
 ```python
-from ace import OfflineAdapter, Sample, TaskEnvironment, EnvironmentResult
+from ace import OfflineACE, Sample, TaskEnvironment, EnvironmentResult
 
 class SimpleEnvironment(TaskEnvironment):
     def evaluate(self, sample, output):
@@ -174,10 +174,10 @@ class TestLearningCycle(unittest.TestCase):
     def test_offline_adaptation(self):
         # Setup
         client = DummyLLMClient()
-        generator = Generator(client)
+        agent = Agent(client)
         reflector = Reflector(client)
-        curator = Curator(client)
-        adapter = OfflineAdapter(generator, reflector, curator)
+        skill_manager = SkillManager(client)
+        adapter = OfflineACE(agent, reflector, skill_manager)
 
         # Training samples
         samples = [
@@ -189,7 +189,7 @@ class TestLearningCycle(unittest.TestCase):
         results = adapter.run(samples, SimpleEnvironment(), epochs=2)
 
         # Verify learning occurred
-        self.assertGreater(len(adapter.playbook.bullets()), 0)
+        self.assertGreater(len(adapter.skillbook.skills()), 0)
 ```
 
 ### Testing Checkpoints
@@ -200,7 +200,7 @@ def test_checkpoint_saving(self):
     import os
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        adapter = OfflineAdapter(generator, reflector, curator)
+        adapter = OfflineACE(agent, reflector, skill_manager)
 
         results = adapter.run(
             samples,
@@ -228,8 +228,8 @@ from ace import DummyLLMClient
 client = DummyLLMClient()
 
 # Use in tests
-generator = Generator(client)
-output = generator.generate("test question", "", playbook)
+agent = Agent(client)
+output = agent.generate("test question", "", skillbook)
 ```
 
 **Benefits:**
@@ -262,18 +262,18 @@ def test_learning_performance(self):
     self.assertLess(avg_per_sample, 5.0)  # Less than 5s per sample
 ```
 
-### Measure Playbook Growth
+### Measure Skillbook Growth
 
 ```python
-def test_playbook_growth(self):
-    initial_bullets = len(adapter.playbook.bullets())
+def test_skillbook_growth(self):
+    initial_skills = len(adapter.skillbook.skills())
 
     results = adapter.run(samples, environment)
 
-    final_bullets = len(adapter.playbook.bullets())
-    growth = final_bullets - initial_bullets
+    final_skills = len(adapter.skillbook.skills())
+    growth = final_skills - initial_skills
 
-    print(f"Playbook grew by {growth} bullets")
+    print(f"Skillbook grew by {growth} skills")
 
     # Verify learning occurred
     self.assertGreater(growth, 0)
@@ -294,10 +294,10 @@ class TestACEComponents(unittest.TestCase):
 
     def setUp(self):
         """Run before each test"""
-        self.playbook = Playbook()
-        self.generator = Generator(self.client)
+        self.skillbook = Skillbook()
+        self.agent = Agent(self.client)
         self.reflector = Reflector(self.client)
-        self.curator = Curator(self.client)
+        self.skill_manager = SkillManager(self.client)
 
     def tearDown(self):
         """Run after each test"""
@@ -316,8 +316,8 @@ def test_with_mock_llm(self):
     mock_client = Mock()
     mock_client.complete.return_value = Mock(text='{"answer": "42"}')
 
-    generator = Generator(mock_client)
-    output = generator.generate("test", "", playbook)
+    agent = Agent(mock_client)
+    output = agent.generate("test", "", skillbook)
 
     mock_client.complete.assert_called_once()
 ```
