@@ -49,8 +49,153 @@ from benchmarks import BenchmarkTaskManager
 
 # Suppress LiteLLM debug messages
 import litellm
+import threading
+import atexit
 
 litellm.suppress_debug_info = True
+
+
+class IncrementalResultWriter:
+    """
+    Writes benchmark results incrementally to prevent data loss on crash.
+
+    Creates a JSONL file where each line is a complete result.
+    Also maintains a summary file that's updated periodically.
+    """
+
+    def __init__(self, output_dir: Path, benchmark: str, model: str, config: dict):
+        self.output_dir = Path(output_dir)
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+
+        self.timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        self.base_name = f"{benchmark}_{model}_{self.timestamp}"
+
+        # JSONL file for incremental results (one JSON object per line)
+        self.results_file = self.output_dir / f"{self.base_name}_incremental.jsonl"
+        self.summary_file = self.output_dir / f"{self.base_name}_live_summary.json"
+
+        self.config = config
+        self.results = []
+        self.train_results = []
+        self.test_results = []
+        self._lock = threading.Lock()
+
+        # Write initial metadata
+        self._write_metadata()
+
+        # Register cleanup on exit
+        atexit.register(self._finalize)
+
+    def _write_metadata(self):
+        """Write initial metadata to the results file."""
+        metadata = {
+            "_type": "metadata",
+            "timestamp": self.timestamp,
+            "config": self.config,
+        }
+        with open(self.results_file, 'w') as f:
+            f.write(json.dumps(metadata) + '\n')
+
+    def add_result(self, result: dict, split: str = "baseline"):
+        """Add a single result and write it immediately."""
+        with self._lock:
+            result["_type"] = "result"
+            result["_index"] = len(self.results)
+
+            # Append to JSONL file immediately
+            with open(self.results_file, 'a') as f:
+                f.write(json.dumps(result, ensure_ascii=False) + '\n')
+
+            self.results.append(result)
+
+            # Track by split
+            if split == "train":
+                self.train_results.append(result)
+            elif split == "test":
+                self.test_results.append(result)
+
+            # Update summary every 5 results
+            if len(self.results) % 5 == 0:
+                self._update_summary()
+
+    def _update_summary(self):
+        """Update the live summary file."""
+        summary = {
+            "timestamp": self.timestamp,
+            "samples_processed": len(self.results),
+            "train_samples": len(self.train_results),
+            "test_samples": len(self.test_results),
+            "config": self.config,
+            "status": "in_progress",
+        }
+
+        if self.results:
+            summary["current_metrics"] = self._compute_metrics(self.results)
+        if self.train_results:
+            summary["train_metrics"] = self._compute_metrics(self.train_results)
+        if self.test_results:
+            summary["test_metrics"] = self._compute_metrics(self.test_results)
+
+        with open(self.summary_file, 'w') as f:
+            json.dump(summary, f, indent=2)
+
+    def _compute_metrics(self, results: list) -> dict:
+        """Compute summary metrics from results."""
+        if not results:
+            return {}
+
+        all_metrics = {}
+        for result in results:
+            if "metrics" not in result:
+                continue
+            for metric_name, value in result["metrics"].items():
+                if metric_name not in all_metrics:
+                    all_metrics[metric_name] = []
+                all_metrics[metric_name].append(value)
+
+        summary = {}
+        for metric_name, values in all_metrics.items():
+            if values:
+                summary[f"{metric_name}_mean"] = mean(values)
+
+        return summary
+
+    def _finalize(self):
+        """Called on exit to write final summary."""
+        with self._lock:
+            summary = {
+                "timestamp": self.timestamp,
+                "samples_processed": len(self.results),
+                "train_samples": len(self.train_results),
+                "test_samples": len(self.test_results),
+                "config": self.config,
+                "status": "completed" if len(self.results) > 0 else "no_results",
+            }
+
+            if self.results:
+                summary["final_metrics"] = self._compute_metrics(self.results)
+            if self.train_results:
+                summary["train_metrics"] = self._compute_metrics(self.train_results)
+            if self.test_results:
+                summary["test_metrics"] = self._compute_metrics(self.test_results)
+
+            with open(self.summary_file, 'w') as f:
+                json.dump(summary, f, indent=2)
+
+    def get_results(self) -> list:
+        """Get all collected results."""
+        with self._lock:
+            return list(self.results)
+
+    def get_train_results(self) -> list:
+        """Get training results."""
+        with self._lock:
+            return list(self.train_results)
+
+    def get_test_results(self) -> list:
+        """Get test results."""
+        with self._lock:
+            return list(self.test_results)
 
 
 def parse_args() -> argparse.Namespace:
@@ -601,6 +746,31 @@ def run_evaluation(
     agent, reflector, skill_manager = create_ace_components(client, args.prompt_version)
     environment = manager.get_benchmark(args.benchmark)
 
+    # Create incremental result writer for crash recovery
+    writer_config = {
+        "benchmark": args.benchmark,
+        "model": args.model,
+        "prompt_version": args.prompt_version,
+        "split": args.split,
+        "epochs": args.epochs,
+        "temperature": args.temperature,
+        "max_tokens": args.max_tokens,
+        "skip_adaptation": args.skip_adaptation,
+        "split_ratio": args.split_ratio,
+        "online_mode": args.online_mode,
+        "total_samples": len(samples),
+    }
+    writer = IncrementalResultWriter(
+        output_dir=Path(args.output),
+        benchmark=args.benchmark,
+        model=args.model,
+        config=writer_config,
+    )
+
+    if not args.quiet:
+        print(f"📝 Incremental results: {writer.results_file}")
+        print(f"📊 Live summary: {writer.summary_file}")
+
     results = []
     train_results = []
     test_results = []
@@ -632,21 +802,23 @@ def run_evaluation(
                 context=sample.context or "(none)",
             )
 
-            results.append(
-                {
-                    "sample_id": f"{args.benchmark}_{i:04d}",
-                    "question": sample.question,
-                    "context": sample.context or "",
-                    "prompt": prompt_used,
-                    "reasoning": output.reasoning,
-                    "prediction": output.final_answer,
-                    "ground_truth": sample.ground_truth,
-                    "skill_ids_cited": output.skill_ids,
-                    "metrics": env_result.metrics,
-                    "feedback": env_result.feedback,
-                    "split": "baseline",
-                }
-            )
+            result = {
+                "sample_id": f"{args.benchmark}_{i:04d}",
+                "question": sample.question,
+                "context": sample.context or "",
+                "prompt": prompt_used,
+                "reasoning": output.reasoning,
+                "prediction": output.final_answer,
+                "ground_truth": sample.ground_truth,
+                "skill_ids_cited": output.skill_ids,
+                "metrics": env_result.metrics,
+                "feedback": env_result.feedback,
+                "split": "baseline",
+            }
+
+            # Save incrementally
+            writer.add_result(result, split="baseline")
+            results.append(result)
 
         result_dict = {
             "benchmark": args.benchmark,
@@ -681,21 +853,32 @@ def run_evaluation(
                 enable_observability=True,
             )
 
-            # Process all samples sequentially (each is learned from then tested)
-            adaptation_results = adapter.run(samples, environment)
+            # Process samples one at a time with incremental saving
+            failed_count = 0
+            for step_idx, sample in enumerate(samples, start=1):
+                if not args.quiet and step_idx % 10 == 0:
+                    print(f"  Online progress: {step_idx}/{len(samples)}")
 
-            # Convert to results format
-            for step_idx, step in enumerate(adaptation_results):
-                # Build the prompt for logging
-                prompt_used = agent.prompt_template.format(
-                    skillbook=adapter.skillbook.as_prompt() or "(empty skillbook)",
-                    reflection="(none)",
-                    question=step.sample.question,
-                    context=step.sample.context or "(none)",
-                )
+                try:
+                    # Process single sample through ACE pipeline
+                    step = adapter._process_sample(
+                        sample,
+                        environment,
+                        epoch=1,
+                        total_epochs=1,
+                        step_index=step_idx,
+                        total_steps=len(samples),
+                    )
 
-                results.append(
-                    {
+                    # Build the prompt for logging
+                    prompt_used = agent.prompt_template.format(
+                        skillbook=adapter.skillbook.as_prompt() or "(empty skillbook)",
+                        reflection="(none)",
+                        question=step.sample.question,
+                        context=step.sample.context or "(none)",
+                    )
+
+                    result = {
                         "sample_id": f"{args.benchmark}_{step_idx:04d}",
                         "question": step.sample.question,
                         "context": step.sample.context or "",
@@ -709,7 +892,27 @@ def run_evaluation(
                         "split": "online",
                         "step": step_idx,
                     }
-                )
+
+                    # Save incrementally
+                    writer.add_result(result, split="online")
+                    results.append(result)
+
+                except Exception as e:
+                    failed_count += 1
+                    if not args.quiet:
+                        print(f"  ⚠️ Failed sample {step_idx}/{len(samples)}: {type(e).__name__}")
+                    error_result = {
+                        "sample_id": f"{args.benchmark}_{step_idx:04d}",
+                        "question": sample.question[:200] if sample.question else "",
+                        "error": str(e)[:500],
+                        "split": "online",
+                        "status": "failed",
+                    }
+                    writer.add_result(error_result, split="online")
+                    continue
+
+            if not args.quiet:
+                print(f"  ✓ Online learning complete: {len(results)} successful, {failed_count} failed")
 
             result_dict = {
                 "benchmark": args.benchmark,
@@ -735,66 +938,110 @@ def run_evaluation(
                 enable_observability=True,
             )
 
-            # Train on training samples
+            # Train on training samples WITH INCREMENTAL SAVING
             if len(train_samples) > 0:
                 if not args.quiet:
                     print(f"📚 Training on {len(train_samples)} samples...")
-                adaptation_results = adapter.run(
-                    train_samples, environment, epochs=args.epochs
-                )
 
-                # Store training results
-                for step_idx, step in enumerate(adaptation_results):
-                    # Build the prompt for logging
-                    prompt_used = agent.prompt_template.format(
-                        skillbook=adapter.skillbook.as_prompt() or "(empty skillbook)",
-                        reflection="(none)",
-                        question=step.sample.question,
-                        context=step.sample.context or "(none)",
-                    )
+                total_train_steps = len(train_samples) * args.epochs
+                step_count = 0
+                failed_count = 0
 
-                    train_results.append(
-                        {
-                            "sample_id": f"{args.benchmark}_train_{step_idx:04d}",
-                            "question": step.sample.question,
-                            "context": step.sample.context or "",
-                            "prompt": prompt_used,
-                            "reasoning": step.agent_output.reasoning,
-                            "prediction": step.agent_output.final_answer,
-                            "ground_truth": step.sample.ground_truth,
-                            "skill_ids_cited": step.agent_output.skill_ids,
-                            "metrics": step.environment_result.metrics,
-                            "feedback": step.environment_result.feedback,
-                            "split": "train",
-                        }
-                    )
+                for epoch_idx in range(1, args.epochs + 1):
+                    for sample_idx, sample in enumerate(train_samples, start=1):
+                        step_count += 1
 
-            # Test on unseen test samples using learned skillbook
+                        if not args.quiet and step_count % 10 == 0:
+                            print(f"  Training progress: {step_count}/{total_train_steps} (epoch {epoch_idx}/{args.epochs})")
+
+                        try:
+                            # Process single sample through ACE pipeline
+                            step = adapter._process_sample(
+                                sample,
+                                environment,
+                                epoch=epoch_idx,
+                                total_epochs=args.epochs,
+                                step_index=sample_idx,
+                                total_steps=len(train_samples),
+                            )
+
+                            # Build the prompt for logging
+                            prompt_used = agent.prompt_template.format(
+                                skillbook=adapter.skillbook.as_prompt() or "(empty skillbook)",
+                                reflection="(none)",
+                                question=step.sample.question,
+                                context=step.sample.context or "(none)",
+                            )
+
+                            result = {
+                                "sample_id": f"{args.benchmark}_train_{step_count:04d}",
+                                "question": step.sample.question,
+                                "context": step.sample.context or "",
+                                "prompt": prompt_used,
+                                "reasoning": step.agent_output.reasoning,
+                                "prediction": step.agent_output.final_answer,
+                                "ground_truth": step.sample.ground_truth,
+                                "skill_ids_cited": step.agent_output.skill_ids,
+                                "metrics": step.environment_result.metrics,
+                                "feedback": step.environment_result.feedback,
+                                "split": "train",
+                                "epoch": epoch_idx,
+                            }
+
+                            # Save incrementally
+                            writer.add_result(result, split="train")
+                            train_results.append(result)
+
+                        except Exception as e:
+                            failed_count += 1
+                            # Log error but continue
+                            if not args.quiet:
+                                print(f"  ⚠️ Failed sample {step_count}/{total_train_steps}: {type(e).__name__}")
+                            # Save failure record
+                            error_result = {
+                                "sample_id": f"{args.benchmark}_train_{step_count:04d}",
+                                "question": sample.question[:200] if sample.question else "",
+                                "error": str(e)[:500],
+                                "split": "train",
+                                "epoch": epoch_idx,
+                                "status": "failed",
+                            }
+                            writer.add_result(error_result, split="train")
+                            continue
+
+                if not args.quiet:
+                    print(f"  ✓ Training complete: {len(train_results)} successful, {failed_count} failed")
+
+            # Test on unseen test samples using learned skillbook WITH INCREMENTAL SAVING
             if len(test_samples) > 0:
                 if not args.quiet:
                     print(f"🧪 Testing on {len(test_samples)} unseen samples...")
 
+                test_failed_count = 0
                 for i, sample in enumerate(test_samples):
-                    # Generate response with learned skillbook
-                    output = agent.generate(
-                        question=sample.question,
-                        context=sample.context,
-                        skillbook=adapter.skillbook,
-                    )
+                    if not args.quiet and i % 10 == 0:
+                        print(f"  Test progress: {i}/{len(test_samples)}")
 
-                    # Evaluate
-                    env_result = environment.evaluate(sample, output)
+                    try:
+                        # Generate response with learned skillbook
+                        output = agent.generate(
+                            question=sample.question,
+                            context=sample.context,
+                            skillbook=adapter.skillbook,
+                        )
 
-                    # Build the prompt for logging
-                    prompt_used = agent.prompt_template.format(
-                        skillbook=adapter.skillbook.as_prompt() or "(empty skillbook)",
-                        reflection="(none)",
-                        question=sample.question,
-                        context=sample.context or "(none)",
-                    )
+                        # Evaluate
+                        env_result = environment.evaluate(sample, output)
 
-                    test_results.append(
-                        {
+                        # Build the prompt for logging
+                        prompt_used = agent.prompt_template.format(
+                            skillbook=adapter.skillbook.as_prompt() or "(empty skillbook)",
+                            reflection="(none)",
+                            question=sample.question,
+                            context=sample.context or "(none)",
+                        )
+
+                        result = {
                             "sample_id": f"{args.benchmark}_test_{i:04d}",
                             "question": sample.question,
                             "context": sample.context or "",
@@ -807,7 +1054,28 @@ def run_evaluation(
                             "feedback": env_result.feedback,
                             "split": "test",
                         }
-                    )
+
+                        # Save incrementally
+                        writer.add_result(result, split="test")
+                        test_results.append(result)
+
+                    except Exception as e:
+                        test_failed_count += 1
+                        if not args.quiet:
+                            print(f"  ⚠️ Failed test sample {i}/{len(test_samples)}: {type(e).__name__}")
+                        # Save failure record
+                        error_result = {
+                            "sample_id": f"{args.benchmark}_test_{i:04d}",
+                            "question": sample.question[:200] if sample.question else "",
+                            "error": str(e)[:500],
+                            "split": "test",
+                            "status": "failed",
+                        }
+                        writer.add_result(error_result, split="test")
+                        continue
+
+                if not args.quiet:
+                    print(f"  ✓ Testing complete: {len(test_results)} successful, {test_failed_count} failed")
 
             # Combine results
             results = train_results + test_results
