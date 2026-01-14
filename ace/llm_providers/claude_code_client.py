@@ -5,17 +5,37 @@ from __future__ import annotations
 import subprocess
 import os
 import json
+import re
 import shutil
 import logging
-from typing import Any, Optional
+from typing import Any, Optional, Type, TypeVar
 from dataclasses import dataclass
 
 from ..llm import LLMClient, LLMResponse
 
+# Type variable for Pydantic models
+T = TypeVar("T")
+
 logger = logging.getLogger(__name__)
 
-# Check if claude CLI is available
-CLAUDE_CODE_CLI_AVAILABLE = shutil.which("claude") is not None
+# Check if claude CLI is available (handle Windows .cmd extension)
+def _find_claude_cli() -> Optional[str]:
+    """Find the claude CLI executable, handling Windows .cmd files."""
+    # Try direct name first
+    claude_path = shutil.which("claude")
+    if claude_path:
+        return claude_path
+
+    # On Windows, try with .cmd extension
+    if os.name == "nt":
+        claude_path = shutil.which("claude.cmd")
+        if claude_path:
+            return claude_path
+
+    return None
+
+_CLAUDE_CLI_PATH = _find_claude_cli()
+CLAUDE_CODE_CLI_AVAILABLE = _CLAUDE_CLI_PATH is not None
 
 
 @dataclass
@@ -125,17 +145,31 @@ class ClaudeCodeLLMClient(LLMClient):
         # Prepare environment - filter out ANTHROPIC_API_KEY to force subscription auth
         env = {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}
 
-        # Build command
+        # Build command - use full path to handle Windows .cmd files
+        if _CLAUDE_CLI_PATH is None:
+            return LLMResponse(
+                text="Error: Claude CLI not found in PATH",
+                raw={"error": True, "not_found": True},
+            )
+
         cmd = [
-            "claude",
+            _CLAUDE_CLI_PATH,
             "--print",  # Non-interactive, print output
-            "--output-format=text",  # Plain text output (simpler than JSON for parsing)
+            "--output-format", "text",  # Plain text output (split for Windows compatibility)
         ]
 
         # Determine working directory
         cwd = self.config.working_dir or os.getcwd()
 
         try:
+            # On Windows, .cmd files need shell=True
+            use_shell = os.name == "nt" and _CLAUDE_CLI_PATH.endswith(".cmd")
+
+            # Set UTF-8 encoding for Windows to handle Unicode
+            if os.name == "nt":
+                env = env.copy() if env else os.environ.copy()
+                env["PYTHONIOENCODING"] = "utf-8"
+
             result = subprocess.run(
                 cmd,
                 input=full_prompt,
@@ -144,6 +178,9 @@ class ClaudeCodeLLMClient(LLMClient):
                 timeout=self.config.timeout,
                 cwd=cwd,
                 env=env,
+                shell=use_shell,
+                encoding="utf-8",
+                errors="replace",  # Replace undecodable chars instead of failing
             )
 
             if result.returncode != 0:
@@ -205,6 +242,139 @@ IMPORTANT: Respond with valid JSON only. No markdown code blocks, no explanation
 Just the raw JSON object."""
 
         return self.complete(json_prompt, system=system, **kwargs)
+
+    def complete_structured(
+        self,
+        prompt: str,
+        response_model: Type[T],
+        system: Optional[str] = None,
+        max_retries: int = 3,
+        **kwargs: Any,
+    ) -> T:
+        """
+        Generate completion and parse into a Pydantic model.
+
+        This method provides Instructor-like functionality using Claude Code CLI.
+        It includes the JSON schema in the prompt and validates the response.
+
+        Args:
+            prompt: Input prompt text
+            response_model: Pydantic model class to parse response into
+            system: Optional system message
+            max_retries: Number of retries on parse failure
+            **kwargs: Additional parameters
+
+        Returns:
+            Instance of response_model populated with the response
+
+        Raises:
+            ValueError: If response cannot be parsed after retries
+        """
+        # Get JSON schema from Pydantic model
+        schema = response_model.model_json_schema()
+        schema_str = json.dumps(schema, indent=2)
+
+        # Build structured prompt with schema
+        structured_prompt = f"""{prompt}
+
+## Required Output Format
+
+You must respond with a JSON object matching this exact schema:
+
+```json
+{schema_str}
+```
+
+CRITICAL INSTRUCTIONS:
+1. Output ONLY valid JSON - no markdown, no explanation, no extra text
+2. Follow the schema exactly - all required fields must be present
+3. Use the correct data types as specified in the schema
+4. Start your response with {{ and end with }}"""
+
+        last_error = None
+        for attempt in range(max_retries):
+            response = self.complete(structured_prompt, system=system, **kwargs)
+
+            # Check for CLI errors
+            if response.raw.get("error"):
+                last_error = f"CLI error: {response.text}"
+                logger.warning(f"Attempt {attempt + 1}/{max_retries}: {last_error}")
+                continue
+
+            # Try to extract and parse JSON
+            try:
+                json_text = self._extract_json(response.text)
+                data = json.loads(json_text)
+                result = response_model.model_validate(data)
+                logger.debug(f"Successfully parsed {response_model.__name__} on attempt {attempt + 1}")
+                return result
+
+            except json.JSONDecodeError as e:
+                last_error = f"JSON parse error: {e}"
+                logger.warning(f"Attempt {attempt + 1}/{max_retries}: {last_error}")
+                # Add hint about the error for retry
+                structured_prompt += f"\n\nPREVIOUS ATTEMPT FAILED: {last_error}. Please output valid JSON only."
+
+            except Exception as e:
+                last_error = f"Validation error: {e}"
+                logger.warning(f"Attempt {attempt + 1}/{max_retries}: {last_error}")
+                structured_prompt += f"\n\nPREVIOUS ATTEMPT FAILED: {last_error}. Please follow the schema exactly."
+
+        raise ValueError(
+            f"Failed to get valid {response_model.__name__} after {max_retries} attempts. "
+            f"Last error: {last_error}"
+        )
+
+    def _extract_json(self, text: str) -> str:
+        """
+        Extract JSON from response text, handling markdown code blocks.
+
+        Args:
+            text: Raw response text
+
+        Returns:
+            Cleaned JSON string
+        """
+        # Remove markdown code blocks if present
+        text = text.strip()
+
+        # Try to extract from ```json ... ``` blocks
+        json_block_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', text)
+        if json_block_match:
+            text = json_block_match.group(1).strip()
+
+        # If text starts with { or [, assume it's JSON
+        if text.startswith('{') or text.startswith('['):
+            # Find the matching closing bracket
+            bracket_count = 0
+            in_string = False
+            escape_next = False
+            end_pos = 0
+
+            for i, char in enumerate(text):
+                if escape_next:
+                    escape_next = False
+                    continue
+                if char == '\\':
+                    escape_next = True
+                    continue
+                if char == '"' and not escape_next:
+                    in_string = not in_string
+                    continue
+                if in_string:
+                    continue
+                if char in '{[':
+                    bracket_count += 1
+                elif char in '}]':
+                    bracket_count -= 1
+                    if bracket_count == 0:
+                        end_pos = i + 1
+                        break
+
+            if end_pos > 0:
+                text = text[:end_pos]
+
+        return text.strip()
 
 
 def is_claude_code_cli_available() -> bool:

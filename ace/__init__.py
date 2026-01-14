@@ -61,6 +61,19 @@ else:
     LiteLLMClient: Optional[type] = None  # type: ignore
     LITELLM_AVAILABLE = False
 
+# Import Claude Code CLI LLM client (uses subscription auth, no API key needed)
+try:
+    from .llm_providers import (
+        ClaudeCodeLLMClient as _ClaudeCodeLLMClient,
+        CLAUDE_CODE_CLI_AVAILABLE as _CLAUDE_CODE_CLI_AVAILABLE,
+    )
+
+    ClaudeCodeLLMClient: Optional[type] = _ClaudeCodeLLMClient
+    CLAUDE_CODE_CLI_AVAILABLE = _CLAUDE_CODE_CLI_AVAILABLE
+except ImportError:
+    ClaudeCodeLLMClient: Optional[type] = None  # type: ignore
+    CLAUDE_CODE_CLI_AVAILABLE = False
+
 # Import integrations (LiteLLM, browser-use, LangChain, Claude Code, etc.) if available
 try:
     from .integrations import (
@@ -108,6 +121,7 @@ __all__ = [
     "DummyLLMClient",
     "TransformersLLMClient",
     "LiteLLMClient",
+    "ClaudeCodeLLMClient",  # Claude Code CLI client (subscription auth)
     "Agent",
     "ReplayAgent",
     "Reflector",
@@ -141,6 +155,7 @@ __all__ = [
     # Feature flags
     "OpikIntegration",
     "LITELLM_AVAILABLE",
+    "CLAUDE_CODE_CLI_AVAILABLE",  # Claude Code CLI available
     "OBSERVABILITY_AVAILABLE",
     "BROWSER_USE_AVAILABLE",
     "LANGCHAIN_AVAILABLE",
