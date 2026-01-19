@@ -13,10 +13,12 @@ import argparse
 import json
 import os
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from statistics import mean
 from typing import Dict, List, Any
+from dataclasses import dataclass, field
 
 # Fix Windows console encoding for Unicode output
 if sys.platform == "win32":
@@ -52,6 +54,60 @@ from benchmarks import BenchmarkTaskManager
 import litellm
 
 litellm.suppress_debug_info = True
+
+
+@dataclass
+class TokenTracker:
+    """Track token usage and cost across LLM calls."""
+
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
+    total_cost: float = 0.0
+    call_count: int = 0
+
+    def reset(self):
+        """Reset all counters."""
+        self.prompt_tokens = 0
+        self.completion_tokens = 0
+        self.total_tokens = 0
+        self.total_cost = 0.0
+        self.call_count = 0
+
+    def update(self, response):
+        """Update counters from a litellm response."""
+        self.call_count += 1
+        if hasattr(response, "usage") and response.usage:
+            usage = response.usage
+            self.prompt_tokens += getattr(usage, "prompt_tokens", 0) or 0
+            self.completion_tokens += getattr(usage, "completion_tokens", 0) or 0
+            self.total_tokens += getattr(usage, "total_tokens", 0) or 0
+        if hasattr(response, "_hidden_params"):
+            cost = response._hidden_params.get("response_cost", 0) or 0
+            self.total_cost += cost
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Return tracker state as dict."""
+        return {
+            "prompt_tokens": self.prompt_tokens,
+            "completion_tokens": self.completion_tokens,
+            "total_tokens": self.total_tokens,
+            "total_cost": round(self.total_cost, 6),
+            "call_count": self.call_count,
+        }
+
+
+# Global token tracker with litellm callback
+_token_tracker = TokenTracker()
+
+
+def _litellm_success_callback(kwargs, completion_response, start_time, end_time):
+    """LiteLLM callback to track token usage."""
+    _token_tracker.update(completion_response)
+
+
+# Register callback with litellm
+litellm.success_callback = [_litellm_success_callback]
 
 
 def parse_args() -> argparse.Namespace:
@@ -327,17 +383,31 @@ def run_comparison_mode(
     )
     print("=" * 60)
 
-    # Run baseline evaluation
+    # Run baseline evaluation with timing and token tracking
     print("\n1️⃣ Running BASELINE evaluation...")
     baseline_args = argparse.Namespace(**vars(args))
     baseline_args.skip_adaptation = True
+    _token_tracker.reset()
+    baseline_start = time.time()
     baseline_results = run_evaluation(baseline_args, samples, manager)
+    baseline_elapsed = time.time() - baseline_start
+    baseline_tokens = _token_tracker.to_dict()
 
-    # Run ACE evaluation
+    # Run ACE evaluation with timing and token tracking
     print("\n2️⃣ Running ACE evaluation...")
     ace_args = argparse.Namespace(**vars(args))
     ace_args.skip_adaptation = False
+    _token_tracker.reset()
+    ace_start = time.time()
     ace_results = run_evaluation(ace_args, samples, manager)
+    ace_elapsed = time.time() - ace_start
+    ace_tokens = _token_tracker.to_dict()
+
+    # Add timing and token info to results
+    baseline_results["elapsed_seconds"] = round(baseline_elapsed, 2)
+    baseline_results["tokens"] = baseline_tokens
+    ace_results["elapsed_seconds"] = round(ace_elapsed, 2)
+    ace_results["tokens"] = ace_tokens
 
     # Compare and display results
     print("\n" + "=" * 80)
@@ -393,6 +463,29 @@ def run_comparison_mode(
                         f"  {base_metric.replace('_', ' ').title()}: {gap:.2%} ✅ (good generalization)"
                     )
 
+    # Display time and token comparison
+    print(f"\n⏱️  TIME COMPARISON:")
+    print(f"  Baseline: {baseline_elapsed:.1f}s")
+    print(f"  ACE:      {ace_elapsed:.1f}s ({ace_elapsed/baseline_elapsed:.1f}x)")
+
+    print(f"\n🪙 TOKEN USAGE:")
+    print(
+        f"  Baseline: {baseline_tokens['total_tokens']:,} tokens ({baseline_tokens['call_count']} calls)"
+    )
+    print(
+        f"  ACE:      {ace_tokens['total_tokens']:,} tokens ({ace_tokens['call_count']} calls)"
+    )
+    if baseline_tokens["total_tokens"] > 0:
+        token_ratio = ace_tokens["total_tokens"] / baseline_tokens["total_tokens"]
+        print(f"  Ratio:    {token_ratio:.1f}x")
+
+    print(f"\n💰 COST:")
+    print(f"  Baseline: ${baseline_tokens['total_cost']:.4f}")
+    print(f"  ACE:      ${ace_tokens['total_cost']:.4f}")
+    if baseline_tokens["total_cost"] > 0:
+        cost_ratio = ace_tokens["total_cost"] / baseline_tokens["total_cost"]
+        print(f"  Ratio:    {cost_ratio:.1f}x")
+
     print("\n" + "=" * 80)
 
     # Save comparison results
@@ -418,6 +511,8 @@ def run_comparison_mode(
             "split_ratio": args.split_ratio,
             "online_mode": args.online_mode,
             "prompt_version": args.prompt_version,
+            "async_learning": args.async_learning,
+            "dedup": args.dedup,
         },
         "baseline_results": baseline_results,
         "ace_results": ace_results,
@@ -426,6 +521,25 @@ def run_comparison_mode(
             "ace_test_summary": ace_summary,
             "ace_train_summary": ace_results.get("train_summary", {}),
             "overfitting_gap": ace_results.get("overfitting_gap", {}),
+        },
+        "performance": {
+            "baseline_elapsed_seconds": baseline_elapsed,
+            "ace_elapsed_seconds": ace_elapsed,
+            "time_ratio": (
+                round(ace_elapsed / baseline_elapsed, 2) if baseline_elapsed > 0 else 0
+            ),
+            "baseline_tokens": baseline_tokens,
+            "ace_tokens": ace_tokens,
+            "token_ratio": (
+                round(ace_tokens["total_tokens"] / baseline_tokens["total_tokens"], 2)
+                if baseline_tokens["total_tokens"] > 0
+                else 0
+            ),
+            "cost_ratio": (
+                round(ace_tokens["total_cost"] / baseline_tokens["total_cost"], 2)
+                if baseline_tokens["total_cost"] > 0
+                else 0
+            ),
         },
     }
 
