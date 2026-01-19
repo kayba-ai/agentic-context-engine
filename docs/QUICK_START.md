@@ -1,66 +1,113 @@
-# 🚀 ACE Framework Quick Start
+# ACE Framework Quick Start
 
 Get your first self-learning AI agent running!
 
 ---
 
-## 🚀 Simple Quickstart (5 minutes)
-
-The fastest way to get started with ACE.
-
-### Step 1: Install
+## Installation
 
 ```bash
 pip install ace-framework
 ```
 
-### Step 2: Set API Key
+Set your API key:
 
 ```bash
 export OPENAI_API_KEY="your-key-here"
 # Or: ANTHROPIC_API_KEY, GOOGLE_API_KEY, etc.
 ```
 
-### Step 3: Create `my_first_ace.py`
+---
+
+## Integration Examples
+
+### ACELiteLLM - Simple Self-Improving Agent
 
 ```python
 from ace import ACELiteLLM
 
-# Create agent that learns automatically
+# Create self-improving agent
 agent = ACELiteLLM(model="gpt-4o-mini")
 
-# Ask questions - it learns from each interaction
-answer1 = agent.ask("What is 2+2?")
-print(f"Answer: {answer1}")
+# Ask related questions - agent learns patterns
+answer1 = agent.ask("If all cats are animals, is Felix (a cat) an animal?")
+answer2 = agent.ask("If all birds fly, can penguins (birds) fly?")  # Learns to check assumptions!
+answer3 = agent.ask("If all metals conduct electricity, does copper conduct electricity?")
 
-answer2 = agent.ask("What is the capital of France?")
-print(f"Answer: {answer2}")
+# View learned strategies
+print(f"Learned {len(agent.skillbook.skills())} reasoning skills")
 
-# Agent now has learned strategies!
-print(f"✅ Learned {len(agent.skillbook.skills())} strategies")
-
-# Save for later
+# Save for reuse
 agent.save_skillbook("my_agent.json")
+
+# Load and continue
+agent2 = ACELiteLLM(model="gpt-4o-mini", skillbook_path="my_agent.json")
 ```
 
-### Step 4: Run It
+### ACELangChain - Wrap LangChain Chains/Agents
+
+Best for multi-step workflows and tool-using agents.
+
+```python
+from ace import ACELangChain
+
+ace_chain = ACELangChain(runnable=your_langchain_chain)
+result = ace_chain.invoke({"question": "Your task"})  # Learns automatically
+```
+
+### ACEAgent - Browser Automation (browser-use)
+
+Drop-in replacement for `browser_use.Agent` with automatic learning.
 
 ```bash
-python my_first_ace.py
+pip install ace-framework[browser-use]
 ```
 
-### What Just Happened?
+```python
+from ace import ACEAgent
+from browser_use import ChatBrowserUse
 
-Your agent:
-- **Learned automatically** from each interaction
-- **Built a skillbook** of successful strategies
-- **Saved knowledge** for reuse
+# Two LLMs: ChatBrowserUse for browser, gpt-4o-mini for ACE learning
+agent = ACEAgent(
+    llm=ChatBrowserUse(),      # Browser execution
+    ace_model="gpt-4o-mini"    # ACE learning
+)
 
-That's it! You now have a self-improving AI agent.
+await agent.run(task="Find top Hacker News post")
+agent.save_skillbook("hn_expert.json")
+
+# Reuse learned knowledge
+agent = ACEAgent(llm=ChatBrowserUse(), skillbook_path="hn_expert.json")
+await agent.run(task="New task")  # Starts smart!
+```
+
+[→ Browser Use Guide](../examples/browser-use/README.md)
+
+### ACEClaudeCode - Claude Code CLI
+
+Self-improving coding agent using Claude Code.
+
+```python
+from ace import ACEClaudeCode
+
+agent = ACEClaudeCode(
+    working_dir="./my_project",
+    ace_model="gpt-4o-mini"
+)
+
+# Execute coding tasks - agent learns from each
+result = agent.run(task="Add unit tests for utils.py")
+agent.save_skillbook("coding_expert.json")
+
+# Reuse learned knowledge
+agent = ACEClaudeCode(working_dir="./project", skillbook_path="coding_expert.json")
+```
+
+[→ Claude Code Loop Example](../examples/claude-code-loop/)
 
 ---
 
-## 🎓 Advanced Tutorial: Understanding ACE Internals (15 minutes)
+## Advanced Tutorial: Understanding ACE Internals
 
 Want to understand how ACE works under the hood? This section shows the full architecture with Agent, Reflector, and SkillManager roles.
 
@@ -184,28 +231,6 @@ agent = ACELiteLLM(model="gemini-pro")
 agent = ACELiteLLM(model="ollama/llama2")
 ```
 
-### Add ACE to Existing Agents
-
-Already have an agent? Wrap it with ACE learning:
-
-**Browser Automation:**
-```python
-from ace import ACEAgent
-from browser_use import ChatBrowserUse
-
-agent = ACEAgent(llm=ChatBrowserUse())
-await agent.run(task="Your task")  # Learns automatically
-```
-
-**LangChain:**
-```python
-from ace import ACELangChain
-
-ace_chain = ACELangChain(runnable=your_langchain_chain)
-result = ace_chain.invoke({"question": "Your task"})
-```
-
-See [Integration Guide](INTEGRATION_GUIDE.md) for details.
 
 ---
 
