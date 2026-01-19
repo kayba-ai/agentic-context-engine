@@ -45,6 +45,7 @@ from ace import (
 )
 from ace.llm_providers import LiteLLMClient
 from ace import Sample
+from ace.deduplication import DeduplicationConfig
 from benchmarks import BenchmarkTaskManager
 
 # Suppress LiteLLM debug messages
@@ -131,6 +132,16 @@ def parse_args() -> argparse.Namespace:
         "--compare",
         action="store_true",
         help="Run both baseline and ACE, then compare results",
+    )
+    parser.add_argument(
+        "--async-learning",
+        action="store_true",
+        help="Enable async learning (Reflector runs in parallel threads)",
+    )
+    parser.add_argument(
+        "--dedup",
+        action="store_true",
+        help="Enable skill deduplication to consolidate similar skills",
     )
 
     # Output configuration
@@ -580,6 +591,8 @@ def run_evaluation(
             if not args.quiet:
                 print(f"🧠 Running OFFLINE LEARNING evaluation ({args.epochs} epochs)")
 
+            dedup_config = DeduplicationConfig() if args.dedup else None
+
             adapter = OfflineACE(
                 skillbook=Skillbook(),
                 agent=agent,
@@ -587,6 +600,8 @@ def run_evaluation(
                 skill_manager=skill_manager,
                 max_refinement_rounds=args.max_refinement_rounds,
                 enable_observability=True,
+                async_learning=args.async_learning,
+                dedup_config=dedup_config,
             )
 
             # Train on training samples
