@@ -213,16 +213,21 @@ class Skillbook:
     # ------------------------------------------------------------------ #
     # Serialization
     # ------------------------------------------------------------------ #
-    def to_dict(self) -> Dict[str, object]:
+    def to_dict(self, exclude_embeddings: bool = False) -> Dict[str, object]:
         # Serialize similarity decisions with string keys (JSON doesn't support frozenset)
         similarity_decisions_serialized = {
             ",".join(sorted(pair_ids)): asdict(decision)
             for pair_ids, decision in self._similarity_decisions.items()
         }
+        # Serialize skills, optionally excluding embeddings
+        skills_serialized = {}
+        for skill_id, skill in self._skills.items():
+            skill_dict = asdict(skill)
+            if exclude_embeddings:
+                skill_dict["embedding"] = None
+            skills_serialized[skill_id] = skill_dict
         return {
-            "skills": {
-                skill_id: asdict(skill) for skill_id, skill in self._skills.items()
-            },
+            "skills": skills_serialized,
             "sections": self._sections,
             "next_id": self._next_id,
             "similarity_decisions": similarity_decisions_serialized,
@@ -265,8 +270,12 @@ class Skillbook:
                     )
         return instance
 
-    def dumps(self) -> str:
-        return json.dumps(self.to_dict(), ensure_ascii=False, indent=2)
+    def dumps(self, exclude_embeddings: bool = False) -> str:
+        return json.dumps(
+            self.to_dict(exclude_embeddings=exclude_embeddings),
+            ensure_ascii=False,
+            indent=2,
+        )
 
     @classmethod
     def loads(cls, data: str) -> "Skillbook":
@@ -275,19 +284,22 @@ class Skillbook:
             raise ValueError("Skillbook serialization must be a JSON object.")
         return cls.from_dict(payload)
 
-    def save_to_file(self, path: str) -> None:
+    def save_to_file(self, path: str, exclude_embeddings: bool = False) -> None:
         """Save skillbook to a JSON file.
 
         Args:
             path: File path where to save the skillbook
+            exclude_embeddings: If True, set embeddings to None in the output.
+                Useful for smaller files and version control. Default False.
 
         Example:
             >>> skillbook.save_to_file("trained_model.json")
+            >>> skillbook.save_to_file("skillbook_light.json", exclude_embeddings=True)
         """
         file_path = Path(path)
         file_path.parent.mkdir(parents=True, exist_ok=True)
         with file_path.open("w", encoding="utf-8") as f:
-            f.write(self.dumps())
+            f.write(self.dumps(exclude_embeddings=exclude_embeddings))
 
     @classmethod
     def load_from_file(cls, path: str) -> "Skillbook":
