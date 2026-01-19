@@ -152,8 +152,7 @@ agentic-context-engine/
 ├── benchmarks/                   # Scientific evaluation framework
 ├── examples/                     # 30+ production examples
 ├── tests/                        # 11,337 lines of tests
-├── docs/                         # Comprehensive documentation
-└── scripts/                      # Research & benchmarking scripts
+└── docs/                         # Comprehensive documentation
 ```
 
 ### Core Modules (4,500+ lines)
@@ -883,17 +882,16 @@ Scientific evaluation with train/test splits:
 
 ```bash
 # Run benchmark
-python scripts/run_benchmark.py simple_qa --limit 50
+python benchmarks/run_benchmark.py simple_qa --limit 50
 
 # Compare baseline vs ACE
-python scripts/run_benchmark.py simple_qa --limit 50 --compare
+python benchmarks/run_benchmark.py simple_qa --limit 50 --compare
 
 # Multi-epoch training
-python scripts/run_benchmark.py finer_ord --limit 100 --epochs 3
+python benchmarks/run_benchmark.py finer_ord --limit 100 --epochs 3
 
 # Analyze results
-python scripts/analyze_ace_results.py
-python scripts/explain_ace_performance.py
+python benchmarks/analyze_ace_results.py
 ```
 
 **Features**:

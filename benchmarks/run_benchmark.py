@@ -62,7 +62,7 @@ def parse_args() -> argparse.Namespace:
     # Benchmark selection
     parser.add_argument(
         "benchmark",
-        help="Benchmark name to run (finer_ord, xbrl_math, appworld, or 'list' to show available)",
+        help="Benchmark name to run (e.g., simple_qa, finer_ord, gsm8k, mmlu, hellaswag) or 'list' to show all available",
     )
 
     # Model configuration

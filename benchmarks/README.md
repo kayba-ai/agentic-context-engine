@@ -8,16 +8,16 @@ This evaluation framework tests Agentic Context Engineering (ACE) across multipl
 
 ```bash
 # List available benchmarks
-uv run python scripts/run_benchmark.py list
+uv run python benchmarks/run_benchmark.py list
 
 # Run ACE evaluation with train/test split (default)
-uv run python scripts/run_benchmark.py finer_ord --limit 100
+uv run python benchmarks/run_benchmark.py finer_ord --limit 100
 
 # Run baseline only (no ACE learning)
-uv run python scripts/run_benchmark.py simple_qa --limit 50 --skip-adaptation
+uv run python benchmarks/run_benchmark.py simple_qa --limit 50 --skip-adaptation
 
 # Compare baseline vs ACE side-by-side
-uv run python scripts/run_benchmark.py hellaswag --limit 50 --compare
+uv run python benchmarks/run_benchmark.py hellaswag --limit 50 --compare
 ```
 
 ## Available Benchmarks
@@ -26,16 +26,23 @@ uv run python scripts/run_benchmark.py hellaswag --limit 50 --compare
 |-----------|-------------|---------|---------------|
 | **finer_ord** | Financial Named Entity Recognition | Finance | 100 |
 | **simple_qa** | Question Answering (SQuAD) | General | 200 |
-| **simple_math** | Math Word Problems (GSM8K) | Mathematics | 100 |
+| **gsm8k** | Math Word Problems (Grade School Math 8K) | Mathematics | 100 |
 | **mmlu** | Massive Multitask Language Understanding | General Knowledge | 500 |
 | **hellaswag** | Commonsense Reasoning | Common Sense | 200 |
 | **arc_easy** | AI2 Reasoning Challenge (Easy) | Reasoning | 200 |
 | **arc_challenge** | AI2 Reasoning Challenge (Hard) | Reasoning | 200 |
+| **truthfulqa** | TruthfulQA - Factual Accuracy | Factual | 200 |
+| **winogrande** | Winogrande - Commonsense Reasoning | Common Sense | 200 |
+| **xbrl_math** | XBRL Financial Math Problems | Finance | 100 |
+| **appworld** | AppWorld Task Completion | Agentic | 100 |
+| **letta_bench** | Letta Agent Benchmark | Agentic | 100 |
+| **swe_bench** | Software Engineering Benchmark | Code | 100 |
+| **simple_math** | Basic Math Problems | Mathematics | 100 |
 
 ## Command Options
 
 ```bash
-uv run python scripts/run_benchmark.py <benchmark> [options]
+uv run python benchmarks/run_benchmark.py <benchmark> [options]
 ```
 
 **Key Options:**
@@ -54,23 +61,23 @@ uv run python scripts/run_benchmark.py <benchmark> [options]
 
 ```bash
 # Quick test with 10 samples
-uv run python scripts/run_benchmark.py finer_ord --limit 10 --quiet
+uv run python benchmarks/run_benchmark.py finer_ord --limit 10 --quiet
 
 # Compare baseline vs ACE
-uv run python scripts/run_benchmark.py simple_qa --limit 50 --compare
+uv run python benchmarks/run_benchmark.py simple_qa --limit 50 --compare
 
 # Full ACE evaluation with v2 prompts
-uv run python scripts/run_benchmark.py simple_qa --epochs 3 --prompt-version v2 --save-detailed
+uv run python benchmarks/run_benchmark.py simple_qa --epochs 3 --prompt-version v2 --save-detailed
 
 # Online learning mode
-uv run python scripts/run_benchmark.py hellaswag --limit 100 --online-mode
+uv run python benchmarks/run_benchmark.py hellaswag --limit 100 --online-mode
 
 # Custom train/test split (90/10)
-uv run python scripts/run_benchmark.py mmlu --limit 100 --split-ratio 0.9
+uv run python benchmarks/run_benchmark.py mmlu --limit 100 --split-ratio 0.9
 
 # Test all benchmarks quickly (baseline only)
 for benchmark in finer_ord simple_qa hellaswag arc_easy; do
-  uv run python scripts/run_benchmark.py $benchmark --limit 5 --skip-adaptation --quiet
+  uv run python benchmarks/run_benchmark.py $benchmark --limit 5 --skip-adaptation --quiet
 done
 ```
 
@@ -109,17 +116,17 @@ The benchmark script supports three evaluation modes:
 
 1. **ACE Mode (default)**: Train/test split with learning
    ```bash
-   uv run python scripts/run_benchmark.py simple_qa --limit 100
+   uv run python benchmarks/run_benchmark.py simple_qa --limit 100
    ```
 
 2. **Baseline Mode**: No learning, direct evaluation
    ```bash
-   uv run python scripts/run_benchmark.py simple_qa --limit 100 --skip-adaptation
+   uv run python benchmarks/run_benchmark.py simple_qa --limit 100 --skip-adaptation
    ```
 
 3. **Comparison Mode**: Runs both baseline and ACE, shows improvement
    ```bash
-   uv run python scripts/run_benchmark.py simple_qa --limit 100 --compare
+   uv run python benchmarks/run_benchmark.py simple_qa --limit 100 --compare
    ```
 
 ## Key Features
