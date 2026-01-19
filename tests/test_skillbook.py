@@ -352,6 +352,65 @@ class TestSkillbook(unittest.TestCase):
         self.assertIn("Always be clear", markdown)  # Content
         self.assertIn("helpful=5", markdown)  # Counters
 
+    def test_dumps_exclude_embeddings(self):
+        """Test that exclude_embeddings=True sets embeddings to None."""
+        # Create skill with embedding
+        skill = self.skillbook.add_skill(section="test", content="Test")
+        skill.embedding = [0.1, 0.2, 0.3]  # Simulate embedding
+
+        # Without exclude_embeddings - embedding preserved
+        json_str = self.skillbook.dumps()
+        data = json.loads(json_str)
+        self.assertEqual(data["skills"][skill.id]["embedding"], [0.1, 0.2, 0.3])
+
+        # With exclude_embeddings=True - embedding set to None
+        json_str_excluded = self.skillbook.dumps(exclude_embeddings=True)
+        data_excluded = json.loads(json_str_excluded)
+        self.assertIsNone(data_excluded["skills"][skill.id]["embedding"])
+
+    def test_save_to_file_exclude_embeddings(self):
+        """Test save_to_file with exclude_embeddings option."""
+        skill = self.skillbook.add_skill(section="test", content="Test")
+        skill.embedding = [0.1, 0.2, 0.3]
+
+        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as f:
+            temp_path = f.name
+
+        try:
+            # Save with embeddings excluded
+            self.skillbook.save_to_file(temp_path, exclude_embeddings=True)
+
+            with open(temp_path) as f:
+                data = json.load(f)
+
+            self.assertIsNone(data["skills"][skill.id]["embedding"])
+        finally:
+            os.remove(temp_path)
+
+    def test_to_dict_exclude_embeddings(self):
+        """Test to_dict with exclude_embeddings option."""
+        skill = self.skillbook.add_skill(section="test", content="Test")
+        skill.embedding = [0.1, 0.2, 0.3]
+
+        # Default: embedding preserved
+        data = self.skillbook.to_dict()
+        self.assertEqual(data["skills"][skill.id]["embedding"], [0.1, 0.2, 0.3])
+
+        # exclude_embeddings=True: embedding set to None
+        data_excluded = self.skillbook.to_dict(exclude_embeddings=True)
+        self.assertIsNone(data_excluded["skills"][skill.id]["embedding"])
+
+    def test_exclude_embeddings_does_not_modify_original(self):
+        """Test that exclude_embeddings doesn't modify the in-memory skillbook."""
+        skill = self.skillbook.add_skill(section="test", content="Test")
+        skill.embedding = [0.1, 0.2, 0.3]
+
+        # Serialize with exclusion
+        self.skillbook.dumps(exclude_embeddings=True)
+
+        # Original skill should still have embedding
+        self.assertEqual(skill.embedding, [0.1, 0.2, 0.3])
+
 
 if __name__ == "__main__":
     unittest.main()
