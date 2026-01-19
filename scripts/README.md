@@ -1,20 +1,24 @@
-# Development Scripts
+# Benchmark Scripts
 
-⚠️ **Note**: These scripts are for development and research purposes only. They are not included in the PyPI package and may reference local model weights or data files that are not part of the public repository.
+Scripts for running ACE benchmarks and analyzing results.
 
 ## Scripts
 
-- `run_questions.py` - Run ACE adaptation on sample questions with a local model
-- `run_questions_direct.py` - Run questions directly without adaptation for baseline comparison
-- `run_local_adapter.py` - Test ACE with local Transformers models
-
-## Requirements
-
-These scripts require:
-- Local model weights (not included in repo)
-- CUDA-capable GPU for local model inference
-- Additional dependencies beyond the base package
+- `run_benchmark.py` - CLI to run ACE benchmarks with train/test splits
+- `analyze_ace_results.py` - Analyze benchmark results
+- `explain_ace_performance.py` - Generate explanations for ACE performance patterns
 
 ## Usage
 
-These are primarily for ACE framework development and testing. For production use, please refer to the examples in the `examples/` directory which use cloud LLM providers.
+```bash
+# List available benchmarks
+uv run python scripts/run_benchmark.py list
+
+# Run ACE evaluation
+uv run python scripts/run_benchmark.py simple_qa --limit 50
+
+# Compare baseline vs ACE
+uv run python scripts/run_benchmark.py simple_qa --limit 50 --compare
+```
+
+See [benchmarks/README.md](../benchmarks/README.md) for full documentation.
