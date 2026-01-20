@@ -1021,7 +1021,7 @@ def setup_hook():
     print("  Skillbook:   <project>/.claude/skills/ace-learnings/skillbook.json")
     print()
     print("Note: Skills are stored per-project. Run from within a project directory.")
-    print("      To control project root in monorepos, create a .claude directory.")
+    print("      To control project root in monorepos, create a .ace-root file.")
     print(f"Settings saved to: {settings_path}")
 
     # Create slash commands for enable/disable
@@ -1585,30 +1585,7 @@ def run_learning(args):
 
     use_cli = getattr(args, "use_cli", False)
 
-    # STEP 2: Queue the hook input for background processing
-    # Write to a queue file - a separate process can pick it up later
-    if not args.sync and not args.transcript:
-        queue_dir = Path.home() / ".ace" / "queue"
-        queue_dir.mkdir(parents=True, exist_ok=True)
-
-        # Write hook input to queue file with timestamp
-        queue_file = queue_dir / f"hook-{datetime.now().strftime('%Y%m%d-%H%M%S-%f')}.json"
-        queue_file.write_text(json.dumps(hook_input))
-
-        # Spawn background processor (fire and forget via shell)
-        cmd_parts = [
-            sys.executable, "-m", "ace.integrations.claude_code_hook",
-            "--sync", "--model", args.model,
-        ]
-        if use_cli:
-            cmd_parts.append("--use-cli")
-
-        # Background the processing - parent exits immediately
-        shell_cmd = f'( {" ".join(cmd_parts)} < "{queue_file}" && rm -f "{queue_file}" ) > /dev/null 2>&1 &'
-        subprocess.Popen(shell_cmd, shell=True, start_new_session=True)
-        sys.exit(0)
-
-    # STEP 3: Sync mode - run in foreground
+    # STEP 2: Run learning (daemon handles queueing, this just processes)
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(asctime)s [%(levelname)s] %(message)s",

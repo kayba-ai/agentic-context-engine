@@ -169,6 +169,11 @@ class CLIClient(LLMClient):
             # Running the claude command
             cmd = [str(self.cli_path), "--print", "-p", prompt]
 
+        # Strip API keys to enforce subscription-only mode
+        env = os.environ.copy()
+        for key in ["ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GOOGLE_API_KEY"]:
+            env.pop(key, None)
+
         last_error = None
         for attempt in range(self.max_retries):
             try:
@@ -179,6 +184,7 @@ class CLIClient(LLMClient):
                     capture_output=True,
                     text=True,
                     timeout=self.timeout,
+                    env=env,
                 )
 
                 if result.returncode != 0:

@@ -72,7 +72,7 @@ cat .claude/skills/ace-learnings/SKILL.md
 **Expected behavior:**
 - Hook triggers after each Claude Code response (zero latency)
 - Queue file appears in `~/.ace/queue/`
-- Daemon processes the file and moves it to `processed/` or `failed/`
+- Daemon processes the file (deletes on success, moves to `failed/` on error)
 - New strategies appear in `.claude/skills/ace-learnings/SKILL.md`
 
 ## Commands
