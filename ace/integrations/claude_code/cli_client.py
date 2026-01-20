@@ -1,0 +1,367 @@
+"""Claude Code CLI client for subscription-based LLM access."""
+
+from __future__ import annotations
+
+import json
+import logging
+import os
+import re
+import subprocess
+import shutil
+from pathlib import Path
+from typing import Any, Optional, Type, TypeVar
+
+from pydantic import BaseModel
+
+from ace.llm import LLMClient, LLMResponse
+
+logger = logging.getLogger(__name__)
+
+T = TypeVar("T", bound=BaseModel)
+
+
+class CLIClientError(Exception):
+    """Error from Claude Code CLI execution."""
+    pass
+
+
+def _resolve_cli_path(cli_path: Optional[str]) -> Path:
+    """
+    Resolve the Claude CLI path with priority order:
+
+    1. Explicit parameter (cli_path)
+    2. ACE_CLAUDE_CLI_JS environment variable (for patched cli.js)
+    3. Patched CLI at ~/.ace/claude-learner/cli.js (preferred - minimal system prompt)
+    4. ACE_CLAUDE_BIN environment variable
+    5. System 'claude' binary from PATH
+
+    Returns:
+        Path to the CLI executable or .js file
+
+    Raises:
+        FileNotFoundError: If no CLI can be found
+    """
+    # 1. Explicit parameter
+    if cli_path:
+        path = Path(cli_path).expanduser()
+        if not path.exists():
+            raise FileNotFoundError(f"CLI not found at: {cli_path}")
+        return path
+
+    # 2. Environment override for patched JS CLI
+    if env_js := os.environ.get("ACE_CLAUDE_CLI_JS"):
+        path = Path(env_js).expanduser()
+        if path.exists():
+            logger.info(f"Using ACE_CLAUDE_CLI_JS: {path}")
+            return path
+        logger.warning(f"ACE_CLAUDE_CLI_JS set but not found: {env_js}")
+
+    # 3. Patched CLI if exists (preferred - minimal system prompt)
+    patched = Path.home() / ".ace" / "claude-learner" / "cli.js"
+    if patched.exists():
+        logger.info(f"Using patched Claude CLI: {patched}")
+        return patched
+
+    # 4. Environment override for binary
+    if env_bin := os.environ.get("ACE_CLAUDE_BIN"):
+        path = Path(env_bin).expanduser()
+        if path.exists():
+            logger.info(f"Using ACE_CLAUDE_BIN: {path}")
+            return path
+        logger.warning(f"ACE_CLAUDE_BIN set but not found: {env_bin}")
+
+    # 5. System claude binary
+    claude_path = shutil.which("claude")
+    if claude_path:
+        return Path(claude_path)
+
+    raise FileNotFoundError(
+        "Claude CLI not found. Checked:\n"
+        "  - ACE_CLAUDE_CLI_JS environment variable\n"
+        "  - ~/.ace/claude-learner/cli.js (patched CLI)\n"
+        "  - ACE_CLAUDE_BIN environment variable\n"
+        "  - 'claude' in PATH\n\n"
+        "Install with: npm install -g @anthropic-ai/claude-code"
+    )
+
+
+def _is_js_cli(cli_path: Path) -> bool:
+    """Check if the CLI path is a JavaScript file requiring node."""
+    return cli_path.suffix == ".js"
+
+
+class CLIClient(LLMClient):
+    """
+    LLM client that uses Claude Code CLI for subscription-based access.
+
+    This client runs `claude --print -p "<prompt>"` to get responses,
+    allowing ACE to use a Claude Code subscription instead of API calls.
+
+    CLI Resolution Order:
+    1. Explicit cli_path parameter
+    2. ACE_CLAUDE_CLI_JS environment variable
+    3. ~/.ace/claude-learner/cli.js (patched CLI with minimal system prompt)
+    4. ACE_CLAUDE_BIN environment variable
+    5. System 'claude' command from PATH
+
+    The patched CLI at ~/.ace/claude-learner/cli.js is preferred because it
+    uses a minimal system prompt, reducing token overhead.
+
+    Args:
+        cli_path: Path to claude CLI. If None, auto-detects using resolution order.
+        timeout: Command timeout in seconds (default: 120)
+        max_retries: Maximum retries on failure (default: 3)
+
+    Example:
+        >>> from ace.llm_providers.cli_client import CLIClient
+        >>> from ace import Reflector, SkillManager
+        >>>
+        >>> llm = CLIClient()
+        >>> reflector = Reflector(llm=llm)
+        >>> skill_manager = SkillManager(llm=llm)
+    """
+
+    def __init__(
+        self,
+        cli_path: Optional[str] = None,
+        timeout: int = 120,
+        max_retries: int = 3,
+    ) -> None:
+        """
+        Initialize CLI client.
+
+        Args:
+            cli_path: Path to claude CLI executable or cli.js file.
+                      If None, auto-detects using resolution order.
+            timeout: Command timeout in seconds
+            max_retries: Maximum retries on transient failures
+        """
+        super().__init__(model="claude-cli")
+
+        self.timeout = timeout
+        self.max_retries = max_retries
+        self.cli_path = _resolve_cli_path(cli_path)
+        self._is_js = _is_js_cli(self.cli_path)
+
+        logger.info(
+            f"Initialized CLIClient: {self.cli_path} "
+            f"(js={self._is_js})"
+        )
+
+    def _run_cli(self, prompt: str) -> str:
+        """
+        Execute Claude CLI and return the response.
+
+        Args:
+            prompt: The prompt to send
+
+        Returns:
+            Raw text response from CLI
+
+        Raises:
+            CLIClientError: If CLI execution fails
+        """
+        # Build command based on CLI type
+        if self._is_js:
+            # Running a JS file directly with node
+            cmd = ["node", str(self.cli_path), "--print", "-p", prompt]
+        else:
+            # Running the claude command
+            cmd = [str(self.cli_path), "--print", "-p", prompt]
+
+        last_error = None
+        for attempt in range(self.max_retries):
+            try:
+                logger.debug(f"CLI attempt {attempt + 1}/{self.max_retries}")
+
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=self.timeout,
+                )
+
+                if result.returncode != 0:
+                    error_msg = result.stderr.strip() or f"Exit code: {result.returncode}"
+                    logger.warning(f"CLI returned error: {error_msg}")
+                    last_error = CLIClientError(f"CLI error: {error_msg}")
+                    continue
+
+                response = result.stdout.strip()
+                if not response:
+                    logger.warning("CLI returned empty response")
+                    last_error = CLIClientError("Empty response from CLI")
+                    continue
+
+                return response
+
+            except subprocess.TimeoutExpired:
+                logger.warning(f"CLI timed out after {self.timeout}s")
+                last_error = CLIClientError(f"CLI timed out after {self.timeout}s")
+            except Exception as e:
+                logger.warning(f"CLI execution error: {e}")
+                last_error = CLIClientError(f"Execution error: {e}")
+
+        raise last_error or CLIClientError("CLI failed after max retries")
+
+    def complete(
+        self,
+        prompt: str,
+        system: Optional[str] = None,
+        **kwargs: Any,
+    ) -> LLMResponse:
+        """
+        Generate completion using Claude CLI.
+
+        Note: The 'system' parameter is ignored because Claude Code
+        injects its own system prompt. To customize the system prompt,
+        use the prompt patcher.
+
+        Args:
+            prompt: Input prompt text
+            system: Ignored (Claude Code has its own system prompt)
+            **kwargs: Ignored (CLI doesn't support additional params)
+
+        Returns:
+            LLMResponse containing the generated text
+        """
+        if system:
+            logger.debug("System prompt ignored - Claude Code uses its own")
+
+        # Combine system prompt into user prompt if provided
+        # This is a workaround since CLI doesn't support system messages
+        full_prompt = prompt
+        if system:
+            full_prompt = f"{system}\n\n{prompt}"
+
+        response_text = self._run_cli(full_prompt)
+
+        return LLMResponse(
+            text=response_text,
+            raw={"cli_path": str(self.cli_path), "provider": "claude-cli"}
+        )
+
+    def complete_structured(
+        self,
+        prompt: str,
+        response_model: Type[T],
+        system: Optional[str] = None,
+        **kwargs: Any,
+    ) -> T:
+        """
+        Completion with structured output - parse JSON and validate with Pydantic.
+
+        The prompt should instruct the model to output valid JSON matching
+        the response_model schema.
+
+        Args:
+            prompt: User prompt (should request JSON output)
+            response_model: Pydantic model class to validate against
+            system: Ignored (Claude Code has its own system prompt)
+            **kwargs: Additional parameters (ignored)
+
+        Returns:
+            Instance of response_model with validated data
+
+        Raises:
+            json.JSONDecodeError: If response is not valid JSON
+            ValidationError: If JSON doesn't match response_model schema
+        """
+        # Add JSON instruction to prompt
+        json_prompt = self._add_json_instruction(prompt, response_model)
+
+        # Get response
+        response = self.complete(json_prompt, system=system, **kwargs)
+        response_text = response.text
+
+        # Extract JSON from response
+        json_str = self._extract_json(response_text)
+
+        # Parse and validate
+        try:
+            data = json.loads(json_str)
+            return response_model.model_validate(data)
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse JSON: {e}")
+            logger.debug(f"Response text: {response_text[:500]}...")
+            raise
+
+    def _add_json_instruction(
+        self,
+        prompt: str,
+        response_model: Type[BaseModel],
+    ) -> str:
+        """Add JSON formatting instruction to prompt."""
+        # Get schema for the model
+        schema = response_model.model_json_schema()
+        schema_str = json.dumps(schema, indent=2)
+
+        instruction = f"""
+IMPORTANT: You must respond with ONLY valid JSON matching this schema:
+{schema_str}
+
+Do not include any text before or after the JSON. Output ONLY the JSON object.
+
+---
+
+{prompt}
+"""
+        return instruction.strip()
+
+    def _extract_json(self, text: str) -> str:
+        """
+        Extract JSON object from response text.
+
+        Handles cases where the model includes extra text around the JSON.
+
+        Args:
+            text: Raw response text
+
+        Returns:
+            Extracted JSON string
+        """
+        text = text.strip()
+
+        # If it already looks like JSON, return as-is
+        if text.startswith("{") and text.endswith("}"):
+            return text
+
+        # Try to find JSON object in the text
+        # Look for outermost { }
+        start = text.find("{")
+        if start == -1:
+            logger.warning("No JSON object found in response")
+            return text
+
+        # Find matching closing brace
+        depth = 0
+        end = start
+        in_string = False
+        escape_next = False
+
+        for i, char in enumerate(text[start:], start):
+            if escape_next:
+                escape_next = False
+                continue
+            if char == "\\":
+                escape_next = True
+                continue
+            if char == '"' and not escape_next:
+                in_string = not in_string
+                continue
+            if in_string:
+                continue
+            if char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0:
+                    end = i
+                    break
+
+        if depth != 0:
+            logger.warning("Unbalanced braces in JSON")
+            # Return from start to end of string
+            return text[start:]
+
+        return text[start:end + 1]

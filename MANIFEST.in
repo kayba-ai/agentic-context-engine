@@ -4,6 +4,7 @@ include requirements.txt
 include requirements-optional.txt
 include .env.example
 recursive-include ace *.py
+recursive-include ace *.sh
 recursive-include examples *.py
 recursive-include tests *.py
 global-exclude __pycache__

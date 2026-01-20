@@ -28,6 +28,7 @@ import json
 import sys
 import logging
 import os
+import shutil
 from pathlib import Path
 from dataclasses import dataclass
 from typing import List, Optional, Dict, Any
@@ -51,10 +52,10 @@ for _env_path in _env_paths:
         load_dotenv(_env_path)
         break
 
-from ..skillbook import Skillbook, Skill
-from ..roles import Reflector, SkillManager, AgentOutput, ReflectorOutput
-from ..llm_providers import LiteLLMClient
-from ..prompts_v2_1 import PromptManager
+from ...skillbook import Skillbook, Skill
+from ...roles import Reflector, SkillManager, AgentOutput, ReflectorOutput
+from ...prompts_v2_1 import PromptManager
+from .cli_client import CLIClient
 
 logger = logging.getLogger(__name__)
 
@@ -64,8 +65,12 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 
 # Markers to identify project root (checked in order)
+# NOTE: .claude is NOT included because ~/.claude exists in home directory,
+# which would incorrectly make $HOME the project root for non-project paths.
+# Use .ace-root as explicit marker for monorepo root control.
 DEFAULT_MARKERS = [
-    ".git",  # Version control (highest priority)
+    ".ace-root",  # Explicit ACE project root marker (highest priority for monorepos)
+    ".git",  # Version control
     ".hg",
     ".svn",
     "pyproject.toml",  # Python modern
@@ -73,6 +78,53 @@ DEFAULT_MARKERS = [
     "Cargo.toml",  # Rust
     "go.mod",  # Go
 ]
+
+
+# Hook script template content (embedded to avoid file discovery issues)
+HOOK_SCRIPT_TEMPLATE = '''#!/bin/bash
+# Fast ACE hook handler - queue only, daemon handles processing
+# Target: < 50ms exit time
+#
+# The daemon (ace-daemon) watches the queue directory and processes files.
+# This script only writes to the queue and exits immediately.
+
+QUEUE_DIR="${ACE_QUEUE_DIR:-$HOME/.ace/queue}"
+mkdir -p "$QUEUE_DIR"
+
+# Generate unique filename with timestamp and PID
+TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+QUEUE_FILE="$QUEUE_DIR/hook-${TIMESTAMP}-$$.json"
+
+# Atomic write: write to temp file then rename
+TEMP_FILE=$(mktemp)
+cat > "$TEMP_FILE"
+mv "$TEMP_FILE" "$QUEUE_FILE"
+
+exit 0
+'''
+
+
+def install_daemon_hook_script() -> Path:
+    """
+    Install the daemon hook script to a stable location.
+
+    Creates ~/.ace/bin/ace-hook-stop.sh with the fast hook script.
+    This ensures the hook always works regardless of Python environment.
+
+    Returns:
+        Path to the installed script
+    """
+    bin_dir = Path.home() / ".ace" / "bin"
+    bin_dir.mkdir(parents=True, exist_ok=True)
+
+    script_path = bin_dir / "ace-hook-stop.sh"
+    script_path.write_text(HOOK_SCRIPT_TEMPLATE)
+
+    # Make executable
+    script_path.chmod(0o755)
+
+    logger.info(f"Installed hook script to {script_path}")
+    return script_path
 
 
 class NotInProjectError(Exception):
@@ -85,9 +137,11 @@ class NotInProjectError(Exception):
         return (
             f"error: not in a project directory\n"
             f"  searched from: {self.searched_path}\n"
-            f"  looking for: .git, pyproject.toml, package.json, etc.\n\n"
+            f"  looking for: .ace-root, .git, pyproject.toml, package.json, etc.\n\n"
             f"hint: run from within a project directory, or use\n"
-            f"      --project <path> to specify project root"
+            f"      --project <path> to specify project root\n"
+            f"      or set ACE_PROJECT_DIR environment variable\n"
+            f"      or create .ace-root file at monorepo root"
         )
 
 
@@ -97,23 +151,45 @@ def find_project_root(
     """
     Find project root by walking up from start directory.
 
+    Priority order:
+    1. ACE_PROJECT_DIR environment variable (if set and exists)
+    2. Marker-based detection (markers are checked in priority order)
+
+    The .ace-root marker has highest priority, allowing monorepo roots
+    to be explicitly marked and take precedence over nested .git directories.
+
     Args:
         start: Directory to start searching from
         markers: List of file/directory names that indicate project root
+                 (ordered by priority, highest first)
 
     Returns:
         Path to project root, or None if not found
     """
-    markers = markers or DEFAULT_MARKERS
-    current = start.resolve()
+    # Check environment override first
+    if env_dir := os.environ.get("ACE_PROJECT_DIR"):
+        env_path = Path(env_dir).expanduser().resolve()
+        if env_path.exists() and env_path.is_dir():
+            logger.debug(f"Using ACE_PROJECT_DIR: {env_path}")
+            return env_path
+        else:
+            logger.warning(f"ACE_PROJECT_DIR set but invalid: {env_dir}")
 
-    while True:
-        for marker in markers:
+    markers = markers or DEFAULT_MARKERS
+    start_resolved = start.resolve()
+
+    # Check markers in priority order - higher priority markers
+    # are checked across all parent directories first
+    for marker in markers:
+        current = start_resolved
+        while True:
             if (current / marker).exists():
                 return current
-        if current.parent == current:  # Reached filesystem root
-            return None
-        current = current.parent
+            if current.parent == current:  # Reached filesystem root
+                break
+            current = current.parent
+
+    return None
 
 
 # ============================================================================
@@ -620,9 +696,11 @@ class ACEHookLearner:
     """
     Main class for learning from Claude Code sessions via hooks.
 
+    Uses Claude CLI subscription (no API keys required).
+
     Usage:
         learner = ACEHookLearner(cwd="/path/to/project")
-        learner.learn_from_hook()  # Reads stdin, processes, updates skill
+        learner.learn_from_transcript("/path/to/transcript.jsonl")
     """
 
     def __init__(
@@ -631,25 +709,42 @@ class ACEHookLearner:
         skillbook_path: Optional[Path] = None,
         skill_dir: Optional[Path] = None,
         ace_model: str = "anthropic/claude-sonnet-4-5-20250929",
-        ace_llm: Optional[LiteLLMClient] = None,
+        ace_llm: Optional[Any] = None,
+        use_cli: bool = True,  # Deprecated - always True
     ):
         """
         Initialize the hook learner.
 
+        ACE now uses subscription-only mode via Claude CLI. No API keys required.
+
         Args:
-            cwd: Working directory (project root) for skill storage
-            skillbook_path: Where to store the persistent skillbook (default: project/.claude/skills/ace-learnings/skillbook.json)
-            skill_dir: Where to write the skill file (default: project/.claude/skills/ace-learnings/)
-            ace_model: Model for ACE Reflector/SkillManager
-            ace_llm: Custom LLM client (overrides ace_model)
+            cwd: Working directory for skill storage
+            skillbook_path: Where to store the persistent skillbook
+            skill_dir: Where to write skill files (explicit path, bypasses auto-detection)
+            ace_model: Deprecated - ignored (CLI only)
+            ace_llm: Custom LLM client (optional, for testing)
+            use_cli: Deprecated - always uses CLI
+
+        Environment variables:
+            ACE_CLI_PATH: Path to custom claude CLI or cli.js file
+            ACE_PROJECT_DIR: Override project root detection
         """
         self.cwd = cwd
 
-        # Use project-level paths by default
-        project_skill_dir = skill_dir or get_project_skill_dir(cwd)
-        self.skill_dir = project_skill_dir
-        self.skill_generator = SkillGenerator(project_skill_dir)
-        self.skillbook_path = skillbook_path or (project_skill_dir / "skillbook.json")
+        # Determine skill directory
+        if skill_dir:
+            # Explicit skill_dir passed - use it directly
+            self.skill_dir = skill_dir
+        else:
+            # Try project detection, fall back to global
+            try:
+                self.skill_dir = get_project_skill_dir(cwd)
+            except NotInProjectError:
+                self.skill_dir = Path.home() / ".claude" / "skills" / "ace-learnings-global"
+                logger.info(f"No project root found, using global: {self.skill_dir}")
+
+        self.skill_generator = SkillGenerator(self.skill_dir)
+        self.skillbook_path = skillbook_path or (self.skill_dir / "skillbook.json")
         self.transcript_parser = TranscriptParser()
 
         # Load or create skillbook
@@ -660,8 +755,15 @@ class ACEHookLearner:
             self.skillbook = Skillbook()
             logger.info("Created new skillbook")
 
-        # Create ACE components with v2.1 prompts for better effectiveness
-        self.ace_llm = ace_llm or LiteLLMClient(model=ace_model, max_tokens=2048)
+        # Create ACE components - subscription-only via CLI
+        if ace_llm:
+            self.ace_llm = ace_llm
+        else:
+            # Use CLI with optional custom path from environment
+            cli_path = os.environ.get("ACE_CLI_PATH")
+            logger.info("Using Claude Code CLI for learning (subscription mode)")
+            self.ace_llm = CLIClient(cli_path=cli_path)
+
         prompt_mgr = PromptManager()
         self.reflector = Reflector(
             self.ace_llm, prompt_template=prompt_mgr.get_reflector_prompt()
@@ -706,46 +808,96 @@ class ACEHookLearner:
         cls,
         hook_input: Dict[str, Any],
         ace_model: str = "anthropic/claude-sonnet-4-5-20250929",
+        use_cli: bool = True,  # Default to CLI subscription
     ) -> bool:
         """
         Process hook input and learn from the session.
 
+        This method now uses transcript-first root detection:
+        1. Validates transcript_path exists
+        2. Parses transcript to extract effective_cwd
+        3. Resolves project_root from effective_cwd
+        4. Falls back to global skill dir if no project root found
+
         Args:
             hook_input: Parsed hook input containing transcript_path and cwd
-            ace_model: Model for ACE Reflector/SkillManager
+            ace_model: Model for ACE Reflector/SkillManager (ignored - CLI only)
+            use_cli: Deprecated - always uses CLI subscription
 
         Returns:
             True if learning succeeded, False otherwise
         """
         transcript_path = hook_input.get("transcript_path")
-        cwd = hook_input.get("cwd")
+        hook_cwd = hook_input.get("cwd")
 
         if not transcript_path:
             logger.error("No transcript_path in hook input")
             return False
 
-        if not cwd:
-            logger.error("No cwd in hook input")
+        # Validate transcript exists before proceeding
+        if not Path(transcript_path).exists():
+            logger.error(f"Transcript file not found: {transcript_path}")
             return False
 
-        # Create learner with the project's cwd
-        learner = cls(cwd=cwd, ace_model=ace_model)
-        return learner.learn_from_transcript(transcript_path)
+        # Parse transcript to get effective cwd (transcript cwd is more accurate)
+        parser = TranscriptParser()
+        try:
+            transcript = parser.parse(transcript_path)
+        except Exception as e:
+            logger.error(f"Failed to parse transcript: {e}")
+            return False
 
-    def learn_from_transcript(self, transcript_path: str) -> bool:
+        # Use transcript cwd if available, fall back to hook cwd
+        effective_cwd = transcript.cwd or hook_cwd
+        if not effective_cwd:
+            logger.error("No cwd in transcript or hook input")
+            return False
+
+        logger.info(f"Effective cwd: {effective_cwd}")
+
+        # Resolve project root and skill directory
+        project_root = find_project_root(Path(effective_cwd))
+        if project_root:
+            skill_dir = project_root / ".claude" / "skills" / "ace-learnings"
+            logger.info(f"Using project skill dir: {skill_dir}")
+        else:
+            # Global fallback for non-project directories
+            skill_dir = Path.home() / ".claude" / "skills" / "ace-learnings-global"
+            logger.info(f"No project root found, using global skill dir: {skill_dir}")
+
+        # Create learner with explicit paths
+        learner = cls(
+            cwd=effective_cwd,
+            skill_dir=skill_dir,
+            ace_model=ace_model,
+            use_cli=True,  # Always use CLI
+        )
+        # Pass already-parsed transcript to avoid double parsing
+        return learner.learn_from_transcript(transcript_path, parsed_transcript=transcript)
+
+    def learn_from_transcript(
+        self,
+        transcript_path: str,
+        parsed_transcript: Optional[ParsedTranscript] = None,
+    ) -> bool:
         """
         Learn from a transcript file directly.
 
         Args:
             transcript_path: Path to Claude Code transcript JSONL
+            parsed_transcript: Optional pre-parsed transcript to avoid double parsing
 
         Returns:
             True if learning succeeded
         """
         try:
-            # Parse transcript
-            transcript = self.transcript_parser.parse(transcript_path)
-            logger.info(f"Parsed transcript: {transcript.total_tool_calls} tool calls")
+            # Use pre-parsed transcript if provided, otherwise parse
+            if parsed_transcript is not None:
+                transcript = parsed_transcript
+                logger.info(f"Using pre-parsed transcript: {transcript.total_tool_calls} tool calls")
+            else:
+                transcript = self.transcript_parser.parse(transcript_path)
+                logger.info(f"Parsed transcript: {transcript.total_tool_calls} tool calls")
 
             # Skip trivial sessions (less than 3 tool calls)
             MIN_TOOL_CALLS = 3
@@ -816,8 +968,20 @@ class ACEHookLearner:
 
 
 def setup_hook():
-    """Configure Claude Code to use ACE learning hook."""
+    """Configure Claude Code to use ACE learning hook with subscription-only mode.
+
+    This is the recommended setup that uses the daemon for background processing.
+    """
     settings_path = Path.home() / ".claude" / "settings.json"
+
+    # Check that claude CLI is available
+    claude_path = shutil.which("claude")
+    if not claude_path:
+        print("Warning: Claude CLI not found in PATH")
+        print("Install with: npm install -g @anthropic-ai/claude-code")
+        print()
+        print("Continuing with setup anyway...")
+        print()
 
     # Load existing settings or create new
     if settings_path.exists():
@@ -828,37 +992,36 @@ def setup_hook():
     else:
         settings = {}
 
+    # Install the hook script to a stable location
+    installed_script = install_daemon_hook_script()
+
     # Add/update hook config (merge, don't overwrite)
     if "hooks" not in settings:
         settings["hooks"] = {}
 
     settings["hooks"]["Stop"] = [
-        {"matcher": "*", "hooks": [{"type": "command", "command": "ace-learn"}]}
+        {"matcher": "*", "hooks": [{"type": "command", "command": str(installed_script)}]}
     ]
 
     # Write back
     settings_path.parent.mkdir(parents=True, exist_ok=True)
     settings_path.write_text(json.dumps(settings, indent=2))
 
-    # Create .env template if it doesn't exist
-    env_path = Path.home() / ".ace" / ".env"
-    if not env_path.exists():
-        env_path.parent.mkdir(parents=True, exist_ok=True)
-        env_path.write_text(
-            "# ACE Framework Configuration\n# Add your Anthropic API key here\nANTHROPIC_API_KEY=your-key-here\n"
-        )
-
     print("✓ Claude Code hook configured!")
     print()
+    print("Hook script installed to: ~/.ace/bin/ace-hook-stop.sh")
+    print()
     print("Next steps:")
-    print(f"  1. Add your API key to: {env_path}")
-    print("  2. Start using Claude Code - it will learn from your sessions!")
+    print("  1. Start the daemon:     ace-daemon start")
+    print("  2. Or install auto-start: ace-daemon install")
+    print("  3. Start using Claude Code - it will learn from your sessions!")
     print()
     print("Data locations (per-project):")
     print("  Skill file:  <project>/.claude/skills/ace-learnings/SKILL.md")
     print("  Skillbook:   <project>/.claude/skills/ace-learnings/skillbook.json")
     print()
     print("Note: Skills are stored per-project. Run from within a project directory.")
+    print("      To control project root in monorepos, create a .claude directory.")
     print(f"Settings saved to: {settings_path}")
 
     # Create slash commands for enable/disable
@@ -866,7 +1029,11 @@ def setup_hook():
 
 
 def enable_hook():
-    """Enable ACE learning hook in Claude Code settings."""
+    """Enable ACE learning hook in Claude Code settings.
+
+    Installs and uses the fast bash wrapper script for instant hook response.
+    The script is installed to ~/.ace/bin/ace-hook-stop.sh for stability.
+    """
     settings_path = Path.home() / ".claude" / "settings.json"
 
     # Load existing settings
@@ -878,19 +1045,23 @@ def enable_hook():
     else:
         settings = {}
 
+    # Install the hook script to a stable location
+    installed_script = install_daemon_hook_script()
+    hook_command = str(installed_script)
+
     # Add hook config
     if "hooks" not in settings:
         settings["hooks"] = {}
 
     settings["hooks"]["Stop"] = [
-        {"matcher": "*", "hooks": [{"type": "command", "command": "ace-learn"}]}
+        {"matcher": "*", "hooks": [{"type": "command", "command": hook_command}]}
     ]
 
     # Write back
     settings_path.parent.mkdir(parents=True, exist_ok=True)
     settings_path.write_text(json.dumps(settings, indent=2))
 
-    print("ACE learning enabled")
+    print(f"ACE learning enabled with: {hook_command}")
 
 
 def disable_hook():
@@ -916,6 +1087,50 @@ def disable_hook():
 
     settings_path.write_text(json.dumps(settings, indent=2))
     print("ACE learning disabled")
+
+
+def enable_daemon_hook():
+    """Configure Claude Code to use daemon-based ACE hook.
+
+    This installs and configures the fast bash script that just writes to the queue.
+    The ace-daemon process handles actual learning in the background.
+
+    The hook script is installed to ~/.ace/bin/ace-hook-stop.sh for stability.
+    """
+    settings_path = Path.home() / ".claude" / "settings.json"
+
+    # Load existing settings
+    if settings_path.exists():
+        try:
+            settings = json.loads(settings_path.read_text())
+        except json.JSONDecodeError:
+            settings = {}
+    else:
+        settings = {}
+
+    # Install the hook script to a stable location
+    installed_script = install_daemon_hook_script()
+    hook_command = str(installed_script)
+
+    # Configure hook
+    if "hooks" not in settings:
+        settings["hooks"] = {}
+
+    settings["hooks"]["Stop"] = [
+        {"matcher": "*", "hooks": [{"type": "command", "command": hook_command}]}
+    ]
+
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    settings_path.write_text(json.dumps(settings, indent=2))
+
+    print(f"Daemon hook configured: {installed_script}")
+    print()
+    print("Next steps:")
+    print("  1. Start the daemon:     ace-daemon start")
+    print("  2. Or install auto-start: ace-daemon install && launchctl load ~/Library/LaunchAgents/com.ace.daemon.plist")
+    print()
+    print("Check daemon status:       ace-daemon status")
+    print("View logs:                 ace-daemon logs -f")
 
 
 def get_project_context(args) -> Path:
@@ -961,7 +1176,7 @@ def show_insights(args):
         return
 
     try:
-        from ..skillbook import Skillbook
+        from ...skillbook import Skillbook
 
         skillbook = Skillbook.load_from_file(str(skillbook_path))
         skills = skillbook.skills()
@@ -1007,7 +1222,7 @@ def remove_insight(args):
         return
 
     try:
-        from ..skillbook import Skillbook
+        from ...skillbook import Skillbook
 
         skillbook = Skillbook.load_from_file(str(skillbook_path))
 
@@ -1060,11 +1275,27 @@ def clear_insights(args):
         return
 
     try:
-        from ..skillbook import Skillbook
+        import shutil
+        import glob
+        from ...skillbook import Skillbook
+
+        # Clear pending queue files to prevent daemon from re-adding skills
+        queue_dir = Path.home() / ".ace" / "queue"
+        if queue_dir.exists():
+            pending_files = list(queue_dir.glob("hook-*.json"))
+            for f in pending_files:
+                f.unlink()
+            if pending_files:
+                print(f"Cleared {len(pending_files)} pending queue files.")
 
         # Create empty skillbook
         skillbook = Skillbook()
         skillbook.save_to_file(str(skillbook_path))
+
+        # Remove categories directory if it exists
+        categories_dir = skill_dir / "categories"
+        if categories_dir.exists():
+            shutil.rmtree(categories_dir)
 
         # Regenerate empty skill file
         generator = SkillGenerator(skill_dir)
@@ -1152,13 +1383,176 @@ This will reset the skillbook and start fresh.
     (commands_dir / "ace-clear.md").write_text(ace_clear_content)
 
 
+def doctor_check(args):
+    """Verify ACE prerequisites and configuration.
+
+    Checks:
+    1. Claude CLI is available and works
+    2. Node.js is available (if using patched CLI)
+    3. Daemon is running
+    4. Queue directory is writable
+    5. Shows where skill output will land for current cwd
+    """
+    import subprocess
+
+    print("ACE Doctor - Checking prerequisites and configuration\n")
+    all_ok = True
+
+    # 1. Check Claude CLI
+    print("1. Claude CLI...")
+    claude_path = shutil.which("claude")
+    if claude_path:
+        print(f"   ✓ Found at: {claude_path}")
+        # Test that it works
+        try:
+            result = subprocess.run(
+                [claude_path, "--print", "-p", "ping"],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if result.returncode == 0:
+                print("   ✓ CLI responds to ping")
+            else:
+                print(f"   ✗ CLI ping failed: {result.stderr[:100]}")
+                all_ok = False
+        except subprocess.TimeoutExpired:
+            print("   ✗ CLI timed out")
+            all_ok = False
+        except Exception as e:
+            print(f"   ✗ CLI test failed: {e}")
+            all_ok = False
+    else:
+        print("   ✗ Claude CLI not found in PATH")
+        print("     Install with: npm install -g @anthropic-ai/claude-code")
+        all_ok = False
+
+    # 2. Check for patched CLI
+    print("\n2. Patched CLI (optional)...")
+    patched_cli = Path.home() / ".ace" / "claude-learner" / "cli.js"
+    if patched_cli.exists():
+        print(f"   ✓ Found at: {patched_cli}")
+        # Check node is available
+        node_path = shutil.which("node")
+        if node_path:
+            print(f"   ✓ Node.js found at: {node_path}")
+        else:
+            print("   ✗ Node.js not found (required for patched CLI)")
+            all_ok = False
+    else:
+        print(f"   - Not installed (optional)")
+        print(f"     Would be at: {patched_cli}")
+
+    # 3. Check daemon status
+    print("\n3. ACE Daemon...")
+    from .daemon.service import is_daemon_running
+
+    pid = is_daemon_running()
+    if pid:
+        print(f"   ✓ Running (PID: {pid})")
+    else:
+        print("   ✗ Not running")
+        print("     Start with: ace-daemon start")
+        all_ok = False
+
+    # 4. Check queue directory
+    print("\n4. Queue directory...")
+    queue_dir = Path.home() / ".ace" / "queue"
+    if queue_dir.exists():
+        print(f"   ✓ Exists at: {queue_dir}")
+        # Check writability
+        test_file = queue_dir / ".write_test"
+        try:
+            test_file.touch()
+            test_file.unlink()
+            print("   ✓ Writable")
+        except Exception as e:
+            print(f"   ✗ Not writable: {e}")
+            all_ok = False
+
+        # Count pending files
+        pending = len(list(queue_dir.glob("hook-*.json")))
+        if pending > 0:
+            print(f"   ! {pending} pending queue files")
+    else:
+        print(f"   - Will be created at: {queue_dir}")
+
+    # 5. Check hook configuration
+    print("\n5. Hook configuration...")
+    settings_path = Path.home() / ".claude" / "settings.json"
+    if settings_path.exists():
+        try:
+            settings = json.loads(settings_path.read_text())
+            stop_hooks = settings.get("hooks", {}).get("Stop", [])
+            if stop_hooks:
+                for hook_config in stop_hooks:
+                    for hook in hook_config.get("hooks", []):
+                        cmd = hook.get("command", "")
+                        if "ace" in cmd.lower():
+                            print(f"   ✓ ACE hook configured: {cmd}")
+                            # Check if the script exists
+                            if cmd.startswith("/") or cmd.startswith("~"):
+                                cmd_path = Path(cmd).expanduser()
+                                if cmd_path.exists():
+                                    print(f"   ✓ Hook script exists")
+                                else:
+                                    print(f"   ✗ Hook script not found: {cmd_path}")
+                                    all_ok = False
+                            break
+            else:
+                print("   ✗ No Stop hook configured")
+                print("     Run: ace-learn setup")
+                all_ok = False
+        except Exception as e:
+            print(f"   ✗ Error reading settings: {e}")
+            all_ok = False
+    else:
+        print("   ✗ No settings.json found")
+        print("     Run: ace-learn setup")
+        all_ok = False
+
+    # 6. Check skill output location
+    print("\n6. Skill output location...")
+    try:
+        cwd = Path.cwd()
+        project_root = find_project_root(cwd)
+        if project_root:
+            skill_dir = project_root / ".claude" / "skills" / "ace-learnings"
+            print(f"   Project root: {project_root}")
+            print(f"   Skills will go to: {skill_dir}")
+            if skill_dir.exists():
+                skill_count = len(list(skill_dir.glob("*.md")))
+                skillbook = skill_dir / "skillbook.json"
+                if skillbook.exists():
+                    print(f"   ✓ Existing skillbook found")
+                else:
+                    print(f"   - No skillbook yet (will be created)")
+        else:
+            global_dir = Path.home() / ".claude" / "skills" / "ace-learnings-global"
+            print(f"   No project root found from: {cwd}")
+            print(f"   Skills will go to (global): {global_dir}")
+    except Exception as e:
+        print(f"   Error detecting project: {e}")
+
+    # Summary
+    print("\n" + "=" * 50)
+    if all_ok:
+        print("✓ All checks passed! ACE is ready to learn.")
+    else:
+        print("✗ Some checks failed. Please fix the issues above.")
+
+    return 0 if all_ok else 1
+
+
 def run_learning(args):
     """Run the learning process (called from hook or manually).
 
-    Critical: stdin must be read BEFORE forking because daemonization
-    redirects stdin to /dev/null.
+    Critical: stdin must be read BEFORE spawning background process.
+    Uses subprocess.Popen to spawn a fully detached process that survives parent exit.
     """
-    # STEP 1: Parse stdin BEFORE forking
+    import subprocess
+
+    # STEP 1: Parse stdin BEFORE spawning background process
     hook_input = None
     cwd = None
     transcript_path = None
@@ -1168,7 +1562,7 @@ def run_learning(args):
         cwd = getattr(args, "project", None) or os.getcwd()
         transcript_path = args.transcript
     else:
-        # Hook mode: read stdin first (critical - must happen before fork)
+        # Hook mode: read stdin first (critical - must happen before spawn)
         if sys.stdin.isatty():
             print("error: no stdin input (expected hook JSON)", file=sys.stderr)
             print("hint: use -t <transcript> for manual learning", file=sys.stderr)
@@ -1189,39 +1583,44 @@ def run_learning(args):
             print("error: missing 'transcript_path' in hook input", file=sys.stderr)
             sys.exit(1)
 
-    # STEP 2: Fork to background (stdin already consumed, safe now)
+    use_cli = getattr(args, "use_cli", False)
+
+    # STEP 2: Queue the hook input for background processing
+    # Write to a queue file - a separate process can pick it up later
     if not args.sync and not args.transcript:
-        pid = os.fork()
-        if pid > 0:
-            # Parent exits immediately - Claude Code continues
-            sys.exit(0)
+        queue_dir = Path.home() / ".ace" / "queue"
+        queue_dir.mkdir(parents=True, exist_ok=True)
 
-        # Child continues with learning in background
-        os.setsid()
+        # Write hook input to queue file with timestamp
+        queue_file = queue_dir / f"hook-{datetime.now().strftime('%Y%m%d-%H%M%S-%f')}.json"
+        queue_file.write_text(json.dumps(hook_input))
 
-    # STEP 3: Setup logging (to file in background mode)
-    log_file = None
-    if not args.sync and not args.transcript:
-        log_dir = Path.home() / ".ace" / "logs"
-        log_dir.mkdir(parents=True, exist_ok=True)
-        log_file = log_dir / f"ace-learn-{datetime.now().strftime('%Y%m%d-%H%M%S')}.log"
+        # Spawn background processor (fire and forget via shell)
+        cmd_parts = [
+            sys.executable, "-m", "ace.integrations.claude_code_hook",
+            "--sync", "--model", args.model,
+        ]
+        if use_cli:
+            cmd_parts.append("--use-cli")
 
+        # Background the processing - parent exits immediately
+        shell_cmd = f'( {" ".join(cmd_parts)} < "{queue_file}" && rm -f "{queue_file}" ) > /dev/null 2>&1 &'
+        subprocess.Popen(shell_cmd, shell=True, start_new_session=True)
+        sys.exit(0)
+
+    # STEP 3: Sync mode - run in foreground
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(asctime)s [%(levelname)s] %(message)s",
-        filename=str(log_file) if log_file else None,
     )
 
-    # STEP 4: Learn
     try:
         if hook_input:
-            # Use classmethod that creates learner with proper cwd
             success = ACEHookLearner.learn_from_hook_input(
-                hook_input, ace_model=args.model
+                hook_input, ace_model=args.model, use_cli=use_cli
             )
         else:
-            # Manual transcript mode
-            learner = ACEHookLearner(cwd=cwd, ace_model=args.model)
+            learner = ACEHookLearner(cwd=cwd, ace_model=args.model, use_cli=use_cli)
             success = learner.learn_from_transcript(transcript_path)
     except NotInProjectError as e:
         logger.error(str(e))
@@ -1241,6 +1640,7 @@ def main():
         epilog="""
 Examples:
   ace-learn setup              Configure Claude Code hook (run once)
+  ace-learn doctor             Verify prerequisites and configuration
   ace-learn enable             Enable ACE learning
   ace-learn disable            Disable ACE learning
   ace-learn insights           Show learned strategies
@@ -1251,6 +1651,7 @@ Examples:
   ace-learn -P /path/to/project   Override project root detection
 
 Skills are stored per-project at: <project>/.claude/skills/ace-learnings/
+Global fallback: ~/.claude/skills/ace-learnings-global/
 """,
     )
 
@@ -1262,6 +1663,13 @@ Skills are stored per-project at: <project>/.claude/skills/ace-learnings/
     # Enable/disable commands
     subparsers.add_parser("enable", help="Enable ACE learning hook")
     subparsers.add_parser("disable", help="Disable ACE learning hook")
+    subparsers.add_parser(
+        "enable-daemon",
+        help="Enable daemon-based hook (fast, non-blocking)",
+    )
+
+    # Doctor command
+    subparsers.add_parser("doctor", help="Verify prerequisites and configuration")
 
     # Insight management commands
     insights_parser = subparsers.add_parser("insights", help="Show learned strategies")
@@ -1304,6 +1712,11 @@ Skills are stored per-project at: <project>/.claude/skills/ace-learnings/
         action="store_true",
         help="Run synchronously (default: fork to background)",
     )
+    parser.add_argument(
+        "--use-cli",
+        action="store_true",
+        help="Use Claude Code CLI subscription instead of API",
+    )
 
     args = parser.parse_args()
 
@@ -1313,6 +1726,10 @@ Skills are stored per-project at: <project>/.claude/skills/ace-learnings/
         enable_hook()
     elif args.command == "disable":
         disable_hook()
+    elif args.command == "enable-daemon":
+        enable_daemon_hook()
+    elif args.command == "doctor":
+        sys.exit(doctor_check(args))
     elif args.command == "insights":
         show_insights(args)
     elif args.command == "remove":

@@ -80,7 +80,8 @@ all = [
 ]
 
 [project.scripts]
-ace-learn = "ace.integrations.claude_code_hook:main"
+ace-learn = "ace.integrations.claude_code.hook:main"
+ace-daemon = "ace.integrations.claude_code.daemon.cli:main"
 
 [project.urls]
 Homepage = "https://kayba.ai"
@@ -109,7 +110,7 @@ demos = [
 ]
 
 [tool.setuptools]
-packages = ["ace", "ace.llm_providers", "ace.observability", "ace.integrations", "ace.deduplication"]
+packages = ["ace", "ace.llm_providers", "ace.observability", "ace.integrations", "ace.integrations.claude_code", "ace.integrations.claude_code.daemon", "ace.deduplication"]
 
 [tool.setuptools.package-data]
 ace = ["py.typed"]
