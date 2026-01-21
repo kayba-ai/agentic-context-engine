@@ -28,6 +28,8 @@ class Skill:
     id: str
     section: str
     content: str
+    justification: Optional[str] = None
+    evidence: Optional[str] = None
     helpful: int = 0
     harmful: int = 0
     neutral: int = 0
@@ -107,10 +109,18 @@ class Skillbook:
         content: str,
         skill_id: Optional[str] = None,
         metadata: Optional[Dict[str, int]] = None,
+        justification: Optional[str] = None,
+        evidence: Optional[str] = None,
     ) -> Skill:
         skill_id = skill_id or self._generate_id(section)
         metadata = metadata or {}
-        skill = Skill(id=skill_id, section=section, content=content)
+        skill = Skill(
+            id=skill_id,
+            section=section,
+            content=content,
+            justification=justification,
+            evidence=evidence,
+        )
         skill.apply_metadata(metadata)
         self._skills[skill_id] = skill
         self._sections.setdefault(section, []).append(skill_id)
@@ -122,12 +132,18 @@ class Skillbook:
         *,
         content: Optional[str] = None,
         metadata: Optional[Dict[str, int]] = None,
+        justification: Optional[str] = None,
+        evidence: Optional[str] = None,
     ) -> Optional[Skill]:
         skill = self._skills.get(skill_id)
         if skill is None:
             return None
         if content is not None:
             skill.content = content
+        if justification is not None:
+            skill.justification = justification
+        if evidence is not None:
+            skill.evidence = evidence
         if metadata:
             skill.apply_metadata(metadata)
         skill.updated_at = datetime.now(timezone.utc).isoformat()
@@ -246,6 +262,10 @@ class Skillbook:
                         skill_data["embedding"] = None
                     if "status" not in skill_data:
                         skill_data["status"] = "active"
+                    if "justification" not in skill_data:
+                        skill_data["justification"] = None
+                    if "evidence" not in skill_data:
+                        skill_data["evidence"] = None
                     instance._skills[skill_id] = Skill(**skill_data)
         sections_payload = payload.get("sections", {})
         if isinstance(sections_payload, dict):
@@ -346,6 +366,8 @@ class Skillbook:
                 content=operation.content or "",
                 skill_id=operation.skill_id,
                 metadata=operation.metadata,
+                justification=operation.justification,
+                evidence=operation.evidence,
             )
         elif op_type == "UPDATE":
             if operation.skill_id is None:
@@ -354,6 +376,8 @@ class Skillbook:
                 operation.skill_id,
                 content=operation.content,
                 metadata=operation.metadata,
+                justification=operation.justification,
+                evidence=operation.evidence,
             )
         elif op_type == "TAG":
             if operation.skill_id is None:
