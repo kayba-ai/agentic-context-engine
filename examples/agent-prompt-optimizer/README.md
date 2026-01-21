@@ -43,6 +43,8 @@ All insights are stored in a **human-readable skillbook** including prompt sugge
 
 Process past traces and conversations in batch to generate insights **without the agent running**.
 
+> **Quick start tip:** Run [`agentic_system_prompting.py`](./agentic_system_prompting.py) - a simple, ready-to-use example script.
+
 **Use case:** Periodic automated system prompt revision. Feed historical data, let ACE analyze patterns, then have a human review and choose what to implement.
 
 ```python
