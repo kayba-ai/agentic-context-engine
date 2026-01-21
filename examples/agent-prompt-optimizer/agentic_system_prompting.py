@@ -12,7 +12,8 @@ Usage:
     4. Run: python agentic_system_prompting.py
 
 Requirements:
-    - ANTHROPIC_API_KEY/OPENAI_API_KEY/Alternative_api_key environment variable
+    - LLM API key for analysis (e.g., OPENAI_API_KEY, ANTHROPIC_API_KEY, Alternative_api_key)
+    - OPENAI_API_KEY for deduplication (uses OpenAI embeddings to detect similar skills)
 """
 
 import os
@@ -28,6 +29,7 @@ from ace import (
     SkillManager,
     ReplayAgent,
     SimpleEnvironment,
+    DeduplicationConfig,
 )
 from ace.llm_providers.litellm_client import LiteLLMClient, LiteLLMConfig
 from ace.prompts_v2_1 import PromptManager
@@ -71,17 +73,18 @@ def main():
     # USER CONFIGURATION - Update these values for your use case
     # =========================================================================
     CONVERSATIONS_DIR = Path("/path/to/your/conversations")  # Absolute path to .md files
-    LLM_MODEL = "claude-sonnet-4-5-20250929"   # LLM model to use
+    LLM_MODEL = "gpt-5-mini"                   # LLM model for analysis
     EPOCHS = 1                                 # Number of training epochs
+    DEDUPLICATOR_SIMILARITY_THRESHOLD = 0.7    # Deduplication threshold (0.0-1.0)
     # =========================================================================
 
     SCRIPT_DIR = Path(__file__).parent
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     OUTPUT_SKILLBOOK = SCRIPT_DIR / f'skillbook_{timestamp}.json'
 
-    # Check for API key
-    if not os.getenv('OPENAI_API_KEY') and not os.getenv('ANTHROPIC_API_KEY'):
-        print("WARNING: No OPENAI_API_KEY or ANTHROPIC_API_KEY found!")
+    # Check for API keys
+    if not os.getenv('OPENAI_API_KEY'):
+        print("WARNING: OPENAI_API_KEY required for deduplication embeddings!")
         return
 
     # Load conversations
@@ -98,7 +101,7 @@ def main():
     # Initialize ACE components
     skillbook = Skillbook()
 
-    config = LiteLLMConfig(model=LLM_MODEL, max_tokens=8192, temperature=0.1)
+    config = LiteLLMConfig(model=LLM_MODEL, max_tokens=8192, temperature=1)
     llm = LiteLLMClient(config=config)
     prompt_mgr = PromptManager()
 
@@ -106,11 +109,19 @@ def main():
     reflector = Reflector(llm=llm, prompt_template=prompt_mgr.get_reflector_prompt())
     skill_manager = SkillManager(llm=llm, prompt_template=prompt_mgr.get_skill_manager_prompt())
 
+    # Deduplication uses OpenAI embeddings to detect and merge similar skills
+    dedup_config = DeduplicationConfig(
+        enabled=True,
+        similarity_threshold=DEDUPLICATOR_SIMILARITY_THRESHOLD,
+        embedding_model="text-embedding-3-small",
+    )
+
     adapter = OfflineACE(
         skillbook=skillbook,
         agent=agent,
         reflector=reflector,
         skill_manager=skill_manager,
+        dedup_config=dedup_config,
     )
 
     print(f"\nStarting analysis: {len(samples)} conversations, {EPOCHS} epoch(s), model={LLM_MODEL}")
