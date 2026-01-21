@@ -62,6 +62,16 @@ def _resolve_cli_path(cli_path: Optional[str]) -> Path:
         logger.info(f"Using patched Claude CLI: {patched}")
         return patched
 
+    # 3b. Runtime safety net: try to create patched CLI on-the-fly
+    try:
+        from ace.integrations.claude_code.prompt_patcher import patch_cli
+        result = patch_cli()
+        if result:
+            logger.info(f"Auto-patched CLI: {result}")
+            return result
+    except Exception as e:
+        logger.warning(f"Auto-patching failed: {e}")
+
     # 4. Environment override for binary
     if env_bin := os.environ.get("ACE_CLAUDE_BIN"):
         path = Path(env_bin).expanduser()

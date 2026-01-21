@@ -7,8 +7,8 @@ the full system prompt with a minimal one for ACE learning.
 
 The mechanism:
 1. Find Claude Code's cli.js file
-2. Locate the system prompt assembly function
-3. Replace key pieces with minimal ACE-focused content
+2. Locate the main system prompt template literal
+3. Replace it with minimal ACE-focused content
 4. Save to a separate location (doesn't modify original)
 
 Usage:
@@ -31,6 +31,31 @@ ACE_DIR = Path.home() / ".ace"
 ACE_CLAUDE_DIR = ACE_DIR / "claude-learner"
 ACE_CLI_JS = ACE_CLAUDE_DIR / "cli.js"
 ACE_BACKUP = ACE_CLAUDE_DIR / "cli.js.original"
+
+# Anchor text inside Claude Code's *main* system prompt template literal.
+# Used to locate the exact template-literal payload to replace, without
+# needing versioned prompt data (unlike tweakcc).
+MAIN_SYSTEM_PROMPT_ANCHORS = [
+    "You are an interactive CLI tool that helps users",
+]
+
+# Minimal system prompt for ACE learning runs (Reflector/SkillManager).
+# This is deliberately short to reduce token overhead and to prevent tool use
+# in `claude --print` mode.
+ACE_MINIMAL_SYSTEM_PROMPT = (
+    "\n"
+    "You are an ACE Learning Analyzer.\n"
+    "\n"
+    "CRITICAL:\n"
+    "- Do NOT use any tools.\n"
+    "- Follow the user prompt exactly.\n"
+    "- If asked for JSON, output ONLY valid JSON with no surrounding text.\n"
+)
+
+
+class PatchError(Exception):
+    """Raised when patching fails."""
+
 
 # Minimal system prompt pieces for ACE learning
 # We replace specific constant strings in cli.js
@@ -110,90 +135,191 @@ def extract_version(content: str) -> Optional[str]:
     return None
 
 
-def find_system_prompt_pattern(content: str) -> Optional[Tuple[int, int, str]]:
+def _skip_string(content: str, start: int, quote: str) -> int:
+    """Skip over a JS string literal starting at `start` (on the opening quote)."""
+    i = start + 1
+    while i < len(content):
+        ch = content[i]
+        if ch == "\\":
+            i += 2
+            continue
+        if ch == quote:
+            return i + 1
+        i += 1
+    raise PatchError("Unterminated string literal while parsing template expression")
+
+
+def _skip_line_comment(content: str, start: int) -> int:
+    i = start + 2
+    while i < len(content) and content[i] != "\n":
+        i += 1
+    return i
+
+
+def _skip_block_comment(content: str, start: int) -> int:
+    end = content.find("*/", start + 2)
+    if end == -1:
+        raise PatchError("Unterminated block comment while parsing template expression")
+    return end + 2
+
+
+def _skip_template_literal_in_expression(content: str, start: int) -> int:
+    """Skip over a template literal occurring inside a `${...}` expression."""
+    i = start + 1
+    while i < len(content):
+        ch = content[i]
+        if ch == "\\":
+            i += 2
+            continue
+        if ch == "`":
+            return i + 1
+        if ch == "$" and i + 1 < len(content) and content[i + 1] == "{":
+            end_brace = _find_matching_brace(content, i + 2)
+            i = end_brace + 1
+            continue
+        i += 1
+    raise PatchError("Unterminated template literal inside ${...} expression")
+
+
+def _find_matching_brace(content: str, start: int) -> int:
     """
-    Find the main system prompt in cli.js.
-    Returns (start, end, matched_content) or None.
+    Find the matching closing brace for a `${ ... }` expression.
 
-    The system prompt typically starts with something like:
-    "You are Claude Code, Anthropic's official CLI..."
+    `start` must point to the first character *inside* the expression (right after `{`).
+    Returns the index of the matching `}`.
     """
-    # Look for the main system prompt pattern
-    # This is a simplified approach - we look for known markers
-    patterns = [
-        # Main system prompt marker
-        r'You are Claude Code, Anthropic\'s official CLI for Claude',
-        r'You are Claude Code, Anthropic\\\'s official CLI for Claude',
-        # Alternative patterns
-        r'IMPORTANT: Assist with authorized security testing',
-    ]
+    depth = 1
+    i = start
+    while i < len(content):
+        ch = content[i]
 
-    for pattern in patterns:
-        match = re.search(pattern, content)
-        if match:
-            # Find the string boundaries
-            # The prompt is typically in a template literal or string
-            start = match.start()
+        if ch == "\\":
+            i += 2
+            continue
 
-            # Walk backwards to find the start of the string
-            string_start = start
-            while string_start > 0:
-                char = content[string_start - 1]
-                if char in ['`', '"', "'"]:
-                    # Check if it's escaped
-                    if string_start > 1 and content[string_start - 2] == '\\':
-                        string_start -= 1
-                        continue
-                    string_start -= 1
-                    break
-                string_start -= 1
+        if ch in ("'", '"'):
+            i = _skip_string(content, i, ch)
+            continue
 
-            # Find the delimiter used
-            delimiter = content[string_start] if string_start < len(content) else '`'
+        if ch == "`":
+            i = _skip_template_literal_in_expression(content, i)
+            continue
 
-            # Walk forward to find the end of the string
-            string_end = match.end()
-            depth = 1 if delimiter == '`' else 0
+        if ch == "/" and i + 1 < len(content):
+            nxt = content[i + 1]
+            if nxt == "/":
+                i = _skip_line_comment(content, i)
+                continue
+            if nxt == "*":
+                i = _skip_block_comment(content, i)
+                continue
 
-            while string_end < len(content):
-                char = content[string_end]
+        if ch == "{":
+            depth += 1
+            i += 1
+            continue
 
-                if delimiter == '`':
-                    # Template literal - need to handle ${...}
-                    if char == '$' and string_end + 1 < len(content) and content[string_end + 1] == '{':
-                        depth += 1
-                        string_end += 2
-                        continue
-                    elif char == '}' and depth > 1:
-                        depth -= 1
-                        string_end += 1
-                        continue
-                    elif char == '`' and depth == 1:
-                        # Check if escaped
-                        if content[string_end - 1] != '\\':
-                            string_end += 1
-                            break
-                else:
-                    # Regular string
-                    if char == delimiter and content[string_end - 1] != '\\':
-                        string_end += 1
-                        break
+        if ch == "}":
+            depth -= 1
+            if depth == 0:
+                return i
+            i += 1
+            continue
 
-                string_end += 1
+        i += 1
 
-            matched = content[string_start:string_end]
-            return (string_start, string_end, matched)
+    raise PatchError("Unterminated ${...} expression while finding template end")
+
+
+def _find_template_literal_end(content: str, start: int) -> int:
+    """
+    Find the closing backtick for a template literal.
+
+    `start` must point to the first character *inside* the template literal (right after the opening `).
+    Returns the index of the closing backtick.
+    """
+    i = start
+    while i < len(content):
+        ch = content[i]
+        if ch == "\\":
+            i += 2
+            continue
+        if ch == "`":
+            return i
+        if ch == "$" and i + 1 < len(content) and content[i + 1] == "{":
+            end_brace = _find_matching_brace(content, i + 2)
+            i = end_brace + 1
+            continue
+        i += 1
+    raise PatchError("Unterminated template literal while locating main system prompt")
+
+
+def find_main_system_prompt_template(content: str) -> Optional[Tuple[int, int]]:
+    """
+    Locate the *content* bounds (start, end) of Claude Code's main system prompt template literal.
+
+    Returns:
+        (start, end) where content[start:end] is the template payload to replace.
+        (The backticks themselves are NOT included.)
+    """
+    # Some anchor strings appear multiple times in cli.js. Prefer an anchor
+    # occurrence that is actually inside a `return[``...``]` template literal.
+    for anchor in MAIN_SYSTEM_PROMPT_ANCHORS:
+        search_pos = 0
+        while True:
+            anchor_idx = content.find(anchor, search_pos)
+            if anchor_idx == -1:
+                break
+
+            # Look for the nearest `return[`` before this anchor occurrence.
+            # Limit search to a local window for performance.
+            window_start = max(0, anchor_idx - 50_000)
+            window = content[window_start:anchor_idx]
+            matches = list(re.finditer(r"return\s*\[\s*`", window))
+            if matches:
+                start = window_start + matches[-1].end()  # after opening backtick
+                try:
+                    end_backtick = _find_template_literal_end(content, start)
+                except PatchError:
+                    end_backtick = -1
+
+                if end_backtick != -1 and start <= anchor_idx <= end_backtick:
+                    return (start, end_backtick)
+
+            search_pos = anchor_idx + 1
 
     return None
 
 
+def _escape_for_template_literal(text: str) -> str:
+    # Avoid accidentally terminating the template literal.
+    return text.replace("`", "\\`")
+
+
+def patch_main_system_prompt_template(content: str, new_prompt: str) -> Tuple[str, bool]:
+    bounds = find_main_system_prompt_template(content)
+    if not bounds:
+        return content, False
+
+    start, end = bounds
+    replacement = _escape_for_template_literal(new_prompt)
+
+    if content[start:end] == replacement:
+        return content, True
+
+    patched = content[:start] + replacement + content[end:]
+    return patched, True
+
+
 def patch_cli_js(original_path: Path, output_path: Path) -> bool:
     """
-    Patch cli.js using targeted string replacements.
+    Patch cli.js for ACE learning.
 
-    This approach finds specific known strings in the system prompt
-    and replaces them with ACE-focused alternatives, rather than
-    trying to replace the entire prompt.
+    Primary strategy:
+      - Replace the entire main system prompt template literal with a minimal one.
+
+    Fallback strategy:
+      - Targeted string replacements for a few known prompt fragments.
     """
     print(f"Reading: {original_path}")
     content = original_path.read_text(encoding='utf-8')
@@ -203,10 +329,18 @@ def patch_cli_js(original_path: Path, output_path: Path) -> bool:
     print(f"Claude Code version: {version or 'unknown'}")
     print(f"Original size: {original_size:,} bytes")
 
-    # Apply each targeted replacement
     patched_content = content
-    replacements_made = 0
+    patches_applied: List[str] = []
 
+    # 1) Replace the full main system prompt (big token savings, also hides tools).
+    patched_content, ok = patch_main_system_prompt_template(
+        patched_content, ACE_MINIMAL_SYSTEM_PROMPT
+    )
+    if ok:
+        patches_applied.append("main-system-prompt")
+
+    # 2) Apply targeted replacements as additional hardening.
+    replacements_made = 0
     for old_text, new_text in ACE_REPLACEMENTS:
         if old_text in patched_content:
             patched_content = patched_content.replace(old_text, new_text)
@@ -222,12 +356,20 @@ def patch_cli_js(original_path: Path, output_path: Path) -> bool:
             else:
                 print(f"  ✗ Not found: '{old_text[:50]}...'")
 
-    if replacements_made == 0:
-        print("\nERROR: No replacements could be made.")
-        print("The cli.js format may have changed.")
+    if replacements_made:
+        patches_applied.append(
+            f"targeted-fragments:{replacements_made}/{len(ACE_REPLACEMENTS)}"
+        )
+
+    if patched_content == content:
+        print("\nERROR: No changes could be applied.")
+        print(
+            "The Claude Code cli.js format may have changed, or it may already be patched."
+        )
         return False
 
-    print(f"\nApplied {replacements_made}/{len(ACE_REPLACEMENTS)} replacements")
+    if patches_applied:
+        print(f"\nApplied patches: {', '.join(patches_applied)}")
 
     # Calculate size difference
     new_size = len(patched_content)
@@ -272,12 +414,13 @@ def cmd_find():
         print(f"Version: {version or 'unknown'}")
         print(f"Size: {cli_js.stat().st_size:,} bytes")
 
-        # Check if we can find the system prompt
-        result = find_system_prompt_pattern(content)
-        if result:
-            print(f"System prompt found: {len(result[2]):,} chars")
+        # Check if we can locate the main system prompt template
+        bounds = find_main_system_prompt_template(content)
+        if bounds:
+            start, end = bounds
+            print(f"Main system prompt found: {end - start:,} chars")
         else:
-            print("WARNING: Could not locate system prompt pattern")
+            print("WARNING: Could not locate main system prompt template")
     else:
         print("\nCould not find Claude Code installation.")
         print("Make sure Claude Code is installed via npm or the native installer.")
@@ -371,6 +514,27 @@ def main():
         print(f"Unknown command: {cmd}")
         print(__doc__)
         sys.exit(1)
+
+
+def patch_cli(force: bool = False) -> Optional[Path]:
+    """
+    Convenience function to patch Claude CLI.
+
+    Args:
+        force: If True, re-patch even if patched file exists
+
+    Returns:
+        Path to patched CLI, or None if patching failed
+    """
+    if not force and ACE_CLI_JS.exists():
+        return ACE_CLI_JS
+
+    source = find_claude_cli_js()
+    if not source:
+        return None
+
+    success = patch_cli_js(source, ACE_CLI_JS)
+    return ACE_CLI_JS if success else None
 
 
 if __name__ == "__main__":

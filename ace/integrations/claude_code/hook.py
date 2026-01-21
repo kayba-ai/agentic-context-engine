@@ -29,6 +29,9 @@ import sys
 import logging
 import os
 import shutil
+import tempfile
+import uuid
+from contextlib import contextmanager
 from pathlib import Path
 from dataclasses import dataclass
 from typing import List, Optional, Dict, Any
@@ -688,6 +691,87 @@ No strategies learned yet. Strategies will appear here as you use Claude Code.
 
 
 # ============================================================================
+# Skillbook Persistence (daemon-safe)
+# ============================================================================
+
+_SKILLBOOK_EPOCH_FILENAME = ".ace-skillbook-epoch"
+_SKILLBOOK_LOCK_FILENAME = ".ace-skillbook.lock"
+
+
+def _skillbook_epoch_path(skill_dir: Path) -> Path:
+    return skill_dir / _SKILLBOOK_EPOCH_FILENAME
+
+
+def _ensure_skillbook_epoch(skill_dir: Path) -> str:
+    """
+    Get the current skillbook epoch.
+
+    The epoch is a per-skill-dir marker used to prevent in-flight daemon tasks
+    from writing stale skillbooks after `ace-learn clear`.
+    """
+    epoch_path = _skillbook_epoch_path(skill_dir)
+    if epoch_path.exists():
+        epoch = epoch_path.read_text(encoding="utf-8").strip()
+        if epoch:
+            return epoch
+    # Default epoch when no clear has occurred yet.
+    return "0"
+
+
+def _bump_skillbook_epoch(skill_dir: Path) -> str:
+    """Generate and persist a new epoch value."""
+    epoch = uuid.uuid4().hex
+    epoch_path = _skillbook_epoch_path(skill_dir)
+    epoch_path.parent.mkdir(parents=True, exist_ok=True)
+    epoch_path.write_text(epoch, encoding="utf-8")
+    return epoch
+
+
+@contextmanager
+def _skillbook_lock(skill_dir: Path):
+    """
+    Inter-process lock for skillbook.json + SKILL.md writes.
+
+    Best-effort cross-platform locking:
+      - POSIX: fcntl.flock
+      - Windows: falls back to no-op (still safe via epoch, but less robust)
+    """
+    lock_path = skill_dir / _SKILLBOOK_LOCK_FILENAME
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with lock_path.open("w", encoding="utf-8") as f:
+        if os.name == "posix":
+            try:
+                import fcntl
+
+                fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+            except Exception:
+                pass
+        yield
+
+
+def _atomic_write_text(path: Path, content: str) -> None:
+    """Atomic write: write temp file then os.replace()."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path: Optional[Path] = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            "w",
+            encoding="utf-8",
+            dir=str(path.parent),
+            delete=False,
+        ) as tmp:
+            tmp.write(content)
+            tmp.flush()
+            os.fsync(tmp.fileno())
+            tmp_path = Path(tmp.name)
+        os.replace(tmp_path, path)
+    finally:
+        if tmp_path and tmp_path.exists():
+            tmp_path.unlink(missing_ok=True)
+
+
+# ============================================================================
 # Main Hook Learner
 # ============================================================================
 
@@ -746,6 +830,7 @@ class ACEHookLearner:
         self.skill_generator = SkillGenerator(self.skill_dir)
         self.skillbook_path = skillbook_path or (self.skill_dir / "skillbook.json")
         self.transcript_parser = TranscriptParser()
+        self._skillbook_epoch = _ensure_skillbook_epoch(self.skill_dir)
 
         # Load or create skillbook
         if self.skillbook_path.exists():
@@ -771,6 +856,37 @@ class ACEHookLearner:
         self.skill_manager = SkillManager(
             self.ace_llm, prompt_template=prompt_mgr.get_skill_manager_prompt()
         )
+
+    def _persist_skillbook_update(self, update) -> bool:
+        """
+        Persist an UpdateBatch safely.
+
+        Prevents two classes of bugs:
+          1) In-flight daemon jobs resurrecting skills after `ace-learn clear`
+          2) Concurrent daemon jobs overwriting each other's updates
+        """
+        with _skillbook_lock(self.skill_dir):
+            current_epoch = _ensure_skillbook_epoch(self.skill_dir)
+            if current_epoch != self._skillbook_epoch:
+                logger.warning(
+                    "Skillbook was cleared during this learning run; skipping save"
+                )
+                return False
+
+            if self.skillbook_path.exists():
+                skillbook = Skillbook.load_from_file(str(self.skillbook_path))
+            else:
+                skillbook = Skillbook()
+
+            skillbook.apply_update(update)
+
+            self.skillbook_path.parent.mkdir(parents=True, exist_ok=True)
+            _atomic_write_text(self.skillbook_path, skillbook.dumps())
+            self.skill_generator.save(skillbook)
+
+            # Keep in-memory copy consistent for logging/inspection.
+            self.skillbook = skillbook
+            return True
 
     @retry(
         stop=stop_after_attempt(3),
@@ -944,16 +1060,9 @@ class ACEHookLearner:
                 progress=f"{transcript.successful_tool_calls}/{transcript.total_tool_calls} successful",
             )
 
-            # Update skillbook
-            self.skillbook.apply_update(skill_manager_output.update)
-            logger.info(f"Skillbook now has {len(self.skillbook.skills())} skills")
-
-            # Save skillbook
-            self.skillbook_path.parent.mkdir(parents=True, exist_ok=True)
-            self.skillbook.save_to_file(str(self.skillbook_path))
-
-            # Update skill file
-            self.skill_generator.save(self.skillbook)
+            # Persist update (epoch-aware + locked to avoid clobbering)
+            if self._persist_skillbook_update(skill_manager_output.update):
+                logger.info(f"Skillbook now has {len(self.skillbook.skills())} skills")
 
             return True
 
@@ -1007,7 +1116,21 @@ def setup_hook():
     settings_path.parent.mkdir(parents=True, exist_ok=True)
     settings_path.write_text(json.dumps(settings, indent=2))
 
-    print("✓ Claude Code hook configured!")
+    # Create slash commands for enable/disable
+    _create_slash_commands()
+
+    # Patch Claude CLI for minimal system prompt
+    from ace.integrations.claude_code.prompt_patcher import patch_cli
+
+    print("\nPatching Claude CLI for minimal token overhead...")
+    patched_path = patch_cli()
+    if patched_path:
+        print(f"✓ Patched CLI created: {patched_path}")
+        print("  Token savings: ~2,800 tokens per learning call")
+    else:
+        print("⚠ Could not patch CLI (will use standard claude with full system prompt)")
+
+    print("\n✓ Claude Code hook configured!")
     print()
     print("Hook script installed to: ~/.ace/bin/ace-hook-stop.sh")
     print()
@@ -1023,9 +1146,6 @@ def setup_hook():
     print("Note: Skills are stored per-project. Run from within a project directory.")
     print("      To control project root in monorepos, create a .ace-root file.")
     print(f"Settings saved to: {settings_path}")
-
-    # Create slash commands for enable/disable
-    _create_slash_commands()
 
 
 def enable_hook():
@@ -1224,9 +1344,8 @@ def remove_insight(args):
     try:
         from ...skillbook import Skillbook
 
+        # First pass: find the target skill (read-only, no lock needed)
         skillbook = Skillbook.load_from_file(str(skillbook_path))
-
-        # Find skill by ID or partial match
         insight_id = args.id
         skills = skillbook.skills()
         target = None
@@ -1244,13 +1363,16 @@ def remove_insight(args):
             print("Use 'ace-learn insights' to see available insights.")
             return
 
-        # Remove the skill
-        skillbook.remove_skill(target.id)
-        skillbook.save_to_file(str(skillbook_path))
+        # Remove under lock to prevent concurrent write corruption
+        with _skillbook_lock(skill_dir):
+            # Reload under lock to get latest state
+            skillbook = Skillbook.load_from_file(str(skillbook_path))
+            skillbook.remove_skill(target.id)
+            _atomic_write_text(skillbook_path, skillbook.dumps())
 
-        # Regenerate skill file
-        generator = SkillGenerator(skill_dir)
-        generator.save(skillbook)
+            # Regenerate skill file
+            generator = SkillGenerator(skill_dir)
+            generator.save(skillbook)
 
         print(f"Removed: {target.content}")
 
@@ -1288,18 +1410,21 @@ def clear_insights(args):
             if pending_files:
                 print(f"Cleared {len(pending_files)} pending queue files.")
 
-        # Create empty skillbook
-        skillbook = Skillbook()
-        skillbook.save_to_file(str(skillbook_path))
+        # Clear skillbook under lock and bump epoch so in-flight daemon jobs can't
+        # resurrect cleared skills by writing stale state back to disk.
+        with _skillbook_lock(skill_dir):
+            _bump_skillbook_epoch(skill_dir)
+            skillbook = Skillbook()
+            _atomic_write_text(skillbook_path, skillbook.dumps())
 
-        # Remove categories directory if it exists
-        categories_dir = skill_dir / "categories"
-        if categories_dir.exists():
-            shutil.rmtree(categories_dir)
+            # Remove categories directory if it exists
+            categories_dir = skill_dir / "categories"
+            if categories_dir.exists():
+                shutil.rmtree(categories_dir)
 
-        # Regenerate empty skill file
-        generator = SkillGenerator(skill_dir)
-        generator.save(skillbook)
+            # Regenerate empty skill file
+            generator = SkillGenerator(skill_dir)
+            generator.save(skillbook)
 
         print(f"All insights cleared for project: {project_root}")
         print("ACE will start fresh.")
@@ -1427,11 +1552,12 @@ def doctor_check(args):
         print("     Install with: npm install -g @anthropic-ai/claude-code")
         all_ok = False
 
-    # 2. Check for patched CLI
-    print("\n2. Patched CLI (optional)...")
+    # 2. Check for patched CLI (CLI Resolution)
+    print("\n2. CLI Resolution...")
     patched_cli = Path.home() / ".ace" / "claude-learner" / "cli.js"
     if patched_cli.exists():
-        print(f"   ✓ Found at: {patched_cli}")
+        print(f"   ✓ Using patched CLI: {patched_cli}")
+        print("   ✓ Token savings: ~2,800 tokens per learning call")
         # Check node is available
         node_path = shutil.which("node")
         if node_path:
@@ -1440,8 +1566,8 @@ def doctor_check(args):
             print("   ✗ Node.js not found (required for patched CLI)")
             all_ok = False
     else:
-        print(f"   - Not installed (optional)")
-        print(f"     Would be at: {patched_cli}")
+        print("   ⚠ Using standard CLI (full system prompt)")
+        print("   - Run 'ace-learn patch' to reduce token overhead")
 
     # 3. Check daemon status
     print("\n3. ACE Daemon...")
@@ -1542,6 +1668,37 @@ def doctor_check(args):
         print("✗ Some checks failed. Please fix the issues above.")
 
     return 0 if all_ok else 1
+
+
+def cmd_patch(args):
+    """Force create/recreate patched Claude CLI."""
+    from ace.integrations.claude_code.prompt_patcher import patch_cli, find_claude_cli_js
+
+    source = find_claude_cli_js()
+    if not source:
+        print("ERROR: Could not find Claude Code installation")
+        return 1
+
+    print(f"Source: {source}")
+    patched = patch_cli(force=True)
+    if patched:
+        print(f"✓ Patched CLI created: {patched}")
+        return 0
+    else:
+        print("ERROR: Patching failed")
+        return 1
+
+
+def cmd_unpatch(args):
+    """Remove patched CLI."""
+    patched = Path.home() / ".ace" / "claude-learner" / "cli.js"
+    if patched.exists():
+        patched.unlink()
+        print(f"✓ Removed: {patched}")
+        print("  ACE will now use standard claude CLI")
+    else:
+        print("No patched CLI found")
+    return 0
 
 
 def run_learning(args):
@@ -1648,6 +1805,10 @@ Global fallback: ~/.claude/skills/ace-learnings-global/
     # Doctor command
     subparsers.add_parser("doctor", help="Verify prerequisites and configuration")
 
+    # Patch/unpatch commands
+    subparsers.add_parser("patch", help="Create/recreate patched Claude CLI")
+    subparsers.add_parser("unpatch", help="Remove patched CLI, use standard claude")
+
     # Insight management commands
     insights_parser = subparsers.add_parser("insights", help="Show learned strategies")
     insights_parser.add_argument(
@@ -1707,6 +1868,10 @@ Global fallback: ~/.claude/skills/ace-learnings-global/
         enable_daemon_hook()
     elif args.command == "doctor":
         sys.exit(doctor_check(args))
+    elif args.command == "patch":
+        sys.exit(cmd_patch(args))
+    elif args.command == "unpatch":
+        sys.exit(cmd_unpatch(args))
     elif args.command == "insights":
         show_insights(args)
     elif args.command == "remove":
