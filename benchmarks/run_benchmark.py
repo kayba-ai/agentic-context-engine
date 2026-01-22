@@ -17,7 +17,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from statistics import mean
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, field
 
 # Fix Windows console encoding for Unicode output
@@ -126,7 +126,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--model",
         default="gpt-4o-mini",
-        help="Model to use for evaluation (default: gpt-4o-mini)",
+        help="Model to use for Agent (default: gpt-4o-mini)",
+    )
+    parser.add_argument(
+        "--reflector-model",
+        type=str,
+        help="Model to use for Reflector (default: same as --model)",
     )
     parser.add_argument(
         "--temperature",
@@ -210,6 +215,11 @@ def parse_args() -> argparse.Namespace:
         "--save-detailed", action="store_true", help="Save detailed per-sample results"
     )
     parser.add_argument("--quiet", action="store_true", help="Suppress progress output")
+    parser.add_argument(
+        "--save-skillbook",
+        type=str,
+        help="Path to save learned skillbook after training (JSON format)",
+    )
 
     # Cache configuration
     parser.add_argument(
@@ -303,54 +313,27 @@ def load_benchmark_data(
                 context=data.get("context", ""),
             )
         elif args.benchmark == "hellaswag":
-            # HellaSwag handling - format multiple choice and convert label
-            choices = data["endings"]
-            question = f"""Context: {data['ctx']}
-
-Which ending makes the most sense?
-
-A) {choices[0]}
-B) {choices[1]}
-C) {choices[2]}
-D) {choices[3]}
-
-Answer with just the letter (A, B, C, or D)."""
-
-            # Convert numeric label to letter
-            label_map = {"0": "A", "1": "B", "2": "C", "3": "D"}
-            ground_truth = label_map.get(str(data["label"]), "A")
-
-            sample = Sample(question=question, ground_truth=ground_truth)
+            # HellaSwag - data is pre-processed by MultipleChoiceProcessor
+            sample = Sample(
+                question=data.get("question", ""),
+                ground_truth=data.get("ground_truth", ""),
+                context=data.get("context", ""),
+            )
         elif args.benchmark in ["arc_easy", "arc_challenge"]:
-            # ARC handling - format multiple choice
-            choices = data["choices"]["text"]
-            question = f"""Question: {data['question']}
-
-A) {choices[0]}
-B) {choices[1]}
-C) {choices[2]}
-D) {choices[3]}
-
-Answer with just the letter (A, B, C, or D)."""
-
-            sample = Sample(question=question, ground_truth=data["answerKey"])
+            # ARC - data is pre-processed by MultipleChoiceProcessor
+            sample = Sample(
+                question=data.get("question", ""),
+                ground_truth=data.get("ground_truth", ""),
+                context=data.get("context", ""),
+            )
         elif args.benchmark == "mmlu":
-            # MMLU handling - format multiple choice
-            choices = data["choices"]
-            question = f"""Question: {data['question']}
-
-A) {choices[0]}
-B) {choices[1]}
-C) {choices[2]}
-D) {choices[3]}
-
-Answer with just the letter (A, B, C, or D)."""
-
-            # Convert numeric answer to letter
-            answer_map = {0: "A", 1: "B", 2: "C", 3: "D"}
-            ground_truth = answer_map.get(data["answer"], "A")
-
-            sample = Sample(question=question, ground_truth=ground_truth)
+            # MMLU - data is pre-processed by MultipleChoiceProcessor
+            sample = Sample(
+                question=data.get("question", ""),
+                ground_truth=data.get("ground_truth", ""),
+                context=data.get("context", ""),
+                metadata=data.get("metadata", {}),
+            )
         else:
             # Generic handling - check if already processed
             if "question" in data:
@@ -359,6 +342,7 @@ Answer with just the letter (A, B, C, or D)."""
                     question=data["question"],
                     ground_truth=data.get("ground_truth", ""),
                     context=data.get("context", ""),
+                    metadata=data.get("metadata", {}),
                 )
             else:
                 # Raw data - use generic handling
@@ -366,6 +350,7 @@ Answer with just the letter (A, B, C, or D)."""
                     question=str(data.get("question", data.get("input", ""))),
                     ground_truth=str(data.get("answer", data.get("output", ""))),
                     context=str(data.get("context", "")),
+                    metadata=data.get("metadata", {}),
                 )
 
         samples.append(sample)
@@ -402,6 +387,19 @@ def run_comparison_mode(
     ace_results = run_evaluation(ace_args, samples, manager)
     ace_elapsed = time.time() - ace_start
     ace_tokens = _token_tracker.to_dict()
+
+    # Save skillbook if requested
+    if args.save_skillbook and "skillbook" in ace_results:
+        skillbook = ace_results["skillbook"]
+        # Ensure directory exists
+        skillbook_path = Path(args.save_skillbook)
+        skillbook_path.parent.mkdir(parents=True, exist_ok=True)
+        skillbook.save_to_file(str(skillbook_path))
+        print(f"📚 Skillbook saved to: {skillbook_path}")
+
+    # Remove skillbook from results (not JSON serializable)
+    ace_results.pop("skillbook", None)
+    baseline_results.pop("skillbook", None)
 
     # Add timing and token info to results
     baseline_results["elapsed_seconds"] = round(baseline_elapsed, 2)
@@ -550,8 +548,20 @@ def run_comparison_mode(
     print(f"✅ Comparison completed successfully!")
 
 
-def create_ace_components(client: LiteLLMClient, prompt_version: str):
-    """Create ACE components with specified prompt version."""
+def create_ace_components(
+    client: LiteLLMClient,
+    prompt_version: str,
+    reflector_client: Optional[LiteLLMClient] = None,
+):
+    """Create ACE components with specified prompt version.
+
+    Args:
+        client: LLM client for Agent and SkillManager
+        prompt_version: Prompt version to use (v1 or v2)
+        reflector_client: Optional separate LLM client for Reflector (defaults to client)
+    """
+    reflector_llm = reflector_client or client
+
     if prompt_version == "v2":
         try:
             from ace.prompts_v2 import PromptManager
@@ -559,7 +569,7 @@ def create_ace_components(client: LiteLLMClient, prompt_version: str):
             manager = PromptManager()
             agent = Agent(client, prompt_template=manager.get_agent_prompt())
             reflector = Reflector(
-                client, prompt_template=manager.get_reflector_prompt()
+                reflector_llm, prompt_template=manager.get_reflector_prompt()
             )
             skill_manager = SkillManager(
                 client, prompt_template=manager.get_skill_manager_prompt()
@@ -567,12 +577,12 @@ def create_ace_components(client: LiteLLMClient, prompt_version: str):
         except ImportError:
             print("Warning: v2 prompts not available, falling back to v1")
             agent = Agent(client)
-            reflector = Reflector(client)
+            reflector = Reflector(reflector_llm)
             skill_manager = SkillManager(client)
     else:
         # Use default v1 prompts
         agent = Agent(client)
-        reflector = Reflector(client)
+        reflector = Reflector(reflector_llm)
         skill_manager = SkillManager(client)
 
     return agent, reflector, skill_manager
@@ -601,7 +611,19 @@ def run_evaluation(
 
     # Create LLM client and ACE components with appropriate prompts
     client = create_llm_client(args)
-    agent, reflector, skill_manager = create_ace_components(client, args.prompt_version)
+
+    # Create separate reflector client if specified
+    reflector_client = None
+    if getattr(args, "reflector_model", None):
+        reflector_args = argparse.Namespace(**vars(args))
+        reflector_args.model = args.reflector_model
+        reflector_client = create_llm_client(reflector_args)
+        if not args.quiet:
+            print(f"Using {args.reflector_model} for Reflector")
+
+    agent, reflector, skill_manager = create_ace_components(
+        client, args.prompt_version, reflector_client
+    )
     environment = manager.get_benchmark(args.benchmark)
 
     results = []
@@ -698,6 +720,7 @@ def run_evaluation(
                 "samples_evaluated": len(results),
                 "results": results,
                 "summary": compute_summary_metrics(results),
+                "skillbook": adapter.skillbook,  # Include learned skillbook for export
             }
 
         else:
@@ -799,6 +822,7 @@ def run_evaluation(
                 "test_summary": test_summary,
                 "overfitting_gap": overfitting_gap,
                 "summary": test_summary,  # Overall summary uses test performance (TRUE performance)
+                "skillbook": adapter.skillbook,  # Include learned skillbook for export
             }
 
         # Export observability data if available
@@ -982,6 +1006,17 @@ def main() -> None:
     else:
         # Run normal evaluation
         evaluation_results = run_evaluation(args, samples, manager)
+
+        # Save skillbook if requested
+        if args.save_skillbook and "skillbook" in evaluation_results:
+            skillbook = evaluation_results["skillbook"]
+            skillbook_path = Path(args.save_skillbook)
+            skillbook_path.parent.mkdir(parents=True, exist_ok=True)
+            skillbook.save_to_file(str(skillbook_path))
+            print(f"📚 Skillbook saved to: {skillbook_path}")
+
+        # Remove skillbook from results (not JSON serializable)
+        evaluation_results.pop("skillbook", None)
 
         # Save and display results
         save_results(args, evaluation_results)

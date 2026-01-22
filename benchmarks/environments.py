@@ -449,15 +449,29 @@ class SWEBenchEnvironment(BenchmarkEnvironment):
 
         Uses SWE-bench harness for proper test execution.
         """
+        import os
+        import shutil
         import subprocess
         import tempfile
 
         metadata = sample.metadata or {}
+        instance_id = metadata.get("instance_id", "")
+        run_id = "ace_eval"
 
-        # Write patch to temp file
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".patch", delete=False) as f:
-            f.write(patch)
-            patch_file = f.name
+        # Create temp directory for predictions and reports
+        temp_dir = tempfile.mkdtemp(prefix="swebench_")
+        predictions_file = os.path.join(temp_dir, "predictions.jsonl")
+        report_dir = os.path.join(temp_dir, "reports")
+        os.makedirs(report_dir, exist_ok=True)
+
+        # Write predictions in SWE-bench JSONL format
+        prediction_data = {
+            "instance_id": instance_id,
+            "model_patch": patch,
+            "model_name_or_path": run_id,
+        }
+        with open(predictions_file, "w") as f:
+            f.write(json.dumps(prediction_data) + "\n")
 
         try:
             # Run SWE-bench evaluation harness
@@ -467,41 +481,68 @@ class SWEBenchEnvironment(BenchmarkEnvironment):
                     "-m",
                     "swebench.harness.run_evaluation",
                     "--predictions_path",
-                    patch_file,
-                    "--instance_id",
-                    metadata.get("instance_id", ""),
+                    predictions_file,
                     "--run_id",
-                    "ace_eval",
+                    run_id,
+                    "--report_dir",
+                    report_dir,
+                    "--max_workers",
+                    "1",
+                    "--timeout",
+                    "300",
                 ],
                 capture_output=True,
-                timeout=300,  # 5 minute timeout
+                timeout=600,  # 10 minute timeout for harness
                 text=True,
             )
 
             if result.returncode == 0:
-                # Parse evaluation results
-                try:
-                    output = json.loads(result.stdout)
+                # Read results from report file
+                # SWE-bench creates: {run_id}.{instance_id}.json
+                report_file = os.path.join(report_dir, f"{run_id}.{instance_id}.json")
+                if os.path.exists(report_file):
+                    with open(report_file) as f:
+                        output = json.load(f)
+                    resolved = output.get("resolved", False)
+                    # Check test results
+                    tests_status = output.get("tests_status", {})
+                    passed = sum(1 for v in tests_status.values() if v == "PASSED")
+                    total = len(tests_status) if tests_status else 1
                     return {
-                        "resolved": output.get("resolved", False),
-                        "tests_passed_ratio": output.get("tests_passed", 0)
-                        / max(output.get("total_tests", 1), 1),
-                        "partial_fix": output.get("partial_fix", False),
+                        "resolved": resolved,
+                        "tests_passed_ratio": passed / max(total, 1),
+                        "partial_fix": passed > 0 and not resolved,
                         "error": None,
                     }
-                except json.JSONDecodeError:
+                else:
+                    # Check for summary report
+                    summary_file = os.path.join(report_dir, f"{run_id}.json")
+                    if os.path.exists(summary_file):
+                        with open(summary_file) as f:
+                            summary = json.load(f)
+                        resolved_ids = summary.get("resolved", [])
+                        return {
+                            "resolved": instance_id in resolved_ids,
+                            "tests_passed_ratio": (
+                                1.0 if instance_id in resolved_ids else 0.0
+                            ),
+                            "partial_fix": False,
+                            "error": None,
+                        }
                     return {
                         "resolved": False,
                         "tests_passed_ratio": 0.0,
                         "partial_fix": False,
-                        "error": "Failed to parse evaluation output",
+                        "error": f"Report file not found. stdout: {result.stdout[:500]}",
                     }
             else:
                 return {
                     "resolved": False,
                     "tests_passed_ratio": 0.0,
                     "partial_fix": False,
-                    "error": result.stderr,
+                    "error": (
+                        result.stderr[:1000] if result.stderr else result.stdout[:1000]
+                    ),
                 }
         except subprocess.TimeoutExpired:
             return {
@@ -518,9 +559,7 @@ class SWEBenchEnvironment(BenchmarkEnvironment):
                 "error": str(e),
             }
         finally:
-            import os
-
-            os.unlink(patch_file)
+            shutil.rmtree(temp_dir, ignore_errors=True)
 
     def _generate_feedback(self, result: Dict[str, Any]) -> str:
         """Generate feedback for the evaluation result."""
