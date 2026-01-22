@@ -25,6 +25,7 @@ Usage:
 Requirements:
     - mini-swe-agent: uv add mini-swe-agent --group demos
     - API key: ANTHROPIC_API_KEY or OPENAI_API_KEY
+    - Docker (or other container runtime) running
 """
 
 from __future__ import annotations
@@ -121,7 +122,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--step-limit",
         type=int,
-        default=30,
+        default=50,
         help="Maximum agent steps per task (default: 30)",
     )
     parser.add_argument(
