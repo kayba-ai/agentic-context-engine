@@ -237,6 +237,7 @@ def run_single_task(
             "steps": result.steps,
             "elapsed_seconds": round(elapsed, 2),
             "message": result.message[:500] if result.message else "",
+            "trace": result.trace,
             "error": None,
         }
 
