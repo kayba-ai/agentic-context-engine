@@ -6,7 +6,11 @@ Demonstrates using ACE's OfflineACE adapter to analyze past agent
 conversations and generate system prompt improvements.
 
 Usage:
-    1. Export/convert your agent conversations to .md files
+    1. Export/convert your agent conversations to .md or .toon files
+       - To convert JSON to TOON, use the toon library (included with ACE):
+         import toon
+         toon_str = toon.encode(your_json_data)
+       - Or use the CLI: toon input.json -o output.toon
     2. Place them in a directory
     3. Update CONVERSATIONS_DIR path below
     4. Run: python agentic_system_prompting.py
@@ -37,13 +41,23 @@ from ace.prompts_v2_1 import PromptManager
 
 
 def load_conversations(conversations_dir: Path) -> List[Dict[str, Any]]:
-    """Load all .md conversation files from directory."""
+    """Load all .md and .toon conversation files from directory."""
     if not conversations_dir.exists():
         print(f"Directory not found: {conversations_dir}")
         return []
 
     conversations = []
+
+    # Load markdown files
     for file_path in sorted(conversations_dir.glob("*.md")):
+        try:
+            content = file_path.read_text(encoding='utf-8')
+            conversations.append({'filename': file_path.name, 'content': content})
+        except Exception as e:
+            print(f"Error reading {file_path.name}: {e}")
+
+    # Load TOON files (fed directly to LLM as raw text)
+    for file_path in sorted(conversations_dir.glob("*.toon")):
         try:
             content = file_path.read_text(encoding='utf-8')
             conversations.append({'filename': file_path.name, 'content': content})
