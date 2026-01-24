@@ -18,6 +18,8 @@ class UpdateOperation:
     content: Optional[str] = None
     skill_id: Optional[str] = None
     metadata: Dict[str, int] = field(default_factory=dict)
+    justification: Optional[str] = None
+    evidence: Optional[str] = None
 
     @classmethod
     def from_json(cls, payload: Dict[str, object]) -> "UpdateOperation":
@@ -48,6 +50,16 @@ class UpdateOperation:
                 else None
             ),
             metadata={str(k): int(v) for k, v in metadata.items()},
+            justification=(
+                str(payload["justification"])
+                if payload.get("justification") is not None
+                else None
+            ),
+            evidence=(
+                str(payload["evidence"])
+                if payload.get("evidence") is not None
+                else None
+            ),
         )
 
     def to_json(self) -> Dict[str, object]:
@@ -58,6 +70,10 @@ class UpdateOperation:
             data["skill_id"] = self.skill_id
         if self.metadata:
             data["metadata"] = self.metadata
+        if self.justification is not None:
+            data["justification"] = self.justification
+        if self.evidence is not None:
+            data["evidence"] = self.evidence
         return data
 
 
