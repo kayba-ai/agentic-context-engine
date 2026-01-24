@@ -14,6 +14,8 @@ Usage:
     2. Place them in a directory
     3. Update CONVERSATIONS_DIR path below
     4. Run: python agentic_system_prompting.py
+    5. View the generated suggestions with reasoning and evidence in the skills_{timestamp}.md file
+    6. Review the suggestions and implement them in your system prompt
 
 Requirements:
     - LLM API key for analysis (e.g., OPENAI_API_KEY, ANTHROPIC_API_KEY, Alternative_api_key)
