@@ -9,6 +9,38 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
+## The Problem with Manual System Prompting
+
+- Time-consuming iteration cycles of trial and error
+- Prompt drift and regression as you patch edge cases
+- No systematic learning from agent failures
+- Knowledge stays in your head instead of in the prompt
+- Hard to manage as prompts scale
+
+## The Solution
+
+ACE (Agentic Context Engine) automatically optimizes your agent's system prompt by learning from execution. It observes agent runs, analyzes what strategies worked and what failed, then generates actionable insights for the system prompt.
+
+`Traces / Conversations` **→** `ACE` **→** `Prompt Suggestions`
+
+You put in past traces or conversations. ACE handles agentic system prompting by learning from mistakes. You receive improved system prompt suggestions.
+
+**How it works:**
+
+0. **Prepare your data** - Export/convert your agent conversations to `.md` or `.toon` files and place them in a directory. To convert JSON to TOON, use the included `convert.py` script or the toon library directly. The more detailed your traces, the better the insights.
+
+1. **ReplayAgent** - Simulates an agent for offline learning from your trace/conversation
+2. **Reflector** - Analyzes each conversation to identify what worked, what failed, and why
+3. **SkillManager** - Transforms reflections into atomic, actionable prompt strategies/insights
+4. **Deduplicator** - Consolidates similar strategies/insights using embeddings to keep the output clean
+5. **Skillbook** - Output file stores all prompt strategies/insights in a human-readable format you can review and implement
+
+The output is a **human-readable skillbook** where each insight contains:
+- **Prompt suggestion** - The recommended text to add to your system prompt
+- **Justification** - Why this change would help based on the analysis
+- **Evidence** - What actually happened in the trace that led to this insight
+You review each suggestion and decide what to copy into your system prompt. ACE may even suggest strategies that contradict your current prompt when it identifies flaws in the original design.
+
 ## Setup
 
 ### Installation
@@ -26,6 +58,10 @@ uv sync
 
 ### API Keys
 
+**Requirements:**
+- LLM API key for analysis (e.g., `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc.)
+- `OPENAI_API_KEY` for deduplication (uses OpenAI embeddings)
+
 Create a `.env` file in the project root:
 
 ```bash
@@ -37,42 +73,6 @@ ANTHROPIC_API_KEY=your-anthropic-key
 # Required for deduplication (uses OpenAI embeddings)
 OPENAI_API_KEY=your-openai-key
 ```
-
-## The Problem with Manual System Prompting
-
-- Time-consuming iteration cycles of trial and error
-- Prompt drift and regression as you patch edge cases
-- No systematic learning from agent failures
-- Knowledge stays in your head instead of in the prompt
-- Hard to manage as prompts scale
-
-## The Solution
-
-ACE (Agentic Context Engine) automatically optimizes your agent's system prompt by learning from execution. It observes agent runs, analyzes what strategies worked and what failed, then generates actionable insights for the system prompt.
-
-`Traces / Conversations` **→** `ACE` **→** `Prompt Suggestions`
-
-You put in past traces or conversations. ACE handles agentic system prompting by learning from mistakes. You receive improved system prompt suggestions.
-
-**Requirements:**
-- LLM API key for analysis (e.g., `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc.)
-- `OPENAI_API_KEY` for deduplication (uses OpenAI embeddings)
-
-**How it works:**
-
-0. **Prepare your data** - Export/convert your agent conversations to `.md` or `.toon` files and place them in a directory. To convert JSON to TOON, use the included `convert.py` script or the toon library directly. The more detailed your traces, the better the insights.
-
-1. **ReplayAgent** - Simulates an agent for offline learning from your trace/conversation
-2. **Reflector** - Analyzes each conversation to identify what worked, what failed, and why
-3. **SkillManager** - Transforms reflections into atomic, actionable prompt strategies/insights
-4. **Deduplicator** - Consolidates similar strategies/insights using embeddings to keep the output clean
-5. **Skillbook** - Output file stores all prompt strategies/insights in a human-readable format you can review and implement
-
-The output is a **human-readable skillbook** where each insight contains:
-- **Prompt suggestion** - The recommended text to add to your system prompt
-- **Justification** - Why this change would help based on the analysis
-- **Evidence** - What actually happened in the trace that led to this insight
-You review each suggestion and decide what to copy into your system prompt. ACE may even suggest strategies that contradict your current prompt when it identifies flaws in the original design.
 
 ## Implementation
 
