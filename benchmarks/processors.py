@@ -8,9 +8,48 @@ properly structured samples for evaluation.
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Dict, List, Iterator, Any, Tuple
+from typing import Dict, List, Iterator, Any
 
 from ace import Sample
+
+
+def _validate_required(
+    data: Dict[str, Any], fields: List[str], context: str = ""
+) -> None:
+    """Validate required fields are present and not None.
+
+    Args:
+        data: Dictionary to validate.
+        fields: List of required field names.
+        context: Context string for error messages.
+
+    Raises:
+        ValueError: If a required field is missing or None.
+    """
+    ctx_str = f" in {context}" if context else ""
+    for field in fields:
+        if field not in data:
+            raise ValueError(f"Missing required field '{field}'{ctx_str}")
+        if data[field] is None:
+            raise ValueError(f"Field '{field}' is None{ctx_str}")
+
+
+def _validate_type(value: Any, expected_type: type, field: str) -> None:
+    """Validate value is of expected type.
+
+    Args:
+        value: Value to validate.
+        expected_type: Expected type for the value.
+        field: Field name for error messages.
+
+    Raises:
+        TypeError: If value is not of expected type.
+    """
+    if not isinstance(value, expected_type):
+        raise TypeError(
+            f"Expected {expected_type.__name__} for '{field}', "
+            f"got {type(value).__name__}"
+        )
 
 
 class FiNERProcessor:
@@ -56,7 +95,6 @@ class FiNERProcessor:
             )
 
         # Process each sentence
-        sample_id = 0
         for doc_idx in sorted(doc_sentences.keys()):
             document = doc_sentences[doc_idx]
 
@@ -76,8 +114,6 @@ class FiNERProcessor:
                     question=f"Identify named entities in the following financial text:\n\n{sentence_text}",
                     ground_truth=self._format_entities_as_string(entities),
                 )
-
-                sample_id += 1
 
     def _reconstruct_sentence(self, tokens: List[str]) -> str:
         """
@@ -207,15 +243,12 @@ class XBRLMathProcessor:
         self, sample_stream: Iterator[Dict[str, Any]]
     ) -> Iterator[Sample]:
         """Process XBRL-Math samples - may need restructuring based on actual format."""
-        sample_id = 0
-
         for sample_data in sample_stream:
             yield Sample(
                 question=sample_data.get("question", ""),
                 context=sample_data.get("context", ""),
                 ground_truth=str(sample_data.get("answer", "")),
             )
-            sample_id += 1
 
 
 class AppWorldProcessor:
@@ -346,11 +379,19 @@ class MultipleChoiceProcessor:
                 yield self._process_generic(sample_data)
 
     def _process_mmlu(self, data: Dict[str, Any]) -> Sample:
-        """Process MMLU sample format."""
-        question = data.get("question", "")
-        choices = data.get("choices", [])
-        answer_idx = data.get("answer", 0)
+        """Process MMLU sample format with validation."""
+        _validate_required(data, ["question", "choices", "answer"], "MMLU sample")
+
+        question = data["question"]
+        choices = data["choices"]
+        answer_idx = data["answer"]
         subject = data.get("subject", "unknown")
+
+        _validate_type(answer_idx, int, "answer")
+        if answer_idx < 0 or answer_idx >= len(choices):
+            raise ValueError(
+                f"Answer index {answer_idx} out of range for {len(choices)} choices"
+            )
 
         # Format question with choices
         formatted_question = self._format_multiple_choice(question, choices)
@@ -370,10 +411,15 @@ class MultipleChoiceProcessor:
         )
 
     def _process_hellaswag(self, data: Dict[str, Any]) -> Sample:
-        """Process HellaSwag sample format."""
+        """Process HellaSwag sample format with validation."""
+        _validate_required(data, ["endings"], "HellaSwag sample")
+
         ctx = data.get("ctx", data.get("context", ""))
-        endings = data.get("endings", [])
+        endings = data["endings"]
         label = data.get("label", 0)
+
+        if not endings:
+            raise ValueError("HellaSwag sample has empty endings list")
 
         # HellaSwag label is often a string
         if isinstance(label, str):
@@ -398,10 +444,12 @@ class MultipleChoiceProcessor:
         )
 
     def _process_arc(self, data: Dict[str, Any]) -> Sample:
-        """Process ARC (AI2 Reasoning Challenge) sample format."""
-        question = data.get("question", "")
-        choices_data = data.get("choices", {})
-        answer_key = data.get("answerKey", "A")
+        """Process ARC (AI2 Reasoning Challenge) sample format with validation."""
+        _validate_required(data, ["question", "choices", "answerKey"], "ARC sample")
+
+        question = data["question"]
+        choices_data = data["choices"]
+        answer_key = data["answerKey"]
 
         # ARC has nested choices structure
         if isinstance(choices_data, dict):
@@ -416,9 +464,12 @@ class MultipleChoiceProcessor:
                 [c.get("label", "") for c in choices_data] if choices_data else []
             )
 
+        if not choice_texts:
+            raise ValueError("ARC sample has no choices")
+
         # Format question with choices
         formatted_question = f"Question: {question}\n\n"
-        for i, (label, text) in enumerate(zip(choice_labels, choice_texts)):
+        for _i, (label, text) in enumerate(zip(choice_labels, choice_texts)):
             formatted_question += f"{label}) {text}\n"
         formatted_question += "\nAnswer with just the letter."
 
@@ -630,3 +681,20 @@ def get_processor(benchmark_name: str):
     }
 
     return processors.get(benchmark_name)
+
+
+__all__ = [
+    "FiNERProcessor",
+    "XBRLMathProcessor",
+    "AppWorldProcessor",
+    "SWEBenchProcessor",
+    "LettaProcessor",
+    "MultipleChoiceProcessor",
+    "GSM8KProcessor",
+    "SimpleQAProcessor",
+    "TruthfulQAProcessor",
+    "WinoGrandeProcessor",
+    "get_processor",
+    "_validate_required",
+    "_validate_type",
+]

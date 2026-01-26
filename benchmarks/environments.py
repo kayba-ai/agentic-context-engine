@@ -14,7 +14,25 @@ from typing import Dict, List, Set, Any
 from ace import EnvironmentResult
 
 from ace import Sample
-from .base import BenchmarkConfig, BenchmarkEnvironment, BenchmarkSample
+from .base import BenchmarkConfig, BenchmarkEnvironment
+from .constants import (
+    PerformanceThreshold,
+    ResponseLimits,
+    Tolerance,
+    Timeouts,
+)
+
+
+__all__ = [
+    "GenericBenchmarkEnvironment",
+    "FiNEREnvironment",
+    "XBRLMathEnvironment",
+    "SWEBenchEnvironment",
+    "LettaEnvironment",
+    "MultipleChoiceEnvironment",
+    "MathEnvironment",
+    "AppWorldEnvironment",
+]
 
 
 class GenericBenchmarkEnvironment(BenchmarkEnvironment):
@@ -39,9 +57,9 @@ class GenericBenchmarkEnvironment(BenchmarkEnvironment):
         )
         score = metrics.get(primary_metric, 0.0)
 
-        if score >= 0.8:
+        if score >= PerformanceThreshold.EXCELLENT:
             feedback = f"Good performance ({score:.1%}). Answer aligns well with expected output."
-        elif score >= 0.5:
+        elif score >= PerformanceThreshold.MODERATE:
             feedback = f"Moderate performance ({score:.1%}). Consider refining approach for better accuracy."
         else:
             feedback = f"Low performance ({score:.1%}). Significant improvement needed in reasoning or format."
@@ -212,9 +230,9 @@ class FiNEREnvironment(BenchmarkEnvironment):
             f"F1: {f1_score:.2%}, Precision: {precision:.2%}, Recall: {recall:.2%}"
         ]
 
-        if f1_score >= 0.8:
+        if f1_score >= PerformanceThreshold.EXCELLENT:
             feedback_parts.append("Excellent entity recognition performance.")
-        elif f1_score >= 0.6:
+        elif f1_score >= PerformanceThreshold.GOOD:
             feedback_parts.append("Good entity recognition with room for improvement.")
         else:
             feedback_parts.append("Entity recognition needs significant improvement.")
@@ -313,15 +331,15 @@ class XBRLMathEnvironment(BenchmarkEnvironment):
                 "within_5_percent": 0.0,
             }
 
-        exact_match = float(abs(predicted - ground_truth) < 1e-6)
+        exact_match = float(abs(predicted - ground_truth) < Tolerance.EXACT_MATCH)
 
         if ground_truth != 0:
             relative_error = abs(predicted - ground_truth) / abs(ground_truth)
         else:
             relative_error = float("inf") if predicted != 0 else 0.0
 
-        within_1_percent = float(relative_error <= 0.01)
-        within_5_percent = float(relative_error <= 0.05)
+        within_1_percent = float(relative_error <= Tolerance.WITHIN_1_PERCENT)
+        within_5_percent = float(relative_error <= Tolerance.WITHIN_5_PERCENT)
 
         return {
             "exact_match": exact_match,
@@ -450,7 +468,6 @@ class SWEBenchEnvironment(BenchmarkEnvironment):
         Uses SWE-bench harness for proper test execution.
         """
         import os
-        import shutil
         import subprocess
         import tempfile
 
@@ -458,108 +475,110 @@ class SWEBenchEnvironment(BenchmarkEnvironment):
         instance_id = metadata.get("instance_id", "")
         run_id = "ace_eval"
 
-        # Create temp directory for predictions and reports
-        temp_dir = tempfile.mkdtemp(prefix="swebench_")
-        predictions_file = os.path.join(temp_dir, "predictions.jsonl")
-        report_dir = os.path.join(temp_dir, "reports")
-        os.makedirs(report_dir, exist_ok=True)
+        # Use context manager for automatic cleanup
+        with tempfile.TemporaryDirectory(prefix="swebench_") as temp_dir:
+            predictions_file = os.path.join(temp_dir, "predictions.jsonl")
+            report_dir = os.path.join(temp_dir, "reports")
+            os.makedirs(report_dir, exist_ok=True)
 
-        # Write predictions in SWE-bench JSONL format
-        prediction_data = {
-            "instance_id": instance_id,
-            "model_patch": patch,
-            "model_name_or_path": run_id,
-        }
-        with open(predictions_file, "w") as f:
-            f.write(json.dumps(prediction_data) + "\n")
+            # Write predictions in SWE-bench JSONL format
+            prediction_data = {
+                "instance_id": instance_id,
+                "model_patch": patch,
+                "model_name_or_path": run_id,
+            }
+            with open(predictions_file, "w") as f:
+                f.write(json.dumps(prediction_data) + "\n")
 
-        try:
-            # Run SWE-bench evaluation harness
-            result = subprocess.run(
-                [
-                    "python",
-                    "-m",
-                    "swebench.harness.run_evaluation",
-                    "--predictions_path",
-                    predictions_file,
-                    "--run_id",
-                    run_id,
-                    "--report_dir",
-                    report_dir,
-                    "--max_workers",
-                    "1",
-                    "--timeout",
-                    "300",
-                ],
-                capture_output=True,
-                timeout=600,  # 10 minute timeout for harness
-                text=True,
-            )
+            try:
+                # Run SWE-bench evaluation harness
+                result = subprocess.run(
+                    [
+                        "python",
+                        "-m",
+                        "swebench.harness.run_evaluation",
+                        "--predictions_path",
+                        predictions_file,
+                        "--run_id",
+                        run_id,
+                        "--report_dir",
+                        report_dir,
+                        "--max_workers",
+                        "1",
+                        "--timeout",
+                        "300",
+                    ],
+                    capture_output=True,
+                    timeout=600,  # 10 minute timeout for harness
+                    text=True,
+                )
 
-            if result.returncode == 0:
-                # Read results from report file
-                # SWE-bench creates: {run_id}.{instance_id}.json
-                report_file = os.path.join(report_dir, f"{run_id}.{instance_id}.json")
-                if os.path.exists(report_file):
-                    with open(report_file) as f:
-                        output = json.load(f)
-                    resolved = output.get("resolved", False)
-                    # Check test results
-                    tests_status = output.get("tests_status", {})
-                    passed = sum(1 for v in tests_status.values() if v == "PASSED")
-                    total = len(tests_status) if tests_status else 1
-                    return {
-                        "resolved": resolved,
-                        "tests_passed_ratio": passed / max(total, 1),
-                        "partial_fix": passed > 0 and not resolved,
-                        "error": None,
-                    }
-                else:
-                    # Check for summary report
-                    summary_file = os.path.join(report_dir, f"{run_id}.json")
-                    if os.path.exists(summary_file):
-                        with open(summary_file) as f:
-                            summary = json.load(f)
-                        resolved_ids = summary.get("resolved", [])
+                if result.returncode == 0:
+                    # Read results from report file
+                    # SWE-bench creates: {run_id}.{instance_id}.json
+                    report_file = os.path.join(
+                        report_dir, f"{run_id}.{instance_id}.json"
+                    )
+                    if os.path.exists(report_file):
+                        with open(report_file) as f:
+                            output = json.load(f)
+                        resolved = output.get("resolved", False)
+                        # Check test results
+                        tests_status = output.get("tests_status", {})
+                        passed = sum(1 for v in tests_status.values() if v == "PASSED")
+                        total = len(tests_status) if tests_status else 1
                         return {
-                            "resolved": instance_id in resolved_ids,
-                            "tests_passed_ratio": (
-                                1.0 if instance_id in resolved_ids else 0.0
-                            ),
-                            "partial_fix": False,
+                            "resolved": resolved,
+                            "tests_passed_ratio": passed / max(total, 1),
+                            "partial_fix": passed > 0 and not resolved,
                             "error": None,
                         }
+                    else:
+                        # Check for summary report
+                        summary_file = os.path.join(report_dir, f"{run_id}.json")
+                        if os.path.exists(summary_file):
+                            with open(summary_file) as f:
+                                summary = json.load(f)
+                            resolved_ids = summary.get("resolved", [])
+                            return {
+                                "resolved": instance_id in resolved_ids,
+                                "tests_passed_ratio": (
+                                    1.0 if instance_id in resolved_ids else 0.0
+                                ),
+                                "partial_fix": False,
+                                "error": None,
+                            }
+                        return {
+                            "resolved": False,
+                            "tests_passed_ratio": 0.0,
+                            "partial_fix": False,
+                            "error": f"Report file not found. stdout: {result.stdout[:500]}",
+                        }
+                else:
                     return {
                         "resolved": False,
                         "tests_passed_ratio": 0.0,
                         "partial_fix": False,
-                        "error": f"Report file not found. stdout: {result.stdout[:500]}",
+                        "error": (
+                            result.stderr[:1000]
+                            if result.stderr
+                            else result.stdout[:1000]
+                        ),
                     }
-            else:
+            except subprocess.TimeoutExpired:
                 return {
                     "resolved": False,
                     "tests_passed_ratio": 0.0,
                     "partial_fix": False,
-                    "error": (
-                        result.stderr[:1000] if result.stderr else result.stdout[:1000]
-                    ),
+                    "error": "Evaluation timed out",
                 }
-        except subprocess.TimeoutExpired:
-            return {
-                "resolved": False,
-                "tests_passed_ratio": 0.0,
-                "partial_fix": False,
-                "error": "Evaluation timed out",
-            }
-        except Exception as e:
-            return {
-                "resolved": False,
-                "tests_passed_ratio": 0.0,
-                "partial_fix": False,
-                "error": str(e),
-            }
-        finally:
-            shutil.rmtree(temp_dir, ignore_errors=True)
+            except Exception as e:
+                return {
+                    "resolved": False,
+                    "tests_passed_ratio": 0.0,
+                    "partial_fix": False,
+                    "error": str(e),
+                }
 
     def _generate_feedback(self, result: Dict[str, Any]) -> str:
         """Generate feedback for the evaluation result."""
@@ -644,11 +663,11 @@ class LettaEnvironment(BenchmarkEnvironment):
         score = 1.0
 
         # Penalize very short responses
-        if len(prediction.split()) < 5:
+        if len(prediction.split()) < ResponseLimits.MIN_WORDS:
             score -= 0.3
 
         # Penalize very long responses
-        if len(prediction.split()) > 500:
+        if len(prediction.split()) > ResponseLimits.MAX_WORDS:
             score -= 0.2
 
         # Check for complete sentences
@@ -666,11 +685,11 @@ class LettaEnvironment(BenchmarkEnvironment):
         parts = []
 
         memory_recall = metrics["memory_recall"]
-        if memory_recall >= 0.8:
+        if memory_recall >= PerformanceThreshold.EXCELLENT:
             parts.append(
                 "Excellent memory recall - retrieved relevant information effectively."
             )
-        elif memory_recall >= 0.5:
+        elif memory_recall >= PerformanceThreshold.MODERATE:
             parts.append(
                 f"Moderate memory recall ({memory_recall:.0%}). Some relevant memories were missed."
             )
@@ -680,7 +699,9 @@ class LettaEnvironment(BenchmarkEnvironment):
             )
 
         response_quality = metrics["response_quality"]
-        if response_quality >= 0.7:
+        if (
+            response_quality >= 0.7
+        ):  # Note: Using different threshold for response quality
             parts.append("Response quality is good.")
         else:
             parts.append(
@@ -862,7 +883,7 @@ class MathEnvironment(BenchmarkEnvironment):
             }
 
         # Exact match (with small tolerance for floating point)
-        exact_match = float(abs(predicted - expected) < 0.001)
+        exact_match = float(abs(predicted - expected) < Tolerance.MATH_ANSWER)
 
         # Relative error
         if expected != 0:

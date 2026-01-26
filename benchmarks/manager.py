@@ -7,11 +7,14 @@ task discovery, and benchmark instantiation following lm-evaluation-harness patt
 
 from __future__ import annotations
 
+import logging
 import os
 import sys
 import yaml
 from pathlib import Path
 from typing import Dict, List, Optional, Type
+
+logger = logging.getLogger(__name__)
 
 # Try to import tomllib (Python 3.11+) or tomli for TOML support
 try:
@@ -25,6 +28,9 @@ except ImportError:
 
 from .base import BenchmarkConfig, BenchmarkEnvironment, DataLoader
 from .loaders.huggingface import HuggingFaceLoader
+
+
+__all__ = ["BenchmarkTaskManager"]
 
 
 class BenchmarkTaskManager:
@@ -95,8 +101,12 @@ class BenchmarkTaskManager:
                 config_dict = yaml.safe_load(yaml_file.read_text())
                 config = BenchmarkConfig.from_dict(config_dict)
                 self._configs[config.task] = config
+            except (yaml.YAMLError, KeyError, TypeError, ValueError) as e:
+                logger.warning("Failed to load config from %s: %s", yaml_file, e)
             except Exception as e:
-                print(f"Warning: Failed to load YAML config from {yaml_file}: {e}")
+                logger.error(
+                    "Unexpected error loading %s: %s", yaml_file, e, exc_info=True
+                )
 
         # Load TOML configs if available
         if TOML_AVAILABLE:
@@ -106,8 +116,12 @@ class BenchmarkTaskManager:
                     config = BenchmarkConfig.from_dict(config_dict)
                     # TOML configs take precedence over YAML if same task name
                     self._configs[config.task] = config
+                except (KeyError, TypeError, ValueError) as e:
+                    logger.warning("Failed to load config from %s: %s", toml_file, e)
                 except Exception as e:
-                    print(f"Warning: Failed to load TOML config from {toml_file}: {e}")
+                    logger.error(
+                        "Unexpected error loading %s: %s", toml_file, e, exc_info=True
+                    )
 
     def list_benchmarks(self) -> List[str]:
         """Return list of available benchmark task names."""

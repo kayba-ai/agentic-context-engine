@@ -11,19 +11,17 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 from statistics import mean
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass, field
 
-# Fix Windows console encoding for Unicode output
-if sys.platform == "win32":
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+logger = logging.getLogger(__name__)
 
 # Add project root to path
 ROOT = Path(__file__).resolve().parents[1]
@@ -49,6 +47,7 @@ from ace.llm_providers import LiteLLMClient
 from ace import Sample
 from ace.deduplication import DeduplicationConfig
 from benchmarks import BenchmarkTaskManager
+from benchmarks.constants import OverfittingThreshold
 
 # Suppress LiteLLM debug messages
 import litellm
@@ -97,17 +96,37 @@ class TokenTracker:
         }
 
 
-# Global token tracker with litellm callback
-_token_tracker = TokenTracker()
+class TokenTrackingContext:
+    """Context manager for thread-safe token tracking.
 
+    Usage:
+        with TokenTrackingContext() as tracker:
+            # ... LLM calls ...
+            tokens = tracker.to_dict()
+    """
 
-def _litellm_success_callback(kwargs, completion_response, start_time, end_time):
-    """LiteLLM callback to track token usage."""
-    _token_tracker.update(completion_response)
+    def __init__(self):
+        self.tracker = TokenTracker()
+        self._callback = None
 
+    def _create_callback(self):
+        """Create a callback bound to this tracker instance."""
 
-# Register callback with litellm
-litellm.success_callback = [_litellm_success_callback]
+        def callback(_kwargs, completion_response, _start_time, _end_time):
+            self.tracker.update(completion_response)
+
+        return callback
+
+    def __enter__(self) -> TokenTracker:
+        """Register callback and return tracker."""
+        self._callback = self._create_callback()
+        litellm.success_callback.append(self._callback)
+        return self.tracker
+
+    def __exit__(self, _exc_type, _exc_val, _exc_tb):
+        """Remove callback on exit."""
+        if self._callback is not None and self._callback in litellm.success_callback:
+            litellm.success_callback.remove(self._callback)
 
 
 def parse_args() -> argparse.Namespace:
@@ -263,9 +282,12 @@ def load_benchmark_data(
     # Load raw data
     try:
         raw_data = list(manager.load_benchmark_data(args.benchmark))
+    except (ValueError, KeyError, ImportError) as e:
+        logger.error("Failed to load benchmark data: %s", e)
+        raise SystemExit(2) from e
     except Exception as e:
-        print(f"Error loading benchmark data: {e}")
-        sys.exit(1)
+        logger.exception("Unexpected error loading benchmark data")
+        raise SystemExit(1) from e
 
     # Apply limit if specified
     if args.limit:
@@ -372,21 +394,21 @@ def run_comparison_mode(
     print("\n1️⃣ Running BASELINE evaluation...")
     baseline_args = argparse.Namespace(**vars(args))
     baseline_args.skip_adaptation = True
-    _token_tracker.reset()
     baseline_start = time.time()
-    baseline_results = run_evaluation(baseline_args, samples, manager)
+    with TokenTrackingContext() as baseline_tracker:
+        baseline_results = run_evaluation(baseline_args, samples, manager)
     baseline_elapsed = time.time() - baseline_start
-    baseline_tokens = _token_tracker.to_dict()
+    baseline_tokens = baseline_tracker.to_dict()
 
     # Run ACE evaluation with timing and token tracking
     print("\n2️⃣ Running ACE evaluation...")
     ace_args = argparse.Namespace(**vars(args))
     ace_args.skip_adaptation = False
-    _token_tracker.reset()
     ace_start = time.time()
-    ace_results = run_evaluation(ace_args, samples, manager)
+    with TokenTrackingContext() as ace_tracker:
+        ace_results = run_evaluation(ace_args, samples, manager)
     ace_elapsed = time.time() - ace_start
-    ace_tokens = _token_tracker.to_dict()
+    ace_tokens = ace_tracker.to_dict()
 
     # Save skillbook if requested
     if args.save_skillbook and "skillbook" in ace_results:
@@ -448,11 +470,11 @@ def run_comparison_mode(
         for metric, gap in overfitting_gap.items():
             if metric.endswith("_mean"):
                 base_metric = metric[:-5]
-                if gap > 0.05:
+                if gap > OverfittingThreshold.SIGNIFICANT:
                     print(
                         f"  {base_metric.replace('_', ' ').title()}: {gap:.2%} ⚠️  (significant overfitting)"
                     )
-                elif gap > 0.02:
+                elif gap > OverfittingThreshold.MINOR:
                     print(
                         f"  {base_metric.replace('_', ' ').title()}: {gap:.2%} ⚡ (minor overfitting)"
                     )
@@ -588,8 +610,22 @@ def create_ace_components(
     return agent, reflector, skill_manager
 
 
-def split_samples(samples: List[Sample], split_ratio: float):
-    """Split samples into train and test sets."""
+def split_samples(
+    samples: List[Sample], split_ratio: float
+) -> Tuple[List[Sample], List[Sample]]:
+    """Split samples into train and test sets.
+
+    Args:
+        samples: List of samples to split.
+        split_ratio: Fraction of samples for training (0.0-1.0).
+
+    Returns:
+        Tuple of (train_samples, test_samples).
+
+    Example:
+        >>> train, test = split_samples(samples, 0.8)
+        >>> len(train) / len(samples)  # ~0.8
+    """
     if split_ratio >= 1.0:
         return samples, []  # All training, no test
 
@@ -837,7 +873,21 @@ def run_evaluation(
 
 
 def compute_summary_metrics(results: List[Dict[str, Any]]) -> Dict[str, float]:
-    """Compute summary metrics across all results."""
+    """Compute aggregate statistics across evaluation results.
+
+    Args:
+        results: List of per-sample result dictionaries, each containing
+            a "metrics" dict with metric name -> value mappings.
+
+    Returns:
+        Dictionary with {metric_name}_{mean|min|max} keys for each metric
+        found in the results.
+
+    Example:
+        >>> results = [{"metrics": {"accuracy": 0.8}}, {"metrics": {"accuracy": 1.0}}]
+        >>> summary = compute_summary_metrics(results)
+        >>> summary["accuracy_mean"]  # 0.9
+    """
     if not results:
         return {}
 
@@ -935,7 +985,7 @@ def save_results(args: argparse.Namespace, evaluation_results: Dict[str, Any]) -
             for metric, gap in evaluation_results["overfitting_gap"].items():
                 if metric.endswith("_mean"):
                     base_metric = metric[:-5]
-                    if gap > 0.05:  # Significant overfitting
+                    if gap > OverfittingThreshold.SIGNIFICANT:
                         print(
                             f"  {base_metric.replace('_', ' ').title()} Gap: {gap:.2%} ⚠️  (overfitting)"
                         )
@@ -962,8 +1012,17 @@ def save_results(args: argparse.Namespace, evaluation_results: Dict[str, Any]) -
                 print(f"{base_metric.replace('_', ' ').title()}: {value:.2%}")
 
 
+def setup_platform() -> None:
+    """Configure platform-specific settings."""
+    if sys.platform == "win32":
+        # Fix Windows console encoding for Unicode output
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
+
 def main() -> None:
     """Main entry point."""
+    setup_platform()
     args = parse_args()
 
     # Handle special commands
