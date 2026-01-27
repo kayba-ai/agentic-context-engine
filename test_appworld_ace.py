@@ -1,8 +1,8 @@
 """
-Direct test script for running ACE on AppWorld benchmark.
+Direct test script for running ACE on AppWorld benchmark with full learning.
 
 This bypasses HAL harness and tests the ACE agent directly against
-the AppWorld HTTP servers.
+the AppWorld HTTP servers, with Reflector and SkillManager enabled.
 """
 
 import os
@@ -12,9 +12,14 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from agents.ace_agent.main import run, process_task, APPWORLD_ENV_URL
+from agents.ace_agent.main import process_task, APPWORLD_ENV_URL
 
 import httpx
+
+# ACE components for full learning pipeline
+from ace import Skillbook, Agent, Reflector, SkillManager
+from ace.roles import AgentOutput
+from ace.llm_providers.litellm_client import LiteLLMClient
 
 
 def get_test_task_ids(limit: int = 2) -> list[str]:
@@ -82,9 +87,9 @@ def main():
         print("\nNo tasks found. Exiting.")
         return
 
-    # Run ACE agent
+    # Initialize ACE components with full learning pipeline
     print("\n" + "=" * 60)
-    print("Running ACE Agent on AppWorld Tasks")
+    print("Running ACE Agent on AppWorld Tasks (with Learning)")
     print("=" * 60)
 
     # Default to Claude if ANTHROPIC_API_KEY is set, otherwise GPT
@@ -94,25 +99,94 @@ def main():
         model = os.environ.get("ACE_MODEL", "gpt-4o-mini")
     print(f"\nModel: {model}")
     print(f"Tasks: {len(input_data)}")
+    print("Learning: ENABLED (Reflector + SkillManager)")
 
     try:
-        results = run(
-            input=input_data,
-            model=model,
-            max_interactions="5",  # Limit interactions for testing
-        )
+        # Initialize ACE components
+        llm = LiteLLMClient(model=model)
+        skillbook = Skillbook()
+        agent = Agent(llm)
+        reflector = Reflector(llm)
+        skill_manager = SkillManager(llm)
 
+        # Process each task with learning
+        results = {}
+        max_interactions = 5
+
+        for task_id, task_data in input_data.items():
+            print(f"\n--- Processing Task: {task_id} ---")
+
+            try:
+                # 1. Agent generates and executes code
+                result = process_task(
+                    task_id=task_id,
+                    task_data=task_data,
+                    agent=agent,
+                    skillbook=skillbook,
+                    max_interactions=max_interactions,
+                )
+                results[task_id] = result
+
+                # 2. Build execution feedback from result
+                is_success = not result.startswith("Error:")
+                feedback = f"Task {task_id}: {'Completed successfully' if is_success else 'Failed with error'}"
+                if not is_success:
+                    feedback += f"\nError details: {result}"
+
+                print(f"  Execution: {'SUCCESS' if is_success else 'FAILED'}")
+                print("  Running Reflector...")
+
+                # 3. Reflector analyzes execution
+                # Wrap the result in an AgentOutput object
+                agent_output = AgentOutput(
+                    reasoning=f"Generated code to complete AppWorld task {task_id}",
+                    final_answer=result,
+                    skill_ids=[],
+                )
+
+                reflection = reflector.reflect(
+                    question=f"AppWorld Task: {task_id}",
+                    agent_output=agent_output,
+                    feedback=feedback,
+                    skillbook=skillbook,
+                )
+                reflection_summary = (
+                    reflection.reasoning[:100] + "..."
+                    if len(reflection.reasoning) > 100
+                    else reflection.reasoning
+                )
+                print(f"  Reflection: {reflection_summary}")
+
+                print("  Running SkillManager...")
+
+                # 4. SkillManager updates skillbook
+                skill_output = skill_manager.update_skills(
+                    reflection=reflection,
+                    skillbook=skillbook,
+                    question_context=f"AppWorld task: {task_id}",
+                    progress=f"Task {'completed' if is_success else 'failed'}",
+                )
+                skillbook.apply_update(skill_output.update)
+                print(
+                    f"  Updates applied: {len(skill_output.update.operations)} operations"
+                )
+
+            except Exception as e:
+                print(f"  Task error: {e}")
+                results[task_id] = f"Error: {e}"
+
+        # Print results
         print("\n" + "=" * 60)
-        print("Results")
+        print("Execution Results")
         print("=" * 60)
 
         for task_id, result in results.items():
             print(f"\n--- Task: {task_id} ---")
             if result.startswith("Error:"):
-                print(f"Status: FAILED")
+                print("Status: FAILED")
                 print(f"Error: {result}")
             else:
-                print(f"Status: COMPLETED")
+                print("Status: COMPLETED")
                 print(
                     f"Code:\n{result[:500]}..."
                     if len(result) > 500
@@ -122,8 +196,21 @@ def main():
         # Summary
         successful = sum(1 for r in results.values() if not r.startswith("Error:"))
         print("\n" + "=" * 60)
-        print(f"Summary: {successful}/{len(results)} tasks completed")
+        print(f"Execution Summary: {successful}/{len(results)} tasks completed")
         print("=" * 60)
+
+        # Display learned skillbook insights
+        print("\n" + "=" * 60)
+        print("Learned Skillbook Insights")
+        print("=" * 60)
+
+        if skillbook.skills():
+            print(str(skillbook))  # Human-readable markdown format
+            stats = skillbook.stats()
+            print(f"\nStats: {stats}")
+        else:
+            print("\nNo skills learned during this session.")
+            print("(This may happen if tasks completed without generating insights)")
 
     except Exception as e:
         print(f"\nError running ACE agent: {e}")
