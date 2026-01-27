@@ -137,6 +137,39 @@ The benchmark script supports three evaluation modes:
 - **Flexible Configuration**: Customizable limits, models, and evaluation parameters
 - **Performance Tracking**: Detailed results with per-sample analysis options
 
+## AppWorld Direct Testing
+
+For testing ACE with AppWorld directly (bypassing HAL harness):
+
+```bash
+# Run with defaults (2 tasks)
+uv run python test_appworld_ace.py
+
+# Run with options
+uv run python test_appworld_ace.py --model gpt-4o-mini --limit 5
+uv run python test_appworld_ace.py --limit 10 --save-skillbook appworld_skills.json
+uv run python test_appworld_ace.py --quiet  # Suppress progress output
+```
+
+**CLI Options:**
+- `--model MODEL` - LLM model (default: gpt-4o-mini)
+- `--limit N` - Number of tasks to run (default: 2)
+- `--max-interactions N` - Max steps per task (default: 5)
+- `--save-skillbook PATH` - Save learned skillbook to file
+- `--quiet` - Suppress progress output
+
+**Prerequisites:**
+1. AppWorld server running:
+   ```bash
+   docker run -d --name appworld-env -p 8000:8000 \
+     -v ~/.appworld/data:/appworld/data -w /appworld \
+     -e SERVER_TYPE=environment ghcr.io/stonybrooknlp/appworld
+   ```
+2. AppWorld data downloaded:
+   ```bash
+   pip install appworld && appworld download data
+   ```
+
 ## Notes
 
 - **Default 80/20 train/test split** prevents overfitting and shows true generalization

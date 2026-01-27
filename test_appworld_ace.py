@@ -3,8 +3,14 @@ Direct test script for running ACE on AppWorld benchmark with full learning.
 
 This bypasses HAL harness and tests the ACE agent directly against
 the AppWorld HTTP servers, with Reflector and SkillManager enabled.
+
+Usage:
+    uv run python test_appworld_ace.py
+    uv run python test_appworld_ace.py --model gpt-4o-mini --limit 5
+    uv run python test_appworld_ace.py --limit 10 --save-skillbook appworld_skills.json
 """
 
+import argparse
 import os
 import sys
 from pathlib import Path
@@ -43,18 +49,72 @@ def get_task_info(task_id: str) -> dict:
     }
 
 
+def parse_args():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(
+        description="Run ACE on AppWorld benchmark with full learning pipeline.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  %(prog)s                                    # Run with defaults (2 tasks)
+  %(prog)s --model gpt-4o-mini --limit 5      # Run 5 tasks with GPT-4o-mini
+  %(prog)s --limit 10 --save-skillbook s.json # Save learned skills
+  %(prog)s --quiet                            # Suppress progress output
+        """,
+    )
+    parser.add_argument(
+        "--model",
+        type=str,
+        default=None,
+        help="LLM model to use (default: gpt-4o-mini or claude-3-5-haiku-latest)",
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=2,
+        help="Number of tasks to run (default: 2)",
+    )
+    parser.add_argument(
+        "--max-interactions",
+        type=int,
+        default=5,
+        help="Max interaction steps per task (default: 5)",
+    )
+    parser.add_argument(
+        "--save-skillbook",
+        type=str,
+        metavar="PATH",
+        help="Save learned skillbook to file",
+    )
+    parser.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Suppress progress output",
+    )
+    return parser.parse_args()
+
+
+def log(msg: str, quiet: bool = False):
+    """Print message if not in quiet mode."""
+    if not quiet:
+        print(msg)
+
+
 def main():
     """Run ACE on AppWorld tasks."""
-    print("=" * 60)
-    print("ACE AppWorld Benchmark Test")
-    print("=" * 60)
+    args = parse_args()
+    quiet = args.quiet
+
+    log("=" * 60, quiet)
+    log("ACE AppWorld Benchmark Test", quiet)
+    log("=" * 60, quiet)
 
     # Check server connectivity
-    print("\nChecking AppWorld server connectivity...")
+    log("\nChecking AppWorld server connectivity...", quiet)
     try:
         client = httpx.Client(timeout=5.0)
         resp = client.get(f"{APPWORLD_ENV_URL}/")
-        print(f"  Environment server: OK (status {resp.status_code})")
+        log(f"  Environment server: OK (status {resp.status_code})", quiet)
         client.close()
     except Exception as e:
         print(f"  Environment server: FAILED ({e})")
@@ -65,10 +125,10 @@ def main():
         return
 
     # Get task IDs
-    print("\nLoading test tasks...")
+    log("\nLoading test tasks...", quiet)
     try:
-        task_ids = get_test_task_ids(limit=2)
-        print(f"  Found {len(task_ids)} tasks: {task_ids}")
+        task_ids = get_test_task_ids(limit=args.limit)
+        log(f"  Found {len(task_ids)} tasks: {task_ids}", quiet)
     except FileNotFoundError as e:
         print(f"  Error: {e}")
         print("\n  Please download AppWorld data first:")
@@ -76,30 +136,35 @@ def main():
         return
 
     # Prepare input for ACE agent
-    print("\nPreparing task data...")
+    log("\nPreparing task data...", quiet)
     input_data = {}
     for task_id in task_ids:
         task_data = get_task_info(task_id)
         input_data[task_id] = task_data
-        print(f"  {task_id}: ready")
+        log(f"  {task_id}: ready", quiet)
 
     if not input_data:
         print("\nNo tasks found. Exiting.")
         return
 
     # Initialize ACE components with full learning pipeline
-    print("\n" + "=" * 60)
-    print("Running ACE Agent on AppWorld Tasks (with Learning)")
-    print("=" * 60)
+    log("\n" + "=" * 60, quiet)
+    log("Running ACE Agent on AppWorld Tasks (with Learning)", quiet)
+    log("=" * 60, quiet)
 
-    # Default to Claude if ANTHROPIC_API_KEY is set, otherwise GPT
-    if os.environ.get("ANTHROPIC_API_KEY") and not os.environ.get("OPENAI_API_KEY"):
-        model = os.environ.get("ACE_MODEL", "claude-3-5-haiku-latest")
+    # Determine model: CLI arg > env var > auto-detect
+    if args.model:
+        model = args.model
+    elif os.environ.get("ACE_MODEL"):
+        model = os.environ["ACE_MODEL"]
+    elif os.environ.get("ANTHROPIC_API_KEY") and not os.environ.get("OPENAI_API_KEY"):
+        model = "claude-3-5-haiku-latest"
     else:
-        model = os.environ.get("ACE_MODEL", "gpt-4o-mini")
-    print(f"\nModel: {model}")
-    print(f"Tasks: {len(input_data)}")
-    print("Learning: ENABLED (Reflector + SkillManager)")
+        model = "gpt-4o-mini"
+
+    log(f"\nModel: {model}", quiet)
+    log(f"Tasks: {len(input_data)}", quiet)
+    log("Learning: ENABLED (Reflector + SkillManager)", quiet)
 
     try:
         # Initialize ACE components
@@ -111,10 +176,9 @@ def main():
 
         # Process each task with learning
         results = {}
-        max_interactions = 5
 
         for task_id, task_data in input_data.items():
-            print(f"\n--- Processing Task: {task_id} ---")
+            log(f"\n--- Processing Task: {task_id} ---", quiet)
 
             try:
                 # 1. Agent generates and executes code
@@ -123,7 +187,7 @@ def main():
                     task_data=task_data,
                     agent=agent,
                     skillbook=skillbook,
-                    max_interactions=max_interactions,
+                    max_interactions=args.max_interactions,
                 )
                 results[task_id] = result
 
@@ -133,8 +197,8 @@ def main():
                 if not is_success:
                     feedback += f"\nError details: {result}"
 
-                print(f"  Execution: {'SUCCESS' if is_success else 'FAILED'}")
-                print("  Running Reflector...")
+                log(f"  Execution: {'SUCCESS' if is_success else 'FAILED'}", quiet)
+                log("  Running Reflector...", quiet)
 
                 # 3. Reflector analyzes execution
                 # Wrap the result in an AgentOutput object
@@ -155,9 +219,9 @@ def main():
                     if len(reflection.reasoning) > 100
                     else reflection.reasoning
                 )
-                print(f"  Reflection: {reflection_summary}")
+                log(f"  Reflection: {reflection_summary}", quiet)
 
-                print("  Running SkillManager...")
+                log("  Running SkillManager...", quiet)
 
                 # 4. SkillManager updates skillbook
                 skill_output = skill_manager.update_skills(
@@ -167,50 +231,62 @@ def main():
                     progress=f"Task {'completed' if is_success else 'failed'}",
                 )
                 skillbook.apply_update(skill_output.update)
-                print(
-                    f"  Updates applied: {len(skill_output.update.operations)} operations"
+                log(
+                    f"  Updates applied: {len(skill_output.update.operations)} operations",
+                    quiet,
                 )
 
             except Exception as e:
-                print(f"  Task error: {e}")
+                log(f"  Task error: {e}", quiet)
                 results[task_id] = f"Error: {e}"
 
         # Print results
-        print("\n" + "=" * 60)
-        print("Execution Results")
-        print("=" * 60)
+        log("\n" + "=" * 60, quiet)
+        log("Execution Results", quiet)
+        log("=" * 60, quiet)
 
         for task_id, result in results.items():
-            print(f"\n--- Task: {task_id} ---")
+            log(f"\n--- Task: {task_id} ---", quiet)
             if result.startswith("Error:"):
-                print("Status: FAILED")
-                print(f"Error: {result}")
+                log("Status: FAILED", quiet)
+                log(f"Error: {result}", quiet)
             else:
-                print("Status: COMPLETED")
-                print(
-                    f"Code:\n{result[:500]}..."
-                    if len(result) > 500
-                    else f"Code:\n{result}"
+                log("Status: COMPLETED", quiet)
+                log(
+                    (
+                        f"Code:\n{result[:500]}..."
+                        if len(result) > 500
+                        else f"Code:\n{result}"
+                    ),
+                    quiet,
                 )
 
-        # Summary
+        # Summary (always print, even in quiet mode)
         successful = sum(1 for r in results.values() if not r.startswith("Error:"))
         print("\n" + "=" * 60)
         print(f"Execution Summary: {successful}/{len(results)} tasks completed")
         print("=" * 60)
 
         # Display learned skillbook insights
-        print("\n" + "=" * 60)
-        print("Learned Skillbook Insights")
-        print("=" * 60)
+        log("\n" + "=" * 60, quiet)
+        log("Learned Skillbook Insights", quiet)
+        log("=" * 60, quiet)
 
         if skillbook.skills():
-            print(str(skillbook))  # Human-readable markdown format
+            log(str(skillbook), quiet)  # Human-readable markdown format
             stats = skillbook.stats()
-            print(f"\nStats: {stats}")
+            log(f"\nStats: {stats}", quiet)
         else:
-            print("\nNo skills learned during this session.")
-            print("(This may happen if tasks completed without generating insights)")
+            log("\nNo skills learned during this session.", quiet)
+            log(
+                "(This may happen if tasks completed without generating insights)",
+                quiet,
+            )
+
+        # Save skillbook if requested
+        if args.save_skillbook:
+            skillbook.save_to_file(args.save_skillbook)
+            print(f"\nSkillbook saved to: {args.save_skillbook}")
 
     except Exception as e:
         print(f"\nError running ACE agent: {e}")
