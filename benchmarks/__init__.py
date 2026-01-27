@@ -39,6 +39,12 @@ from .constants import (
     Tolerance,
     OverfittingThreshold,
 )
+from .runners import (
+    BenchmarkRunner,
+    StandardRunner,
+    IterativeRunner,
+    get_runner,
+)
 
 __all__ = [
     # Base classes
@@ -49,6 +55,11 @@ __all__ = [
     "DataLoader",
     "get_cache_dir",
     "get_data_dir",
+    # Runners
+    "BenchmarkRunner",
+    "StandardRunner",
+    "IterativeRunner",
+    "get_runner",
     # Type definitions
     "SampleResult",
     "SummaryMetrics",

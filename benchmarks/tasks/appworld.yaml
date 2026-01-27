@@ -1,27 +1,28 @@
 task: appworld
-version: 1.0
+version: "1.0"
 data:
   source: appworld
-  split: test
-  limit: 20  # Agent tasks are very resource intensive
+  dataset: test_normal  # Options: train, dev, test_normal, test_challenge
+  limit: 20  # Agent tasks are resource intensive
 preprocessing:
-  question_template: "Execute the following task using the available APIs:\n\n{instruction}\n\nAvailable APIs:\n{api_docs}\n\nExecute step by step and return the final result."
-  ground_truth_field: success
-  input_field: instruction
-  context_field: api_docs
+  format: none  # AppWorld handles its own formatting
 metrics:
   - name: task_success
     weight: 1.0
-  - name: api_success_rate
-    weight: 0.7
-  - name: execution_error
-    weight: -1.0  # Penalty for errors
-  - name: api_calls_count
-    weight: -0.1  # Slight penalty for too many calls
+  - name: steps_taken
+    weight: -0.1  # Slight penalty for too many steps
+  - name: goal_conditions_met
+    weight: 0.5
 metadata:
-  description: "AppWorld Agent Benchmark - autonomous task execution with API interactions"
+  description: "AppWorld benchmark - autonomous agent execution with realistic API interactions"
   paper: "https://arxiv.org/abs/2307.18808"
   domain: general
   task_type: agent_execution
   evaluation_type: task_completion
-  timeout: 300  # 5 minutes per task
+  # Execution mode configuration
+  execution_mode: iterative  # Multi-step agent execution loop
+  requires_docker: true  # AppWorld uses Docker for API simulation
+  max_steps: 50  # Maximum steps per task
+  experiment_name: ace_benchmark
+  # Default timeout per task (seconds)
+  timeout: 300

@@ -49,6 +49,12 @@ from ace.deduplication import DeduplicationConfig
 from benchmarks import BenchmarkTaskManager
 from benchmarks.constants import OverfittingThreshold
 
+# Import runner utilities - use try/except to handle both package and direct execution
+try:
+    from .runners import get_runner, IterativeRunner
+except ImportError:
+    from benchmarks.runners import get_runner, IterativeRunner
+
 # Suppress LiteLLM debug messages
 import litellm
 
@@ -257,9 +263,54 @@ def list_available_benchmarks() -> None:
     for name in benchmarks:
         try:
             config = manager.get_config(name)
-            print(f"  {name} - {config.metadata.get('description', 'No description')}")
+            desc = (
+                config.metadata.get("description", "No description")
+                if config.metadata
+                else "No description"
+            )
+            mode = config.execution_mode
+            mode_indicator = f" [{mode}]" if mode != "standard" else ""
+            print(f"  {name}{mode_indicator} - {desc}")
         except Exception as e:
             print(f"  {name} - (Error loading config: {e})")
+
+
+def is_iterative_benchmark(manager: BenchmarkTaskManager, benchmark_name: str) -> bool:
+    """Check if a benchmark requires iterative execution."""
+    try:
+        config = manager.get_config(benchmark_name)
+        return config.execution_mode == "iterative"
+    except Exception:
+        return False
+
+
+def check_docker_if_required(
+    manager: BenchmarkTaskManager, benchmark_name: str
+) -> bool:
+    """Check Docker availability if required by benchmark. Returns True if OK."""
+    try:
+        config = manager.get_config(benchmark_name)
+        if not config.requires_docker:
+            return True
+
+        # Check Docker availability
+        import subprocess
+
+        result = subprocess.run(
+            ["docker", "info"],
+            capture_output=True,
+            timeout=10,
+        )
+        if result.returncode != 0:
+            print(
+                f"⚠️  Warning: {benchmark_name} requires Docker but Docker is not running."
+            )
+            print("   Some benchmarks may fail without Docker.")
+            return False
+        return True
+    except Exception as e:
+        print(f"⚠️  Warning: Could not check Docker status: {e}")
+        return False
 
 
 def create_llm_client(args: argparse.Namespace) -> LiteLLMClient:
@@ -270,6 +321,36 @@ def create_llm_client(args: argparse.Namespace) -> LiteLLMClient:
         max_tokens=args.max_tokens,
         timeout=120,
     )
+
+
+def load_benchmark_data_raw(
+    args: argparse.Namespace, manager: BenchmarkTaskManager
+) -> List[Dict[str, Any]]:
+    """Load raw benchmark data without conversion to Sample format.
+
+    Used for iterative benchmarks where the runner handles data differently.
+    """
+    if not args.quiet:
+        print(f"Loading {args.benchmark} data (split: {args.split})...")
+
+    # Load raw data
+    try:
+        raw_data = list(manager.load_benchmark_data(args.benchmark))
+    except (ValueError, KeyError, ImportError) as e:
+        logger.error("Failed to load benchmark data: %s", e)
+        raise SystemExit(2) from e
+    except Exception as e:
+        logger.exception("Unexpected error loading benchmark data")
+        raise SystemExit(1) from e
+
+    # Apply limit if specified
+    if args.limit:
+        raw_data = raw_data[: args.limit]
+
+    if not args.quiet:
+        print(f"Loaded {len(raw_data)} tasks")
+
+    return raw_data
 
 
 def load_benchmark_data(
@@ -634,6 +715,103 @@ def split_samples(
     test_samples = samples[split_idx:]
 
     return train_samples, test_samples
+
+
+def run_iterative_evaluation(
+    args: argparse.Namespace,
+    task_data: List[Dict[str, Any]],
+    manager: BenchmarkTaskManager,
+) -> Dict[str, Any]:
+    """
+    Run iterative benchmark evaluation (AppWorld, agentic tasks).
+
+    This function handles benchmarks that require multi-step agent execution
+    with an iterative code generation loop.
+
+    Note: ACE learning for iterative benchmarks works differently from standard
+    Q&A benchmarks - the runner handles the full execution loop and returns
+    results that can be used for learning.
+
+    For AppWorld and similar benchmarks, HAL harness is required.
+    See agents/README.md for setup instructions.
+    """
+    config = manager.get_config(args.benchmark)
+
+    # Check if HAL is available for iterative benchmarks
+    runner = get_runner(config.execution_mode, args.benchmark)
+    if hasattr(runner, "_check_hal_available") and not runner._check_hal_available():
+        print("\n" + "=" * 60)
+        print("❌ HAL harness not available")
+        print("=" * 60)
+        print(f"\nIterative benchmarks like '{args.benchmark}' require HAL harness.")
+        print("\nTo install HAL:")
+        print(
+            "  git clone --recursive https://github.com/princeton-pli/hal-harness.git"
+        )
+        print("  cd hal-harness && pip install -e .")
+        print("\nThen copy the ACE agent:")
+        print("  cp -r benchmarks/agents/ace_agent hal-harness/agents/")
+        print("\nRun with HAL directly:")
+        hal_benchmark = (
+            config.metadata.get("hal_benchmark", "appworld_test_normal")
+            if config.metadata
+            else "appworld_test_normal"
+        )
+        print(f"  hal-eval --benchmark {hal_benchmark} \\")
+        print("    --agent_dir agents/ace_agent --agent_function main.run")
+        print("\nSee agents/README.md for detailed instructions.")
+        print("=" * 60 + "\n")
+        sys.exit(1)
+
+    if not args.quiet:
+        print(f"🔄 Running ITERATIVE evaluation for {args.benchmark}")
+
+    config = manager.get_config(args.benchmark)
+    runner = get_runner(config.execution_mode)
+
+    # Create LLM client and agent
+    client = create_llm_client(args)
+    agent, _, _ = create_ace_components(client, args.prompt_version)
+
+    results = []
+    skillbook = Skillbook()
+
+    # For iterative benchmarks, each task is a full execution
+    for i, task in enumerate(task_data):
+        if not args.quiet and i % 5 == 0:
+            print(f"Progress: {i}/{len(task_data)} tasks processed")
+
+        task_id = task.get("task_id", f"task_{i}")
+
+        # Run the iterative task
+        env_result = runner.run_task(
+            task_data=task,
+            agent=agent,
+            skillbook=skillbook,
+            config=config,
+        )
+
+        results.append(
+            {
+                "sample_id": f"{args.benchmark}_{task_id}",
+                "task_id": task_id,
+                "metrics": env_result.metrics,
+                "feedback": env_result.feedback,
+                "split": "iterative",
+            }
+        )
+
+    return {
+        "benchmark": args.benchmark,
+        "model": args.model,
+        "prompt_version": args.prompt_version,
+        "evaluation_mode": "iterative",
+        "execution_mode": config.execution_mode,
+        "samples_evaluated": len(results),
+        "results": results,
+        "summary": compute_summary_metrics(results),
+        "skillbook": skillbook,
+    }
 
 
 def run_evaluation(
@@ -1055,30 +1233,75 @@ def main() -> None:
             print(f"  - {error}")
         sys.exit(1)
 
-    # Load benchmark data
-    samples = load_benchmark_data(args, manager)
+    # Check Docker if required
+    check_docker_if_required(manager, args.benchmark)
 
-    # Check if running in comparison mode
-    if args.compare:
-        # Run comparison mode (baseline vs ACE)
-        run_comparison_mode(args, samples, manager)
+    # Check execution mode for routing
+    is_iterative = is_iterative_benchmark(manager, args.benchmark)
+
+    if is_iterative:
+        # Iterative benchmarks (AppWorld, agentic tasks)
+        config = manager.get_config(args.benchmark)
+        if not args.quiet:
+            print(f"Detected iterative benchmark (mode: {config.execution_mode})")
+
+        # Load raw task data for iterative benchmarks
+        task_data = load_benchmark_data_raw(args, manager)
+
+        if args.compare:
+            # For iterative benchmarks, comparison mode runs baseline vs ACE
+            print("⚠️  Comparison mode for iterative benchmarks is experimental")
+            # Run baseline (skip adaptation)
+            baseline_args = argparse.Namespace(**vars(args))
+            baseline_args.skip_adaptation = True
+            baseline_results = run_iterative_evaluation(
+                baseline_args, task_data, manager
+            )
+
+            # Run ACE
+            ace_args = argparse.Namespace(**vars(args))
+            ace_args.skip_adaptation = False
+            ace_results = run_iterative_evaluation(ace_args, task_data, manager)
+
+            # Display comparison
+            print("\n" + "=" * 60)
+            print("📊 ITERATIVE BENCHMARK COMPARISON")
+            print("=" * 60)
+            print(f"\nBaseline: {baseline_results['summary']}")
+            print(f"ACE: {ace_results['summary']}")
+
+            evaluation_results = {
+                "benchmark": args.benchmark,
+                "evaluation_mode": "iterative_comparison",
+                "baseline": baseline_results,
+                "ace": ace_results,
+            }
+        else:
+            evaluation_results = run_iterative_evaluation(args, task_data, manager)
     else:
-        # Run normal evaluation
-        evaluation_results = run_evaluation(args, samples, manager)
+        # Standard Q&A benchmarks
+        samples = load_benchmark_data(args, manager)
 
-        # Save skillbook if requested
-        if args.save_skillbook and "skillbook" in evaluation_results:
-            skillbook = evaluation_results["skillbook"]
-            skillbook_path = Path(args.save_skillbook)
-            skillbook_path.parent.mkdir(parents=True, exist_ok=True)
-            skillbook.save_to_file(str(skillbook_path))
-            print(f"📚 Skillbook saved to: {skillbook_path}")
+        if args.compare:
+            # Run comparison mode (baseline vs ACE)
+            run_comparison_mode(args, samples, manager)
+            return  # comparison mode handles its own output
+        else:
+            evaluation_results = run_evaluation(args, samples, manager)
 
-        # Remove skillbook from results (not JSON serializable)
-        evaluation_results.pop("skillbook", None)
+    # Save skillbook if requested
+    if args.save_skillbook and "skillbook" in evaluation_results:
+        skillbook = evaluation_results["skillbook"]
+        skillbook_path = Path(args.save_skillbook)
+        skillbook_path.parent.mkdir(parents=True, exist_ok=True)
+        skillbook.save_to_file(str(skillbook_path))
+        print(f"📚 Skillbook saved to: {skillbook_path}")
 
-        # Save and display results
-        save_results(args, evaluation_results)
+    # Remove skillbook from results (not JSON serializable)
+    evaluation_results.pop("skillbook", None)
+
+    # Save and display results
+    save_results(args, evaluation_results)
 
     if not args.quiet:
         print(f"\nEvaluation completed successfully!")

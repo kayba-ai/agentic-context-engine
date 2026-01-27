@@ -923,20 +923,26 @@ class AppWorldEnvironment(BenchmarkEnvironment):
 
     Evaluates agent performance in realistic application environments with
     API interactions, task completion, and execution success metrics.
+
+    Note: For iterative execution mode, the IterativeRunner handles the
+    execution loop directly using AppWorld's context manager pattern.
+    This environment is used for:
+    1. Evaluating pre-computed execution results (passed via sample metadata)
+    2. Providing configuration (max_steps, timeout, etc.) to the runner
     """
 
     def evaluate(self, sample: Sample, agent_output) -> EnvironmentResult:
-        """Evaluate agent execution in AppWorld environment."""
-        # AppWorld evaluation is typically done through the world.execute() method
-        # This environment focuses on analyzing the execution results
+        """
+        Evaluate agent execution in AppWorld environment.
 
-        prediction = agent_output.final_answer or ""
-
+        For iterative benchmarks, this method evaluates results that were
+        computed by the IterativeRunner and stored in sample metadata.
+        """
         # Extract execution results from sample metadata if available
         execution_results = self._extract_execution_results(sample)
 
         # Compute execution metrics
-        metrics = self._compute_execution_metrics(execution_results, prediction)
+        metrics = self._compute_execution_metrics(execution_results)
 
         # Generate feedback based on execution success
         feedback = self._generate_execution_feedback(execution_results, metrics)
@@ -950,13 +956,17 @@ class AppWorldEnvironment(BenchmarkEnvironment):
         if not sample.metadata:
             return {"success": False, "error": "No execution results available"}
 
-        return sample.metadata.get(
-            "execution_results",
-            {"success": False, "error": "No execution results in metadata"},
+        result = sample.metadata.get("execution_results")
+        if result is None:
+            return {"success": False, "error": "No execution results in metadata"}
+        return (
+            dict(result)
+            if isinstance(result, dict)
+            else {"success": False, "error": "Invalid execution results"}
         )
 
     def _compute_execution_metrics(
-        self, execution_results: Dict[str, Any], prediction: str
+        self, execution_results: Dict[str, Any]
     ) -> Dict[str, float]:
         """Compute execution success metrics."""
         success = execution_results.get("success", False)
@@ -966,16 +976,30 @@ class AppWorldEnvironment(BenchmarkEnvironment):
             "execution_error": float(not success),
         }
 
+        # Add step count if available
+        steps_taken = execution_results.get("steps_taken")
+        if steps_taken is not None:
+            metrics["steps_taken"] = float(steps_taken)
+
+        # Add goal conditions if available
+        goal_met = execution_results.get("goal_conditions_met")
+        if goal_met is not None:
+            metrics["goal_conditions_met"] = float(goal_met)
+
         # Add API usage metrics if available
         if "api_calls" in execution_results:
             api_calls = execution_results["api_calls"]
             metrics["api_calls_count"] = float(len(api_calls))
-            metrics["api_success_rate"] = float(
-                sum(1 for call in api_calls if call.get("success", False))
-                / len(api_calls)
-                if api_calls
-                else 0.0
-            )
+            if api_calls:
+                successful = sum(1 for call in api_calls if call.get("success", False))
+                metrics["api_success_rate"] = float(successful) / len(api_calls)
+            else:
+                metrics["api_success_rate"] = 0.0
+
+        # Add error rate if available
+        error_rate = execution_results.get("error_rate")
+        if error_rate is not None:
+            metrics["error_rate"] = float(error_rate)
 
         return metrics
 
@@ -983,28 +1007,43 @@ class AppWorldEnvironment(BenchmarkEnvironment):
         self, execution_results: Dict[str, Any], metrics: Dict[str, float]
     ) -> str:
         """Generate feedback for agent execution performance."""
+        parts = []
+
         if metrics["task_success"]:
-            feedback = "Task completed successfully! "
+            steps = metrics.get("steps_taken", 0)
+            parts.append(f"Task completed successfully in {int(steps)} steps.")
 
-            api_success_rate = metrics.get("api_success_rate", 0.0)
-            if api_success_rate >= 0.9:
-                feedback += "Excellent API usage with minimal errors."
-            elif api_success_rate >= 0.7:
-                feedback += "Good API usage with some recoverable errors."
-            else:
-                feedback += "API usage had issues but task still completed."
+            # Add goal condition info
+            goal_met = metrics.get("goal_conditions_met")
+            if goal_met is not None:
+                parts.append(f"Goal conditions: {goal_met:.0%} met.")
 
+            # Add API usage feedback
+            api_success_rate = metrics.get("api_success_rate")
+            if api_success_rate is not None:
+                if api_success_rate >= 0.9:
+                    parts.append("Excellent API usage with minimal errors.")
+                elif api_success_rate >= 0.7:
+                    parts.append("Good API usage with some recoverable errors.")
+                else:
+                    parts.append("API usage had issues but task still completed.")
         else:
             error = execution_results.get("error", "Unknown error")
-            feedback = f"Task failed: {error}. "
+            parts.append(f"Task failed: {error}.")
 
-            if "timeout" in error.lower():
-                feedback += "Consider optimizing execution time and reducing unnecessary API calls."
-            elif "api" in error.lower():
-                feedback += (
+            # Add specific guidance based on error type
+            error_lower = error.lower() if error else ""
+            if "timeout" in error_lower:
+                parts.append(
+                    "Consider optimizing execution time and reducing API calls."
+                )
+            elif "api" in error_lower:
+                parts.append(
                     "Review API documentation and ensure correct parameter usage."
                 )
             else:
-                feedback += "Analyze task requirements and improve reasoning approach."
+                parts.append(
+                    "Analyze task requirements and improve reasoning approach."
+                )
 
-        return feedback
+        return " ".join(parts)

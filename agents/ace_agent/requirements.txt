@@ -1,0 +1,4 @@
+# ACE agent dependencies for HAL harness
+ace-framework
+litellm
+httpx

@@ -50,6 +50,36 @@ class BenchmarkConfig:
             metadata=config_dict.get("metadata"),
         )
 
+    @property
+    def execution_mode(self) -> str:
+        """Get execution mode for this benchmark.
+
+        Execution modes determine how the benchmark runner processes samples:
+        - 'standard': Single-turn Q&A evaluation (default)
+        - 'iterative': Multi-step agent execution loop (AppWorld, SWE-bench)
+        - 'sandbox': Docker-isolated execution with test harness
+
+        Returns:
+            Execution mode string from metadata, defaults to 'standard'.
+        """
+        if self.metadata:
+            return self.metadata.get("execution_mode", "standard")
+        return "standard"
+
+    @property
+    def requires_docker(self) -> bool:
+        """Check if this benchmark requires Docker for execution."""
+        if self.metadata:
+            return self.metadata.get("requires_docker", False)
+        return False
+
+    @property
+    def max_steps(self) -> int:
+        """Get maximum execution steps for iterative benchmarks."""
+        if self.metadata:
+            return self.metadata.get("max_steps", 50)
+        return 50
+
 
 # Note: BenchmarkSample is now just an alias for Sample for simplicity
 # Legacy code can still use BenchmarkSample, but new code should use Sample directly
