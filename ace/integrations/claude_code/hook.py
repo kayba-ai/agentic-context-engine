@@ -1507,6 +1507,13 @@ This will reset the skillbook and start fresh.
 """
     (commands_dir / "ace-clear.md").write_text(ace_clear_content)
 
+    # /skill-retro command (from skill_improvement module)
+    try:
+        from ..claude_code_skill_improvement import create_slash_commands as create_skill_retro_command
+        create_skill_retro_command()
+    except ImportError:
+        pass  # Module not available, skip
+
 
 def doctor_check(args):
     """Verify ACE prerequisites and configuration.
