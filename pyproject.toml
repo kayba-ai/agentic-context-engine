@@ -81,7 +81,6 @@ all = [
 
 [project.scripts]
 ace-learn = "ace.integrations.claude_code.hook:main"
-ace-daemon = "ace.integrations.claude_code.daemon.cli:main"
 ace-skill-improve = "ace.integrations.claude_code_skill_improvement.cli:main"
 
 [project.urls]
@@ -111,7 +110,7 @@ demos = [
 ]
 
 [tool.setuptools]
-packages = ["ace", "ace.llm_providers", "ace.observability", "ace.integrations", "ace.integrations.claude_code", "ace.integrations.claude_code.daemon", "ace.integrations.claude_code_skill_improvement", "ace.deduplication"]
+packages = ["ace", "ace.llm_providers", "ace.observability", "ace.integrations", "ace.integrations.claude_code", "ace.integrations.claude_code_skill_improvement", "ace.deduplication"]
 
 [tool.setuptools.package-data]
 ace = ["py.typed"]

@@ -83,51 +83,8 @@ DEFAULT_MARKERS = [
 ]
 
 
-# Hook script template content (embedded to avoid file discovery issues)
-HOOK_SCRIPT_TEMPLATE = '''#!/bin/bash
-# Fast ACE hook handler - queue only, daemon handles processing
-# Target: < 50ms exit time
-#
-# The daemon (ace-daemon) watches the queue directory and processes files.
-# This script only writes to the queue and exits immediately.
-
-QUEUE_DIR="${ACE_QUEUE_DIR:-$HOME/.ace/queue}"
-mkdir -p "$QUEUE_DIR"
-
-# Generate unique filename with timestamp and PID
-TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-QUEUE_FILE="$QUEUE_DIR/hook-${TIMESTAMP}-$$.json"
-
-# Atomic write: write to temp file then rename
-TEMP_FILE=$(mktemp)
-cat > "$TEMP_FILE"
-mv "$TEMP_FILE" "$QUEUE_FILE"
-
-exit 0
-'''
-
-
-def install_daemon_hook_script() -> Path:
-    """
-    Install the daemon hook script to a stable location.
-
-    Creates ~/.ace/bin/ace-hook-stop.sh with the fast hook script.
-    This ensures the hook always works regardless of Python environment.
-
-    Returns:
-        Path to the installed script
-    """
-    bin_dir = Path.home() / ".ace" / "bin"
-    bin_dir.mkdir(parents=True, exist_ok=True)
-
-    script_path = bin_dir / "ace-hook-stop.sh"
-    script_path.write_text(HOOK_SCRIPT_TEMPLATE)
-
-    # Make executable
-    script_path.chmod(0o755)
-
-    logger.info(f"Installed hook script to {script_path}")
-    return script_path
+# Default timeout for async hook (seconds) - generous for LLM calls
+ACE_HOOK_TIMEOUT = 300
 
 
 class NotInProjectError(Exception):
@@ -691,7 +648,7 @@ No strategies learned yet. Strategies will appear here as you use Claude Code.
 
 
 # ============================================================================
-# Skillbook Persistence (daemon-safe)
+# Skillbook Persistence (concurrent-safe)
 # ============================================================================
 
 _SKILLBOOK_EPOCH_FILENAME = ".ace-skillbook-epoch"
@@ -1077,9 +1034,9 @@ class ACEHookLearner:
 
 
 def setup_hook():
-    """Configure Claude Code to use ACE learning hook with subscription-only mode.
+    """Configure Claude Code to use ACE learning hook with async execution.
 
-    This is the recommended setup that uses the daemon for background processing.
+    Uses Claude Code's native async hook support for background learning.
     """
     settings_path = Path.home() / ".claude" / "settings.json"
 
@@ -1092,6 +1049,13 @@ def setup_hook():
         print("Continuing with setup anyway...")
         print()
 
+    # Check ace-learn is available
+    ace_learn_path = shutil.which("ace-learn")
+    if not ace_learn_path:
+        print("Warning: ace-learn not found in PATH")
+        print("Install with: pip install ace-framework")
+        print()
+
     # Load existing settings or create new
     if settings_path.exists():
         try:
@@ -1101,15 +1065,22 @@ def setup_hook():
     else:
         settings = {}
 
-    # Install the hook script to a stable location
-    installed_script = install_daemon_hook_script()
-
-    # Add/update hook config (merge, don't overwrite)
+    # Add/update hook config using native async hooks
     if "hooks" not in settings:
         settings["hooks"] = {}
 
     settings["hooks"]["Stop"] = [
-        {"matcher": "*", "hooks": [{"type": "command", "command": str(installed_script)}]}
+        {
+            "matcher": "*",
+            "hooks": [
+                {
+                    "type": "command",
+                    "command": "ace-learn",
+                    "async": True,
+                    "timeout": ACE_HOOK_TIMEOUT,
+                }
+            ],
+        }
     ]
 
     # Write back
@@ -1130,14 +1101,9 @@ def setup_hook():
     else:
         print("⚠ Could not patch CLI (will use standard claude with full system prompt)")
 
-    print("\n✓ Claude Code hook configured!")
+    print("\n✓ Claude Code async hook configured!")
     print()
-    print("Hook script installed to: ~/.ace/bin/ace-hook-stop.sh")
-    print()
-    print("Next steps:")
-    print("  1. Start the daemon:     ace-daemon start")
-    print("  2. Or install auto-start: ace-daemon install")
-    print("  3. Start using Claude Code - it will learn from your sessions!")
+    print("ACE will learn from your sessions in the background.")
     print()
     print("Data locations (per-project):")
     print("  Skill file:  <project>/.claude/skills/ace-learnings/SKILL.md")
@@ -1151,8 +1117,7 @@ def setup_hook():
 def enable_hook():
     """Enable ACE learning hook in Claude Code settings.
 
-    Installs and uses the fast bash wrapper script for instant hook response.
-    The script is installed to ~/.ace/bin/ace-hook-stop.sh for stability.
+    Uses Claude Code's native async hook support for background learning.
     """
     settings_path = Path.home() / ".claude" / "settings.json"
 
@@ -1165,23 +1130,29 @@ def enable_hook():
     else:
         settings = {}
 
-    # Install the hook script to a stable location
-    installed_script = install_daemon_hook_script()
-    hook_command = str(installed_script)
-
-    # Add hook config
+    # Add hook config using native async hooks
     if "hooks" not in settings:
         settings["hooks"] = {}
 
     settings["hooks"]["Stop"] = [
-        {"matcher": "*", "hooks": [{"type": "command", "command": hook_command}]}
+        {
+            "matcher": "*",
+            "hooks": [
+                {
+                    "type": "command",
+                    "command": "ace-learn",
+                    "async": True,
+                    "timeout": ACE_HOOK_TIMEOUT,
+                }
+            ],
+        }
     ]
 
     # Write back
     settings_path.parent.mkdir(parents=True, exist_ok=True)
     settings_path.write_text(json.dumps(settings, indent=2))
 
-    print(f"ACE learning enabled with: {hook_command}")
+    print("ACE learning enabled with async hook")
 
 
 def disable_hook():
@@ -1207,50 +1178,6 @@ def disable_hook():
 
     settings_path.write_text(json.dumps(settings, indent=2))
     print("ACE learning disabled")
-
-
-def enable_daemon_hook():
-    """Configure Claude Code to use daemon-based ACE hook.
-
-    This installs and configures the fast bash script that just writes to the queue.
-    The ace-daemon process handles actual learning in the background.
-
-    The hook script is installed to ~/.ace/bin/ace-hook-stop.sh for stability.
-    """
-    settings_path = Path.home() / ".claude" / "settings.json"
-
-    # Load existing settings
-    if settings_path.exists():
-        try:
-            settings = json.loads(settings_path.read_text())
-        except json.JSONDecodeError:
-            settings = {}
-    else:
-        settings = {}
-
-    # Install the hook script to a stable location
-    installed_script = install_daemon_hook_script()
-    hook_command = str(installed_script)
-
-    # Configure hook
-    if "hooks" not in settings:
-        settings["hooks"] = {}
-
-    settings["hooks"]["Stop"] = [
-        {"matcher": "*", "hooks": [{"type": "command", "command": hook_command}]}
-    ]
-
-    settings_path.parent.mkdir(parents=True, exist_ok=True)
-    settings_path.write_text(json.dumps(settings, indent=2))
-
-    print(f"Daemon hook configured: {installed_script}")
-    print()
-    print("Next steps:")
-    print("  1. Start the daemon:     ace-daemon start")
-    print("  2. Or install auto-start: ace-daemon install && launchctl load ~/Library/LaunchAgents/com.ace.daemon.plist")
-    print()
-    print("Check daemon status:       ace-daemon status")
-    print("View logs:                 ace-daemon logs -f")
 
 
 def get_project_context(args) -> Path:
@@ -1401,16 +1328,7 @@ def clear_insights(args):
         import glob
         from ...skillbook import Skillbook
 
-        # Clear pending queue files to prevent daemon from re-adding skills
-        queue_dir = Path.home() / ".ace" / "queue"
-        if queue_dir.exists():
-            pending_files = list(queue_dir.glob("hook-*.json"))
-            for f in pending_files:
-                f.unlink()
-            if pending_files:
-                print(f"Cleared {len(pending_files)} pending queue files.")
-
-        # Clear skillbook under lock and bump epoch so in-flight daemon jobs can't
+        # Clear skillbook under lock and bump epoch so in-flight async jobs can't
         # resurrect cleared skills by writing stale state back to disk.
         with _skillbook_lock(skill_dir):
             _bump_skillbook_epoch(skill_dir)
@@ -1521,9 +1439,8 @@ def doctor_check(args):
     Checks:
     1. Claude CLI is available and works
     2. Node.js is available (if using patched CLI)
-    3. Daemon is running
-    4. Queue directory is writable
-    5. Shows where skill output will land for current cwd
+    3. Hook configuration
+    4. Skill output location
     """
     import subprocess
 
@@ -1576,42 +1493,8 @@ def doctor_check(args):
         print("   ⚠ Using standard CLI (full system prompt)")
         print("   - Run 'ace-learn patch' to reduce token overhead")
 
-    # 3. Check daemon status
-    print("\n3. ACE Daemon...")
-    from .daemon.service import is_daemon_running
-
-    pid = is_daemon_running()
-    if pid:
-        print(f"   ✓ Running (PID: {pid})")
-    else:
-        print("   ✗ Not running")
-        print("     Start with: ace-daemon start")
-        all_ok = False
-
-    # 4. Check queue directory
-    print("\n4. Queue directory...")
-    queue_dir = Path.home() / ".ace" / "queue"
-    if queue_dir.exists():
-        print(f"   ✓ Exists at: {queue_dir}")
-        # Check writability
-        test_file = queue_dir / ".write_test"
-        try:
-            test_file.touch()
-            test_file.unlink()
-            print("   ✓ Writable")
-        except Exception as e:
-            print(f"   ✗ Not writable: {e}")
-            all_ok = False
-
-        # Count pending files
-        pending = len(list(queue_dir.glob("hook-*.json")))
-        if pending > 0:
-            print(f"   ! {pending} pending queue files")
-    else:
-        print(f"   - Will be created at: {queue_dir}")
-
-    # 5. Check hook configuration
-    print("\n5. Hook configuration...")
+    # 3. Check hook configuration
+    print("\n3. Hook configuration...")
     settings_path = Path.home() / ".claude" / "settings.json"
     if settings_path.exists():
         try:
@@ -1622,15 +1505,13 @@ def doctor_check(args):
                     for hook in hook_config.get("hooks", []):
                         cmd = hook.get("command", "")
                         if "ace" in cmd.lower():
+                            is_async = hook.get("async", False)
+                            timeout = hook.get("timeout", "default")
                             print(f"   ✓ ACE hook configured: {cmd}")
-                            # Check if the script exists
-                            if cmd.startswith("/") or cmd.startswith("~"):
-                                cmd_path = Path(cmd).expanduser()
-                                if cmd_path.exists():
-                                    print(f"   ✓ Hook script exists")
-                                else:
-                                    print(f"   ✗ Hook script not found: {cmd_path}")
-                                    all_ok = False
+                            if is_async:
+                                print(f"   ✓ Async mode enabled (timeout: {timeout}s)")
+                            else:
+                                print("   ⚠ Not using async mode - consider 'ace-learn setup'")
                             break
             else:
                 print("   ✗ No Stop hook configured")
@@ -1644,8 +1525,8 @@ def doctor_check(args):
         print("     Run: ace-learn setup")
         all_ok = False
 
-    # 6. Check skill output location
-    print("\n6. Skill output location...")
+    # 4. Check skill output location
+    print("\n4. Skill output location...")
     try:
         cwd = Path.cwd()
         project_root = find_project_root(cwd)
@@ -1709,14 +1590,11 @@ def cmd_unpatch(args):
 
 
 def run_learning(args):
-    """Run the learning process (called from hook or manually).
+    """Run the learning process (called from async hook or manually).
 
-    Critical: stdin must be read BEFORE spawning background process.
-    Uses subprocess.Popen to spawn a fully detached process that survives parent exit.
+    Parses stdin JSON from Claude Code hook and learns from the session.
     """
-    import subprocess
-
-    # STEP 1: Parse stdin BEFORE spawning background process
+    # STEP 1: Parse stdin
     hook_input = None
     cwd = None
     transcript_path = None
@@ -1747,9 +1625,7 @@ def run_learning(args):
             print("error: missing 'transcript_path' in hook input", file=sys.stderr)
             sys.exit(1)
 
-    use_cli = getattr(args, "use_cli", False)
-
-    # STEP 2: Run learning (daemon handles queueing, this just processes)
+    # STEP 2: Run learning
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(asctime)s [%(levelname)s] %(message)s",
@@ -1758,10 +1634,10 @@ def run_learning(args):
     try:
         if hook_input:
             success = ACEHookLearner.learn_from_hook_input(
-                hook_input, ace_model=args.model, use_cli=use_cli
+                hook_input, ace_model=args.model
             )
         else:
-            learner = ACEHookLearner(cwd=cwd, ace_model=args.model, use_cli=use_cli)
+            learner = ACEHookLearner(cwd=cwd, ace_model=args.model)
             success = learner.learn_from_transcript(transcript_path)
     except NotInProjectError as e:
         logger.error(str(e))
@@ -1804,10 +1680,6 @@ Global fallback: ~/.claude/skills/ace-learnings-global/
     # Enable/disable commands
     subparsers.add_parser("enable", help="Enable ACE learning hook")
     subparsers.add_parser("disable", help="Disable ACE learning hook")
-    subparsers.add_parser(
-        "enable-daemon",
-        help="Enable daemon-based hook (fast, non-blocking)",
-    )
 
     # Doctor command
     subparsers.add_parser("doctor", help="Verify prerequisites and configuration")
@@ -1852,16 +1724,6 @@ Global fallback: ~/.claude/skills/ace-learnings-global/
     parser.add_argument(
         "--verbose", "-v", action="store_true", help="Enable verbose logging"
     )
-    parser.add_argument(
-        "--sync",
-        action="store_true",
-        help="Run synchronously (default: fork to background)",
-    )
-    parser.add_argument(
-        "--use-cli",
-        action="store_true",
-        help="Use Claude Code CLI subscription instead of API",
-    )
 
     args = parser.parse_args()
 
@@ -1871,8 +1733,6 @@ Global fallback: ~/.claude/skills/ace-learnings-global/
         enable_hook()
     elif args.command == "disable":
         disable_hook()
-    elif args.command == "enable-daemon":
-        enable_daemon_hook()
     elif args.command == "doctor":
         sys.exit(doctor_check(args))
     elif args.command == "patch":
