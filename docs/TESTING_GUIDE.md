@@ -138,12 +138,12 @@ class TestReflectorSkillManager(unittest.TestCase):
             feedback="Correct answer"
         )
 
-        self.assertIsNotNone(reflection.analysis)
+        self.assertIsNotNone(reflection.reasoning)
 
-    def test_curation(self):
+    def test_update_skills(self):
         reflection = self.reflector.reflect(...)
 
-        skill_manager_output = self.skill_manager.curate(
+        skill_manager_output = self.skill_manager.update_skills(
             reflection=reflection,
             skillbook=self.skillbook,
             question_context="Math problem",
@@ -177,7 +177,11 @@ class TestLearningCycle(unittest.TestCase):
         agent = Agent(client)
         reflector = Reflector(client)
         skill_manager = SkillManager(client)
-        adapter = OfflineACE(agent, reflector, skill_manager)
+        adapter = OfflineACE(
+            agent=agent,
+            reflector=reflector,
+            skill_manager=skill_manager
+        )
 
         # Training samples
         samples = [
@@ -200,7 +204,11 @@ def test_checkpoint_saving(self):
     import os
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        adapter = OfflineACE(agent, reflector, skill_manager)
+        adapter = OfflineACE(
+            agent=agent,
+            reflector=reflector,
+            skill_manager=skill_manager
+        )
 
         results = adapter.run(
             samples,
@@ -212,7 +220,7 @@ def test_checkpoint_saving(self):
         # Verify checkpoints exist
         checkpoints = os.listdir(tmpdir)
         self.assertGreater(len(checkpoints), 0)
-        self.assertIn("latest.json", checkpoints)
+        self.assertIn("ace_latest.json", checkpoints)
 ```
 
 ---
@@ -229,7 +237,7 @@ client = DummyLLMClient()
 
 # Use in tests
 agent = Agent(client)
-output = agent.generate("test question", "", skillbook)
+output = agent.generate(question="test question", context="", skillbook=skillbook)
 ```
 
 **Benefits:**
@@ -317,7 +325,7 @@ def test_with_mock_llm(self):
     mock_client.complete.return_value = Mock(text='{"answer": "42"}')
 
     agent = Agent(mock_client)
-    output = agent.generate("test", "", skillbook)
+    output = agent.generate(question="test", context="", skillbook=skillbook)
 
     mock_client.complete.assert_called_once()
 ```

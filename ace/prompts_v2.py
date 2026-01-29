@@ -182,7 +182,7 @@ Execute in order - use the FIRST condition that applies:
 IF prediction matches ground truth AND feedback is positive:
    - Identify which strategies contributed to success
    - Extract reusable patterns
-   - Tag helpful bullets
+   - Tag helpful skills
 
 ### 2. CALCULATION_ERROR_DETECTED
 IF mathematical/logical error in reasoning:
@@ -194,19 +194,19 @@ IF mathematical/logical error in reasoning:
 IF correct strategy but wrong execution:
    - Identify where execution diverged
    - Explain correct application
-   - Tag bullet as "neutral" (strategy OK, execution failed)
+   - Tag skill as "neutral" (strategy OK, execution failed)
 
 ### 4. WRONG_STRATEGY_SELECTED
 IF inappropriate strategy for problem type:
    - Explain why strategy doesn't fit
    - Identify correct strategy type needed
-   - Tag bullet as "harmful" for this context
+   - Tag skill as "harmful" for this context
 
 ### 5. MISSING_STRATEGY_DETECTED
 IF no applicable strategy existed:
    - Define the missing capability
    - Describe strategy that would help
-   - Mark for curator to add
+   - Mark for skill_manager to add
 
 ## Experience-Driven Concrete Extraction
 

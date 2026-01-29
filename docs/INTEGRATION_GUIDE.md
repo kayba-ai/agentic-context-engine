@@ -126,8 +126,8 @@ reflection = reflector.reflect(
     feedback=feedback
 )
 
-# Curate: Generate skillbook updates
-skill_manager_output = skill_manager.curate(
+# Update skills: Generate skillbook updates
+skill_manager_output = skill_manager.update_skills(
     reflection=reflection,
     skillbook=skillbook,
     question_context=f"task: {task}",
@@ -226,8 +226,8 @@ class ACEWrapper:
             feedback=feedback
         )
 
-        # Curate
-        skill_manager_output = self.skill_manager.curate(
+        # Update skills
+        skill_manager_output = self.skill_manager.update_skills(
             reflection=reflection,
             skillbook=self.skillbook,
             question_context=f"task: {task}",
@@ -399,7 +399,7 @@ class ACEAPIAgent:
         # Feedback
         feedback = f"API call {'succeeded' if success else 'failed'}. Output: {output[:200]}"
 
-        # Reflect + Curate
+        # Reflect + Update skills
         reflection = self.reflector.reflect(
             question=task,
             agent_output=agent_output,
@@ -407,7 +407,7 @@ class ACEAPIAgent:
             feedback=feedback
         )
 
-        skill_manager_output = self.skill_manager.curate(
+        skill_manager_output = self.skill_manager.update_skills(
             reflection=reflection,
             skillbook=self.skillbook,
             question_context=f"API task: {task}",
@@ -510,7 +510,7 @@ class ACEWorkflowAgent:
             }
         )
 
-        # Reflect + Curate
+        # Reflect + Update skills
         reflection = self.reflector.reflect(
             question=task,
             agent_output=agent_output,
@@ -518,7 +518,7 @@ class ACEWorkflowAgent:
             feedback=feedback
         )
 
-        skill_manager_output = self.skill_manager.curate(
+        skill_manager_output = self.skill_manager.update_skills(
             reflection=reflection,
             skillbook=self.skillbook,
             question_context=f"Multi-step workflow: {task}",
@@ -607,7 +607,7 @@ class ACEToolAgent:
             raw={"tools_used": [t["name"] for t in tools_used]}
         )
 
-        # Reflect + Curate
+        # Reflect + Update skills
         reflection = self.reflector.reflect(
             question=task,
             agent_output=agent_output,
@@ -615,7 +615,7 @@ class ACEToolAgent:
             feedback=feedback
         )
 
-        skill_manager_output = self.skill_manager.curate(
+        skill_manager_output = self.skill_manager.update_skills(
             reflection=reflection,
             skillbook=self.skillbook,
             question_context=f"Tool-using task: {task}",
@@ -692,7 +692,7 @@ class ACEAsyncAgent:
             feedback=feedback
         )
 
-        skill_manager_output = self.skill_manager.curate(
+        skill_manager_output = self.skill_manager.update_skills(
             reflection=reflection,
             skillbook=self.skillbook,
             question_context=task,
@@ -787,7 +787,7 @@ class ACEChatAgent:
             feedback=feedback_text
         )
 
-        skill_manager_output = self.skill_manager.curate(
+        skill_manager_output = self.skill_manager.update_skills(
             reflection=reflection,
             skillbook=self.skillbook,
             question_context=f"Multi-turn conversation ({len(self.conversation_history)} turns)",
@@ -893,7 +893,7 @@ class ACEBatchAgent:
             feedback=feedback
         )
 
-        skill_manager_output = self.skill_manager.curate(
+        skill_manager_output = self.skill_manager.update_skills(
             reflection=reflection,
             skillbook=self.skillbook,
             question_context=f"Batch processing ({len(self.pending_results)} items)",
@@ -985,7 +985,7 @@ class ACEStreamingAgent:
             feedback=feedback
         )
 
-        skill_manager_output = self.skill_manager.curate(
+        skill_manager_output = self.skill_manager.update_skills(
             reflection=reflection,
             skillbook=self.skillbook,
             question_context=task,
@@ -1074,7 +1074,7 @@ class ACERobustAgent:
                 raw={"success": success, "error": error}
             )
 
-            # Reflect + Curate
+            # Reflect + Update skills
             reflection = self.reflector.reflect(
                 question=task,
                 agent_output=agent_output,
@@ -1082,7 +1082,7 @@ class ACERobustAgent:
                 feedback=feedback
             )
 
-            skill_manager_output = self.skill_manager.curate(
+            skill_manager_output = self.skill_manager.update_skills(
                 reflection=reflection,
                 skillbook=self.skillbook,
                 question_context=f"Task ({'success' if success else 'failure'}): {task}",
@@ -1225,8 +1225,8 @@ def _learn(self, task: str, result):
         # Reflection
         reflection = self.reflector.reflect(...)
 
-        # Curation
-        curator_output = self.curator.curate(...)
+        # Update skills
+        skill_manager_output = self.skill_manager.update_skills(...)
 
         # Update
         self.skillbook.apply_update(skill_manager_output.update)

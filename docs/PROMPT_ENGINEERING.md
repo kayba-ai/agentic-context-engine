@@ -49,7 +49,7 @@ You are an assistant that helps solve problems.
 2. Apply relevant strategies
 
 ### Strategy Selection Protocol
-- ONLY use bullets with confidence > 0.7
+- ONLY use skills with confidence > 0.7
 - NEVER apply conflicting strategies
 
 ### Output Requirements
@@ -58,7 +58,7 @@ Return JSON with exact schema...
 
 # BAD - Flat structure
 """
-Analyze questions and apply strategies. Use bullets with high confidence.
+Analyze questions and apply strategies. Use skills with high confidence.
 Return JSON with your answer.
 """
 ```
@@ -73,7 +73,7 @@ Return JSON with your answer.
 ### Good Example:
 {
   "reasoning": "1. Breaking down 15 × 24: This is multiplication. 2. Using decomposition: 15 × (20 + 4)...",
-  "skill_ids": ["bullet_023"],
+  "skill_ids": ["skill_023"],
   "final_answer": "360"
 }
 
@@ -86,7 +86,7 @@ Return JSON with your answer.
 
 # BAD - Abstract guidance
 """
-Provide clear reasoning and cite relevant bullets.
+Provide clear reasoning and cite relevant skills.
 """
 ```
 
@@ -99,7 +99,7 @@ Provide clear reasoning and cite relevant bullets.
 """
 **MUST** include step-by-step reasoning
 **NEVER** skip intermediate calculations
-**ALWAYS** cite specific bullet IDs
+**ALWAYS** cite specific skill IDs
 """
 
 # BAD - Overuse dilutes effectiveness
@@ -330,7 +330,7 @@ from ace.prompts_v2_1 import PromptManager
 manager = PromptManager()
 
 # Version A - Standard v2.1
-prompt_a = manager.get_generator_prompt(version="2.1")
+prompt_a = manager.get_agent_prompt(version="2.1")
 
 # Version B - Custom variant
 prompt_b = custom_prompt_with_modifications
@@ -351,7 +351,7 @@ from ace.prompts_v2_1 import validate_prompt_output
 
 # Test output compliance
 output = llm.generate(prompt)
-is_valid, errors = validate_prompt_output(output, role="generator")
+is_valid, errors = validate_prompt_output(output, role="agent")
 
 if not is_valid:
     print(f"Output validation failed: {errors}")
@@ -449,12 +449,12 @@ agent = Agent(llm, prompt_template=manager.get_agent_prompt())
 
 ```python
 # Break complex tasks into stages
-stage1_prompt = manager.get_generator_prompt(domain="analysis")
-stage2_prompt = manager.get_generator_prompt(domain="synthesis")
+stage1_prompt = manager.get_agent_prompt(domain="analysis")
+stage2_prompt = manager.get_agent_prompt(domain="synthesis")
 
 # Chain outputs
-analysis = generator_stage1.generate(prompt=stage1_prompt, ...)
-synthesis = generator_stage2.generate(
+analysis = agent_stage1.generate(prompt=stage1_prompt, ...)
+synthesis = agent_stage2.generate(
     prompt=stage2_prompt,
     context=analysis.output,
     ...
@@ -469,11 +469,11 @@ def select_prompt_by_difficulty(question: str) -> str:
     difficulty = assess_difficulty(question)
 
     if difficulty > 0.8:
-        return manager.get_generator_prompt(variant="expert")
+        return manager.get_agent_prompt(variant="expert")
     elif difficulty > 0.5:
-        return manager.get_generator_prompt(variant="standard")
+        return manager.get_agent_prompt(variant="standard")
     else:
-        return manager.get_generator_prompt(variant="simple")
+        return manager.get_agent_prompt(variant="simple")
 ```
 
 ### 3. Prompt Versioning

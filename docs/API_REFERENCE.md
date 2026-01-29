@@ -41,8 +41,7 @@ reflection = reflector.reflect(
     agent_output=output,
     skillbook=skillbook,
     ground_truth="4",
-    feedback="Correct!",
-    max_refinement_rounds=1
+    feedback="Correct!"
 )
 
 # Reflection contains:
@@ -63,7 +62,7 @@ from ace import SkillManager
 
 skill_manager = SkillManager(client)
 
-skill_manager_output = skill_manager.curate(
+skill_manager_output = skill_manager.update_skills(
     reflection=reflection,
     skillbook=skillbook,
     question_context="Math problems",
@@ -146,9 +145,13 @@ Train on a batch of samples.
 
 ```python
 from ace import OfflineACE
-from ace.types import Sample
+from ace import Sample
 
-adapter = OfflineACE(agent, reflector, skill_manager)
+adapter = OfflineACE(
+    agent=agent,
+    reflector=reflector,
+    skill_manager=skill_manager
+)
 
 samples = [
     Sample(
@@ -208,7 +211,7 @@ answer2 = agent.ask("What about Spain?")
 agent.skillbook.save_to_file("learned_strategies.json")
 
 # Load and continue learning
-agent2 = ACELiteLLM.from_skillbook("learned_strategies.json", model="gpt-4o-mini")
+agent2 = ACELiteLLM(model="gpt-4o-mini", skillbook_path="learned_strategies.json")
 ```
 
 **Parameters:**
@@ -373,7 +376,7 @@ client = LangChainLiteLLMClient(
 ### Sample
 
 ```python
-from ace.types import Sample
+from ace import Sample
 
 sample = Sample(
     question="Your question here",
@@ -510,7 +513,7 @@ for chunk in client.complete_with_stream("Write a story"):
 from ace.exceptions import ACEException
 
 try:
-    output = generator.generate(...)
+    output = agent.generate(...)
 except ACEException as e:
     print(f"ACE error: {e}")
 except Exception as e:
@@ -566,7 +569,6 @@ See the [examples](../examples/) directory for complete working examples:
 - `skillbook_persistence.py` - Save/load strategies
 
 **By Category:**
-- [starter-templates/](../examples/starter-templates/) - Quick start templates
 - [langchain/](../examples/langchain/) - LangChain integration examples
 - [prompts/](../examples/prompts/) - Prompt engineering examples
 - [browser-use/](../examples/browser-use/) - Browser automation

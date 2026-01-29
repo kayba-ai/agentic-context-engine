@@ -81,7 +81,12 @@ ACE learns at different levels depending on the setup:
 
 ```python
 # Micro: Full ACE loop with environment
-adapter = OfflineACE(skillbook, agent, reflector, skill_manager)
+adapter = OfflineACE(
+    skillbook=skillbook,
+    agent=agent,
+    reflector=reflector,
+    skill_manager=skill_manager
+)
 adapter.run(samples, environment)  # Micro learning with ground truth
 
 # Meso: AgentExecutor reasoning trace (automatic!)

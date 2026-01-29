@@ -224,9 +224,9 @@ The ACE framework operates at three insight levels based on what scope the Refle
 **examples/** - Production-ready example scripts organized by integration:
 - `browser-use/` - Browser automation demos (domain-checker, form-filler, online-shopping)
 - `langchain/` - LangChain chain and agent examples
-- `claude-code-integration/` & `claude-code-loop/` - Claude Code integration patterns
+- `claude-code-loop/` - Claude Code integration patterns
 - `helicone/` - Helicone observability integration
-- `LMstudio/` & `ollama/` - Local model examples
+- `local-models/` - LM Studio and Ollama examples
 - `litellm/` - LiteLLM provider examples
 - `prompts/` - Prompt version comparison examples
 
@@ -273,7 +273,12 @@ OfflineACE now supports automatic checkpoint saving:
 ```python
 from ace import OfflineACE
 
-adapter = OfflineACE(skillbook, agent, reflector, skill_manager)
+adapter = OfflineACE(
+    skillbook=skillbook,
+    agent=agent,
+    reflector=reflector,
+    skill_manager=skill_manager
+)
 
 # Save skillbook every 10 successful samples
 results = adapter.run(
@@ -286,8 +291,8 @@ results = adapter.run(
 ```
 
 **Output**:
-- `checkpoint_10.json`, `checkpoint_20.json`, etc. (numbered)
-- `latest.json` (always overwritten with most recent)
+- `ace_checkpoint_10.json`, `ace_checkpoint_20.json`, etc. (numbered)
+- `ace_latest.json` (always overwritten with most recent)
 
 **Use Cases**:
 - Resume training after interruption
@@ -343,7 +348,7 @@ for r in results:
 
 # Check learning progress anytime
 print(adapter.learning_stats)
-# {'tasks_submitted': 30, 'reflections_completed': 25, 'curations_completed': 20, ...}
+# {'tasks_submitted': 30, 'reflections_completed': 25, 'skill_updates_completed': 20, ...}
 
 # Wait when needed (e.g., before saving skillbook)
 adapter.wait_for_learning(timeout=60.0)

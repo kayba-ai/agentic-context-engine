@@ -89,6 +89,5 @@ ACELiteLLM(model="ollama/llama2")
 
 ## Next Steps
 
-- See `../starter-templates/` for more complete examples
 - Check `../browser-use/` for automation examples
 - Read `docs/INTEGRATION_GUIDE.md` for advanced usage

@@ -56,7 +56,7 @@ trace = loader.load()
 env = ToolSelectionEnvironment(trace)
 print(f"Extracted {env.get_num_samples()} training samples")
 
-# Format as question for ACE Generator
+# Format as question for ACE Agent
 question = env.format_sample_as_question(0)
 ```
 
@@ -90,9 +90,9 @@ python offline_training_replay.py
 
 **Opik Integration:**
 When Opik is installed, you'll see:
-- Replay operations tagged as `replay-generator` in traces
+- Replay operations tagged as `replay-agent` in traces
 - Metadata showing question coverage (found vs. defaults)
-- Comparison with regular Generator operations
+- Comparison with regular Agent operations
 - View at: https://www.comet.com/opik
 
 This demonstrates **replay-based learning** where ACE learns from past interactions without generating new responses.

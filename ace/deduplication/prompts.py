@@ -12,7 +12,7 @@ SIMILARITY_REPORT_HEADER = """
 ## Similar Skills Detected
 
 The following skill pairs have high semantic similarity and may need consolidation.
-For each pair, you can decide to:
+Work your way methodologically through each pair. For each pair, you can decide to:
 - **MERGE**: Combine into a single improved skill (provide merged_content and keep_id)
 - **DELETE**: Remove one as redundant (specify skill_id to delete)
 - **KEEP**: Keep both separate if they serve different purposes (explain differentiation)

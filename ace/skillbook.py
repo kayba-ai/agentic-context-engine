@@ -28,6 +28,8 @@ class Skill:
     id: str
     section: str
     content: str
+    justification: Optional[str] = None
+    evidence: Optional[str] = None
     helpful: int = 0
     harmful: int = 0
     neutral: int = 0
@@ -107,10 +109,18 @@ class Skillbook:
         content: str,
         skill_id: Optional[str] = None,
         metadata: Optional[Dict[str, int]] = None,
+        justification: Optional[str] = None,
+        evidence: Optional[str] = None,
     ) -> Skill:
         skill_id = skill_id or self._generate_id(section)
         metadata = metadata or {}
-        skill = Skill(id=skill_id, section=section, content=content)
+        skill = Skill(
+            id=skill_id,
+            section=section,
+            content=content,
+            justification=justification,
+            evidence=evidence,
+        )
         skill.apply_metadata(metadata)
         self._skills[skill_id] = skill
         self._sections.setdefault(section, []).append(skill_id)
@@ -122,12 +132,18 @@ class Skillbook:
         *,
         content: Optional[str] = None,
         metadata: Optional[Dict[str, int]] = None,
+        justification: Optional[str] = None,
+        evidence: Optional[str] = None,
     ) -> Optional[Skill]:
         skill = self._skills.get(skill_id)
         if skill is None:
             return None
         if content is not None:
             skill.content = content
+        if justification is not None:
+            skill.justification = justification
+        if evidence is not None:
+            skill.evidence = evidence
         if metadata:
             skill.apply_metadata(metadata)
         skill.updated_at = datetime.now(timezone.utc).isoformat()
@@ -213,16 +229,21 @@ class Skillbook:
     # ------------------------------------------------------------------ #
     # Serialization
     # ------------------------------------------------------------------ #
-    def to_dict(self) -> Dict[str, object]:
+    def to_dict(self, exclude_embeddings: bool = False) -> Dict[str, object]:
         # Serialize similarity decisions with string keys (JSON doesn't support frozenset)
         similarity_decisions_serialized = {
             ",".join(sorted(pair_ids)): asdict(decision)
             for pair_ids, decision in self._similarity_decisions.items()
         }
+        # Serialize skills, optionally excluding embeddings
+        skills_serialized = {}
+        for skill_id, skill in self._skills.items():
+            skill_dict = asdict(skill)
+            if exclude_embeddings:
+                skill_dict["embedding"] = None
+            skills_serialized[skill_id] = skill_dict
         return {
-            "skills": {
-                skill_id: asdict(skill) for skill_id, skill in self._skills.items()
-            },
+            "skills": skills_serialized,
             "sections": self._sections,
             "next_id": self._next_id,
             "similarity_decisions": similarity_decisions_serialized,
@@ -241,6 +262,10 @@ class Skillbook:
                         skill_data["embedding"] = None
                     if "status" not in skill_data:
                         skill_data["status"] = "active"
+                    if "justification" not in skill_data:
+                        skill_data["justification"] = None
+                    if "evidence" not in skill_data:
+                        skill_data["evidence"] = None
                     instance._skills[skill_id] = Skill(**skill_data)
         sections_payload = payload.get("sections", {})
         if isinstance(sections_payload, dict):
@@ -265,8 +290,12 @@ class Skillbook:
                     )
         return instance
 
-    def dumps(self) -> str:
-        return json.dumps(self.to_dict(), ensure_ascii=False, indent=2)
+    def dumps(self, exclude_embeddings: bool = False) -> str:
+        return json.dumps(
+            self.to_dict(exclude_embeddings=exclude_embeddings),
+            ensure_ascii=False,
+            indent=2,
+        )
 
     @classmethod
     def loads(cls, data: str) -> "Skillbook":
@@ -275,19 +304,22 @@ class Skillbook:
             raise ValueError("Skillbook serialization must be a JSON object.")
         return cls.from_dict(payload)
 
-    def save_to_file(self, path: str) -> None:
+    def save_to_file(self, path: str, exclude_embeddings: bool = False) -> None:
         """Save skillbook to a JSON file.
 
         Args:
             path: File path where to save the skillbook
+            exclude_embeddings: If True, set embeddings to None in the output.
+                Useful for smaller files and version control. Default False.
 
         Example:
             >>> skillbook.save_to_file("trained_model.json")
+            >>> skillbook.save_to_file("skillbook_light.json", exclude_embeddings=True)
         """
         file_path = Path(path)
         file_path.parent.mkdir(parents=True, exist_ok=True)
         with file_path.open("w", encoding="utf-8") as f:
-            f.write(self.dumps())
+            f.write(self.dumps(exclude_embeddings=exclude_embeddings))
 
     @classmethod
     def load_from_file(cls, path: str) -> "Skillbook":
@@ -334,6 +366,8 @@ class Skillbook:
                 content=operation.content or "",
                 skill_id=operation.skill_id,
                 metadata=operation.metadata,
+                justification=operation.justification,
+                evidence=operation.evidence,
             )
         elif op_type == "UPDATE":
             if operation.skill_id is None:
@@ -342,6 +376,8 @@ class Skillbook:
                 operation.skill_id,
                 content=operation.content,
                 metadata=operation.metadata,
+                justification=operation.justification,
+                evidence=operation.evidence,
             )
         elif op_type == "TAG":
             if operation.skill_id is None:

@@ -151,7 +151,7 @@ for i in range(10):  # Increase number of iterations
 
 ## Output Format
 
-The Generator expects to return a dictionary:
+The Agent expects to return a dictionary:
 ```python
 {
     "1": "Step 1 description",
