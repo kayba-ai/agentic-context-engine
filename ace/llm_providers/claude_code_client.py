@@ -8,15 +8,26 @@ import json
 import re
 import shutil
 import logging
-from typing import Any, Optional, Type, TypeVar
+from typing import Any, ClassVar, Optional, Protocol, Type, TypeVar, cast
 from dataclasses import dataclass
-
-from pydantic import BaseModel
 
 from ..llm import LLMClient, LLMResponse
 
+
+class PydanticModelProtocol(Protocol):
+    """Protocol for Pydantic v2 model class methods used in structured output."""
+
+    model_fields: ClassVar[dict[str, Any]]
+
+    @classmethod
+    def model_json_schema(cls) -> dict[str, Any]: ...
+
+    @classmethod
+    def model_validate(cls, data: dict[str, Any]) -> "PydanticModelProtocol": ...
+
+
 # Type variable for Pydantic models
-T = TypeVar("T", bound=BaseModel)
+T = TypeVar("T", bound=PydanticModelProtocol)
 
 logger = logging.getLogger(__name__)
 
@@ -278,7 +289,7 @@ Just the raw JSON object."""
             ValueError: If response cannot be parsed after retries
         """
         # Get JSON schema from Pydantic model
-        schema = response_model.model_json_schema()  # type: ignore[attr-defined]
+        schema = response_model.model_json_schema()
         schema_str = json.dumps(schema, indent=2)
 
         # Build structured prompt with schema
@@ -311,8 +322,8 @@ CRITICAL INSTRUCTIONS:
             # Try to extract and parse JSON
             try:
                 json_text = self._extract_json(response.text)
-                data = json.loads(json_text)
-                result = response_model.model_validate(data)  # type: ignore[attr-defined]
+                parsed_data = json.loads(json_text)
+                result = cast(T, response_model.model_validate(parsed_data))
                 logger.debug(
                     f"Successfully parsed {response_model.__name__} on attempt {attempt + 1}"
                 )
