@@ -83,8 +83,11 @@ DEFAULT_MARKERS = [
 ]
 
 
-# Default timeout for async hook (seconds) - generous for LLM calls
-ACE_HOOK_TIMEOUT = 300
+# Default timeout for capture hook (seconds) - just writes a file, should be instant
+ACE_CAPTURE_TIMEOUT = 10
+
+# Last hook file - stores the most recent hook input for manual learning
+ACE_LAST_HOOK_FILENAME = ".ace-last-hook.json"
 
 
 class NotInProjectError(Exception):
@@ -920,8 +923,8 @@ class ACEHookLearner:
             logger.error(f"Failed to parse transcript: {e}")
             return False
 
-        # Use transcript cwd if available, fall back to hook cwd
-        effective_cwd = transcript.cwd or hook_cwd
+        # Prefer hook cwd (more accurate) over transcript cwd
+        effective_cwd = hook_cwd or transcript.cwd
         if not effective_cwd:
             logger.error("No cwd in transcript or hook input")
             return False
@@ -1065,7 +1068,7 @@ def setup_hook():
     else:
         settings = {}
 
-    # Add/update hook config using native async hooks
+    # Add/update hook config - capture only (learning is manual via /ace-learn)
     if "hooks" not in settings:
         settings["hooks"] = {}
 
@@ -1075,9 +1078,9 @@ def setup_hook():
             "hooks": [
                 {
                     "type": "command",
-                    "command": "ace-learn",
+                    "command": "ace-learn capture",
                     "async": True,
-                    "timeout": ACE_HOOK_TIMEOUT,
+                    "timeout": ACE_CAPTURE_TIMEOUT,
                 }
             ],
         }
@@ -1101,9 +1104,9 @@ def setup_hook():
     else:
         print("⚠ Could not patch CLI (will use standard claude with full system prompt)")
 
-    print("\n✓ Claude Code async hook configured!")
+    print("\n✓ Claude Code capture hook configured!")
     print()
-    print("ACE will learn from your sessions in the background.")
+    print("Sessions are captured automatically. To learn, type /ace-learn in Claude Code.")
     print()
     print("Data locations (per-project):")
     print("  Skill file:  <project>/.claude/skills/ace-learnings/SKILL.md")
@@ -1115,9 +1118,9 @@ def setup_hook():
 
 
 def enable_hook():
-    """Enable ACE learning hook in Claude Code settings.
+    """Enable ACE capture hook in Claude Code settings.
 
-    Uses Claude Code's native async hook support for background learning.
+    Uses Claude Code's native async hook to capture sessions for manual learning.
     """
     settings_path = Path.home() / ".claude" / "settings.json"
 
@@ -1130,7 +1133,7 @@ def enable_hook():
     else:
         settings = {}
 
-    # Add hook config using native async hooks
+    # Add hook config - capture only
     if "hooks" not in settings:
         settings["hooks"] = {}
 
@@ -1140,9 +1143,9 @@ def enable_hook():
             "hooks": [
                 {
                     "type": "command",
-                    "command": "ace-learn",
+                    "command": "ace-learn capture",
                     "async": True,
-                    "timeout": ACE_HOOK_TIMEOUT,
+                    "timeout": ACE_CAPTURE_TIMEOUT,
                 }
             ],
         }
@@ -1152,7 +1155,7 @@ def enable_hook():
     settings_path.parent.mkdir(parents=True, exist_ok=True)
     settings_path.write_text(json.dumps(settings, indent=2))
 
-    print("ACE learning enabled with async hook")
+    print("ACE capture hook enabled. Use /ace-learn to learn from sessions.")
 
 
 def disable_hook():
@@ -1178,6 +1181,119 @@ def disable_hook():
 
     settings_path.write_text(json.dumps(settings, indent=2))
     print("ACE learning disabled")
+
+
+def _get_last_hook_path(cwd: str) -> Path:
+    """Get the path to the last hook file for the given working directory."""
+    try:
+        skill_dir = get_project_skill_dir(cwd)
+    except NotInProjectError:
+        # Fall back to global
+        skill_dir = Path.home() / ".claude" / "skills" / "ace-learnings-global"
+    return skill_dir / ACE_LAST_HOOK_FILENAME
+
+
+def capture_hook(args):
+    """Capture hook input to a file for later learning.
+
+    This is called by the Stop hook. It reads the hook JSON from stdin
+    and saves it to .ace-last-hook.json in the project's skill directory.
+    This is instant (<10ms) - actual learning happens when user runs /ace-learn.
+    """
+    # Read hook input from stdin
+    if sys.stdin.isatty():
+        print("error: no stdin input (expected hook JSON)", file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        hook_input = json.load(sys.stdin)
+    except json.JSONDecodeError as e:
+        print(f"error: invalid JSON from stdin: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    cwd = hook_input.get("cwd")
+    if not cwd:
+        print("error: missing 'cwd' in hook input", file=sys.stderr)
+        sys.exit(1)
+
+    # Determine where to save based on project detection
+    last_hook_path = _get_last_hook_path(cwd)
+    last_hook_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Atomic write
+    _atomic_write_text(last_hook_path, json.dumps(hook_input, indent=2))
+
+    logger.debug(f"Captured hook input to {last_hook_path}")
+
+
+def learn_last(args):
+    """Learn from the last captured hook input.
+
+    This is called manually by the user via /ace-learn slash command.
+    It reads the saved hook JSON and runs the full learning pipeline.
+    """
+    # Determine project context
+    try:
+        if hasattr(args, "project") and args.project:
+            project_root = Path(args.project).resolve()
+            skill_dir = project_root / ".claude" / "skills" / "ace-learnings"
+        else:
+            project_root = find_project_root(Path.cwd())
+            if project_root:
+                skill_dir = project_root / ".claude" / "skills" / "ace-learnings"
+            else:
+                skill_dir = Path.home() / ".claude" / "skills" / "ace-learnings-global"
+                project_root = Path.home()
+    except Exception as e:
+        print(f"error: could not determine project: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    last_hook_path = skill_dir / ACE_LAST_HOOK_FILENAME
+
+    if not last_hook_path.exists():
+        print("No captured session found.")
+        print("Use Claude Code first - a session will be captured automatically.")
+        print(f"Expected file: {last_hook_path}")
+        sys.exit(1)
+
+    # Load the saved hook input
+    try:
+        hook_input = json.loads(last_hook_path.read_text())
+    except json.JSONDecodeError as e:
+        print(f"error: invalid JSON in {last_hook_path}: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    transcript_path = hook_input.get("transcript_path")
+    if not transcript_path or not Path(transcript_path).exists():
+        print(f"error: transcript not found: {transcript_path}", file=sys.stderr)
+        print("The session transcript may have been cleaned up.")
+        sys.exit(1)
+
+    # Setup logging
+    logging.basicConfig(
+        level=logging.DEBUG if getattr(args, "verbose", False) else logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+    )
+
+    print(f"Learning from session: {transcript_path}")
+    print(f"Project: {project_root}")
+    print()
+
+    # Run the learning pipeline
+    try:
+        success = ACEHookLearner.learn_from_hook_input(
+            hook_input, ace_model=getattr(args, "model", "anthropic/claude-sonnet-4-5-20250929")
+        )
+        if success:
+            print("\n✓ Learning complete!")
+            print(f"Skills updated: {skill_dir / 'SKILL.md'}")
+        else:
+            print("\n✗ Learning failed")
+            sys.exit(1)
+    except Exception as e:
+        logger.error(f"Learning failed: {e}", exc_info=True)
+        print(f"\n✗ Learning failed: {e}", file=sys.stderr)
+        sys.exit(1)
 
 
 def get_project_context(args) -> Path:
@@ -1425,6 +1541,21 @@ This will reset the skillbook and start fresh.
 """
     (commands_dir / "ace-clear.md").write_text(ace_clear_content)
 
+    # /ace-learn command - main learning trigger
+    ace_learn_content = """Learn from this coding session.
+
+Run ACE learning on the current session to extract reusable strategies:
+```bash
+ace-learn learn-last
+```
+
+This analyzes the full conversation and updates the project's skillbook with new insights.
+The learned strategies will be automatically available in future sessions.
+
+Show the user the output so they can see what was learned.
+"""
+    (commands_dir / "ace-learn.md").write_text(ace_learn_content)
+
     # /skill-retro command (from skill_improvement module)
     try:
         from ..claude_code_skill_improvement import create_slash_commands as create_skill_retro_command
@@ -1508,10 +1639,12 @@ def doctor_check(args):
                             is_async = hook.get("async", False)
                             timeout = hook.get("timeout", "default")
                             print(f"   ✓ ACE hook configured: {cmd}")
+                            if "capture" in cmd:
+                                print("   ✓ Capture mode (manual learning via /ace-learn)")
+                            else:
+                                print("   ⚠ Auto-learn mode - consider 'ace-learn setup' for capture mode")
                             if is_async:
                                 print(f"   ✓ Async mode enabled (timeout: {timeout}s)")
-                            else:
-                                print("   ⚠ Not using async mode - consider 'ace-learn setup'")
                             break
             else:
                 print("   ✗ No Stop hook configured")
@@ -1525,7 +1658,7 @@ def doctor_check(args):
         print("     Run: ace-learn setup")
         all_ok = False
 
-    # 4. Check skill output location
+    # 4. Check skill output location and last captured session
     print("\n4. Skill output location...")
     try:
         cwd = Path.cwd()
@@ -1535,12 +1668,17 @@ def doctor_check(args):
             print(f"   Project root: {project_root}")
             print(f"   Skills will go to: {skill_dir}")
             if skill_dir.exists():
-                skill_count = len(list(skill_dir.glob("*.md")))
                 skillbook = skill_dir / "skillbook.json"
                 if skillbook.exists():
                     print(f"   ✓ Existing skillbook found")
                 else:
                     print(f"   - No skillbook yet (will be created)")
+                # Check for captured session
+                last_hook = skill_dir / ACE_LAST_HOOK_FILENAME
+                if last_hook.exists():
+                    print(f"   ✓ Captured session ready for /ace-learn")
+                else:
+                    print(f"   - No captured session yet (use Claude Code first)")
         else:
             global_dir = Path.home() / ".claude" / "skills" / "ace-learnings-global"
             print(f"   No project root found from: {cwd}")
@@ -1656,16 +1794,15 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  ace-learn setup              Configure Claude Code hook (run once)
+  ace-learn setup              Configure Claude Code capture hook (run once)
+  ace-learn learn-last         Learn from last captured session (via /ace-learn)
   ace-learn doctor             Verify prerequisites and configuration
-  ace-learn enable             Enable ACE learning
-  ace-learn disable            Disable ACE learning
   ace-learn insights           Show learned strategies
   ace-learn remove <id>        Remove a specific insight
   ace-learn clear --confirm    Clear all insights
-  ace-learn                    Learn from stdin (called by hook)
-  ace-learn -t transcript.jsonl   Learn from specific transcript
-  ace-learn -P /path/to/project   Override project root detection
+
+Internal (called by hooks):
+  ace-learn capture            Capture session for later learning (Stop hook)
 
 Skills are stored per-project at: <project>/.claude/skills/ace-learnings/
 Global fallback: ~/.claude/skills/ace-learnings-global/
@@ -1678,8 +1815,24 @@ Global fallback: ~/.claude/skills/ace-learnings-global/
     subparsers.add_parser("setup", help="Configure Claude Code to use ACE learning")
 
     # Enable/disable commands
-    subparsers.add_parser("enable", help="Enable ACE learning hook")
-    subparsers.add_parser("disable", help="Disable ACE learning hook")
+    subparsers.add_parser("enable", help="Enable ACE capture hook")
+    subparsers.add_parser("disable", help="Disable ACE capture hook")
+
+    # Capture command (called by Stop hook)
+    subparsers.add_parser("capture", help="Capture session for later learning (internal)")
+
+    # Learn-last command (called by /ace-learn slash command)
+    learn_last_parser = subparsers.add_parser("learn-last", help="Learn from last captured session")
+    learn_last_parser.add_argument(
+        "--project", "-P", help="Project root directory (default: auto-detect)"
+    )
+    learn_last_parser.add_argument(
+        "--model", "-m", help="Model for ACE learning",
+        default="anthropic/claude-sonnet-4-5-20250929"
+    )
+    learn_last_parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Enable verbose logging"
+    )
 
     # Doctor command
     subparsers.add_parser("doctor", help="Verify prerequisites and configuration")
@@ -1733,6 +1886,10 @@ Global fallback: ~/.claude/skills/ace-learnings-global/
         enable_hook()
     elif args.command == "disable":
         disable_hook()
+    elif args.command == "capture":
+        capture_hook(args)
+    elif args.command == "learn-last":
+        learn_last(args)
     elif args.command == "doctor":
         sys.exit(doctor_check(args))
     elif args.command == "patch":
@@ -1746,7 +1903,7 @@ Global fallback: ~/.claude/skills/ace-learnings-global/
     elif args.command == "clear":
         clear_insights(args)
     else:
-        # Default: run learning (backwards compat with hook calling ace-learn)
+        # Default: run learning from stdin (backwards compat)
         run_learning(args)
 
 

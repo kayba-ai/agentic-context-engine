@@ -4,17 +4,15 @@ Subscription-only learning from Claude Code sessions. No API keys required.
 
 ## Overview
 
-This package enables ACE (Agentic Context Engineering) to learn from your Claude Code sessions automatically. It observes how you use Claude Code and extracts reusable strategies that improve future sessions.
+This package enables ACE (Agentic Context Engineering) to learn from your Claude Code sessions. Sessions are captured automatically, and you trigger learning manually with `/ace-learn` when you want to extract insights.
 
 **Key Features:**
-- Native async hook - never slows down Claude Code
+- Instant capture hook (~10ms) - never slows down Claude Code
+- Manual learning via `/ace-learn` - learn when you're ready
 - Subscription-only via Claude CLI (no API keys needed)
 - Per-project skill files in `.claude/skills/ace-learnings/`
-- Global fallback for sessions outside projects
 
 ## Quick Start
-
-### From PyPI (End Users)
 
 ```bash
 pip install ace-framework
@@ -22,85 +20,58 @@ ace-learn setup
 ace-learn doctor
 ```
 
-### From Source (Development)
+Then in Claude Code, type `/ace-learn` after a session to learn from it.
 
-```bash
-# Clone the repository
-git clone https://github.com/kayba-ai/agentic-context-engine
-cd agentic-context-engine
+## How It Works
 
-# Install in editable mode (installs ace-learn command globally)
-pip install -e .
-
-# Configure the Claude Code async hook
-ace-learn setup
-
-# Verify everything works
-ace-learn doctor
+```
+Session ends → Stop hook captures session pointer (instant)
+                        │
+                        ▼
+              .ace-last-hook.json saved
+                        │
+User types /ace-learn ──┘
+                        │
+                        ▼
+              ace-learn learn-last
+                        │
+                        ▼
+              Reflector + SkillManager
+                        │
+                        ▼
+              SKILL.md updated
 ```
 
-## End-to-End Testing
-
-After installation, verify ACE is working:
-
-```bash
-# 1. Check all prerequisites
-ace-learn doctor
-
-# 2. Open Claude Code in any project and have a conversation
-#    (e.g., ask "list files in this directory")
-
-# 3. Check if skills were generated
-ls -la .claude/skills/ace-learnings/
-cat .claude/skills/ace-learnings/SKILL.md
-```
-
-**Expected behavior:**
-- Async hook triggers after each Claude Code response
-- Learning runs in background (async: true)
-- New strategies appear in `.claude/skills/ace-learnings/SKILL.md`
+1. **Capture** (automatic): When a session ends, the Stop hook saves a pointer to the transcript
+2. **Learn** (manual): Type `/ace-learn` to analyze the session and extract strategies
+3. **Apply**: Learned strategies are automatically loaded in future sessions
 
 ## Commands
 
 ### Inside Claude Code (Slash Commands)
 
-These commands work directly in your Claude Code session:
-
 | Command | Description |
 |---------|-------------|
-| `/ace-on` | Enable ACE learning (re-adds hook to settings) |
-| `/ace-off` | Disable ACE learning (removes hook from settings) |
+| `/ace-learn` | **Learn from this session** - extracts strategies |
 | `/ace-insights` | Show learned strategies from the skillbook |
 | `/ace-clear` | Clear all learned strategies |
 | `/ace-remove` | Remove a specific learned strategy |
-
-### Auto-loaded Skill
-
-The `ace-learnings` skill at `.claude/skills/ace-learnings/SKILL.md` is automatically loaded by Claude Code when present in a project. It provides learned coding patterns as context.
+| `/ace-on` | Enable capture hook |
+| `/ace-off` | Disable capture hook |
 
 ### Terminal Commands
 
 ```bash
-ace-learn setup      # Configure Claude Code async hook
-ace-learn doctor     # Verify prerequisites
-ace-learn insights   # Show learned strategies
-ace-learn disable    # Disable learning (removes hook)
-ace-learn enable     # Re-enable learning (re-adds hook)
-ace-learn patch      # Create patched CLI for token savings
-ace-learn unpatch    # Remove patched CLI
+ace-learn setup        # Configure capture hook (run once)
+ace-learn learn-last   # Learn from last captured session
+ace-learn doctor       # Verify prerequisites
+ace-learn insights     # Show learned strategies
+ace-learn capture      # (internal) Called by Stop hook
 ```
-
-## How It Works
-
-1. **Async Hook**: When a Claude Code query completes, the Stop hook runs `ace-learn` asynchronously
-
-2. **Learning**: ACE analyzes the session transcript and extracts reusable strategies via Claude CLI
-
-3. **Skills**: Learned strategies are written to `.claude/skills/ace-learnings/SKILL.md` in your project
 
 ## Hook Configuration
 
-The async hook is configured in `~/.claude/settings.json`:
+The capture hook in `~/.claude/settings.json`:
 
 ```json
 {
@@ -109,9 +80,9 @@ The async hook is configured in `~/.claude/settings.json`:
       "matcher": "*",
       "hooks": [{
         "type": "command",
-        "command": "ace-learn",
+        "command": "ace-learn capture",
         "async": true,
-        "timeout": 300
+        "timeout": 10
       }]
     }]
   }
@@ -131,52 +102,32 @@ ACE determines where to store learned skills based on project markers:
 | 5 | `Cargo.toml` | Rust project |
 | 6 | `go.mod` | Go project |
 
-**Monorepo Setup**: Create a `.ace-root` file at your monorepo root to ensure ACE uses that location instead of nested package directories.
+**Monorepo Setup**: Create a `.ace-root` file at your monorepo root.
 
-**Global Fallback**: Sessions outside any project store skills in `~/.claude/skills/ace-learnings-global/`
-
-## Environment Variables
-
-| Variable | Description |
-|----------|-------------|
-| `ACE_PROJECT_DIR` | Override project root detection |
-| `ACE_CLAUDE_CLI_JS` | Path to patched CLI JS file |
-| `ACE_CLAUDE_BIN` | Path to claude binary |
-| `ACE_CLI_PATH` | Alternative path to claude CLI |
+**Global Fallback**: Sessions outside any project use `~/.claude/skills/ace-learnings-global/`
 
 ## File Structure
 
 ```
-ace/integrations/claude_code/
-├── __init__.py          # Package exports
-├── hook.py              # Main learner and CLI
-├── cli_client.py        # Claude CLI wrapper
-├── prompt_patcher.py    # Optional CLI patcher
-└── README.md            # This file
+<project>/
+└── .claude/skills/ace-learnings/
+    ├── SKILL.md              # Auto-loaded by Claude Code
+    ├── skillbook.json        # Persistent skill store
+    ├── .ace-last-hook.json   # Last captured session pointer
+    └── categories/           # Detailed strategies by category
 ```
 
 ## Troubleshooting
 
-Run `ace-learn doctor` to diagnose issues. Common problems:
-
-1. **Claude CLI not found**: Install Claude Code CLI
-2. **Hook not configured**: Run `ace-learn setup`
-3. **No skills generated**: Ensure sessions are non-trivial (3+ tool calls)
-
-## Architecture
+Run `ace-learn doctor` to diagnose issues:
 
 ```
-Claude Code Session
-        │
-        ▼
-    Stop Hook (async)    ← Native async, non-blocking
-        │
-        ▼
-    ace-learn            ← Runs in background
-        │
-        ▼
-    Claude CLI           ← Subscription-only LLM calls
-        │
-        ▼
-    .claude/skills/      ← Learned strategies
+1. Claude CLI...        ✓ Found
+2. CLI Resolution...    ✓ Patched CLI (token savings)
+3. Hook configuration...✓ Capture mode enabled
+4. Skill output...      ✓ Project detected
 ```
+
+Common problems:
+- **No captured session**: Use Claude Code first, then run `/ace-learn`
+- **CLI timeout**: Large sessions (100+ tool calls) may need chunking (future feature)
