@@ -38,7 +38,10 @@ class TestFindProjectRoot(unittest.TestCase):
 
     def test_import(self):
         """Test that module can be imported."""
-        from ace.integrations.claude_code.hook import find_project_root, DEFAULT_MARKERS
+        from ace.integrations.claude_code.learner import (
+            find_project_root,
+            DEFAULT_MARKERS,
+        )
 
         self.assertIsNotNone(find_project_root)
         self.assertIn(".ace-root", DEFAULT_MARKERS)
@@ -47,7 +50,7 @@ class TestFindProjectRoot(unittest.TestCase):
 
     def test_find_project_root_with_git(self):
         """Test finding project root via .git directory."""
-        from ace.integrations.claude_code.hook import find_project_root
+        from ace.integrations.claude_code.learner import find_project_root
 
         # Create nested directory with .git at root
         project_root = Path(self.temp_dir) / "project"
@@ -60,7 +63,7 @@ class TestFindProjectRoot(unittest.TestCase):
 
     def test_ace_root_marker_takes_priority(self):
         """Test that .ace-root file takes priority over .git."""
-        from ace.integrations.claude_code.hook import find_project_root
+        from ace.integrations.claude_code.learner import find_project_root
 
         # Create structure: monorepo/.ace-root + monorepo/packages/foo/.git
         monorepo = Path(self.temp_dir) / "monorepo"
@@ -80,7 +83,7 @@ class TestFindProjectRoot(unittest.TestCase):
 
     def test_no_markers_returns_none(self):
         """Test that no markers returns None."""
-        from ace.integrations.claude_code.hook import find_project_root
+        from ace.integrations.claude_code.learner import find_project_root
 
         # Create directory with no markers
         no_markers = Path(self.temp_dir) / "no_markers"
@@ -91,7 +94,7 @@ class TestFindProjectRoot(unittest.TestCase):
 
     def test_ace_project_dir_override(self):
         """Test ACE_PROJECT_DIR environment variable override."""
-        from ace.integrations.claude_code.hook import find_project_root
+        from ace.integrations.claude_code.learner import find_project_root
 
         # Create two directories
         override_dir = Path(self.temp_dir) / "override"
@@ -109,7 +112,7 @@ class TestFindProjectRoot(unittest.TestCase):
 
     def test_ace_project_dir_invalid_path(self):
         """Test ACE_PROJECT_DIR with invalid path falls back to markers."""
-        from ace.integrations.claude_code.hook import find_project_root
+        from ace.integrations.claude_code.learner import find_project_root
 
         # Set invalid environment variable
         os.environ["ACE_PROJECT_DIR"] = "/nonexistent/path"
@@ -125,7 +128,7 @@ class TestFindProjectRoot(unittest.TestCase):
 
     def test_pyproject_toml_marker(self):
         """Test finding root via pyproject.toml."""
-        from ace.integrations.claude_code.hook import find_project_root
+        from ace.integrations.claude_code.learner import find_project_root
 
         project = Path(self.temp_dir) / "python_project"
         nested = project / "src" / "module"
@@ -137,7 +140,7 @@ class TestFindProjectRoot(unittest.TestCase):
 
     def test_package_json_marker(self):
         """Test finding root via package.json."""
-        from ace.integrations.claude_code.hook import find_project_root
+        from ace.integrations.claude_code.learner import find_project_root
 
         project = Path(self.temp_dir) / "node_project"
         nested = project / "src" / "components"
@@ -168,7 +171,7 @@ class TestSkillDirResolution(unittest.TestCase):
 
     def test_get_project_skill_dir(self):
         """Test getting project skill directory."""
-        from ace.integrations.claude_code.hook import get_project_skill_dir
+        from ace.integrations.claude_code.learner import get_project_skill_dir
 
         project = Path(self.temp_dir) / "project"
         project.mkdir()
@@ -180,7 +183,7 @@ class TestSkillDirResolution(unittest.TestCase):
 
     def test_get_project_skill_dir_no_project(self):
         """Test that NotInProjectError is raised when no project found."""
-        from ace.integrations.claude_code.hook import (
+        from ace.integrations.claude_code.learner import (
             get_project_skill_dir,
             NotInProjectError,
         )
@@ -221,9 +224,9 @@ class TestTranscriptFirstBehavior(unittest.TestCase):
                 f.write(json.dumps(entry) + "\n")
         return transcript_path
 
-    def test_transcript_cwd_takes_priority(self):
-        """Test that transcript cwd is used over hook input cwd."""
-        from ace.integrations.claude_code.hook import TranscriptParser
+    def test_transcript_cwd_extraction(self):
+        """Test that cwd is correctly extracted from transcript."""
+        from ace.integrations.claude_code.learner import _extract_cwd_from_transcript
 
         # Create project directory
         project = Path(self.temp_dir) / "project"
@@ -234,24 +237,29 @@ class TestTranscriptFirstBehavior(unittest.TestCase):
         transcript_cwd = str(project / "src")
         transcript_path = self._create_minimal_transcript(transcript_cwd)
 
-        parser = TranscriptParser()
-        transcript = parser.parse(str(transcript_path))
+        extracted_cwd = _extract_cwd_from_transcript(transcript_path)
 
-        self.assertEqual(transcript.cwd, transcript_cwd)
+        self.assertEqual(extracted_cwd, transcript_cwd)
 
-    def test_hook_input_validation(self):
-        """Test that hook input is validated before processing."""
-        from ace.integrations.claude_code.hook import ACEHookLearner
+    def test_learn_from_nonexistent_transcript(self):
+        """Test that learning from nonexistent transcript fails gracefully."""
+        from ace.integrations.claude_code.learner import ACELearner
 
-        # Test missing transcript_path
-        result = ACEHookLearner.learn_from_hook_input({"cwd": "/some/path"})
-        self.assertFalse(result)
+        # Create project directory
+        project = Path(self.temp_dir) / "project"
+        project.mkdir()
+        (project / ".git").mkdir()
 
-        # Test nonexistent transcript
-        result = ACEHookLearner.learn_from_hook_input(
-            {"cwd": "/some/path", "transcript_path": "/nonexistent/transcript.jsonl"}
-        )
-        self.assertFalse(result)
+        with patch("ace.integrations.claude_code.learner.CLIClient") as mock_cli:
+            mock_cli.return_value = MagicMock()
+
+            learner = ACELearner(cwd=str(project))
+
+            # Test nonexistent transcript
+            result = learner.learn_from_transcript(
+                Path("/nonexistent/transcript.jsonl")
+            )
+            self.assertFalse(result)
 
 
 @pytest.mark.unit
@@ -269,22 +277,24 @@ class TestGlobalFallback(unittest.TestCase):
 
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    def test_ace_hook_learner_global_fallback(self):
-        """Test that ACEHookLearner falls back to global skill dir."""
+    def test_ace_learner_global_fallback(self):
+        """Test that ACELearner falls back to global skill dir."""
         # Create directory with no project markers
         no_project = Path(self.temp_dir) / "no_project"
         no_project.mkdir()
 
         # Mock CLIClient to avoid actual CLI dependency
-        with patch("ace.integrations.claude_code.hook.CLIClient") as mock_cli:
+        with patch("ace.integrations.claude_code.learner.CLIClient") as mock_cli:
             mock_cli.return_value = MagicMock()
 
-            from ace.integrations.claude_code.hook import ACEHookLearner
+            from ace.integrations.claude_code.learner import ACELearner
 
-            learner = ACEHookLearner(cwd=str(no_project))
+            learner = ACELearner(cwd=str(no_project))
 
             # Should use global skill directory
-            expected_global = Path.home() / ".claude" / "skills" / "ace-learnings-global"
+            expected_global = (
+                Path.home() / ".claude" / "skills" / "ace-learnings-global"
+            )
             self.assertEqual(learner.skill_dir, expected_global)
 
 

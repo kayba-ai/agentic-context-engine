@@ -262,10 +262,12 @@ class TestCLIClientEnvOverrides(unittest.TestCase):
         project.mkdir()
         (project / ".git").mkdir()
 
-        with patch("ace.integrations.claude_code.cli_client._resolve_cli_path") as mock_resolve:
+        with patch(
+            "ace.integrations.claude_code.cli_client._resolve_cli_path"
+        ) as mock_resolve:
             mock_resolve.return_value = fake_cli
 
-            from ace.integrations.claude_code.hook import ACEHookLearner
+            from ace.integrations.claude_code.learner import ACEHookLearner
 
             learner = ACEHookLearner(cwd=str(project))
 

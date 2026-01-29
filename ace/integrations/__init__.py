@@ -64,21 +64,33 @@ except ImportError:
     ACELangChain = None  # type: ignore
     LANGCHAIN_AVAILABLE = False
 
-# Import Claude Code integration (always available)
+# Import Claude Code CLI integration (always available)
 try:
-    from .claude_code import ACEClaudeCode, ClaudeCodeResult, CLAUDE_CODE_AVAILABLE
+    from .claude_code_cli import ACEClaudeCode, ClaudeCodeResult, CLAUDE_CODE_AVAILABLE
 except ImportError:
     ACEClaudeCode = None  # type: ignore
     ClaudeCodeResult = None  # type: ignore
     CLAUDE_CODE_AVAILABLE = False
 
-# Import Claude Code hook integration (always available)
+# Import Claude Code learner integration (always available)
 try:
-    from .claude_code_hook import ACEHookLearner, TranscriptParser, SkillGenerator
+    from .claude_code import (
+        ACELearner,
+        ACEHookLearner,  # Backwards compatibility alias
+        SkillGenerator,
+        CLIClient,
+        find_latest_transcript,
+        find_project_root,
+        get_project_skill_dir,
+    )
 except ImportError:
+    ACELearner = None  # type: ignore
     ACEHookLearner = None  # type: ignore
-    TranscriptParser = None  # type: ignore
     SkillGenerator = None  # type: ignore
+    CLIClient = None  # type: ignore
+    find_latest_transcript = None  # type: ignore
+    find_project_root = None  # type: ignore
+    get_project_skill_dir = None  # type: ignore
 
 __all__ = [
     "wrap_skillbook_context",
@@ -87,9 +99,15 @@ __all__ = [
     "ACELangChain",
     "ACEClaudeCode",
     "ClaudeCodeResult",
-    "ACEHookLearner",
-    "TranscriptParser",
+    # Claude Code learner integration
+    "ACELearner",
+    "ACEHookLearner",  # Backwards compatibility alias
     "SkillGenerator",
+    "CLIClient",
+    "find_latest_transcript",
+    "find_project_root",
+    "get_project_skill_dir",
+    # Feature flags
     "BROWSER_USE_AVAILABLE",
     "LANGCHAIN_AVAILABLE",
     "CLAUDE_CODE_AVAILABLE",
