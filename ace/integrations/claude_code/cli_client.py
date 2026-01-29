@@ -22,6 +22,7 @@ T = TypeVar("T", bound=BaseModel)
 
 class CLIClientError(Exception):
     """Error from Claude Code CLI execution."""
+
     pass
 
 
@@ -30,13 +31,11 @@ def _resolve_cli_path(cli_path: Optional[str]) -> Path:
     Resolve the Claude CLI path with priority order:
 
     1. Explicit parameter (cli_path)
-    2. ACE_CLAUDE_CLI_JS environment variable (for patched cli.js)
-    3. Patched CLI at ~/.ace/claude-learner/cli.js (preferred - minimal system prompt)
-    4. ACE_CLAUDE_BIN environment variable
-    5. System 'claude' binary from PATH
+    2. ACE_CLI_PATH environment variable
+    3. System 'claude' binary from PATH
 
     Returns:
-        Path to the CLI executable or .js file
+        Path to the CLI executable
 
     Raises:
         FileNotFoundError: If no CLI can be found
@@ -48,48 +47,22 @@ def _resolve_cli_path(cli_path: Optional[str]) -> Path:
             raise FileNotFoundError(f"CLI not found at: {cli_path}")
         return path
 
-    # 2. Environment override for patched JS CLI
-    if env_js := os.environ.get("ACE_CLAUDE_CLI_JS"):
-        path = Path(env_js).expanduser()
+    # 2. Environment override
+    if env_path := os.environ.get("ACE_CLI_PATH"):
+        path = Path(env_path).expanduser()
         if path.exists():
-            logger.info(f"Using ACE_CLAUDE_CLI_JS: {path}")
+            logger.info(f"Using ACE_CLI_PATH: {path}")
             return path
-        logger.warning(f"ACE_CLAUDE_CLI_JS set but not found: {env_js}")
+        logger.warning(f"ACE_CLI_PATH set but not found: {env_path}")
 
-    # 3. Patched CLI if exists (preferred - minimal system prompt)
-    patched = Path.home() / ".ace" / "claude-learner" / "cli.js"
-    if patched.exists():
-        logger.info(f"Using patched Claude CLI: {patched}")
-        return patched
-
-    # 3b. Runtime safety net: try to create patched CLI on-the-fly
-    try:
-        from ace.integrations.claude_code.prompt_patcher import patch_cli
-        result = patch_cli()
-        if result:
-            logger.info(f"Auto-patched CLI: {result}")
-            return result
-    except Exception as e:
-        logger.warning(f"Auto-patching failed: {e}")
-
-    # 4. Environment override for binary
-    if env_bin := os.environ.get("ACE_CLAUDE_BIN"):
-        path = Path(env_bin).expanduser()
-        if path.exists():
-            logger.info(f"Using ACE_CLAUDE_BIN: {path}")
-            return path
-        logger.warning(f"ACE_CLAUDE_BIN set but not found: {env_bin}")
-
-    # 5. System claude binary
+    # 3. System claude binary
     claude_path = shutil.which("claude")
     if claude_path:
         return Path(claude_path)
 
     raise FileNotFoundError(
         "Claude CLI not found. Checked:\n"
-        "  - ACE_CLAUDE_CLI_JS environment variable\n"
-        "  - ~/.ace/claude-learner/cli.js (patched CLI)\n"
-        "  - ACE_CLAUDE_BIN environment variable\n"
+        "  - ACE_CLI_PATH environment variable\n"
         "  - 'claude' in PATH\n\n"
         "Install with: npm install -g @anthropic-ai/claude-code"
     )
@@ -109,13 +82,8 @@ class CLIClient(LLMClient):
 
     CLI Resolution Order:
     1. Explicit cli_path parameter
-    2. ACE_CLAUDE_CLI_JS environment variable
-    3. ~/.ace/claude-learner/cli.js (patched CLI with minimal system prompt)
-    4. ACE_CLAUDE_BIN environment variable
-    5. System 'claude' command from PATH
-
-    The patched CLI at ~/.ace/claude-learner/cli.js is preferred because it
-    uses a minimal system prompt, reducing token overhead.
+    2. ACE_CLI_PATH environment variable
+    3. System 'claude' command from PATH
 
     Args:
         cli_path: Path to claude CLI. If None, auto-detects using resolution order.
@@ -123,7 +91,7 @@ class CLIClient(LLMClient):
         max_retries: Maximum retries on failure (default: 3)
 
     Example:
-        >>> from ace.llm_providers.cli_client import CLIClient
+        >>> from ace.integrations.claude_code.cli_client import CLIClient
         >>> from ace import Reflector, SkillManager
         >>>
         >>> llm = CLIClient()
@@ -153,10 +121,7 @@ class CLIClient(LLMClient):
         self.cli_path = _resolve_cli_path(cli_path)
         self._is_js = _is_js_cli(self.cli_path)
 
-        logger.info(
-            f"Initialized CLIClient: {self.cli_path} "
-            f"(js={self._is_js})"
-        )
+        logger.info(f"Initialized CLIClient: {self.cli_path} " f"(js={self._is_js})")
 
     def _run_cli(self, prompt: str) -> str:
         """
@@ -198,7 +163,9 @@ class CLIClient(LLMClient):
                 )
 
                 if result.returncode != 0:
-                    error_msg = result.stderr.strip() or f"Exit code: {result.returncode}"
+                    error_msg = (
+                        result.stderr.strip() or f"Exit code: {result.returncode}"
+                    )
                     logger.warning(f"CLI returned error: {error_msg}")
                     last_error = CLIClientError(f"CLI error: {error_msg}")
                     continue
@@ -254,7 +221,7 @@ class CLIClient(LLMClient):
 
         return LLMResponse(
             text=response_text,
-            raw={"cli_path": str(self.cli_path), "provider": "claude-cli"}
+            raw={"cli_path": str(self.cli_path), "provider": "claude-cli"},
         )
 
     def complete_structured(
@@ -380,4 +347,4 @@ Do not include any text before or after the JSON. Output ONLY the JSON object.
             # Return from start to end of string
             return text[start:]
 
-        return text[start:end + 1]
+        return text[start : end + 1]

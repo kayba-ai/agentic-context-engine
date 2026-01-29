@@ -80,7 +80,7 @@ all = [
 ]
 
 [project.scripts]
-ace-learn = "ace.integrations.claude_code.hook:main"
+ace-learn = "ace.integrations.claude_code.learner:main"
 ace-skill-improve = "ace.integrations.claude_code_skill_improvement.cli:main"
 
 [project.urls]
