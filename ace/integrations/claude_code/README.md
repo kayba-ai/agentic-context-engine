@@ -63,11 +63,24 @@ User types /ace-learn ──┘
 
 ```bash
 ace-learn setup        # Configure capture hook (run once)
-ace-learn learn-last   # Learn from last captured session
+ace-learn learn-last   # Learn incrementally (only new turns)
+ace-learn learn-last --full  # Learn from entire session
 ace-learn doctor       # Verify prerequisites
 ace-learn insights     # Show learned strategies
 ace-learn capture      # (internal) Called by Stop hook
 ```
+
+## Incremental Learning
+
+By default, `/ace-learn` only processes turns since the last time you ran it:
+
+```
+First /ace-learn  → processes turns 1-50, saves state
+... more conversation ...
+Second /ace-learn → processes turns 49-75 (with 2-turn lookback for context)
+```
+
+Use `--full` to reprocess the entire session (useful after giving feedback).
 
 ## Hook Configuration
 

@@ -89,6 +89,10 @@ ACE_CAPTURE_TIMEOUT = 10
 # Last hook file - stores the most recent hook input for manual learning
 ACE_LAST_HOOK_FILENAME = ".ace-last-hook.json"
 
+# Incremental learning - tracks last learned position
+ACE_LEARNING_STATE_FILENAME = ".ace-learning-state.json"
+ACE_TURN_LOOKBACK = 2  # Include N previous turns for context at boundaries
+
 
 class NotInProjectError(Exception):
     """Raised when no project root can be found."""
@@ -884,12 +888,14 @@ class ACEHookLearner:
         cls,
         hook_input: Dict[str, Any],
         ace_model: str = "anthropic/claude-sonnet-4-5-20250929",
-        use_cli: bool = True,  # Default to CLI subscription
+        use_cli: bool = True,  # Deprecated - always True
+        start_turn: int = 0,
+        parsed_transcript: Optional["ParsedTranscript"] = None,
     ) -> bool:
         """
         Process hook input and learn from the session.
 
-        This method now uses transcript-first root detection:
+        This method uses transcript-first root detection:
         1. Validates transcript_path exists
         2. Parses transcript to extract effective_cwd
         3. Resolves project_root from effective_cwd
@@ -897,8 +903,10 @@ class ACEHookLearner:
 
         Args:
             hook_input: Parsed hook input containing transcript_path and cwd
-            ace_model: Model for ACE Reflector/SkillManager (ignored - CLI only)
+            ace_model: Model for ACE Reflector/SkillManager
             use_cli: Deprecated - always uses CLI subscription
+            start_turn: Start learning from this turn index (for incremental learning)
+            parsed_transcript: Optional pre-parsed transcript to avoid double parsing
 
         Returns:
             True if learning succeeded, False otherwise
@@ -915,13 +923,16 @@ class ACEHookLearner:
             logger.error(f"Transcript file not found: {transcript_path}")
             return False
 
-        # Parse transcript to get effective cwd (transcript cwd is more accurate)
-        parser = TranscriptParser()
-        try:
-            transcript = parser.parse(transcript_path)
-        except Exception as e:
-            logger.error(f"Failed to parse transcript: {e}")
-            return False
+        # Use provided transcript or parse fresh
+        if parsed_transcript is not None:
+            transcript = parsed_transcript
+        else:
+            parser = TranscriptParser()
+            try:
+                transcript = parser.parse(transcript_path)
+            except Exception as e:
+                logger.error(f"Failed to parse transcript: {e}")
+                return False
 
         # Prefer hook cwd (more accurate) over transcript cwd
         effective_cwd = hook_cwd or transcript.cwd
@@ -948,13 +959,16 @@ class ACEHookLearner:
             ace_model=ace_model,
             use_cli=True,  # Always use CLI
         )
-        # Pass already-parsed transcript to avoid double parsing
-        return learner.learn_from_transcript(transcript_path, parsed_transcript=transcript)
+        # Pass already-parsed transcript and start_turn for incremental learning
+        return learner.learn_from_transcript(
+            transcript_path, parsed_transcript=transcript, start_turn=start_turn
+        )
 
     def learn_from_transcript(
         self,
         transcript_path: str,
         parsed_transcript: Optional[ParsedTranscript] = None,
+        start_turn: int = 0,
     ) -> bool:
         """
         Learn from a transcript file directly.
@@ -962,6 +976,7 @@ class ACEHookLearner:
         Args:
             transcript_path: Path to Claude Code transcript JSONL
             parsed_transcript: Optional pre-parsed transcript to avoid double parsing
+            start_turn: Start learning from this turn index (for incremental learning)
 
         Returns:
             True if learning succeeded
@@ -969,11 +984,36 @@ class ACEHookLearner:
         try:
             # Use pre-parsed transcript if provided, otherwise parse
             if parsed_transcript is not None:
-                transcript = parsed_transcript
-                logger.info(f"Using pre-parsed transcript: {transcript.total_tool_calls} tool calls")
+                full_transcript = parsed_transcript
             else:
-                transcript = self.transcript_parser.parse(transcript_path)
-                logger.info(f"Parsed transcript: {transcript.total_tool_calls} tool calls")
+                full_transcript = self.transcript_parser.parse(transcript_path)
+
+            # Apply incremental slicing if start_turn > 0
+            if start_turn > 0 and start_turn < len(full_transcript.turns):
+                sliced_turns = full_transcript.turns[start_turn:]
+                # Recalculate tool call stats for sliced turns
+                total_tools = sum(len(t.tool_calls) for t in sliced_turns)
+                failed_tools = sum(
+                    1 for t in sliced_turns for tc in t.tool_calls if tc.is_error
+                )
+                successful_tools = total_tools - failed_tools
+
+                # Create a new transcript with sliced turns
+                transcript = ParsedTranscript(
+                    session_id=full_transcript.session_id,
+                    turns=sliced_turns,
+                    cwd=full_transcript.cwd,
+                    total_tool_calls=total_tools,
+                    successful_tool_calls=successful_tools,
+                    failed_tool_calls=failed_tools,
+                )
+                logger.info(
+                    f"Incremental learning: turns {start_turn + 1}-{len(full_transcript.turns)} "
+                    f"({len(sliced_turns)} turns, {total_tools} tool calls)"
+                )
+            else:
+                transcript = full_transcript
+                logger.info(f"Full transcript: {transcript.total_tool_calls} tool calls")
 
             # Skip trivial sessions (less than 3 tool calls)
             MIN_TOOL_CALLS = 3
@@ -1226,11 +1266,31 @@ def capture_hook(args):
     logger.debug(f"Captured hook input to {last_hook_path}")
 
 
+def _load_learning_state(skill_dir: Path) -> dict:
+    """Load the incremental learning state."""
+    state_path = skill_dir / ACE_LEARNING_STATE_FILENAME
+    if state_path.exists():
+        try:
+            return json.loads(state_path.read_text())
+        except json.JSONDecodeError:
+            return {}
+    return {}
+
+
+def _save_learning_state(skill_dir: Path, state: dict):
+    """Save the incremental learning state."""
+    state_path = skill_dir / ACE_LEARNING_STATE_FILENAME
+    _atomic_write_text(state_path, json.dumps(state, indent=2))
+
+
 def learn_last(args):
     """Learn from the last captured hook input.
 
     This is called manually by the user via /ace-learn slash command.
-    It reads the saved hook JSON and runs the full learning pipeline.
+
+    By default, uses incremental learning - only processes turns since the
+    last time learning was run on this session. Use --full to process the
+    entire transcript.
     """
     # Determine project context
     try:
@@ -1264,6 +1324,7 @@ def learn_last(args):
         sys.exit(1)
 
     transcript_path = hook_input.get("transcript_path")
+    session_id = hook_input.get("session_id", "unknown")
     if not transcript_path or not Path(transcript_path).exists():
         print(f"error: transcript not found: {transcript_path}", file=sys.stderr)
         print("The session transcript may have been cleaned up.")
@@ -1275,18 +1336,67 @@ def learn_last(args):
         format="%(asctime)s [%(levelname)s] %(message)s",
     )
 
-    print(f"Learning from session: {transcript_path}")
+    # Parse transcript to get turn count
+    parser = TranscriptParser()
+    try:
+        transcript = parser.parse(transcript_path)
+    except Exception as e:
+        print(f"error: failed to parse transcript: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    total_turns = len(transcript.turns)
+
+    # Load learning state for incremental learning
+    learning_state = _load_learning_state(skill_dir)
+    last_session_id = learning_state.get("session_id")
+    last_learned_turn = learning_state.get("last_learned_turn", 0)
+
+    # Determine start turn for learning
+    full_mode = getattr(args, "full", False)
+
+    if full_mode:
+        start_turn = 0
+        print(f"Learning from session (full): {transcript_path}")
+    elif last_session_id != session_id:
+        # Different session - start fresh
+        start_turn = 0
+        print(f"Learning from session (new): {transcript_path}")
+    elif last_learned_turn >= total_turns:
+        print("No new turns to learn from.")
+        print(f"Last learned: turn {last_learned_turn}/{total_turns}")
+        print("Use --full to reprocess the entire session.")
+        sys.exit(0)
+    else:
+        # Incremental - start from last learned with lookback for context
+        start_turn = max(0, last_learned_turn - ACE_TURN_LOOKBACK)
+        new_turns = total_turns - last_learned_turn
+        print(f"Learning from session (incremental): {transcript_path}")
+        print(f"  New turns: {new_turns} (turns {last_learned_turn + 1}-{total_turns})")
+        print(f"  With context: starting from turn {start_turn + 1}")
+
     print(f"Project: {project_root}")
     print()
 
     # Run the learning pipeline
     try:
         success = ACEHookLearner.learn_from_hook_input(
-            hook_input, ace_model=getattr(args, "model", "anthropic/claude-sonnet-4-5-20250929")
+            hook_input,
+            ace_model=getattr(args, "model", "anthropic/claude-sonnet-4-5-20250929"),
+            start_turn=start_turn,
+            parsed_transcript=transcript,
         )
         if success:
+            # Update learning state
+            new_state = {
+                "session_id": session_id,
+                "last_learned_turn": total_turns,
+                "last_learned_at": datetime.now().isoformat(),
+            }
+            _save_learning_state(skill_dir, new_state)
+
             print("\n✓ Learning complete!")
             print(f"Skills updated: {skill_dir / 'SKILL.md'}")
+            print(f"Progress saved: learned through turn {total_turns}")
         else:
             print("\n✗ Learning failed")
             sys.exit(1)
@@ -1795,7 +1905,8 @@ def main():
         epilog="""
 Examples:
   ace-learn setup              Configure Claude Code capture hook (run once)
-  ace-learn learn-last         Learn from last captured session (via /ace-learn)
+  ace-learn learn-last         Learn incrementally (only new turns since last learn)
+  ace-learn learn-last --full  Learn from entire session (reprocess all turns)
   ace-learn doctor             Verify prerequisites and configuration
   ace-learn insights           Show learned strategies
   ace-learn remove <id>        Remove a specific insight
@@ -1823,6 +1934,10 @@ Global fallback: ~/.claude/skills/ace-learnings-global/
 
     # Learn-last command (called by /ace-learn slash command)
     learn_last_parser = subparsers.add_parser("learn-last", help="Learn from last captured session")
+    learn_last_parser.add_argument(
+        "--full", "-f", action="store_true",
+        help="Learn from entire session (default: incremental, only new turns)"
+    )
     learn_last_parser.add_argument(
         "--project", "-P", help="Project root directory (default: auto-detect)"
     )
