@@ -813,9 +813,12 @@ class ACEHookLearner:
             logger.info("Using Claude Code CLI for learning (subscription mode)")
             self.ace_llm = CLIClient(cli_path=cli_path)
 
+        # Use Claude Code specific Reflector prompt, default SkillManager prompt
+        from .prompts import CLAUDE_CODE_REFLECTOR_PROMPT
+
         prompt_mgr = PromptManager()
         self.reflector = Reflector(
-            self.ace_llm, prompt_template=prompt_mgr.get_reflector_prompt()
+            self.ace_llm, prompt_template=CLAUDE_CODE_REFLECTOR_PROMPT
         )
         self.skill_manager = SkillManager(
             self.ace_llm, prompt_template=prompt_mgr.get_skill_manager_prompt()

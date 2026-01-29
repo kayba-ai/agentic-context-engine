@@ -9,6 +9,8 @@ This package enables ACE (Agentic Context Engineering) to learn from your Claude
 **Key Features:**
 - Instant capture hook (~10ms) - never slows down Claude Code
 - Manual learning via `/ace-learn` - learn when you're ready
+- Incremental learning - only processes new turns by default
+- Custom Reflector prompt optimized for coding sessions
 - Subscription-only via Claude CLI (no API keys needed)
 - Per-project skill files in `.claude/skills/ace-learnings/`
 
@@ -52,22 +54,25 @@ User types /ace-learn ──┘
 
 | Command | Description |
 |---------|-------------|
-| `/ace-learn` | **Learn from this session** - extracts strategies |
+| `/ace-learn` | Learn from this session (incremental - only new turns) |
 | `/ace-insights` | Show learned strategies from the skillbook |
 | `/ace-clear` | Clear all learned strategies |
 | `/ace-remove` | Remove a specific learned strategy |
 | `/ace-on` | Enable capture hook |
 | `/ace-off` | Disable capture hook |
 
+**Tip:** For full session learning (e.g., after giving feedback), run `ace-learn learn-last --full` in terminal.
+
 ### Terminal Commands
 
 ```bash
-ace-learn setup        # Configure capture hook (run once)
-ace-learn learn-last   # Learn incrementally (only new turns)
+ace-learn setup              # Configure capture hook (run once)
+ace-learn learn-last         # Learn incrementally (only new turns)
 ace-learn learn-last --full  # Learn from entire session
-ace-learn doctor       # Verify prerequisites
-ace-learn insights     # Show learned strategies
-ace-learn capture      # (internal) Called by Stop hook
+ace-learn doctor             # Verify prerequisites
+ace-learn insights           # Show learned strategies
+ace-learn clear --confirm    # Clear all insights
+ace-learn capture            # (internal) Called by Stop hook
 ```
 
 ## Incremental Learning
@@ -80,7 +85,10 @@ First /ace-learn  → processes turns 1-50, saves state
 Second /ace-learn → processes turns 49-75 (with 2-turn lookback for context)
 ```
 
-Use `--full` to reprocess the entire session (useful after giving feedback).
+Use `--full` to reprocess the entire session:
+- After giving feedback you want ACE to learn from
+- To re-analyze with fresh eyes
+- When incremental says "No new turns"
 
 ## Hook Configuration
 
@@ -122,12 +130,20 @@ ACE determines where to store learned skills based on project markers:
 ## File Structure
 
 ```
-<project>/
-└── .claude/skills/ace-learnings/
-    ├── SKILL.md              # Auto-loaded by Claude Code
-    ├── skillbook.json        # Persistent skill store
-    ├── .ace-last-hook.json   # Last captured session pointer
-    └── categories/           # Detailed strategies by category
+ace/integrations/claude_code/
+├── __init__.py          # Package exports
+├── hook.py              # Main learner and CLI
+├── cli_client.py        # Claude CLI wrapper
+├── prompts.py           # Custom Reflector prompt for coding sessions
+├── prompt_patcher.py    # Optional CLI patcher for token savings
+└── README.md            # This file
+
+<project>/.claude/skills/ace-learnings/
+├── SKILL.md                  # Auto-loaded by Claude Code
+├── skillbook.json            # Persistent skill store
+├── .ace-last-hook.json       # Last captured session pointer
+├── .ace-learning-state.json  # Incremental learning progress
+└── categories/               # Detailed strategies by category
 ```
 
 ## Troubleshooting
@@ -143,4 +159,5 @@ Run `ace-learn doctor` to diagnose issues:
 
 Common problems:
 - **No captured session**: Use Claude Code first, then run `/ace-learn`
-- **CLI timeout**: Large sessions (100+ tool calls) may need chunking (future feature)
+- **No new turns**: Use `ace-learn learn-last --full` to reprocess
+- **CLI timeout**: Large sessions (100+ tool calls) may take longer
