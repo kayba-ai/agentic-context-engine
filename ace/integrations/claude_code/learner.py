@@ -2,23 +2,29 @@
 Claude Code ACE Learning - Simple transcript-based learning.
 
 This module enables ACE learning from Claude Code sessions by reading
-existing transcript files directly. No hooks or complex infrastructure.
+existing transcript files directly. Learnings are stored directly in
+CLAUDE.md using TOON compression for efficient context transfer.
 
 Usage:
     1. Use Claude Code normally
     2. Run /ace-learn (or `ace-learn`) to learn from the session
-    3. Skills are updated in .claude/skills/ace-learnings/SKILL.md
+    3. CLAUDE.md is updated with learned strategies
 
 Commands:
-    ace-learn              # Learn from full latest transcript
+    ace-learn              # Learn from latest transcript, update CLAUDE.md
     ace-learn --lines 500  # Learn from last 500 lines only (optional)
     ace-learn insights     # Show learned strategies
     ace-learn remove <id>  # Remove specific insight
     ace-learn clear --confirm  # Clear all insights
     ace-learn doctor       # Check prerequisites
+
+Storage:
+    - CLAUDE.md: TOON-compressed skillbook (for Claude Code to read)
+    - .ace/skillbook.json: Full skillbook (for persistence)
 """
 
 import json
+import re
 import sys
 import logging
 import os
@@ -27,8 +33,7 @@ import tempfile
 import uuid
 from contextlib import contextmanager
 from pathlib import Path
-from typing import List, Optional, Dict, Any
-from datetime import datetime
+from typing import List, Optional, Any
 
 from dotenv import load_dotenv
 from tenacity import (
@@ -47,7 +52,7 @@ for _env_path in _env_paths:
         load_dotenv(_env_path)
         break
 
-from ...skillbook import Skillbook, Skill
+from ...skillbook import Skillbook
 from ...roles import Reflector, SkillManager, AgentOutput
 from ...prompts_v2_1 import PromptManager
 from .cli_client import CLIClient
@@ -288,197 +293,82 @@ def _get_last_user_prompt(transcript_path: Path) -> str:
 
 
 # ============================================================================
-# Skill File Generator
+# CLAUDE.md Update
 # ============================================================================
 
-
-def get_project_skill_dir(cwd: str) -> Path:
-    """Get the project-level skill directory for a given working directory."""
-    project_root = find_project_root(Path(cwd))
-    if project_root is None:
-        raise NotInProjectError(cwd)
-    return project_root / ".claude" / "skills" / "ace-learnings"
+ACE_SECTION_HEADER = "## ACE Learned Strategies"
+ACE_START_MARKER = "<!-- ACE:START - Do not edit manually -->"
+ACE_END_MARKER = "<!-- ACE:END -->"
 
 
-class SkillGenerator:
-    """Generate Claude Code skill files from ACE skillbook with progressive disclosure."""
+def update_claude_md(project_root: Path, skillbook: Skillbook) -> Path:
+    """
+    Update CLAUDE.md with TOON-compressed skillbook.
 
-    MIN_SKILLS_FOR_CATEGORY = 3
+    Finds or creates CLAUDE.md at project root and updates the
+    '## ACE Learned Strategies' section with TOON-compressed skills.
 
-    def __init__(self, skill_dir: Path):
-        self.skill_dir = skill_dir
+    Args:
+        project_root: Path to project root directory
+        skillbook: Skillbook to compress and write
 
-    def _group_by_section(self, skills: List[Skill]) -> Dict[str, List[Skill]]:
-        sections: Dict[str, List[Skill]] = {}
-        for skill in skills:
-            sections.setdefault(skill.section, []).append(skill)
-        for section in sections:
-            sections[section] = sorted(
-                sections[section],
-                key=lambda b: (b.helpful - b.harmful, b.helpful),
-                reverse=True,
-            )
-        return sections
+    Returns:
+        Path to the updated CLAUDE.md file
+    """
+    claude_md_path = project_root / "CLAUDE.md"
 
-    def _frontmatter(self, sections: List[str]) -> str:
-        if sections:
-            keywords = ", ".join(s.replace("_", " ") for s in sorted(sections)[:6])
-            desc = f"Project-specific coding patterns covering {keywords}. Use when writing code to follow established conventions."
-        else:
-            desc = "Project-specific patterns learned from coding sessions. Use when writing code to follow established conventions."
-        return f"""---
-name: ace-learnings
-description: {desc}
----"""
+    # Generate TOON content
+    skills = skillbook.skills()
+    if skills:
+        try:
+            toon_content = skillbook.as_prompt()
+        except ImportError:
+            # Fallback to JSON if TOON not available
+            skills_data = [s.to_llm_dict() for s in skills]
+            toon_content = json.dumps({"skills": skills_data}, separators=(",", ":"))
+            logger.warning("TOON not installed, using JSON fallback")
+    else:
+        toon_content = '{"skills": []}'
 
-    def _intro(self) -> str:
-        return """# ACE Learned Strategies
+    # Build the ACE section
+    ace_section = f"""{ACE_SECTION_HEADER}
 
-These strategies have been automatically learned from coding sessions.
-Apply relevant strategies based on the current task."""
+{ACE_START_MARKER}
+{toon_content}
+{ACE_END_MARKER}"""
 
-    def _empty_skill(self) -> str:
-        return f"""{self._frontmatter([])}
+    # Read existing content or start fresh
+    if claude_md_path.exists():
+        existing_content = claude_md_path.read_text(encoding="utf-8")
+    else:
+        existing_content = f"# {project_root.name}\n\nProject documentation.\n"
 
-# ACE Learned Strategies
-
-No strategies learned yet. Strategies will appear here as you use Claude Code.
-
-{self._footer()}"""
-
-    def _top_strategies(self, skills: List[Skill]) -> str:
-        lines = ["## Top Strategies (by effectiveness)"]
-        for i, s in enumerate(skills, 1):
-            score = f"({s.helpful}↑ {s.harmful}↓)"
-            lines.append(f"{i}. {s.content} {score}")
-        return "\n".join(lines)
-
-    def _section_inline(self, section: str, skills: List[Skill]) -> str:
-        title = section.replace("_", " ").title()
-        lines = [f"## {title}"]
-        for s in skills:
-            score = f"({s.helpful}↑ {s.harmful}↓)"
-            lines.append(f"- {s.content} {score}")
-        return "\n".join(lines)
-
-    def _category_index(self, large_sections: Dict[str, List[Skill]]) -> str:
-        if not large_sections:
-            return ""
-        lines = ["## Categories"]
-        lines.append("For detailed strategies, read the relevant category file:")
-        for section in sorted(large_sections.keys()):
-            skills = large_sections[section]
-            title = section.replace("_", " ").title()
-            filename = section.replace("_", "-") + ".md"
-            lines.append(
-                f"- **{title}**: `categories/{filename}` ({len(skills)} strategies)"
-            )
-        return "\n".join(lines)
-
-    def _antipatterns(self, skills: List[Skill]) -> str:
-        lines = ["## Antipatterns (avoid these)"]
-        for s in skills:
-            score = f"({s.harmful} failures)"
-            lines.append(f"- ⚠️ {s.content} {score}")
-        return "\n".join(lines)
-
-    def _footer(self) -> str:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-        return f"""---
-*Auto-generated by ACE at {timestamp}*"""
-
-    def generate_main(
-        self,
-        sorted_skills: List[Skill],
-        large_sections: Dict[str, List[Skill]],
-        small_sections: Dict[str, List[Skill]],
-    ) -> str:
-        all_sections = list(large_sections.keys()) + list(small_sections.keys())
-        parts = [self._frontmatter(all_sections)]
-        parts.append(self._intro())
-
-        top_skills = sorted_skills[:10]
-        if top_skills:
-            parts.append(self._top_strategies(top_skills))
-
-        if large_sections:
-            parts.append(self._category_index(large_sections))
-
-        for section in sorted(small_sections.keys()):
-            parts.append(self._section_inline(section, small_sections[section]))
-
-        antipatterns = [s for s in sorted_skills if s.harmful > s.helpful]
-        if antipatterns:
-            parts.append(self._antipatterns(antipatterns[:5]))
-
-        parts.append(self._footer())
-        return "\n\n".join(parts)
-
-    def generate_category(self, section: str, skills: List[Skill]) -> str:
-        title = section.replace("_", " ").title()
-        lines = [f"# {title} Strategies"]
-        lines.append("")
-        for s in skills:
-            score = f"({s.helpful}↑ {s.harmful}↓)"
-            lines.append(f"- {s.content} {score}")
-        lines.append("")
-        lines.append(self._footer())
-        return "\n".join(lines)
-
-    def save(self, skillbook: Skillbook) -> Path:
-        self.skill_dir.mkdir(parents=True, exist_ok=True)
-
-        skills = skillbook.skills()
-        if not skills:
-            content = self._empty_skill()
-            skill_path = self.skill_dir / "SKILL.md"
-            skill_path.write_text(content, encoding="utf-8")
-            return skill_path
-
-        sorted_skills = sorted(
-            skills, key=lambda s: (s.helpful - s.harmful, s.helpful), reverse=True
+    # Replace or append ACE section
+    if ACE_START_MARKER in existing_content:
+        # Replace existing section (between markers)
+        pattern = (
+            re.escape(ACE_SECTION_HEADER)
+            + r"\s*\n\s*"
+            + re.escape(ACE_START_MARKER)
+            + r".*?"
+            + re.escape(ACE_END_MARKER)
         )
-
-        sections = self._group_by_section(skills)
-        large_sections = {
-            s: sk
-            for s, sk in sections.items()
-            if len(sk) >= self.MIN_SKILLS_FOR_CATEGORY
-        }
-        small_sections = {
-            s: sk
-            for s, sk in sections.items()
-            if len(sk) < self.MIN_SKILLS_FOR_CATEGORY
-        }
-
-        main_content = self.generate_main(sorted_skills, large_sections, small_sections)
-        skill_path = self.skill_dir / "SKILL.md"
-        skill_path.write_text(main_content, encoding="utf-8")
-        logger.info(f"Saved skill file to {skill_path}")
-
-        if large_sections:
-            categories_dir = self.skill_dir / "categories"
-            categories_dir.mkdir(exist_ok=True)
-            for section, section_skills in large_sections.items():
-                filename = section.replace("_", "-") + ".md"
-                cat_content = self.generate_category(section, section_skills)
-                cat_path = categories_dir / filename
-                cat_path.write_text(cat_content, encoding="utf-8")
-                logger.info(f"Saved category file to {cat_path}")
-
-        return skill_path
-
-    def generate(self, skillbook: Skillbook) -> str:
-        """Legacy method for backwards compatibility."""
-        skills = skillbook.skills()
-        if not skills:
-            return self._empty_skill()
-
-        sorted_skills = sorted(
-            skills, key=lambda s: (s.helpful - s.harmful, s.helpful), reverse=True
+        new_content = re.sub(pattern, ace_section, existing_content, flags=re.DOTALL)
+    elif ACE_SECTION_HEADER in existing_content:
+        # Section header exists but no markers - replace whole section until next ##
+        pattern = re.escape(ACE_SECTION_HEADER) + r".*?(?=\n## |\Z)"
+        new_content = re.sub(
+            pattern, ace_section + "\n", existing_content, flags=re.DOTALL
         )
-        sections = self._group_by_section(skills)
-        return self.generate_main(sorted_skills, {}, sections)
+    else:
+        # Append new section
+        new_content = existing_content.rstrip() + "\n\n" + ace_section + "\n"
+
+    # Write atomically
+    _atomic_write_text(claude_md_path, new_content)
+    logger.info(f"Updated CLAUDE.md at {claude_md_path}")
+
+    return claude_md_path
 
 
 # ============================================================================
@@ -556,7 +446,7 @@ class ACELearner:
     Main class for learning from Claude Code sessions.
 
     Reads transcript files directly and uses TOON compression for efficient
-    context transfer to the Reflector.
+    context transfer to the Reflector. Updates CLAUDE.md with learned strategies.
 
     Usage:
         learner = ACELearner(cwd="/path/to/project")
@@ -567,34 +457,35 @@ class ACELearner:
         self,
         cwd: str,
         skillbook_path: Optional[Path] = None,
-        skill_dir: Optional[Path] = None,
+        project_root: Optional[Path] = None,
         ace_llm: Optional[Any] = None,
     ):
         """
         Initialize the learner.
 
         Args:
-            cwd: Working directory for skill storage
+            cwd: Working directory for project detection
             skillbook_path: Where to store the persistent skillbook
-            skill_dir: Where to write skill files
+            project_root: Project root directory (auto-detected if not provided)
             ace_llm: Custom LLM client (optional, for testing)
         """
         self.cwd = cwd
 
-        if skill_dir:
-            self.skill_dir = skill_dir
+        # Determine project root
+        if project_root:
+            self.project_root = project_root
         else:
-            try:
-                self.skill_dir = get_project_skill_dir(cwd)
-            except NotInProjectError:
-                self.skill_dir = (
-                    Path.home() / ".claude" / "skills" / "ace-learnings-global"
-                )
-                logger.info(f"No project root found, using global: {self.skill_dir}")
+            detected_root = find_project_root(Path(cwd))
+            if detected_root:
+                self.project_root = detected_root
+            else:
+                self.project_root = Path.home()
+                logger.info(f"No project root found, using home: {self.project_root}")
 
-        self.skill_generator = SkillGenerator(self.skill_dir)
-        self.skillbook_path = skillbook_path or (self.skill_dir / "skillbook.json")
-        self._skillbook_epoch = _ensure_skillbook_epoch(self.skill_dir)
+        # Skillbook stored in .ace directory within project
+        self.ace_dir = self.project_root / ".ace"
+        self.skillbook_path = skillbook_path or (self.ace_dir / "skillbook.json")
+        self._skillbook_epoch = _ensure_skillbook_epoch(self.ace_dir)
 
         if self.skillbook_path.exists():
             self.skillbook = Skillbook.load_from_file(str(self.skillbook_path))
@@ -621,9 +512,9 @@ class ACELearner:
         )
 
     def _persist_skillbook_update(self, update) -> bool:
-        """Persist an UpdateBatch safely."""
-        with _skillbook_lock(self.skill_dir):
-            current_epoch = _ensure_skillbook_epoch(self.skill_dir)
+        """Persist an UpdateBatch safely and update CLAUDE.md."""
+        with _skillbook_lock(self.ace_dir):
+            current_epoch = _ensure_skillbook_epoch(self.ace_dir)
             if current_epoch != self._skillbook_epoch:
                 logger.warning(
                     "Skillbook was cleared during this learning run; skipping save"
@@ -639,7 +530,9 @@ class ACELearner:
 
             self.skillbook_path.parent.mkdir(parents=True, exist_ok=True)
             _atomic_write_text(self.skillbook_path, skillbook.dumps())
-            self.skill_generator.save(skillbook)
+
+            # Update CLAUDE.md with TOON-compressed skillbook
+            update_claude_md(self.project_root, skillbook)
 
             self.skillbook = skillbook
             return True
@@ -789,17 +682,13 @@ def cmd_learn(args):
     total_lines = _count_transcript_lines(transcript_path)
     cwd = _extract_cwd_from_transcript(transcript_path) or str(Path.cwd())
 
-    # Determine skill directory
+    # Determine project root
     try:
         if hasattr(args, "project") and args.project:
             project_root = Path(args.project).resolve()
-            skill_dir = project_root / ".claude" / "skills" / "ace-learnings"
         else:
             project_root = find_project_root(Path(cwd))
-            if project_root:
-                skill_dir = project_root / ".claude" / "skills" / "ace-learnings"
-            else:
-                skill_dir = Path.home() / ".claude" / "skills" / "ace-learnings-global"
+            if not project_root:
                 project_root = Path.home()
     except Exception as e:
         print(f"error: could not determine project: {e}", file=sys.stderr)
@@ -825,12 +714,12 @@ def cmd_learn(args):
 
     # Run learning
     try:
-        learner = ACELearner(cwd=cwd, skill_dir=skill_dir)
+        learner = ACELearner(cwd=cwd, project_root=project_root)
         success = learner.learn_from_transcript(transcript_path, start_line=start_line)
 
         if success:
             print("\n✓ Learning complete!")
-            print(f"Skills updated: {skill_dir / 'SKILL.md'}")
+            print(f"Updated: {project_root / 'CLAUDE.md'}")
         else:
             print("\n✗ Learning failed")
             sys.exit(1)
@@ -844,8 +733,7 @@ def cmd_insights(args):
     """Show current ACE learned strategies."""
     try:
         project_root = get_project_context(args)
-        skill_dir = get_project_skill_dir(str(project_root))
-        skillbook_path = skill_dir / "skillbook.json"
+        skillbook_path = project_root / ".ace" / "skillbook.json"
     except NotInProjectError as e:
         print(str(e), file=sys.stderr)
         return
@@ -887,8 +775,8 @@ def cmd_remove(args):
     """Remove a specific insight by ID."""
     try:
         project_root = get_project_context(args)
-        skill_dir = get_project_skill_dir(str(project_root))
-        skillbook_path = skill_dir / "skillbook.json"
+        ace_dir = project_root / ".ace"
+        skillbook_path = ace_dir / "skillbook.json"
     except NotInProjectError as e:
         print(str(e), file=sys.stderr)
         return
@@ -916,13 +804,13 @@ def cmd_remove(args):
             print("Use 'ace-learn insights' to see available insights.")
             return
 
-        with _skillbook_lock(skill_dir):
+        with _skillbook_lock(ace_dir):
             skillbook = Skillbook.load_from_file(str(skillbook_path))
             skillbook.remove_skill(target.id)
             _atomic_write_text(skillbook_path, skillbook.dumps())
 
-            generator = SkillGenerator(skill_dir)
-            generator.save(skillbook)
+            # Update CLAUDE.md
+            update_claude_md(project_root, skillbook)
 
         print(f"Removed: {target.content}")
 
@@ -939,24 +827,21 @@ def cmd_clear(args):
 
     try:
         project_root = get_project_context(args)
-        skill_dir = get_project_skill_dir(str(project_root))
-        skillbook_path = skill_dir / "skillbook.json"
+        ace_dir = project_root / ".ace"
+        skillbook_path = ace_dir / "skillbook.json"
     except NotInProjectError as e:
         print(str(e), file=sys.stderr)
         return
 
     try:
-        with _skillbook_lock(skill_dir):
-            _bump_skillbook_epoch(skill_dir)
+        with _skillbook_lock(ace_dir):
+            _bump_skillbook_epoch(ace_dir)
             skillbook = Skillbook()
+            ace_dir.mkdir(parents=True, exist_ok=True)
             _atomic_write_text(skillbook_path, skillbook.dumps())
 
-            categories_dir = skill_dir / "categories"
-            if categories_dir.exists():
-                shutil.rmtree(categories_dir)
-
-            generator = SkillGenerator(skill_dir)
-            generator.save(skillbook)
+            # Update CLAUDE.md with empty skillbook
+            update_claude_md(project_root, skillbook)
 
         print(f"All insights cleared for project: {project_root}")
         print("ACE will start fresh.")
@@ -1011,25 +896,33 @@ def cmd_doctor(_args):
     else:
         print("   - No transcripts found yet (use Claude Code first)")
 
-    # 3. Check skill output location
-    print("\n3. Skill output location...")
+    # 3. Check output locations
+    print("\n3. Output locations...")
     try:
         cwd = Path.cwd()
         project_root = find_project_root(cwd)
         if project_root:
-            skill_dir = project_root / ".claude" / "skills" / "ace-learnings"
             print(f"   Project root: {project_root}")
-            print(f"   Skills will go to: {skill_dir}")
-            if skill_dir.exists():
-                skillbook = skill_dir / "skillbook.json"
-                if skillbook.exists():
-                    print(f"   ✓ Existing skillbook found")
+            claude_md = project_root / "CLAUDE.md"
+            ace_dir = project_root / ".ace"
+            skillbook_path = ace_dir / "skillbook.json"
+            print(f"   CLAUDE.md: {claude_md}")
+            if claude_md.exists():
+                content = claude_md.read_text()
+                if ACE_START_MARKER in content:
+                    print("   ✓ CLAUDE.md has ACE section")
                 else:
-                    print(f"   - No skillbook yet (will be created)")
+                    print("   - CLAUDE.md exists (ACE section will be added)")
+            else:
+                print("   - CLAUDE.md will be created")
+            print(f"   Skillbook: {skillbook_path}")
+            if skillbook_path.exists():
+                print("   ✓ Existing skillbook found")
+            else:
+                print("   - No skillbook yet (will be created)")
         else:
-            global_dir = Path.home() / ".claude" / "skills" / "ace-learnings-global"
             print(f"   No project root found from: {cwd}")
-            print(f"   Skills will go to (global): {global_dir}")
+            print(f"   Will use home directory: {Path.home()}")
     except Exception as e:
         print(f"   Error detecting project: {e}")
 
@@ -1064,19 +957,20 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="ACE learning for Claude Code",
+        description="ACE learning for Claude Code - updates CLAUDE.md with learned strategies",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  ace-learn                  Learn from full latest transcript
+  ace-learn                  Learn from latest transcript, update CLAUDE.md
   ace-learn --lines 500      Learn from last 500 lines only
   ace-learn doctor           Verify prerequisites
   ace-learn insights         Show learned strategies
   ace-learn remove <id>      Remove a specific insight
   ace-learn clear --confirm  Clear all insights
 
-Skills are stored per-project at: <project>/.claude/skills/ace-learnings/
-Global fallback: ~/.claude/skills/ace-learnings-global/
+Learnings are stored in:
+  - CLAUDE.md (TOON-compressed, for Claude Code to read)
+  - .ace/skillbook.json (full skillbook for persistence)
 """,
     )
 

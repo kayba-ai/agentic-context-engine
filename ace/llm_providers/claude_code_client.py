@@ -11,12 +11,15 @@ import logging
 from typing import Any, Optional, Type, TypeVar
 from dataclasses import dataclass
 
+from pydantic import BaseModel
+
 from ..llm import LLMClient, LLMResponse
 
 # Type variable for Pydantic models
-T = TypeVar("T")
+T = TypeVar("T", bound=BaseModel)
 
 logger = logging.getLogger(__name__)
+
 
 # Check if claude CLI is available (handle Windows .cmd extension)
 def _find_claude_cli() -> Optional[str]:
@@ -33,6 +36,7 @@ def _find_claude_cli() -> Optional[str]:
             return claude_path
 
     return None
+
 
 _CLAUDE_CLI_PATH = _find_claude_cli()
 CLAUDE_CODE_CLI_AVAILABLE = _CLAUDE_CLI_PATH is not None
@@ -155,7 +159,8 @@ class ClaudeCodeLLMClient(LLMClient):
         cmd = [
             _CLAUDE_CLI_PATH,
             "--print",  # Non-interactive, print output
-            "--output-format", "text",  # Plain text output (split for Windows compatibility)
+            "--output-format",
+            "text",  # Plain text output (split for Windows compatibility)
         ]
 
         # Determine working directory
@@ -185,7 +190,9 @@ class ClaudeCodeLLMClient(LLMClient):
 
             if result.returncode != 0:
                 error_msg = result.stderr[:500] if result.stderr else "Unknown error"
-                logger.error(f"Claude CLI failed (code {result.returncode}): {error_msg}")
+                logger.error(
+                    f"Claude CLI failed (code {result.returncode}): {error_msg}"
+                )
                 return LLMResponse(
                     text=f"Error: Claude CLI failed with code {result.returncode}",
                     raw={
@@ -271,7 +278,7 @@ Just the raw JSON object."""
             ValueError: If response cannot be parsed after retries
         """
         # Get JSON schema from Pydantic model
-        schema = response_model.model_json_schema()
+        schema = response_model.model_json_schema()  # type: ignore[attr-defined]
         schema_str = json.dumps(schema, indent=2)
 
         # Build structured prompt with schema
@@ -296,7 +303,7 @@ CRITICAL INSTRUCTIONS:
             response = self.complete(structured_prompt, system=system, **kwargs)
 
             # Check for CLI errors
-            if response.raw.get("error"):
+            if response.raw and response.raw.get("error"):
                 last_error = f"CLI error: {response.text}"
                 logger.warning(f"Attempt {attempt + 1}/{max_retries}: {last_error}")
                 continue
@@ -305,8 +312,10 @@ CRITICAL INSTRUCTIONS:
             try:
                 json_text = self._extract_json(response.text)
                 data = json.loads(json_text)
-                result = response_model.model_validate(data)
-                logger.debug(f"Successfully parsed {response_model.__name__} on attempt {attempt + 1}")
+                result = response_model.model_validate(data)  # type: ignore[attr-defined]
+                logger.debug(
+                    f"Successfully parsed {response_model.__name__} on attempt {attempt + 1}"
+                )
                 return result
 
             except json.JSONDecodeError as e:
@@ -339,12 +348,12 @@ CRITICAL INSTRUCTIONS:
         text = text.strip()
 
         # Try to extract from ```json ... ``` blocks
-        json_block_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', text)
+        json_block_match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", text)
         if json_block_match:
             text = json_block_match.group(1).strip()
 
         # If text starts with { or [, assume it's JSON
-        if text.startswith('{') or text.startswith('['):
+        if text.startswith("{") or text.startswith("["):
             # Find the matching closing bracket
             bracket_count = 0
             in_string = False
@@ -355,7 +364,7 @@ CRITICAL INSTRUCTIONS:
                 if escape_next:
                     escape_next = False
                     continue
-                if char == '\\':
+                if char == "\\":
                     escape_next = True
                     continue
                 if char == '"' and not escape_next:
@@ -363,9 +372,9 @@ CRITICAL INSTRUCTIONS:
                     continue
                 if in_string:
                     continue
-                if char in '{[':
+                if char in "{[":
                     bracket_count += 1
-                elif char in '}]':
+                elif char in "}]":
                     bracket_count -= 1
                     if bracket_count == 0:
                         end_pos = i + 1

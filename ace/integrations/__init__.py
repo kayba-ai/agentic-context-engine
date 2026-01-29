@@ -77,20 +77,18 @@ try:
     from .claude_code import (
         ACELearner,
         ACEHookLearner,  # Backwards compatibility alias
-        SkillGenerator,
         CLIClient,
         find_latest_transcript,
         find_project_root,
-        get_project_skill_dir,
+        update_claude_md,
     )
 except ImportError:
     ACELearner = None  # type: ignore
     ACEHookLearner = None  # type: ignore
-    SkillGenerator = None  # type: ignore
     CLIClient = None  # type: ignore
     find_latest_transcript = None  # type: ignore
     find_project_root = None  # type: ignore
-    get_project_skill_dir = None  # type: ignore
+    update_claude_md = None  # type: ignore
 
 __all__ = [
     "wrap_skillbook_context",
@@ -102,11 +100,10 @@ __all__ = [
     # Claude Code learner integration
     "ACELearner",
     "ACEHookLearner",  # Backwards compatibility alias
-    "SkillGenerator",
     "CLIClient",
     "find_latest_transcript",
     "find_project_root",
-    "get_project_skill_dir",
+    "update_claude_md",
     # Feature flags
     "BROWSER_USE_AVAILABLE",
     "LANGCHAIN_AVAILABLE",
