@@ -191,12 +191,40 @@ def _extract_cwd_from_transcript(transcript_path: Path) -> Optional[str]:
 # ============================================================================
 
 
+# Entry types that are not relevant for learning
+_SKIP_ENTRY_TYPES = {
+    "system",  # Claude Code's massive system prompt
+    "file-history-snapshot",  # File backup metadata
+    "file-restore",  # File restore events
+    "summary",  # Conversation summaries
+    "progress",  # Streaming progress indicators (tool execution updates)
+    "queue-operation",  # Internal queue operations
+}
+
+# Patterns that indicate ace-learn recursive content (from previous runs)
+# These create malformed prompts when fed back to Claude CLI
+_ACE_LEARN_PATTERNS = (
+    "ace-learn",
+    "ace.integrations.claude_code",
+    "CLIClientError",
+    "CLI returned error: Exit code",
+    "Learning from transcript",
+    "✓ Learning complete",
+    "✗ Learning failed",
+    "Running Reflector",
+    "Running SkillManager",
+    "ACE Doctor",
+)
+
+
 def _filter_transcript_entry(entry: dict) -> Optional[dict]:
     """
     Filter a transcript entry to remove Claude Code meta-content.
 
     Removes:
     - System prompt entries (type: "system") - contains Claude Code's massive instructions
+    - File history snapshots and restores (metadata only)
+    - Summary entries (conversation summaries)
     - <system-reminder> blocks in user/assistant messages
     - <ide_*> prefixed blocks (IDE-injected content)
 
@@ -205,9 +233,8 @@ def _filter_transcript_entry(entry: dict) -> Optional[dict]:
     """
     entry_type = entry.get("type")
 
-    # Skip system prompt entries entirely - these contain Claude Code's
-    # instructions (~10k+ tokens) which aren't relevant for learning
-    if entry_type == "system":
+    # Skip meta entries that aren't relevant for learning
+    if entry_type in _SKIP_ENTRY_TYPES:
         return None
 
     # For user/assistant messages, filter content blocks

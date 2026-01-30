@@ -137,13 +137,13 @@ class CLIClient(LLMClient):
             CLIClientError: If CLI execution fails
         """
         # Build command based on CLI type
-        # Note: Prompt is passed via stdin to avoid OS argument length limits
+        # Note: Prompt is passed via stdin (-p -) to avoid OS argument length limits
         if self._is_js:
             # Running a JS file directly with node
-            cmd = ["node", str(self.cli_path), "--print"]
+            cmd = ["node", str(self.cli_path), "--print", "-p", "-"]
         else:
             # Running the claude command
-            cmd = [str(self.cli_path), "--print"]
+            cmd = [str(self.cli_path), "--print", "-p", "-"]
 
         # Strip API keys to enforce subscription-only mode
         env = os.environ.copy()
@@ -169,6 +169,12 @@ class CLIClient(LLMClient):
                         result.stderr.strip() or f"Exit code: {result.returncode}"
                     )
                     logger.warning(f"CLI returned error: {error_msg}")
+                    logger.debug(
+                        f"CLI stdout: {result.stdout[:500] if result.stdout else '(empty)'}"
+                    )
+                    logger.debug(
+                        f"CLI stderr: {result.stderr[:500] if result.stderr else '(empty)'}"
+                    )
                     last_error = CLIClientError(f"CLI error: {error_msg}")
                     continue
 
