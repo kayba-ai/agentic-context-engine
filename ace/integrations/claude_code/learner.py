@@ -191,42 +191,114 @@ def _extract_cwd_from_transcript(transcript_path: Path) -> Optional[str]:
 # ============================================================================
 
 
+def _filter_transcript_entry(entry: dict) -> Optional[dict]:
+    """
+    Filter a transcript entry to remove Claude Code meta-content.
+
+    Removes:
+    - System prompt entries (type: "system") - contains Claude Code's massive instructions
+    - <system-reminder> blocks in user/assistant messages
+    - <ide_*> prefixed blocks (IDE-injected content)
+
+    Returns:
+        Filtered entry, or None if entry should be skipped entirely.
+    """
+    entry_type = entry.get("type")
+
+    # Skip system prompt entries entirely - these contain Claude Code's
+    # instructions (~10k+ tokens) which aren't relevant for learning
+    if entry_type == "system":
+        return None
+
+    # For user/assistant messages, filter content blocks
+    if entry_type in ("user", "assistant"):
+        message = entry.get("message", {})
+        content = message.get("content", [])
+
+        # Handle string content (simple text messages)
+        if isinstance(content, str):
+            # Strip <system-reminder> blocks
+            filtered_text = re.sub(
+                r"<system-reminder>.*?</system-reminder>", "", content, flags=re.DOTALL
+            )
+            # Skip <ide_*> prefixed content
+            if filtered_text.strip().startswith("<ide_"):
+                return None
+            if not filtered_text.strip():
+                return None
+            return {**entry, "message": {**message, "content": filtered_text}}
+
+        # Handle list content (structured blocks)
+        if isinstance(content, list):
+            filtered_content = []
+            for block in content:
+                if isinstance(block, dict) and block.get("type") == "text":
+                    text = block.get("text", "")
+                    # Strip <system-reminder> blocks
+                    text = re.sub(
+                        r"<system-reminder>.*?</system-reminder>",
+                        "",
+                        text,
+                        flags=re.DOTALL,
+                    )
+                    # Skip <ide_*> prefixed blocks
+                    if text.strip().startswith("<ide_"):
+                        continue
+                    # Skip if empty after filtering
+                    if not text.strip():
+                        continue
+                    filtered_content.append({**block, "text": text})
+                else:
+                    # Keep non-text blocks (tool_use, tool_result, etc.)
+                    filtered_content.append(block)
+
+            if not filtered_content:
+                return None
+
+            return {**entry, "message": {**message, "content": filtered_content}}
+
+    # Pass through other entry types unchanged
+    return entry
+
+
 def toon_transcript(transcript_path: Path, start_line: int = 0) -> str:
     """
     Read transcript .jsonl and convert to TOON format for Reflector.
+
+    Filters out Claude Code meta-content:
+    - System prompt entries (massive instruction set)
+    - <system-reminder> blocks
+    - <ide_*> prefixed content
 
     Args:
         transcript_path: Path to the .jsonl transcript
         start_line: Start reading from this line (0-indexed)
 
     Returns:
-        TOON-encoded transcript entries
+        TOON-encoded transcript entries (filtered)
     """
-    try:
-        from toon import encode
-    except ImportError:
-        # Fallback to compact JSON if TOON not available
-        logger.warning("TOON not installed, using compact JSON")
-        entries = []
-        with transcript_path.open() as f:
-            for i, line in enumerate(f):
-                if i >= start_line and line.strip():
-                    try:
-                        entries.append(json.loads(line))
-                    except json.JSONDecodeError:
-                        continue
-        return json.dumps(entries, separators=(",", ":"))
-
+    # Collect and filter entries
     entries = []
     with transcript_path.open() as f:
         for i, line in enumerate(f):
             if i >= start_line and line.strip():
                 try:
-                    entries.append(json.loads(line))
+                    entry = json.loads(line)
+                    # Filter out meta-content
+                    filtered = _filter_transcript_entry(entry)
+                    if filtered:
+                        entries.append(filtered)
                 except json.JSONDecodeError:
                     continue
 
-    return encode(entries, {"delimiter": "\t"})
+    # Encode with TOON or fallback to JSON
+    try:
+        from toon import encode
+
+        return encode(entries, {"delimiter": "\t"})
+    except ImportError:
+        logger.warning("TOON not installed, using compact JSON")
+        return json.dumps(entries, separators=(",", ":"))
 
 
 def _get_transcript_feedback(transcript_path: Path, start_line: int = 0) -> str:
