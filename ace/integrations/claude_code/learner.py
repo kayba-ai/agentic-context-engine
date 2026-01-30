@@ -30,8 +30,6 @@ import logging
 import os
 import shutil
 import tempfile
-import uuid
-from contextlib import contextmanager
 from pathlib import Path
 from typing import List, Optional, Any
 
@@ -217,6 +215,11 @@ _ACE_LEARN_PATTERNS = (
 )
 
 
+def _contains_ace_learn_content(text: str) -> bool:
+    """Check if text contains ace-learn recursive content."""
+    return any(pattern in text for pattern in _ACE_LEARN_PATTERNS)
+
+
 def _filter_transcript_entry(entry: dict) -> Optional[dict]:
     """
     Filter a transcript entry to remove Claude Code meta-content.
@@ -227,6 +230,7 @@ def _filter_transcript_entry(entry: dict) -> Optional[dict]:
     - Summary entries (conversation summaries)
     - <system-reminder> blocks in user/assistant messages
     - <ide_*> prefixed blocks (IDE-injected content)
+    - ace-learn recursive content (previous run output)
 
     Returns:
         Filtered entry, or None if entry should be skipped entirely.
@@ -251,6 +255,9 @@ def _filter_transcript_entry(entry: dict) -> Optional[dict]:
             # Skip <ide_*> prefixed content
             if filtered_text.strip().startswith("<ide_"):
                 return None
+            # Skip ace-learn recursive content
+            if _contains_ace_learn_content(filtered_text):
+                return None
             if not filtered_text.strip():
                 return None
             return {**entry, "message": {**message, "content": filtered_text}}
@@ -270,6 +277,9 @@ def _filter_transcript_entry(entry: dict) -> Optional[dict]:
                     )
                     # Skip <ide_*> prefixed blocks
                     if text.strip().startswith("<ide_"):
+                        continue
+                    # Skip ace-learn recursive content
+                    if _contains_ace_learn_content(text):
                         continue
                     # Skip if empty after filtering
                     if not text.strip():
@@ -471,48 +481,8 @@ def update_claude_md(project_root: Path, skillbook: Skillbook) -> Path:
 
 
 # ============================================================================
-# Skillbook Persistence (concurrent-safe)
+# Skillbook Persistence
 # ============================================================================
-
-_SKILLBOOK_EPOCH_FILENAME = ".ace-skillbook-epoch"
-_SKILLBOOK_LOCK_FILENAME = ".ace-skillbook.lock"
-
-
-def _skillbook_epoch_path(skill_dir: Path) -> Path:
-    return skill_dir / _SKILLBOOK_EPOCH_FILENAME
-
-
-def _ensure_skillbook_epoch(skill_dir: Path) -> str:
-    epoch_path = _skillbook_epoch_path(skill_dir)
-    if epoch_path.exists():
-        epoch = epoch_path.read_text(encoding="utf-8").strip()
-        if epoch:
-            return epoch
-    return "0"
-
-
-def _bump_skillbook_epoch(skill_dir: Path) -> str:
-    epoch = uuid.uuid4().hex
-    epoch_path = _skillbook_epoch_path(skill_dir)
-    epoch_path.parent.mkdir(parents=True, exist_ok=True)
-    epoch_path.write_text(epoch, encoding="utf-8")
-    return epoch
-
-
-@contextmanager
-def _skillbook_lock(skill_dir: Path):
-    lock_path = skill_dir / _SKILLBOOK_LOCK_FILENAME
-    lock_path.parent.mkdir(parents=True, exist_ok=True)
-
-    with lock_path.open("w", encoding="utf-8") as f:
-        if os.name == "posix":
-            try:
-                import fcntl
-
-                fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-            except Exception:
-                pass
-        yield
 
 
 def _atomic_write_text(path: Path, content: str) -> None:
@@ -584,7 +554,6 @@ class ACELearner:
         # Skillbook stored in .ace directory within project
         self.ace_dir = self.project_root / ".ace"
         self.skillbook_path = skillbook_path or (self.ace_dir / "skillbook.json")
-        self._skillbook_epoch = _ensure_skillbook_epoch(self.ace_dir)
 
         if self.skillbook_path.exists():
             self.skillbook = Skillbook.load_from_file(str(self.skillbook_path))
@@ -612,29 +581,21 @@ class ACELearner:
 
     def _persist_skillbook_update(self, update) -> bool:
         """Persist an UpdateBatch safely and update CLAUDE.md."""
-        with _skillbook_lock(self.ace_dir):
-            current_epoch = _ensure_skillbook_epoch(self.ace_dir)
-            if current_epoch != self._skillbook_epoch:
-                logger.warning(
-                    "Skillbook was cleared during this learning run; skipping save"
-                )
-                return False
+        if self.skillbook_path.exists():
+            skillbook = Skillbook.load_from_file(str(self.skillbook_path))
+        else:
+            skillbook = Skillbook()
 
-            if self.skillbook_path.exists():
-                skillbook = Skillbook.load_from_file(str(self.skillbook_path))
-            else:
-                skillbook = Skillbook()
+        skillbook.apply_update(update)
 
-            skillbook.apply_update(update)
+        self.skillbook_path.parent.mkdir(parents=True, exist_ok=True)
+        _atomic_write_text(self.skillbook_path, skillbook.dumps())
 
-            self.skillbook_path.parent.mkdir(parents=True, exist_ok=True)
-            _atomic_write_text(self.skillbook_path, skillbook.dumps())
+        # Update CLAUDE.md with TOON-compressed skillbook
+        update_claude_md(self.project_root, skillbook)
 
-            # Update CLAUDE.md with TOON-compressed skillbook
-            update_claude_md(self.project_root, skillbook)
-
-            self.skillbook = skillbook
-            return True
+        self.skillbook = skillbook
+        return True
 
     @retry(
         stop=stop_after_attempt(3),
@@ -903,13 +864,12 @@ def cmd_remove(args):
             print("Use 'ace-learn insights' to see available insights.")
             return
 
-        with _skillbook_lock(ace_dir):
-            skillbook = Skillbook.load_from_file(str(skillbook_path))
-            skillbook.remove_skill(target.id)
-            _atomic_write_text(skillbook_path, skillbook.dumps())
+        skillbook = Skillbook.load_from_file(str(skillbook_path))
+        skillbook.remove_skill(target.id)
+        _atomic_write_text(skillbook_path, skillbook.dumps())
 
-            # Update CLAUDE.md
-            update_claude_md(project_root, skillbook)
+        # Update CLAUDE.md
+        update_claude_md(project_root, skillbook)
 
         print(f"Removed: {target.content}")
 
@@ -933,14 +893,12 @@ def cmd_clear(args):
         return
 
     try:
-        with _skillbook_lock(ace_dir):
-            _bump_skillbook_epoch(ace_dir)
-            skillbook = Skillbook()
-            ace_dir.mkdir(parents=True, exist_ok=True)
-            _atomic_write_text(skillbook_path, skillbook.dumps())
+        skillbook = Skillbook()
+        ace_dir.mkdir(parents=True, exist_ok=True)
+        _atomic_write_text(skillbook_path, skillbook.dumps())
 
-            # Update CLAUDE.md with empty skillbook
-            update_claude_md(project_root, skillbook)
+        # Update CLAUDE.md with empty skillbook
+        update_claude_md(project_root, skillbook)
 
         print(f"All insights cleared for project: {project_root}")
         print("ACE will start fresh.")
@@ -983,6 +941,26 @@ def cmd_doctor(_args):
         print("   ✗ Claude CLI not found in PATH")
         print("     Install with: npm install -g @anthropic-ai/claude-code")
         all_ok = False
+
+    # 1b. Check patched CLI
+    print("\n   Patched CLI...")
+    try:
+        from .prompt_patcher import get_patch_info
+
+        patch_info = get_patch_info()
+        if patch_info["patched_cli_exists"]:
+            status = "fresh" if patch_info["is_fresh"] else "stale"
+            version = patch_info.get("patched_version") or "unknown"
+            print(f"   ✓ Patched CLI available (v{version}, {status})")
+            print(f"     {patch_info['patched_cli_path']}")
+        else:
+            print("   - Patched CLI not yet created")
+            if patch_info["source_cli_path"]:
+                print("     Will be created on first ace-learn run")
+            else:
+                print("     ✗ Cannot create - source cli.js not found")
+    except Exception as e:
+        print(f"   - Could not check patch status: {e}")
 
     # 2. Check transcript location
     print("\n2. Transcript location...")
