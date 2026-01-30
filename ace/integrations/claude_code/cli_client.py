@@ -77,7 +77,7 @@ class CLIClient(LLMClient):
     """
     LLM client that uses Claude Code CLI for subscription-based access.
 
-    This client runs `claude --print -p "<prompt>"` to get responses,
+    This client runs `claude --print` with prompts passed via stdin,
     allowing ACE to use a Claude Code subscription instead of API calls.
 
     CLI Resolution Order:
@@ -137,12 +137,13 @@ class CLIClient(LLMClient):
             CLIClientError: If CLI execution fails
         """
         # Build command based on CLI type
+        # Note: Prompt is passed via stdin to avoid OS argument length limits
         if self._is_js:
             # Running a JS file directly with node
-            cmd = ["node", str(self.cli_path), "--print", "-p", prompt]
+            cmd = ["node", str(self.cli_path), "--print"]
         else:
             # Running the claude command
-            cmd = [str(self.cli_path), "--print", "-p", prompt]
+            cmd = [str(self.cli_path), "--print"]
 
         # Strip API keys to enforce subscription-only mode
         env = os.environ.copy()
@@ -156,6 +157,7 @@ class CLIClient(LLMClient):
 
                 result = subprocess.run(
                     cmd,
+                    input=prompt,  # Pass via stdin to avoid argument length limits
                     capture_output=True,
                     text=True,
                     timeout=self.timeout,
