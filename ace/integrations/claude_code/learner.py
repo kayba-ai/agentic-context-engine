@@ -197,6 +197,7 @@ _SKIP_ENTRY_TYPES = {
     "summary",  # Conversation summaries
     "progress",  # Streaming progress indicators (tool execution updates)
     "queue-operation",  # Internal queue operations
+    "thinking",  # Claude's internal reasoning (redundant with actions)
 }
 
 # Patterns that indicate ace-learn recursive content (from previous runs)
@@ -220,6 +221,20 @@ def _contains_ace_learn_content(text: str) -> bool:
     return any(pattern in text for pattern in _ACE_LEARN_PATTERNS)
 
 
+# Tool result compression settings
+MAX_RESULT_SIZE = 1000  # chars
+HEAD_SIZE = 500
+TAIL_SIZE = 200
+
+
+def _compress_tool_result(content: str) -> str:
+    """Truncate large tool results, keeping head and tail."""
+    if not isinstance(content, str) or len(content) <= MAX_RESULT_SIZE:
+        return content
+    truncated = len(content) - HEAD_SIZE - TAIL_SIZE
+    return f"{content[:HEAD_SIZE]}\n... [{truncated} chars truncated] ...\n{content[-TAIL_SIZE:]}"
+
+
 def _filter_transcript_entry(entry: dict) -> Optional[dict]:
     """
     Filter a transcript entry to remove Claude Code meta-content.
@@ -231,9 +246,10 @@ def _filter_transcript_entry(entry: dict) -> Optional[dict]:
     - <system-reminder> blocks in user/assistant messages
     - <ide_*> prefixed blocks (IDE-injected content)
     - ace-learn recursive content (previous run output)
+    - Metadata fields not needed for learning (uuids, timestamps, etc.)
 
     Returns:
-        Filtered entry, or None if entry should be skipped entirely.
+        Filtered entry with only essential fields, or None if entry should be skipped.
     """
     entry_type = entry.get("type")
 
@@ -260,12 +276,16 @@ def _filter_transcript_entry(entry: dict) -> Optional[dict]:
                 return None
             if not filtered_text.strip():
                 return None
-            return {**entry, "message": {**message, "content": filtered_text}}
+            # Return minimal entry - strip metadata not needed for learning
+            return {"type": entry_type, "content": filtered_text}
 
         # Handle list content (structured blocks)
         if isinstance(content, list):
             filtered_content = []
             for block in content:
+                # Skip thinking blocks (Claude's internal reasoning - redundant with actions)
+                if isinstance(block, dict) and block.get("type") == "thinking":
+                    continue
                 if isinstance(block, dict) and block.get("type") == "text":
                     text = block.get("text", "")
                     # Strip <system-reminder> blocks
@@ -285,17 +305,24 @@ def _filter_transcript_entry(entry: dict) -> Optional[dict]:
                     if not text.strip():
                         continue
                     filtered_content.append({**block, "text": text})
+                elif isinstance(block, dict) and block.get("type") == "tool_result":
+                    # Compress large tool results (but keep errors in full)
+                    result_content = block.get("content", "")
+                    if isinstance(result_content, str) and not block.get("is_error"):
+                        result_content = _compress_tool_result(result_content)
+                    filtered_content.append({**block, "content": result_content})
                 else:
-                    # Keep non-text blocks (tool_use, tool_result, etc.)
+                    # Keep other blocks (tool_use, etc.)
                     filtered_content.append(block)
 
             if not filtered_content:
                 return None
 
-            return {**entry, "message": {**message, "content": filtered_content}}
+            # Return minimal entry - strip metadata not needed for learning
+            return {"type": entry_type, "content": filtered_content}
 
-    # Pass through other entry types unchanged
-    return entry
+    # Skip other entry types - they're not relevant for learning
+    return None
 
 
 def toon_transcript(transcript_path: Path, start_line: int = 0) -> str:
