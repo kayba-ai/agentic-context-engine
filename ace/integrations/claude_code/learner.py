@@ -720,6 +720,13 @@ class ACELearner:
 
         except Exception as e:
             logger.error(f"Learning failed: {e}", exc_info=True)
+            # Add helpful hints for common CLI failures
+            if "CLI error" in str(e) or "Exit code" in str(e):
+                logger.info(
+                    "Hint: CLI failures often occur after using /resume "
+                    "(transcript context may be incomplete). "
+                    "Try again after more conversation, or use ace-learn-lines."
+                )
             return False
 
 
@@ -809,10 +816,21 @@ def cmd_learn(args):
             print(f"Updated: {project_root / 'CLAUDE.md'}")
         else:
             print("\n✗ Learning failed")
+            print(
+                "\nHint: If you used /resume, the transcript context may be incomplete.",
+                file=sys.stderr,
+            )
+            print("Try again after more conversation, or use ace-learn-lines.", file=sys.stderr)
             sys.exit(1)
     except Exception as e:
         logger.error(f"Learning failed: {e}", exc_info=True)
         print(f"\n✗ Learning failed: {e}", file=sys.stderr)
+        if "CLI error" in str(e) or "Exit code" in str(e):
+            print(
+                "\nHint: If you used /resume, the transcript context may be incomplete.",
+                file=sys.stderr,
+            )
+            print("Try again after more conversation, or use ace-learn-lines.", file=sys.stderr)
         sys.exit(1)
 
 
