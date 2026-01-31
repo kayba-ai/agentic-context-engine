@@ -934,6 +934,60 @@ def cmd_clear(args):
         print(f"Error clearing insights: {e}")
 
 
+def cmd_setup(_args):
+    """Install ACE slash commands into Claude Code."""
+    commands_dir = Path(__file__).parent / "commands"
+    target_dir = Path.home() / ".claude" / "commands"
+
+    if not commands_dir.exists():
+        print("Error: Command templates not found in package")
+        return 1
+
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    installed = []
+    for cmd_file in commands_dir.glob("*.md"):
+        target_path = target_dir / cmd_file.name
+        shutil.copy2(cmd_file, target_path)
+        cmd_name = cmd_file.stem
+        installed.append(cmd_name)
+
+    if installed:
+        print("Installed ACE slash commands:\n")
+        for cmd in sorted(installed):
+            print(f"  /{cmd}")
+        print(f"\nCommands installed to: {target_dir}")
+        print("\nYou can now use these commands in Claude Code.")
+    else:
+        print("No command files found to install.")
+        return 1
+
+    return 0
+
+
+def _get_installed_commands() -> list:
+    """Check which ACE slash commands are installed."""
+    commands_dir = Path.home() / ".claude" / "commands"
+    if not commands_dir.exists():
+        return []
+
+    ace_commands = [
+        "ace-learn",
+        "ace-learn-lines",
+        "ace-doctor",
+        "ace-insights",
+        "ace-remove",
+        "ace-clear",
+    ]
+
+    installed = []
+    for cmd in ace_commands:
+        if (commands_dir / f"{cmd}.md").exists():
+            installed.append(cmd)
+
+    return installed
+
+
 def cmd_doctor(_args):
     """Verify ACE prerequisites and configuration."""
     import subprocess
@@ -1040,6 +1094,21 @@ def cmd_doctor(_args):
         print("   ⚠ python-toon not installed (will use JSON fallback)")
         print("     Install with: pip install python-toon")
 
+    # 5. Check slash commands
+    print("\n5. Slash commands...")
+    installed_cmds = _get_installed_commands()
+    expected_cmds = ["ace-learn", "ace-learn-lines", "ace-doctor", "ace-insights", "ace-remove", "ace-clear"]
+    if len(installed_cmds) == len(expected_cmds):
+        print(f"   ✓ All {len(installed_cmds)} slash commands installed")
+    elif installed_cmds:
+        missing = set(expected_cmds) - set(installed_cmds)
+        print(f"   ⚠ {len(installed_cmds)}/{len(expected_cmds)} commands installed")
+        print(f"     Missing: {', '.join(sorted(missing))}")
+        print("     Run: ace-learn setup")
+    else:
+        print("   - No slash commands installed")
+        print("     Run: ace-learn setup")
+
     # Summary
     print("\n" + "=" * 50)
     if all_ok:
@@ -1067,6 +1136,7 @@ def main():
 Examples:
   ace-learn                  Learn from latest transcript, update CLAUDE.md
   ace-learn --lines 500      Learn from last 500 lines only
+  ace-learn setup            Install /ace-* slash commands into Claude Code
   ace-learn doctor           Verify prerequisites
   ace-learn insights         Show learned strategies
   ace-learn remove <id>      Remove a specific insight
@@ -1079,6 +1149,9 @@ Learnings are stored in:
     )
 
     subparsers = parser.add_subparsers(dest="command")
+
+    # Setup command
+    subparsers.add_parser("setup", help="Install ACE slash commands into Claude Code")
 
     # Doctor command
     subparsers.add_parser("doctor", help="Verify prerequisites and configuration")
@@ -1120,7 +1193,9 @@ Learnings are stored in:
 
     args = parser.parse_args()
 
-    if args.command == "doctor":
+    if args.command == "setup":
+        sys.exit(cmd_setup(args))
+    elif args.command == "doctor":
         sys.exit(cmd_doctor(args))
     elif args.command == "insights":
         cmd_insights(args)
