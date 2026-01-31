@@ -276,9 +276,6 @@ which ace-skill-improve
 ```bash
 # Recreate it
 ace-skill-improve setup --skill /path/to/your/SKILL.md
-
-# Or via ace-learn setup (creates all ACE slash commands)
-ace-learn setup
 ```
 
 ## Example Session

@@ -192,28 +192,37 @@ agent = ACEClaudeCode(working_dir="./project", skillbook_path="coding_expert.jso
 ACE integrates directly with [Claude Code](https://claude.ai/code) to learn from your coding sessions:
 
 ```bash
-# One-time setup
+# Install
 pip install ace-framework
-ace-learn setup
+
+# After a Claude Code session, learn from it
+ace-learn
+
+# Check prerequisites (transcripts, project detection, patched cli.js status)
+ace-learn doctor
 ```
 
-Then add your Anthropic API key to `~/.ace/.env` and start coding! ACE learns automatically from each session.
+No API keys required: `ace-learn` uses your existing Claude Code subscription (via the `claude` CLI) and reads Claude Code transcripts from `~/.claude/projects/`.
+
+**Project root detection:**
+- ACE writes to your project root (`<project>/CLAUDE.md` and `<project>/.ace/skillbook.json`).
+- In monorepos, create a `.ace-root` file at the repo root (or use `ACE_PROJECT_DIR` / `ace-learn --project`).
 
 **Slash Commands:**
-- `/ace-on` / `/ace-off` - Enable/disable learning
-- `/ace-insights` - View learned strategies
-- `/ace-remove` - Remove a specific insight
-- `/ace-clear` - Reset all insights
+- Optional: create `~/.claude/commands/ace-learn.md` to use `/ace-learn` inside Claude Code (Claude slash commands are just Markdown files).
+- Other useful commands mirror the CLI: `/ace-insights`, `/ace-remove`, `/ace-clear` (if you create matching files in `~/.claude/commands/`).
 
 **CLI Commands:**
 ```bash
-ace-learn setup       # Configure Claude Code hook
+ace-learn             # Learn from latest transcript, update CLAUDE.md
+ace-learn --lines 500 # Learn from last N transcript lines only
+ace-learn doctor      # Verify prerequisites and configuration
 ace-learn insights    # Show learned strategies
 ace-learn remove <id> # Remove insight by ID
-ace-learn clear       # Reset skillbook
+ace-learn clear --confirm # Reset skillbook
 ```
 
-**How it works:** ACE uses a Stop hook to analyze your sessions after each Claude response, extracting patterns about what works and what doesn't.
+**How it works:** You trigger learning manually by running `ace-learn`, which reads the latest Claude Code transcript and writes learned strategies into your project's `CLAUDE.md` (plus a persistent `.ace/skillbook.json`).
 
 ---
 
