@@ -1,11 +1,11 @@
-"""Tests for Claude Code hook project root detection and skill directory resolution.
+"""Tests for Claude Code hook project root detection.
 
 Tests the following functionality:
 - find_project_root() with various marker combinations
-- .claude directory taking priority over .git (nested repo scenario)
+- .ace-root marker taking priority over .git (monorepo scenario)
 - ACE_PROJECT_DIR environment override
-- Global fallback when no project root found
-- Transcript-first parsing behavior
+- Home directory fallback when no project root found
+- Transcript cwd extraction
 """
 
 import json
@@ -152,8 +152,8 @@ class TestFindProjectRoot(unittest.TestCase):
 
 
 @pytest.mark.unit
-class TestSkillDirResolution(unittest.TestCase):
-    """Test skill directory resolution functionality."""
+class TestACELearnerInit(unittest.TestCase):
+    """Test ACELearner initialization with various project configurations."""
 
     def setUp(self):
         """Set up temporary directory structure for testing."""
@@ -169,30 +169,33 @@ class TestSkillDirResolution(unittest.TestCase):
         os.environ.clear()
         os.environ.update(self.original_env)
 
-    def test_get_project_skill_dir(self):
-        """Test getting project skill directory."""
-        from ace.integrations.claude_code.learner import get_project_skill_dir
-
+    def test_ace_learner_detects_project_root(self):
+        """Test ACELearner correctly detects project root from .git."""
         project = Path(self.temp_dir) / "project"
         project.mkdir()
         (project / ".git").mkdir()
 
-        result = get_project_skill_dir(str(project))
-        expected = project / ".claude" / "skills" / "ace-learnings"
-        self.assertEqual(result, expected)
+        with patch("ace.integrations.claude_code.learner.CLIClient") as mock_cli:
+            mock_cli.return_value = MagicMock()
 
-    def test_get_project_skill_dir_no_project(self):
-        """Test that NotInProjectError is raised when no project found."""
-        from ace.integrations.claude_code.learner import (
-            get_project_skill_dir,
-            NotInProjectError,
-        )
+            from ace.integrations.claude_code.learner import ACELearner
 
-        no_project = Path(self.temp_dir) / "no_project"
-        no_project.mkdir()
+            learner = ACELearner(cwd=str(project))
+            self.assertEqual(learner.project_root, project)
+            self.assertEqual(learner.ace_dir, project / ".ace")
 
-        with self.assertRaises(NotInProjectError):
-            get_project_skill_dir(str(no_project))
+    def test_ace_learner_with_explicit_project_root(self):
+        """Test ACELearner with explicit project_root parameter."""
+        project = Path(self.temp_dir) / "project"
+        project.mkdir()
+
+        with patch("ace.integrations.claude_code.learner.CLIClient") as mock_cli:
+            mock_cli.return_value = MagicMock()
+
+            from ace.integrations.claude_code.learner import ACELearner
+
+            learner = ACELearner(cwd=str(self.temp_dir), project_root=project)
+            self.assertEqual(learner.project_root, project)
 
 
 @pytest.mark.unit
@@ -263,8 +266,8 @@ class TestTranscriptFirstBehavior(unittest.TestCase):
 
 
 @pytest.mark.unit
-class TestGlobalFallback(unittest.TestCase):
-    """Test global skill directory fallback."""
+class TestHomeFallback(unittest.TestCase):
+    """Test home directory fallback when no project root found."""
 
     def setUp(self):
         """Set up temporary directory structure."""
@@ -277,8 +280,8 @@ class TestGlobalFallback(unittest.TestCase):
 
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    def test_ace_learner_global_fallback(self):
-        """Test that ACELearner falls back to global skill dir."""
+    def test_ace_learner_home_fallback(self):
+        """Test that ACELearner falls back to home directory when no project found."""
         # Create directory with no project markers
         no_project = Path(self.temp_dir) / "no_project"
         no_project.mkdir()
@@ -291,11 +294,9 @@ class TestGlobalFallback(unittest.TestCase):
 
             learner = ACELearner(cwd=str(no_project))
 
-            # Should use global skill directory
-            expected_global = (
-                Path.home() / ".claude" / "skills" / "ace-learnings-global"
-            )
-            self.assertEqual(learner.skill_dir, expected_global)
+            # Should fallback to home directory
+            self.assertEqual(learner.project_root, Path.home())
+            self.assertEqual(learner.ace_dir, Path.home() / ".ace")
 
 
 if __name__ == "__main__":

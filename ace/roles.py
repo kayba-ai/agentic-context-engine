@@ -446,6 +446,10 @@ class ExtractedLearning(BaseModel):
     evidence: str = Field(
         default="", description="Evidence from execution supporting this learning"
     )
+    justification: str = Field(
+        default="",
+        description="Why this learning was chosen: generalizable pattern, explicit preference, etc.",
+    )
 
 
 class SkillTag(BaseModel):

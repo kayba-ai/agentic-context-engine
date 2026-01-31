@@ -477,3 +477,15 @@ Set your LLM API key for examples and demos:
 export OPENAI_API_KEY="your-api-key"
 # Or use other providers: ANTHROPIC_API_KEY, GOOGLE_API_KEY, etc.
 ```
+
+## ACE Learned Strategies
+
+<!-- ACE:START - Do not edit manually -->
+skills[6	]{id	section	content	helpful	harmful	neutral}:
+  claude_code_transcripts-00001	claude_code_transcripts	Filter 'progress' and 'queue-operation' entry types from transcripts	1	0	0
+  cli_debugging-00002	cli_debugging	Log subprocess stdout/stderr before retrying failed CLI commands	2	0	0
+  cli_input_limits-00003	cli_input_limits	Use --lines flag to limit transcript size for CLI prompt limits	2	0	0
+  transcript_compression-00004	transcript_compression	"Return minimal entries with only {type, content} fields, discarding all metadata"	2	0	0
+  transcript_compression-00005	transcript_compression	"Use head+tail truncation for tool results: 500 chars start, 200 chars end"	1	0	0
+  transcript_compression-00006	transcript_compression	Filter 'thinking' blocks from nested content arrays, not just entry types	1	0	0
+<!-- ACE:END -->

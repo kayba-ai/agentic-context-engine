@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-import re
 import subprocess
 import shutil
 from pathlib import Path
@@ -32,7 +31,12 @@ def _resolve_cli_path(cli_path: Optional[str]) -> Path:
 
     1. Explicit parameter (cli_path)
     2. ACE_CLI_PATH environment variable
-    3. System 'claude' binary from PATH
+    3. Patched cli.js (auto-created if possible)
+    4. System 'claude' binary from PATH
+
+    The patched cli.js replaces Claude Code's massive system prompt with a
+    minimal ACE-focused one. This prevents tool_use attempts in --print mode
+    and significantly reduces token overhead.
 
     Returns:
         Path to the CLI executable
@@ -55,14 +59,27 @@ def _resolve_cli_path(cli_path: Optional[str]) -> Path:
             return path
         logger.warning(f"ACE_CLI_PATH set but not found: {env_path}")
 
-    # 3. System claude binary
+    # 3. Try patched cli.js (auto-created if possible)
+    try:
+        from .prompt_patcher import get_or_create_patched_cli
+
+        patched = get_or_create_patched_cli()
+        if patched:
+            logger.info(f"Using patched CLI: {patched}")
+            return patched
+    except Exception as e:
+        logger.debug(f"Could not create patched CLI: {e}")
+
+    # 4. Fallback: system claude binary
     claude_path = shutil.which("claude")
     if claude_path:
+        logger.info("Using system claude (patching unavailable)")
         return Path(claude_path)
 
     raise FileNotFoundError(
         "Claude CLI not found. Checked:\n"
         "  - ACE_CLI_PATH environment variable\n"
+        "  - Patched cli.js (~/.ace/claude-learner/cli.js)\n"
         "  - 'claude' in PATH\n\n"
         "Install with: npm install -g @anthropic-ai/claude-code"
     )
@@ -204,23 +221,20 @@ class CLIClient(LLMClient):
         """
         Generate completion using Claude CLI.
 
-        Note: The 'system' parameter is ignored because Claude Code
-        injects its own system prompt. To customize the system prompt,
-        use the prompt patcher.
+        When using a patched CLI (default), the system prompt is replaced with
+        a minimal ACE-focused prompt. When using the system claude binary,
+        the 'system' parameter is prepended to the user prompt as a workaround.
 
         Args:
             prompt: Input prompt text
-            system: Ignored (Claude Code has its own system prompt)
+            system: System prompt (prepended if using unpatched CLI)
             **kwargs: Ignored (CLI doesn't support additional params)
 
         Returns:
             LLMResponse containing the generated text
         """
-        if system:
-            logger.debug("System prompt ignored - Claude Code uses its own")
-
         # Combine system prompt into user prompt if provided
-        # This is a workaround since CLI doesn't support system messages
+        # This is needed when using the unpatched system CLI
         full_prompt = prompt
         if system:
             full_prompt = f"{system}\n\n{prompt}"

@@ -91,7 +91,8 @@ Return ONLY this JSON object:
     {{
       "learning": "<durable learning>",
       "atomicity_score": 0.0,
-      "evidence": "<trace evidence: error string / failing command / step refs>"
+      "evidence": "<trace evidence: error string / failing command / step refs>",
+      "justification": "<why this learning was chosen: generalizable pattern / explicit preference / etc.>"
     }}
   ],
   "skill_tags": [

@@ -4,6 +4,7 @@ This package provides:
 - ACELearner: Learns from Claude Code session transcripts
 - CLIClient: LLM client using Claude CLI subscription (no API keys needed)
 - update_claude_md: Updates CLAUDE.md with TOON-compressed skillbook
+- get_patch_info: Diagnostics for the patched CLI status
 
 Quick Start:
     # Learn from your latest Claude Code session
@@ -32,6 +33,12 @@ from .learner import (
 
 from .cli_client import CLIClient, CLIClientError
 
+from .prompt_patcher import (
+    get_patch_info,
+    is_patched_cli_available,
+    get_or_create_patched_cli,
+)
+
 __all__ = [
     # Main classes
     "ACELearner",
@@ -44,4 +51,8 @@ __all__ = [
     "update_claude_md",
     "NotInProjectError",
     "DEFAULT_MARKERS",
+    # Prompt patcher utilities
+    "get_patch_info",
+    "is_patched_cli_available",
+    "get_or_create_patched_cli",
 ]
