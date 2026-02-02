@@ -124,16 +124,93 @@ def find_project_root(
 # ============================================================================
 
 
-def find_latest_transcript() -> Optional[Path]:
+def find_latest_session_from_history(
+    project_path: Optional[Path] = None,
+) -> Optional[Path]:
+    """
+    Find the most recently USED transcript via history.jsonl.
+
+    This correctly handles /resume sessions where an old transcript is
+    reactivated but its file mtime may not update.
+
+    Args:
+        project_path: Optional project path to filter by
+
+    Returns:
+        Path to the most recently used transcript, or None if not found
+    """
+    history_file = Path.home() / ".claude" / "history.jsonl"
+    if not history_file.exists():
+        return None
+
+    # Normalize project path for comparison
+    if project_path:
+        project_str = str(project_path.resolve())
+    else:
+        project_str = None
+
+    # Find most recent entry (optionally filtered by project)
+    latest_entry = None
+    latest_timestamp = 0
+
+    with history_file.open() as f:
+        for line in f:
+            try:
+                entry = json.loads(line)
+                timestamp = entry.get("timestamp", 0)
+                entry_project = entry.get("project")
+
+                # Filter by project if specified
+                if project_str and entry_project != project_str:
+                    continue
+
+                if timestamp > latest_timestamp:
+                    latest_timestamp = timestamp
+                    latest_entry = entry
+            except json.JSONDecodeError:
+                continue
+
+    if not latest_entry:
+        return None
+
+    # Build transcript path from sessionId
+    session_id = latest_entry.get("sessionId")
+    project = latest_entry.get("project", "")
+    if not session_id or not project:
+        return None
+
+    # Convert project path to Claude's directory format
+    # /Users/foo/bar -> -Users-foo-bar (keeps leading dash)
+    project_dir_name = project.replace("/", "-")
+    transcript_path = (
+        Path.home() / ".claude" / "projects" / project_dir_name / f"{session_id}.jsonl"
+    )
+
+    if transcript_path.exists():
+        return transcript_path
+    return None
+
+
+def find_latest_transcript(project_path: Optional[Path] = None) -> Optional[Path]:
     """
     Find the latest Claude Code transcript file.
 
-    Searches ~/.claude/projects/**/*.jsonl for the most recently modified
-    transcript file.
+    First tries history.jsonl for accurate "most recently used" detection,
+    which correctly handles /resume sessions. Falls back to file modification
+    time if history unavailable.
+
+    Args:
+        project_path: Optional project path to filter by
 
     Returns:
         Path to the latest transcript, or None if not found
     """
+    # Try history.jsonl first (handles /resume correctly)
+    transcript = find_latest_session_from_history(project_path)
+    if transcript:
+        return transcript
+
+    # Fallback to mtime-based discovery
     claude_dir = Path.home() / ".claude" / "projects"
     if not claude_dir.exists():
         return None
@@ -761,8 +838,15 @@ def cmd_learn(args):
 
     Use --lines N to optionally limit to the last N lines (for very large sessions).
     """
-    # Find latest transcript
-    transcript_path = find_latest_transcript()
+    # Get project context for filtering (if specified)
+    filter_project = None
+    if hasattr(args, "project") and args.project:
+        filter_project = Path(args.project).resolve()
+    elif env_dir := os.environ.get("ACE_PROJECT_DIR"):
+        filter_project = Path(env_dir).resolve()
+
+    # Find latest transcript (uses history.jsonl for correct /resume handling)
+    transcript_path = find_latest_transcript(filter_project)
     if not transcript_path:
         print("No transcript found.")
         print("Use Claude Code first - transcripts are stored in ~/.claude/projects/")
@@ -778,8 +862,8 @@ def cmd_learn(args):
 
     # Determine project root
     try:
-        if hasattr(args, "project") and args.project:
-            project_root = Path(args.project).resolve()
+        if filter_project:
+            project_root = filter_project
         else:
             project_root = find_project_root(Path(cwd))
             if not project_root:
@@ -820,7 +904,10 @@ def cmd_learn(args):
                 "\nHint: If you used /resume, the transcript context may be incomplete.",
                 file=sys.stderr,
             )
-            print("Try again after more conversation, or use ace-learn-lines.", file=sys.stderr)
+            print(
+                "Try again after more conversation, or use ace-learn-lines.",
+                file=sys.stderr,
+            )
             sys.exit(1)
     except Exception as e:
         logger.error(f"Learning failed: {e}", exc_info=True)
@@ -830,7 +917,10 @@ def cmd_learn(args):
                 "\nHint: If you used /resume, the transcript context may be incomplete.",
                 file=sys.stderr,
             )
-            print("Try again after more conversation, or use ace-learn-lines.", file=sys.stderr)
+            print(
+                "Try again after more conversation, or use ace-learn-lines.",
+                file=sys.stderr,
+            )
         sys.exit(1)
 
 
@@ -1115,7 +1205,14 @@ def cmd_doctor(_args):
     # 5. Check slash commands
     print("\n5. Slash commands...")
     installed_cmds = _get_installed_commands()
-    expected_cmds = ["ace-learn", "ace-learn-lines", "ace-doctor", "ace-insights", "ace-remove", "ace-clear"]
+    expected_cmds = [
+        "ace-learn",
+        "ace-learn-lines",
+        "ace-doctor",
+        "ace-insights",
+        "ace-remove",
+        "ace-clear",
+    ]
     if len(installed_cmds) == len(expected_cmds):
         print(f"   ✓ All {len(installed_cmds)} slash commands installed")
     elif installed_cmds:
