@@ -32,6 +32,23 @@ Call this when your analysis is complete. The value should be a dict with these 
 ### llm_query(prompt) -> str
 Spawn a sub-LLM query for complex reasoning tasks. Use sparingly (limited calls).
 
+### ask_llm(question, context) -> str
+Ask a focused question with context to a sub-agent. Ideal for exploring specific parts of the trace.
+- question: What you want to know about the context
+- context: The specific data to analyze (partial trace, code output, etc.)
+
+Example:
+```python
+# Get insights on error steps
+errors = trace.get_errors()
+if errors:
+    insight = ask_llm(
+        question="What caused this error and how to prevent it?",
+        context=str(errors[0])
+    )
+    print(f"Insight: {{insight}}")
+```
+
 ### trace methods (if trace is not None)
 - trace.get_step(index): Get step by index
 - trace.find_steps(pattern): Find steps matching pattern
@@ -40,8 +57,10 @@ Spawn a sub-LLM query for complex reasoning tasks. Use sparingly (limited calls)
 - trace.summary(): Get a brief summary of the trace
 
 ## Available Modules
-- `json`: For JSON operations
+- `json`: For JSON parsing and serialization
 - `re`: For regex pattern matching
+- `collections`: Counter, defaultdict, deque, OrderedDict, namedtuple
+- `datetime`: datetime, timedelta, date, time, timezone for time operations
 
 ## Your Task
 

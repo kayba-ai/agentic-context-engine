@@ -178,6 +178,69 @@ print(matches)
         self.assertIn("Step 3", result.stdout)
         self.assertTrue(result.success)
 
+    def test_collections_module_available(self):
+        """Test that collections module is available in sandbox."""
+        sandbox = TraceSandbox(trace=self.trace, llm_query_fn=None)
+        result = sandbox.execute(
+            """
+# Test Counter
+counter = collections.Counter(['a', 'b', 'a', 'c', 'a'])
+print(f"Counter: {counter.most_common(2)}")
+
+# Test defaultdict
+dd = collections.defaultdict(list)
+dd['key'].append('value')
+print(f"defaultdict: {dict(dd)}")
+
+# Test deque
+dq = collections.deque([1, 2, 3], maxlen=3)
+dq.append(4)
+print(f"deque: {list(dq)}")
+"""
+        )
+
+        self.assertIn("Counter: [('a', 3)", result.stdout)
+        self.assertIn("defaultdict: {'key': ['value']}", result.stdout)
+        self.assertIn("deque: [2, 3, 4]", result.stdout)
+        self.assertTrue(result.success)
+
+    def test_datetime_module_available(self):
+        """Test that datetime module is available in sandbox."""
+        sandbox = TraceSandbox(trace=self.trace, llm_query_fn=None)
+        result = sandbox.execute(
+            """
+# Test datetime (direct construction - sandbox restricts time-based methods)
+dt = datetime(2024, 1, 15, 10, 30, 0)
+print(f"datetime type: {type(dt).__name__}")
+print(f"datetime value: {dt.year}-{dt.month}-{dt.day}")
+
+# Test timedelta
+delta = timedelta(days=1, hours=2)
+print(f"timedelta: {delta.total_seconds()} seconds")
+
+# Test date (direct construction)
+d = date(2024, 1, 15)
+print(f"date type: {type(d).__name__}")
+print(f"date value: {d}")
+
+# Test time
+t = time(10, 30, 0)
+print(f"time type: {type(t).__name__}")
+
+# Test timezone
+utc = timezone.utc
+print(f"timezone: {utc}")
+"""
+        )
+
+        self.assertIn("datetime type: datetime", result.stdout)
+        self.assertIn("datetime value: 2024-1-15", result.stdout)
+        self.assertIn("timedelta:", result.stdout)
+        self.assertIn("date type: date", result.stdout)
+        self.assertIn("time type: time", result.stdout)
+        self.assertIn("timezone:", result.stdout)
+        self.assertTrue(result.success)
+
     def test_llm_query_function(self):
         """Test that llm_query function works when provided."""
 
@@ -500,6 +563,172 @@ class TestTraceContext(unittest.TestCase):
         trace = TraceContext.from_reasoning_string(reasoning)
 
         self.assertEqual(len(trace), 3)
+
+
+@pytest.mark.unit
+class TestSubAgentLLM(unittest.TestCase):
+    """Test SubAgentLLM and ask_llm function."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.trace = TraceContext(
+            steps=[
+                TraceStep(
+                    index=0,
+                    action="search",
+                    thought="Looking for data",
+                    observation="Found 5 results",
+                ),
+            ],
+            raw_reasoning="Step 1: Search",
+        )
+
+    def test_ask_llm_basic(self):
+        """Test that ask_llm function works in sandbox."""
+        from ace.reflector.subagent import create_ask_llm_function
+
+        # Mock LLM that echoes back the question
+        class MockLLM:
+            def complete(self, prompt, **kwargs):
+                class Response:
+                    text = f"Analysis of: {prompt[:50]}..."
+
+                return Response()
+
+        ask_llm = create_ask_llm_function(MockLLM(), max_calls=5)
+        sandbox = TraceSandbox(trace=self.trace, llm_query_fn=None)
+        sandbox.inject("ask_llm", ask_llm)
+
+        result = sandbox.execute(
+            """
+insight = ask_llm("What happened?", "Error: timeout after 30s")
+print(f"Got insight: {insight[:30]}")
+"""
+        )
+
+        self.assertIn("Got insight:", result.stdout)
+        self.assertTrue(result.success)
+
+    def test_ask_llm_with_trace_context(self):
+        """Test ask_llm with extracted trace data."""
+        from ace.reflector.subagent import create_ask_llm_function
+
+        class MockLLM:
+            def complete(self, prompt, **kwargs):
+                class Response:
+                    text = "The search found 5 results which is good."
+
+                return Response()
+
+        ask_llm = create_ask_llm_function(MockLLM(), max_calls=5)
+        sandbox = TraceSandbox(trace=self.trace, llm_query_fn=None)
+        sandbox.inject("ask_llm", ask_llm)
+
+        result = sandbox.execute(
+            """
+# Extract trace data and ask about it
+step = trace.get_step(0)
+context = f"Action: {step.action}, Observation: {step.observation}"
+insight = ask_llm("Is this result good?", context)
+print(f"Insight: {insight}")
+"""
+        )
+
+        self.assertIn("Insight:", result.stdout)
+        self.assertIn("5 results", result.stdout)
+        self.assertTrue(result.success)
+
+    def test_ask_llm_call_limit(self):
+        """Test that ask_llm respects call limit."""
+        from ace.reflector.subagent import create_ask_llm_function
+
+        class MockLLM:
+            def complete(self, prompt, **kwargs):
+                class Response:
+                    text = "Response"
+
+                return Response()
+
+        ask_llm = create_ask_llm_function(MockLLM(), max_calls=2)
+        sandbox = TraceSandbox(trace=self.trace, llm_query_fn=None)
+        sandbox.inject("ask_llm", ask_llm)
+
+        result = sandbox.execute(
+            """
+results = []
+for i in range(5):
+    results.append(ask_llm(f"Question {i}", "context"))
+print(results)
+"""
+        )
+
+        self.assertIn("Max 2 sub-agent calls exceeded", result.stdout)
+        self.assertTrue(result.success)
+
+    def test_subagent_llm_call_history(self):
+        """Test that SubAgentLLM tracks call history."""
+        from ace.reflector.subagent import SubAgentLLM, SubAgentConfig
+
+        class MockLLM:
+            def complete(self, prompt, **kwargs):
+                class Response:
+                    text = "Test response"
+
+                return Response()
+
+        subagent = SubAgentLLM(MockLLM(), config=SubAgentConfig(max_tokens=100))
+
+        # Make some calls
+        subagent.ask("Question 1", "Context 1")
+        subagent.ask("Question 2", "Context 2")
+
+        self.assertEqual(subagent.call_count, 2)
+        self.assertEqual(len(subagent.call_history), 2)
+        self.assertEqual(subagent.call_history[0]["question"], "Question 1")
+        self.assertEqual(subagent.call_history[1]["question"], "Question 2")
+
+    def test_subagent_reset(self):
+        """Test that SubAgentLLM reset clears state."""
+        from ace.reflector.subagent import SubAgentLLM
+
+        class MockLLM:
+            def complete(self, prompt, **kwargs):
+                class Response:
+                    text = "Response"
+
+                return Response()
+
+        subagent = SubAgentLLM(MockLLM())
+        subagent.ask("Question", "Context")
+        self.assertEqual(subagent.call_count, 1)
+
+        subagent.reset()
+        self.assertEqual(subagent.call_count, 0)
+        self.assertEqual(len(subagent.call_history), 0)
+
+    def test_subagent_separate_llm(self):
+        """Test that SubAgentLLM can use a separate LLM."""
+        from ace.reflector.subagent import SubAgentLLM
+
+        class MainLLM:
+            def complete(self, prompt, **kwargs):
+                class Response:
+                    text = "Main LLM response"
+
+                return Response()
+
+        class SubLLM:
+            def complete(self, prompt, **kwargs):
+                class Response:
+                    text = "Sub LLM response"
+
+                return Response()
+
+        # With separate subagent_llm, it should use that
+        subagent = SubAgentLLM(MainLLM(), subagent_llm=SubLLM())
+        result = subagent.ask("Question", "Context")
+
+        self.assertEqual(result, "Sub LLM response")
 
 
 if __name__ == "__main__":

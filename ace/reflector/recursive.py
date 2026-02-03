@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from .config import RecursiveConfig
 from .prompts import REFLECTOR_RECURSIVE_PROMPT
 from .sandbox import TraceSandbox
+from .subagent import SubAgentConfig, create_ask_llm_function
 from .trace_context import TraceContext
 
 if TYPE_CHECKING:
@@ -54,6 +55,7 @@ class RecursiveReflector:
         llm: "LLMClient",
         config: Optional[RecursiveConfig] = None,
         prompt_template: str = REFLECTOR_RECURSIVE_PROMPT,
+        subagent_llm: Optional["LLMClient"] = None,
     ) -> None:
         """Initialize the RecursiveReflector.
 
@@ -61,10 +63,14 @@ class RecursiveReflector:
             llm: The LLM client to use for code generation
             config: Configuration for the recursive reflector
             prompt_template: Custom prompt template (uses default if not provided)
+            subagent_llm: Optional separate LLM for sub-agent calls (ask_llm).
+                          If provided, ask_llm() uses this model for exploration.
+                          If not provided, uses the main llm (or subagent_model from config).
         """
         self.llm = llm
         self.config = config or RecursiveConfig()
         self.prompt_template = prompt_template
+        self.subagent_llm = subagent_llm
 
     def reflect(
         self,
@@ -109,6 +115,29 @@ class RecursiveReflector:
             trace=trace,
             llm_query_fn=bounded_llm_query if self.config.enable_llm_query else None,
         )
+
+        # Create and inject the sub-agent function if enabled
+        if self.config.enable_subagent:
+            subagent_config = SubAgentConfig(
+                model=self.config.subagent_model,
+                max_tokens=self.config.subagent_max_tokens,
+                temperature=self.config.subagent_temperature,
+                system_prompt=self.config.subagent_system_prompt
+                or SubAgentConfig.system_prompt,
+            )
+            ask_llm_fn = create_ask_llm_function(
+                llm=self.llm,
+                config=subagent_config,
+                subagent_llm=self.subagent_llm,
+                max_calls=self.config.max_llm_calls,
+            )
+            sandbox.inject("ask_llm", ask_llm_fn)
+        else:
+            # Provide a stub that explains the feature is disabled
+            sandbox.inject(
+                "ask_llm",
+                lambda question, context="": "(ask_llm disabled - analyze with code)",
+            )
 
         # Inject context variables
         sandbox.inject("question", question)

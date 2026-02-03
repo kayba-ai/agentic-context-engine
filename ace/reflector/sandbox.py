@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import collections
 import io
 import json
 import platform
@@ -9,6 +10,7 @@ import re
 import signal
 from contextlib import redirect_stdout, redirect_stderr
 from dataclasses import dataclass
+from datetime import datetime, timedelta, date, time, timezone
 from typing import Any, Callable, Dict, Optional
 
 from .trace_context import TraceContext
@@ -190,6 +192,13 @@ class TraceSandbox:
             # Safe stdlib modules
             "json": json,
             "re": re,
+            "collections": collections,
+            # datetime module and commonly used classes
+            "datetime": datetime,
+            "timedelta": timedelta,
+            "date": date,
+            "time": time,
+            "timezone": timezone,
         }
 
         # Add llm_query if provided

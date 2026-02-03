@@ -9,6 +9,12 @@ Example:
     >>>
     >>> llm = LiteLLMClient(model="gpt-4o-mini")
     >>> reflector = RecursiveReflector(llm, config=RecursiveConfig(max_iterations=5))
+
+The module also provides a sub-agent LLM wrapper for trace exploration:
+
+    >>> from ace.reflector import SubAgentConfig, create_ask_llm_function
+    >>> ask_llm = create_ask_llm_function(llm, max_calls=10)
+    >>> insight = ask_llm("What went wrong?", context="Error: timeout")
 """
 
 from .config import RecursiveConfig
@@ -16,6 +22,7 @@ from .sandbox import TraceSandbox, ExecutionResult, ExecutionTimeoutError
 from .trace_context import TraceContext, TraceStep
 from .recursive import RecursiveReflector
 from .prompts import REFLECTOR_RECURSIVE_PROMPT, REFLECTOR_RECURSIVE_SYSTEM
+from .subagent import SubAgentConfig, SubAgentLLM, create_ask_llm_function
 
 __all__ = [
     # Config
@@ -29,6 +36,10 @@ __all__ = [
     "TraceStep",
     # Reflector
     "RecursiveReflector",
+    # Sub-agent
+    "SubAgentConfig",
+    "SubAgentLLM",
+    "create_ask_llm_function",
     # Prompts
     "REFLECTOR_RECURSIVE_PROMPT",
     "REFLECTOR_RECURSIVE_SYSTEM",
