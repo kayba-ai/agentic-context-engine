@@ -26,8 +26,39 @@ Call this when your analysis is complete. The value should be a dict with these 
 - root_cause_analysis: Why the error happened
 - correct_approach: How to fix or improve
 - key_insight: The most valuable learning
-- extracted_learnings: List of dicts with "learning", "atomicity_score" (0-1)
+- extracted_learnings: List of dicts with "learning", "atomicity_score" (0-1), "evidence" (required!)
 - skill_tags: List of dicts with "id" and "tag" ("helpful"/"harmful"/"neutral")
+
+## Learning Extraction Rules
+
+**CRITICAL: Read the `feedback` variable first - it contains domain-specific extraction guidance!**
+
+### REQUIRED for every learning:
+1. **Domain-specific** - Must reference actual tools, values, patterns from the task domain
+2. **Evidence field** - MUST include specific evidence from the trace (turn numbers, actual values, error messages)
+3. **Atomicity** - Single concept only, no "and" combining multiple ideas
+4. **Actionable** - "Use X for Y" format, not "consider" or "think about"
+5. **Under 15 words** - Concise and specific
+
+### FORBIDDEN learnings (will make your analysis worthless):
+- "Be systematic" / "Think carefully" / "Step-by-step reasoning" → Too vague, applies to everything
+- "Verify results" / "Validate input" → Generic advice with no specificity
+- "Consider X" / "Be aware of Y" → Not actionable commands
+- Empty evidence field → No learning without proof from the trace
+
+### Example GOOD learnings:
+```python
+{{"learning": "Use pandas.read_csv(dtype=str) for memory efficiency", "atomicity_score": 0.95, "evidence": "Reduced memory from 2GB to 400MB on customer_data.csv"}}
+{{"learning": "Set timeout=30s for external API calls", "atomicity_score": 0.92, "evidence": "API call at step 3 hung indefinitely without timeout"}}
+{{"learning": "Apply 16px padding for card containers", "atomicity_score": 0.90, "evidence": "User requested consistent spacing, applied in meal cards"}}
+```
+
+### Example BAD learnings (DO NOT EMIT):
+```python
+{{"learning": "Systematic reasoning is important", "atomicity_score": 0.7, "evidence": ""}}  # TOO VAGUE, NO EVIDENCE
+{{"learning": "Always verify your work", "atomicity_score": 0.8, "evidence": ""}}  # GENERIC PLATITUDE
+{{"learning": "Consider edge cases and validate input", "atomicity_score": 0.6, "evidence": ""}}  # TWO CONCEPTS, NOT ACTIONABLE
+```
 
 ### llm_query(prompt) -> str
 Spawn a sub-LLM query for complex reasoning tasks. Use sparingly (limited calls).
@@ -65,11 +96,12 @@ if errors:
 ## Your Task
 
 Analyze why the agent succeeded or failed. Write Python code to:
-1. Explore the data using slicing and search (e.g., `reasoning[:500]`, `trace.find_steps("error")`)
-2. Compare final_answer against ground_truth if available
-3. Identify patterns or errors programmatically
-4. Use llm_query() for complex sub-analyses if needed
-5. Call FINAL() with your complete analysis
+1. **FIRST: Read `feedback` variable for domain-specific extraction guidance** (skip if None)
+2. Explore the data using slicing and search (e.g., `reasoning[:500]`, `trace.find_steps("error")`)
+3. Compare final_answer against ground_truth if available
+4. Identify patterns or errors programmatically
+5. Use llm_query() for complex sub-analyses if needed
+6. Call FINAL() with your complete analysis - learnings MUST follow feedback guidance
 
 ## Output Format
 
@@ -79,7 +111,15 @@ When your analysis is complete, call FINAL() with the result.
 ## Example
 
 ```python
-# Check basic correctness first
+# STEP 1: ALWAYS read feedback first for domain-specific guidance
+if feedback:
+    print(f"EXTRACTION GUIDANCE:\n{{feedback[:1000]}}")
+else:
+    print("No domain guidance - will extract general patterns")
+```
+
+```python
+# STEP 2: Check basic correctness
 correct = False
 if ground_truth:
     correct = final_answer.strip().lower() == ground_truth.strip().lower()
@@ -102,16 +142,19 @@ print(f"Error mentions: {{len(error_patterns)}}")
 ```
 
 ```python
-# Based on analysis, build final output
+# STEP 3: Build final output with DOMAIN-SPECIFIC learnings
+# Learnings MUST follow the extraction guidance from feedback variable
+# Extract learnings about the ACTUAL task domain, not generic reasoning advice
 if correct:
     FINAL({{
-        "reasoning": "The agent correctly answered the question.",
+        "reasoning": "The agent correctly solved the problem using appropriate techniques.",
         "error_identification": "none",
         "root_cause_analysis": "No errors - correct execution",
         "correct_approach": "The current approach is effective",
-        "key_insight": "Systematic reasoning led to correct answer",
+        "key_insight": "Applied domain-appropriate solution pattern",
         "extracted_learnings": [
-            {{"learning": "Step-by-step analysis is effective for this task type", "atomicity_score": 0.8}}
+            # GOOD: Specific technique with evidence
+            {{"learning": "Use dict comprehension for O(n) lookup optimization", "atomicity_score": 0.95, "evidence": "Replaced nested loop at step 3, reduced runtime from 2s to 50ms"}}
         ],
         "skill_tags": []
     }})
@@ -119,11 +162,12 @@ else:
     FINAL({{
         "reasoning": f"The agent answered incorrectly. Expected: {{ground_truth}}, Got: {{final_answer}}",
         "error_identification": "incorrect_answer",
-        "root_cause_analysis": "Analysis revealed gaps in reasoning",
-        "correct_approach": "Need to verify intermediate steps",
-        "key_insight": "Verification step would have caught the error",
+        "root_cause_analysis": "Specific issue found in trace analysis",
+        "correct_approach": "Apply the specific fix identified",
+        "key_insight": "Domain-specific insight from error analysis",
         "extracted_learnings": [
-            {{"learning": "Always verify final answer against constraints", "atomicity_score": 0.9}}
+            # GOOD: Specific fix with evidence from trace
+            {{"learning": "Check array bounds before indexing in loops", "atomicity_score": 0.92, "evidence": "IndexError at step 5 when i=10, array length was 10"}}
         ],
         "skill_tags": []
     }})

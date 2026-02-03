@@ -328,7 +328,6 @@ class TestRecursiveConfig(unittest.TestCase):
         self.assertEqual(config.timeout, 30.0)
         self.assertTrue(config.enable_llm_query)
         self.assertEqual(config.max_llm_calls, 20)
-        self.assertTrue(config.fallback_on_error)
 
     def test_custom_values(self):
         """Test that config accepts custom values."""
@@ -337,14 +336,12 @@ class TestRecursiveConfig(unittest.TestCase):
             timeout=60.0,
             enable_llm_query=False,
             max_llm_calls=10,
-            fallback_on_error=False,
         )
 
         self.assertEqual(config.max_iterations, 5)
         self.assertEqual(config.timeout, 60.0)
         self.assertFalse(config.enable_llm_query)
         self.assertEqual(config.max_llm_calls, 10)
-        self.assertFalse(config.fallback_on_error)
 
 
 @pytest.mark.unit

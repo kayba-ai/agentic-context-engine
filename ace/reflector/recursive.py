@@ -11,6 +11,7 @@ from .prompts import REFLECTOR_RECURSIVE_PROMPT
 from .sandbox import TraceSandbox
 from .subagent import SubAgentConfig, create_ask_llm_function
 from .trace_context import TraceContext
+from ..observability.tracers import maybe_track
 
 if TYPE_CHECKING:
     from ..llm import LLMClient
@@ -72,6 +73,7 @@ class RecursiveReflector:
         self.prompt_template = prompt_template
         self.subagent_llm = subagent_llm
 
+    @maybe_track(name="recursive_reflector", tags=["reflector", "recursive"])
     def reflect(
         self,
         *,

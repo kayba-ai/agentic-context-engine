@@ -172,12 +172,86 @@ class TraceContext:
         """
         return re.findall(pattern, self._raw_reasoning, re.IGNORECASE)
 
+    # -------------------------------------------------------------------------
+    # Static helper methods (defined before factory methods that use them)
+    # -------------------------------------------------------------------------
+
+    @staticmethod
+    def _parse_conversation_markers(text: str) -> List[Dict[str, Any]]:
+        """Parse [assistant]/[user] markers into message list.
+
+        Handles conversation history stored in reasoning field with markers like:
+            [assistant] I'll help you with that...
+            [user] Thanks, can you also...
+            [assistant] Sure, here's the updated code...
+
+        Args:
+            text: Raw text containing [assistant]/[user] markers
+
+        Returns:
+            List of message dicts with 'role' and 'content' keys
+        """
+        messages: List[Dict[str, Any]] = []
+
+        # Pattern matches [role] followed by content until next marker or end
+        # Uses non-greedy match and lookahead
+        pattern = r"\[(assistant|user)\]\s*(.*?)(?=\[(?:assistant|user)\]|$)"
+
+        for match in re.finditer(pattern, text, re.DOTALL | re.IGNORECASE):
+            role = match.group(1).lower()
+            content = match.group(2).strip()
+
+            if content:  # Only add non-empty messages
+                messages.append({"role": role, "content": content})
+
+        return messages
+
+    @staticmethod
+    def _parse_reasoning_steps(reasoning: str) -> List[TraceStep]:
+        """Parse reasoning string into structured steps.
+
+        Attempts to find numbered steps or thought/action/observation patterns.
+        """
+        steps = []
+
+        # Try to parse numbered steps (1., 2., etc.)
+        step_pattern = re.compile(r"(\d+)\.\s*(.+?)(?=\d+\.|$)", re.DOTALL)
+        matches = step_pattern.findall(reasoning)
+
+        if matches:
+            for idx, content in matches:
+                steps.append(
+                    TraceStep(
+                        index=int(idx) - 1,
+                        action="step",
+                        thought=content.strip(),
+                        observation="",
+                    )
+                )
+        else:
+            # Fallback: single step with entire reasoning
+            steps.append(
+                TraceStep(
+                    index=0,
+                    action="reasoning",
+                    thought=reasoning.strip(),
+                    observation="",
+                )
+            )
+
+        return steps
+
+    # -------------------------------------------------------------------------
+    # Factory class methods
+    # -------------------------------------------------------------------------
+
     @classmethod
     def from_agent_output(cls, agent_output: "AgentOutput") -> "TraceContext":
         """Create a TraceContext from an AgentOutput.
 
-        For simple AgentOutput without structured steps, creates a single-step
-        trace from the reasoning field.
+        Auto-detects conversation format with [assistant]/[user] markers and
+        creates multiple steps for proper trace exploration. Falls back to
+        single-step trace for simple reasoning strings.
 
         Args:
             agent_output: The AgentOutput to convert
@@ -185,7 +259,25 @@ class TraceContext:
         Returns:
             A TraceContext representing the agent's reasoning
         """
-        # AgentOutput has reasoning as a string - create a simple single-step trace
+        reasoning = agent_output.reasoning
+
+        # Auto-detect conversation markers [assistant]/[user]
+        if "[assistant]" in reasoning or "[user]" in reasoning:
+            messages = cls._parse_conversation_markers(reasoning)
+            if messages:
+                # Use from_conversation_history for proper multi-step trace
+                trace = cls.from_conversation_history(messages)
+                # Append final answer as last observation if available
+                if trace._steps and agent_output.final_answer:
+                    trace._steps[-1] = TraceStep(
+                        index=trace._steps[-1].index,
+                        action=trace._steps[-1].action,
+                        thought=trace._steps[-1].thought,
+                        observation=f"Final Answer: {agent_output.final_answer}",
+                    )
+                return trace
+
+        # Fallback: single-step trace for simple reasoning
         steps = [
             TraceStep(
                 index=0,
@@ -271,37 +363,67 @@ class TraceContext:
 
         return cls(steps=steps, raw_reasoning=str(intermediate_steps))
 
-    @staticmethod
-    def _parse_reasoning_steps(reasoning: str) -> List[TraceStep]:
-        """Parse reasoning string into structured steps.
+    @classmethod
+    def from_conversation_history(
+        cls, messages: List[Dict[str, Any]], max_text_len: int = 1000
+    ) -> "TraceContext":
+        """Create TraceContext from conversation message history.
 
-        Attempts to find numbered steps or thought/action/observation patterns.
+        Parses a list of messages (e.g., from Bloom/Claude conversations) into
+        structured trace steps for analysis by the recursive reflector.
+
+        Args:
+            messages: List of message dicts with 'role' and 'content' keys.
+                      Content can be a string or list of content blocks.
+            max_text_len: Maximum length for text content (truncated for memory)
+
+        Returns:
+            A TraceContext representing the conversation flow
         """
         steps = []
 
-        # Try to parse numbered steps (1., 2., etc.)
-        step_pattern = re.compile(r"(\d+)\.\s*(.+?)(?=\d+\.|$)", re.DOTALL)
-        matches = step_pattern.findall(reasoning)
+        for i, msg in enumerate(messages):
+            role = msg.get("role", "")
+            content = msg.get("content", [])
 
-        if matches:
-            for idx, content in matches:
-                steps.append(
-                    TraceStep(
-                        index=int(idx) - 1,
-                        action="step",
-                        thought=content.strip(),
-                        observation="",
-                    )
-                )
-        else:
-            # Fallback: single step with entire reasoning
+            # Handle content as string or list of blocks
+            if isinstance(content, str):
+                text = content[:max_text_len]
+                tool_use = None
+            else:
+                # Extract text and tool_use from content blocks
+                text_parts = []
+                tool_use = None
+                for block in content:
+                    if isinstance(block, dict):
+                        if block.get("type") == "text":
+                            text_parts.append(block.get("text", ""))
+                        elif block.get("type") == "tool_use":
+                            tool_use = block.get("name")
+                text = " ".join(text_parts)[:max_text_len]
+
+            # Create action label
+            action = f"{role}:{tool_use}" if tool_use else role
+
             steps.append(
                 TraceStep(
-                    index=0,
-                    action="reasoning",
-                    thought=reasoning.strip(),
-                    observation="",
+                    index=i,
+                    action=action,
+                    thought=text,
+                    observation="",  # Observations come from tool results
                 )
             )
 
-        return steps
+        # Build raw reasoning from conversation
+        raw_parts = []
+        for msg in messages[-20:]:  # Last 20 messages for context
+            role = msg.get("role", "")
+            content = msg.get("content", [])
+            if isinstance(content, str):
+                raw_parts.append(f"[{role}] {content[:500]}")
+            else:
+                for block in content:
+                    if isinstance(block, dict) and block.get("type") == "text":
+                        raw_parts.append(f"[{role}] {block.get('text', '')[:500]}")
+
+        return cls(steps=steps, raw_reasoning="\n\n".join(raw_parts))
