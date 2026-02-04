@@ -26,6 +26,24 @@ ace-learn
 ace-learn doctor
 ```
 
+ACE provides slash commands for use within Claude Code sessions.
+
+Run once after installing ACE:
+```bash
+ace-learn setup
+```
+
+This installs the following slash commands to `~/.claude/commands/`:
+
+| Slash Command | Description |
+|---------------|-------------|
+| `/ace-learn` | Learn from current session |
+| `/ace-learn-lines` | Learn from last N lines |
+| `/ace-doctor` | Verify ACE setup |
+| `/ace-insights` | Show learned strategies |
+| `/ace-remove` | Remove a strategy |
+| `/ace-clear` | Clear all strategies |
+
 ## How It Works
 
 ```
@@ -75,28 +93,6 @@ This avoids Claude Code's large default system prompt in `--print` mode and prev
 - Written to: `~/.ace/claude-learner/cli.js` (does not modify your original installation)
 - Auto-created on demand by `CLIClient` (no setup command)
 - Falls back to the system `claude` binary if patching is unavailable
-
-## Claude Code Slash Commands
-
-ACE provides slash commands for use within Claude Code sessions.
-
-### Installation
-
-Run once after installing ACE:
-```bash
-ace-learn setup
-```
-
-This installs the following slash commands to `~/.claude/commands/`:
-
-| Slash Command | Description |
-|---------------|-------------|
-| `/ace-learn` | Learn from current session |
-| `/ace-learn-lines` | Learn from last N lines |
-| `/ace-doctor` | Verify ACE setup |
-| `/ace-insights` | Show learned strategies |
-| `/ace-remove` | Remove a strategy |
-| `/ace-clear` | Clear all strategies |
 
 ### Verification
 
