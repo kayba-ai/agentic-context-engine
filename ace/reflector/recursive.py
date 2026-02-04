@@ -168,6 +168,19 @@ class RecursiveReflector:
         for iteration in range(self.config.max_iterations):
             logger.debug(f"Recursive reflector iteration {iteration + 1}")
 
+            # Annotate Opik span with iteration progress
+            try:
+                from opik import opik_context
+
+                opik_context.update_current_span(
+                    metadata={
+                        "iteration": iteration + 1,
+                        "max_iterations": self.config.max_iterations,
+                    },
+                )
+            except Exception:
+                pass
+
             # Get code from LLM
             response = self.llm.complete(
                 self._format_messages(messages),
