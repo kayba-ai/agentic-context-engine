@@ -3,7 +3,7 @@
 Tests the following functionality:
 - CLI path resolution priority order
 - Patched CLI detection (~/.ace/claude-learner/cli.js)
-- Environment variable overrides (ACE_CLAUDE_CLI_JS, ACE_CLAUDE_BIN)
+- Environment variable overrides (ACE_CLI_PATH)
 - Fallback to system 'claude' command
 - JS vs binary CLI detection
 """
@@ -64,65 +64,72 @@ class TestCLIPathResolution(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):
             _resolve_cli_path("/nonexistent/path/to/claude")
 
-    def test_ace_claude_cli_js_env_var(self):
-        """Test ACE_CLAUDE_CLI_JS environment variable."""
+    def test_ace_cli_path_env_var(self):
+        """Test ACE_CLI_PATH environment variable."""
         from ace.integrations.claude_code.cli_client import _resolve_cli_path
 
-        # Create a fake JS CLI file
-        fake_js_cli = Path(self.temp_dir) / "cli.js"
-        fake_js_cli.touch()
+        # Create a fake CLI file
+        fake_cli = Path(self.temp_dir) / "cli.js"
+        fake_cli.touch()
 
-        os.environ["ACE_CLAUDE_CLI_JS"] = str(fake_js_cli)
+        os.environ["ACE_CLI_PATH"] = str(fake_cli)
 
         result = _resolve_cli_path(None)
-        self.assertEqual(result, fake_js_cli)
+        self.assertEqual(result, fake_cli)
 
     def test_patched_cli_auto_detection(self):
-        """Test that patched CLI at ~/.ace/claude-learner/cli.js is auto-detected."""
+        """Test that patched CLI is auto-detected via get_or_create_patched_cli."""
         from ace.integrations.claude_code.cli_client import _resolve_cli_path
 
-        # Create mock patched CLI location
-        with patch.object(Path, "home") as mock_home:
-            mock_home.return_value = Path(self.temp_dir)
+        # Create a fake patched CLI file
+        patched_dir = Path(self.temp_dir) / ".ace" / "claude-learner"
+        patched_dir.mkdir(parents=True)
+        patched_cli = patched_dir / "cli.js"
+        patched_cli.touch()
 
-            # Create the patched CLI structure
-            patched_dir = Path(self.temp_dir) / ".ace" / "claude-learner"
-            patched_dir.mkdir(parents=True)
-            patched_cli = patched_dir / "cli.js"
-            patched_cli.touch()
-
+        # Mock get_or_create_patched_cli to return our fake patched CLI
+        with patch(
+            "ace.integrations.claude_code.prompt_patcher.get_or_create_patched_cli",
+            return_value=patched_cli,
+        ):
             result = _resolve_cli_path(None)
             self.assertEqual(result, patched_cli)
 
-    def test_ace_claude_bin_env_var(self):
-        """Test ACE_CLAUDE_BIN environment variable."""
+    def test_ace_cli_path_takes_priority_over_patched(self):
+        """Test ACE_CLI_PATH takes priority over patched CLI."""
         from ace.integrations.claude_code.cli_client import _resolve_cli_path
 
         # Create a fake binary CLI file
         fake_bin = Path(self.temp_dir) / "claude_bin"
         fake_bin.touch()
 
-        os.environ["ACE_CLAUDE_BIN"] = str(fake_bin)
+        os.environ["ACE_CLI_PATH"] = str(fake_bin)
 
-        # Also need to make sure patched CLI doesn't exist
-        with patch.object(Path, "home") as mock_home:
-            mock_home.return_value = Path(self.temp_dir)
+        # Even with a patched CLI available, ACE_CLI_PATH should win
+        patched_cli = Path(self.temp_dir) / "patched" / "cli.js"
+        patched_cli.parent.mkdir(parents=True)
+        patched_cli.touch()
 
+        with patch(
+            "ace.integrations.claude_code.prompt_patcher.get_or_create_patched_cli",
+            return_value=patched_cli,
+        ):
             result = _resolve_cli_path(None)
             self.assertEqual(result, fake_bin)
 
     @patch("shutil.which")
     def test_system_claude_fallback(self, mock_which):
-        """Test fallback to system 'claude' command."""
+        """Test fallback to system 'claude' command when no patched CLI."""
         from ace.integrations.claude_code.cli_client import _resolve_cli_path
 
         system_claude = "/usr/local/bin/claude"
         mock_which.return_value = system_claude
 
-        # Make sure no other paths exist
-        with patch.object(Path, "home") as mock_home:
-            mock_home.return_value = Path(self.temp_dir)
-
+        # Mock patched CLI as unavailable so we fall through to system claude
+        with patch(
+            "ace.integrations.claude_code.prompt_patcher.get_or_create_patched_cli",
+            return_value=None,
+        ):
             result = _resolve_cli_path(None)
             self.assertEqual(result, Path(system_claude))
 
@@ -133,9 +140,11 @@ class TestCLIPathResolution(unittest.TestCase):
 
         mock_which.return_value = None
 
-        with patch.object(Path, "home") as mock_home:
-            mock_home.return_value = Path(self.temp_dir)
-
+        # Mock patched CLI as unavailable
+        with patch(
+            "ace.integrations.claude_code.prompt_patcher.get_or_create_patched_cli",
+            return_value=None,
+        ):
             with self.assertRaises(FileNotFoundError) as context:
                 _resolve_cli_path(None)
 
@@ -189,9 +198,11 @@ class TestCLIClientInitialization(unittest.TestCase):
         system_claude.touch()
         mock_which.return_value = str(system_claude)
 
-        with patch.object(Path, "home") as mock_home:
-            mock_home.return_value = Path(self.temp_dir)
-
+        # Mock patched CLI as unavailable so system claude is used
+        with patch(
+            "ace.integrations.claude_code.prompt_patcher.get_or_create_patched_cli",
+            return_value=None,
+        ):
             client = CLIClient()
             self.assertEqual(client.cli_path, system_claude)
             self.assertFalse(client._is_js)
