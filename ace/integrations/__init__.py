@@ -9,6 +9,7 @@ Available Integrations:
     - browser-use: ACEAgent - Self-improving browser automation
     - LangChain: ACELangChain - Complex workflows with learning
     - Claude Code: ACEClaudeCode - Claude Code CLI with learning
+    - OpenCode: ACEOpenCode - OpenCode server API with learning
 
 Pattern:
     All integrations follow the same pattern:
@@ -38,6 +39,12 @@ Example:
     # Claude Code
     from ace.integrations import ACEClaudeCode
     agent = ACEClaudeCode(working_dir="./my_project")
+    result = agent.run(task="Add unit tests")
+    agent.save_skillbook("learned.json")
+
+    # OpenCode
+    from ace.integrations import ACEOpenCode
+    agent = ACEOpenCode(working_dir="./my_project")
     result = agent.run(task="Add unit tests")
     agent.save_skillbook("learned.json")
 """
@@ -71,13 +78,22 @@ except ImportError:
     ACEClaudeCode = None  # type: ignore
     CLAUDE_CODE_AVAILABLE = False
 
+# Import OpenCode integration if available
+try:
+    from .opencode import ACEOpenCode, OPENCODE_AVAILABLE
+except ImportError:
+    ACEOpenCode = None  # type: ignore
+    OPENCODE_AVAILABLE = False
+
 __all__ = [
     "wrap_skillbook_context",
     "ACELiteLLM",
     "ACEAgent",
     "ACELangChain",
     "ACEClaudeCode",
+    "ACEOpenCode",
     "BROWSER_USE_AVAILABLE",
     "LANGCHAIN_AVAILABLE",
     "CLAUDE_CODE_AVAILABLE",
+    "OPENCODE_AVAILABLE",
 ]
