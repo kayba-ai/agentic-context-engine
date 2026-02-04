@@ -80,7 +80,6 @@ all = [
 
 [project.scripts]
 ace-learn = "ace.integrations.claude_code.learner:main"
-ace-skill-improve = "ace.integrations.claude_code_skill_improvement.cli:main"
 
 [project.urls]
 Homepage = "https://kayba.ai"
@@ -109,10 +108,11 @@ demos = [
 ]
 
 [tool.setuptools]
-packages = ["ace", "ace.llm_providers", "ace.observability", "ace.integrations", "ace.integrations.claude_code", "ace.integrations.claude_code_skill_improvement", "ace.deduplication"]
+packages = ["ace", "ace.llm_providers", "ace.observability", "ace.integrations", "ace.integrations.claude_code", "ace.deduplication"]
 
 [tool.setuptools.package-data]
 ace = ["py.typed"]
+"ace.integrations.claude_code" = ["commands/*.md"]
 
 [tool.black]
 line-length = 88
