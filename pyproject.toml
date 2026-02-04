@@ -107,8 +107,8 @@ demos = [
     "playwright>=1.40.0",
 ]
 
-[tool.setuptools]
-packages = ["ace", "ace.llm_providers", "ace.observability", "ace.integrations", "ace.integrations.claude_code", "ace.deduplication"]
+[tool.setuptools.packages.find]
+include = ["ace", "ace.*"]
 
 [tool.setuptools.package-data]
 ace = ["py.typed"]
@@ -116,7 +116,7 @@ ace = ["py.typed"]
 
 [tool.black]
 line-length = 88
-target-version = ['py311', 'py312']
+target-version = ['py312']
 include = '\.pyi?$'
 exclude = '''
 /(
@@ -128,7 +128,7 @@ exclude = '''
 '''
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 warn_return_any = false
 warn_unused_configs = true
 disallow_untyped_defs = false

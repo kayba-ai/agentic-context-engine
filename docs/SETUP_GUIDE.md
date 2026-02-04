@@ -4,12 +4,12 @@ Quick setup and configuration guide for ACE Framework.
 
 ## Requirements
 
-- **Python 3.11 or higher**
+- **Python 3.12**
 - API key for your LLM provider (OpenAI, Anthropic, Google, etc.)
 
 Check Python version:
 ```bash
-python --version  # Should show 3.11+
+python --version  # Should show 3.12
 ```
 
 ---

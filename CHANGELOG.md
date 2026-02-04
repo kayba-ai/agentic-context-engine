@@ -99,7 +99,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Removed empty ace/explainability directory
   - Migrated to production-grade Opik monitoring
   - Updated all documentation to reflect this change
-- Improved Python version requirements consistency (3.11+ everywhere)
+- Improved Python version requirements consistency (3.12 everywhere)
 - Enhanced README with clearer examples and installation options
 - Reorganized examples directory for better discoverability
 - Updated CLAUDE.md with comprehensive codebase guidance

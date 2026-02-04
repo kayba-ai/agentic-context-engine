@@ -458,7 +458,7 @@ agent = Agent(llm)  # Manual JSON parsing (existing behavior)
 **Recommended for**: Small models (Ollama, Gemma, Phi) with JSON formatting issues
 
 ## Python Requirements
-- Python 3.11+ (developed with 3.12)
+- Python 3.12
 - Dependencies managed via UV (see pyproject.toml/uv.lock)
 - Core (~105MB): LiteLLM, Pydantic, Instructor, Python-dotenv, tenacity
 - Optional dependencies available for:
