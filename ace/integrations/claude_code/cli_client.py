@@ -234,9 +234,9 @@ class CLIClient(LLMClient):
             LLMResponse containing the generated text
         """
         # Combine system prompt into user prompt if provided
-        # This is needed when using the unpatched system CLI
+        # This is needed only when using the system CLI binary
         full_prompt = prompt
-        if system:
+        if system and not self._is_js:
             full_prompt = f"{system}\n\n{prompt}"
 
         response_text = self._run_cli(full_prompt)

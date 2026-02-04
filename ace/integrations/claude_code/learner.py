@@ -454,16 +454,18 @@ def _get_transcript_feedback(transcript_path: Path, start_line: int = 0) -> str:
             try:
                 entry = json.loads(line)
                 # Count tool results
-                if entry.get("type") == "user":
+                if entry.get("type") in ("user", "assistant"):
                     message = entry.get("message", {})
-                    for block in message.get("content", []):
-                        if (
-                            isinstance(block, dict)
-                            and block.get("type") == "tool_result"
-                        ):
-                            total_tools += 1
-                            if block.get("is_error"):
-                                failed_tools += 1
+                    content = message.get("content", [])
+                    if isinstance(content, list):
+                        for block in content:
+                            if (
+                                isinstance(block, dict)
+                                and block.get("type") == "tool_result"
+                            ):
+                                total_tools += 1
+                                if block.get("is_error"):
+                                    failed_tools += 1
             except json.JSONDecodeError:
                 continue
 
@@ -491,14 +493,29 @@ def _get_last_user_prompt(transcript_path: Path) -> str:
                 entry = json.loads(line)
                 if entry.get("type") == "user":
                     message = entry.get("message", {})
-                    for block in message.get("content", []):
-                        if isinstance(block, dict) and block.get("type") == "text":
-                            text = block.get("text", "")
-                            # Skip system injected content
-                            if not text.startswith("<ide_") and not text.startswith(
-                                "<system"
-                            ):
-                                last_prompt = text[:200]
+                    content = message.get("content", [])
+                    if isinstance(content, str):
+                        text = re.sub(
+                            r"<system-reminder>.*?</system-reminder>",
+                            "",
+                            content,
+                            flags=re.DOTALL,
+                        ).strip()
+                        if (
+                            text
+                            and not text.startswith("<ide_")
+                            and not text.startswith("<system")
+                        ):
+                            last_prompt = text[:200]
+                    elif isinstance(content, list):
+                        for block in content:
+                            if isinstance(block, dict) and block.get("type") == "text":
+                                text = block.get("text", "")
+                                # Skip system injected content
+                                if not text.startswith("<ide_") and not text.startswith(
+                                    "<system"
+                                ):
+                                    last_prompt = text[:200]
             except json.JSONDecodeError:
                 continue
 

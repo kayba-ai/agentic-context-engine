@@ -74,7 +74,9 @@ def example_basic_chain():
     print(f"\nLearned {len(ace_chain.skillbook.skills())} strategies")
 
     # Save skillbook in the same directory as this script
-    skillbook_path = os.path.join(os.path.dirname(__file__), "simple_chain_learned.json")
+    skillbook_path = os.path.join(
+        os.path.dirname(__file__), "simple_chain_learned.json"
+    )
     ace_chain.save_skillbook(skillbook_path)
     print(f"\nSkillbook saved to: {skillbook_path}")
 
@@ -90,7 +92,9 @@ def example_reuse_skillbook():
         return
 
     # Check if skillbook exists
-    skillbook_path = os.path.join(os.path.dirname(__file__), "simple_chain_learned.json")
+    skillbook_path = os.path.join(
+        os.path.dirname(__file__), "simple_chain_learned.json"
+    )
     if not os.path.exists(skillbook_path):
         print("No skillbook found. Run Example 1 first!")
         return
