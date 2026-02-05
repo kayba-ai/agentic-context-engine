@@ -9,6 +9,133 @@ from ace.reflector.trace_context import TraceContext, TraceStep
 
 
 @pytest.mark.unit
+class TestTraceStepMethods(unittest.TestCase):
+    """Test TraceStep __str__, content, and preview methods."""
+
+    def test_str_with_thought_and_observation(self):
+        """Test __str__ shows thought and observation."""
+        step = TraceStep(
+            index=0,
+            action="search_api",
+            thought="Searching for user data",
+            observation="Found 5 results",
+        )
+        result = str(step)
+
+        self.assertIn("Step 0 [search_api]", result)
+        self.assertIn("Thought: Searching for user data", result)
+        self.assertIn("Observation: Found 5 results", result)
+
+    def test_str_truncates_long_content(self):
+        """Test __str__ truncates content over 200 chars."""
+        long_thought = "x" * 250
+        step = TraceStep(
+            index=1,
+            action="test",
+            thought=long_thought,
+            observation="short",
+        )
+        result = str(step)
+
+        # Should truncate to 200 + "..."
+        self.assertIn("x" * 200 + "...", result)
+        self.assertNotIn("x" * 250, result)
+
+    def test_str_with_empty_fields(self):
+        """Test __str__ omits empty thought/observation."""
+        step = TraceStep(
+            index=0,
+            action="navigate",
+            thought="",
+            observation="Page loaded",
+        )
+        result = str(step)
+
+        self.assertIn("Step 0 [navigate]", result)
+        self.assertNotIn("Thought:", result)
+        self.assertIn("Observation: Page loaded", result)
+
+    def test_content_property_combines_thought_and_observation(self):
+        """Test content property joins thought and observation."""
+        step = TraceStep(
+            index=0,
+            action="test",
+            thought="First part",
+            observation="Second part",
+        )
+        self.assertEqual(step.content, "First part\nSecond part")
+
+    def test_content_property_with_only_thought(self):
+        """Test content property with only thought."""
+        step = TraceStep(
+            index=0,
+            action="test",
+            thought="Only thought",
+            observation="",
+        )
+        self.assertEqual(step.content, "Only thought")
+
+    def test_content_property_with_only_observation(self):
+        """Test content property with only observation."""
+        step = TraceStep(
+            index=0,
+            action="test",
+            thought="",
+            observation="Only observation",
+        )
+        self.assertEqual(step.content, "Only observation")
+
+    def test_content_property_empty(self):
+        """Test content property with both empty."""
+        step = TraceStep(
+            index=0,
+            action="test",
+            thought="",
+            observation="",
+        )
+        self.assertEqual(step.content, "")
+
+    def test_preview_short_content(self):
+        """Test preview returns full content when short."""
+        step = TraceStep(
+            index=0,
+            action="test",
+            thought="Short thought",
+            observation="Short obs",
+        )
+        result = step.preview(max_len=300)
+        self.assertEqual(result, "Short thought\nShort obs")
+
+    def test_preview_truncates_long_content(self):
+        """Test preview truncates content over max_len."""
+        step = TraceStep(
+            index=0,
+            action="test",
+            thought="x" * 400,
+            observation="y" * 100,
+        )
+        result = step.preview(max_len=300)
+
+        self.assertTrue(result.startswith("x" * 300))
+        self.assertIn("more chars", result)
+        # Total content is 400 + 1 (newline) + 100 = 501
+        self.assertIn("201 more chars", result)
+
+    def test_preview_custom_max_len(self):
+        """Test preview with custom max_len."""
+        step = TraceStep(
+            index=0,
+            action="test",
+            thought="a" * 100,
+            observation="",
+        )
+        result = step.preview(max_len=50)
+
+        self.assertTrue(result.startswith("a" * 50))
+        self.assertIn("50 more chars", result)
+
+
+@pytest.mark.unit
 class TestParseConversationMarkers(unittest.TestCase):
     """Test _parse_conversation_markers static method."""
 
@@ -358,7 +485,7 @@ class TestEnableSubagentFalse(unittest.TestCase):
 
         # Mock LLM that generates code calling ask_llm, then FINAL
         mock_llm = MagicMock()
-        mock_llm.complete.return_value = MagicMock(
+        mock_llm.complete_messages.return_value = MagicMock(
             text="""```python
 result = ask_llm("What happened?", "some context")
 FINAL({

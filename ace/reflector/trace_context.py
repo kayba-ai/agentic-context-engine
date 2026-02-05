@@ -27,6 +27,47 @@ class TraceStep:
     def __repr__(self) -> str:
         return f"TraceStep({self.index}: {self.action[:30]}...)"
 
+    def __str__(self) -> str:
+        """Return a detailed string representation with content preview."""
+        parts = [f"Step {self.index} [{self.action}]"]
+        if self.thought:
+            preview = (
+                self.thought[:200] + "..." if len(self.thought) > 200 else self.thought
+            )
+            parts.append(f"  Thought: {preview}")
+        if self.observation:
+            preview = (
+                self.observation[:200] + "..."
+                if len(self.observation) > 200
+                else self.observation
+            )
+            parts.append(f"  Observation: {preview}")
+        return "\n".join(parts)
+
+    @property
+    def content(self) -> str:
+        """Return the main content (thought + observation)."""
+        parts = []
+        if self.thought:
+            parts.append(self.thought)
+        if self.observation:
+            parts.append(self.observation)
+        return "\n".join(parts)
+
+    def preview(self, max_len: int = 300) -> str:
+        """Return a truncated preview of the step content.
+
+        Args:
+            max_len: Maximum length of the preview (default: 300)
+
+        Returns:
+            Truncated content with character count if truncated
+        """
+        content = self.content
+        if len(content) <= max_len:
+            return content
+        return content[:max_len] + f"... ({len(content) - max_len} more chars)"
+
 
 class TraceContext:
     """Structured trace for programmatic exploration by the recursive reflector.
