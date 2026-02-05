@@ -128,6 +128,31 @@ Do NOT write multiple code blocks in a single response.
 
 When your analysis is complete, call FINAL() with the result.
 
+## Handling Large Output
+
+Output is truncated at ~20K characters. If you see `[TRUNCATED]`, your print was cut off.
+
+**When working with large data:**
+- Store results in variables instead of printing: `errors = trace.get_errors()`
+- Access stored variables in subsequent iterations
+- Use `SHOW_VARS()` to see what you've stored
+- Print only summaries: `print(f"Found {{len(errors)}} errors")`
+
+**Building the final result incrementally:**
+When extracting many learnings, build your result across iterations:
+```python
+# Iteration 2: Start building result
+result = {{"reasoning": "Analysis of...", "extracted_learnings": []}}
+
+# Iteration 3: Add learnings one by one
+result["extracted_learnings"].append({{"learning": "Use X for Y", ...}})
+result["extracted_learnings"].append({{"learning": "Apply Z when...", ...}})
+
+# Iteration 4: Add more fields and finalize
+result["skill_tags"] = [...]
+FINAL_VAR("result")  # Submit the built-up result
+```
+
 ## Iteration Strategy
 
 Aim for 3-5 iterations:
