@@ -296,6 +296,22 @@ class RecursiveReflector:
             )
             return None  # continue to next iteration
 
+        # Reject FINAL() if execution had errors - prevent hallucinated analysis
+        if sandbox.final_called and not result.success:
+            logger.warning("Rejecting FINAL() called after execution error")
+            sandbox._final_called = False
+            sandbox._final_value = None
+            messages.append({"role": "assistant", "content": response_text})
+            messages.append(
+                {
+                    "role": "user",
+                    "content": f"Output:\nstdout:\n{result.stdout}\n\nstderr:\n{result.stderr}\n\n"
+                    "Your code had an error. Fix the bug and try again. "
+                    "Do NOT call FINAL() until your code executes successfully.",
+                }
+            )
+            return None  # continue to next iteration
+
         # Check if FINAL() was called
         if sandbox.final_called:
             logger.debug("FINAL() called, parsing result")

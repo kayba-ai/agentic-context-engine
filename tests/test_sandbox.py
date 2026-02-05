@@ -554,8 +554,24 @@ class TestTraceContext(unittest.TestCase):
         self.assertIn("analyze", summary)
 
     def test_search_raw(self):
-        """Test search_raw on raw reasoning."""
-        matches = self.trace.search_raw(r"\w+")
+        """Test search_raw returns step indices where pattern is found."""
+        # Pattern "search" should match step 0 (action="search")
+        indices = self.trace.search_raw(r"search")
+        self.assertEqual(indices, [0])
+        self.assertTrue(all(isinstance(i, int) for i in indices))
+
+        # Pattern "filter" should match step 1
+        indices = self.trace.search_raw(r"filter")
+        self.assertEqual(indices, [1])
+
+        # Pattern matching multiple steps
+        indices = self.trace.search_raw(r"data")  # In thoughts of step 0, 2
+        self.assertIn(0, indices)  # "Searching for data"
+        self.assertIn(2, indices)  # "Analyzing data"
+
+    def test_search_raw_text(self):
+        """Test search_raw_text returns matched substrings from raw reasoning."""
+        matches = self.trace.search_raw_text(r"\w+")
         self.assertIn("search", matches)
 
     def test_from_reasoning_string(self):

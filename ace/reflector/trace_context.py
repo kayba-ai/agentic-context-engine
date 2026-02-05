@@ -200,16 +200,35 @@ class TraceContext:
             f"{self._steps[0].action[:20]}... -> {self._steps[-1].action[:20]}..."
         )
 
-    def search_raw(self, pattern: str) -> List[str]:
-        """Search the raw reasoning text for a pattern.
+    def search_raw(self, pattern: str) -> List[int]:
+        """Search steps for a pattern and return matching indices.
 
-        Useful when structured steps are not available.
+        Searches action, thought, and observation fields of each step.
 
         Args:
             pattern: Regex pattern to search for
 
         Returns:
-            List of matching substrings
+            List of step indices where pattern was found
+        """
+        matching_indices = []
+        regex = re.compile(pattern, re.IGNORECASE)
+        for i, step in enumerate(self._steps):
+            content = f"{step.action} {step.thought} {step.observation}"
+            if regex.search(content):
+                matching_indices.append(i)
+        return matching_indices
+
+    def search_raw_text(self, pattern: str) -> List[str]:
+        """Search raw reasoning text and return matched substrings.
+
+        Useful when you need the actual matched text rather than step indices.
+
+        Args:
+            pattern: Regex pattern to search for
+
+        Returns:
+            List of matching substrings from raw reasoning
         """
         return re.findall(pattern, self._raw_reasoning, re.IGNORECASE)
 
