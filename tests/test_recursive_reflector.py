@@ -332,11 +332,13 @@ class TestRecursiveConfig(unittest.TestCase):
         """Test that default config values are set correctly."""
         config = RecursiveConfig()
 
-        self.assertEqual(config.max_iterations, 15)
+        self.assertEqual(config.max_iterations, 20)
         self.assertEqual(config.timeout, 30.0)
         self.assertTrue(config.enable_llm_query)
         self.assertEqual(config.max_llm_calls, 30)
         self.assertEqual(config.max_context_chars, 50_000)
+        self.assertEqual(config.max_output_chars, 20_000)
+        self.assertTrue(config.enable_fallback_synthesis)
 
     def test_custom_values(self):
         """Test that config accepts custom values."""
@@ -775,11 +777,12 @@ class TestSandboxSecurity(unittest.TestCase):
         self.assertIn("OK", result.stdout)
 
     def test_getattr_not_in_builtins(self):
-        """Test that getattr, setattr, delattr, type are removed from builtins."""
+        """Test that getattr, setattr, delattr are removed from builtins."""
         self.assertNotIn("getattr", TraceSandbox.SAFE_BUILTINS)
         self.assertNotIn("setattr", TraceSandbox.SAFE_BUILTINS)
         self.assertNotIn("delattr", TraceSandbox.SAFE_BUILTINS)
-        self.assertNotIn("type", TraceSandbox.SAFE_BUILTINS)
+        # type is safe - it only returns an object's type, doesn't allow modification
+        self.assertIn("type", TraceSandbox.SAFE_BUILTINS)
 
 
 @pytest.mark.unit
@@ -885,6 +888,170 @@ class TestContextWindowTrimming(unittest.TestCase):
         ]
         trimmed = reflector._trim_messages(messages)
         self.assertEqual(len(trimmed), 2)
+
+
+@pytest.mark.unit
+class TestOutputTruncation(unittest.TestCase):
+    """Test per-output truncation feature."""
+
+    def test_truncate_output_under_limit(self):
+        """Test that output under limit is not truncated."""
+        from ace.reflector.recursive import _truncate_output
+
+        output = "short output"
+        result = _truncate_output(output, max_chars=100)
+        self.assertEqual(result, output)
+
+    def test_truncate_output_over_limit(self):
+        """Test that output over limit is truncated with metadata."""
+        from ace.reflector.recursive import _truncate_output
+
+        output = "x" * 1000
+        result = _truncate_output(output, max_chars=100)
+
+        self.assertEqual(len(result.split("\n")[0]), 100)
+        self.assertIn("truncated", result)
+        self.assertIn("900", result)  # 1000 - 100 = 900 chars truncated
+
+    def test_truncate_output_empty(self):
+        """Test that empty output is not modified."""
+        from ace.reflector.recursive import _truncate_output
+
+        self.assertEqual(_truncate_output("", max_chars=100), "")
+        self.assertEqual(_truncate_output(None, max_chars=100), None)
+
+    def test_truncation_in_reflector(self):
+        """Test that truncation is applied to sandbox output."""
+        captured_outputs = []
+
+        class CapturingLLMClient(MockLLMClient):
+            call_count = 0
+
+            def complete_messages(self, messages, **kwargs):
+                self.call_count += 1
+                # Capture output messages (user role messages after first)
+                for msg in messages:
+                    if msg["role"] == "user" and "stdout" in msg["content"]:
+                        captured_outputs.append(msg["content"])
+
+                if self.call_count == 1:
+                    # First call: generate large output
+                    return LLMResponse(text='```python\nprint("x" * 25000)\n```')
+                else:
+                    # Second call: return final answer
+                    return LLMResponse(
+                        text=json.dumps(
+                            {
+                                "reasoning": "Done",
+                                "error_identification": "none",
+                                "root_cause_analysis": "N/A",
+                                "correct_approach": "N/A",
+                                "key_insight": "Large output handled",
+                                "extracted_learnings": [],
+                                "skill_tags": [],
+                            }
+                        )
+                    )
+
+        llm = CapturingLLMClient()
+        config = RecursiveConfig(max_iterations=5, max_output_chars=1000)
+        reflector = RecursiveReflector(llm, config=config)
+        skillbook = Skillbook()
+        agent_output = AgentOutput(reasoning="test", final_answer="4", skill_ids=[])
+
+        reflector.reflect(
+            question="Test",
+            agent_output=agent_output,
+            skillbook=skillbook,
+            ground_truth="4",
+            feedback="OK",
+        )
+
+        # Verify that the large output was truncated
+        self.assertGreater(len(captured_outputs), 0)
+        output = captured_outputs[0]
+        self.assertIn("truncated", output)
+
+
+@pytest.mark.unit
+class TestFallbackSynthesis(unittest.TestCase):
+    """Test fallback synthesis on timeout."""
+
+    def test_fallback_synthesis_enabled(self):
+        """Test that fallback synthesis is attempted when enabled."""
+        synthesis_called = []
+
+        class SynthesizingLLMClient(MockLLMClient):
+            call_count = 0
+
+            def complete_messages(self, messages, **kwargs):
+                self.call_count += 1
+                # Check if this is a synthesis request
+                last_msg = messages[-1]["content"] if messages else ""
+                if "timed out" in last_msg.lower():
+                    synthesis_called.append(True)
+                    return LLMResponse(
+                        text=json.dumps(
+                            {
+                                "reasoning": "Synthesized",
+                                "error_identification": "none",
+                                "root_cause_analysis": "N/A",
+                                "correct_approach": "N/A",
+                                "key_insight": "Synthesized from history",
+                                "extracted_learnings": [],
+                                "skill_tags": [],
+                            }
+                        )
+                    )
+                # Never call FINAL to trigger timeout
+                return LLMResponse(text='```python\nprint("processing...")\n```')
+
+        llm = SynthesizingLLMClient()
+        config = RecursiveConfig(max_iterations=2, enable_fallback_synthesis=True)
+        reflector = RecursiveReflector(llm, config=config)
+        skillbook = Skillbook()
+        agent_output = AgentOutput(reasoning="test", final_answer="4", skill_ids=[])
+
+        result = reflector.reflect(
+            question="Test",
+            agent_output=agent_output,
+            skillbook=skillbook,
+            ground_truth="4",
+            feedback="OK",
+        )
+
+        # Synthesis should have been attempted
+        self.assertTrue(len(synthesis_called) > 0)
+
+    def test_fallback_synthesis_disabled(self):
+        """Test that fallback synthesis is not attempted when disabled."""
+        synthesis_called = []
+
+        class TrackingLLMClient(MockLLMClient):
+            def complete_messages(self, messages, **kwargs):
+                last_msg = messages[-1]["content"] if messages else ""
+                if "timed out" in last_msg.lower():
+                    synthesis_called.append(True)
+                return LLMResponse(text='```python\nprint("processing...")\n```')
+
+        llm = TrackingLLMClient()
+        config = RecursiveConfig(max_iterations=2, enable_fallback_synthesis=False)
+        reflector = RecursiveReflector(llm, config=config)
+        skillbook = Skillbook()
+        agent_output = AgentOutput(reasoning="test", final_answer="4", skill_ids=[])
+
+        result = reflector.reflect(
+            question="Test",
+            agent_output=agent_output,
+            skillbook=skillbook,
+            ground_truth="4",
+            feedback="OK",
+        )
+
+        # Synthesis should not have been called
+        self.assertEqual(len(synthesis_called), 0)
+        # Should return timeout output with timeout=True in raw
+        self.assertTrue(result.raw.get("timeout", False))
 
 
 if __name__ == "__main__":

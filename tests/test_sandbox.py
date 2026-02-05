@@ -130,7 +130,7 @@ print(f"sorted: {sorted([3, 1, 2])}")
 print(f"str: {str(42)}")
 print(f"int: {int('42')}")
 print(f"bool: {bool(1)}")
-print(f"type: {type(nums).__name__}")
+print(f"isinstance: {isinstance(nums, list)}")
 """
         )
 
@@ -139,6 +139,7 @@ print(f"type: {type(nums).__name__}")
         self.assertIn("max: 4", result.stdout)
         self.assertIn("min: 0", result.stdout)
         self.assertIn("sorted: [1, 2, 3]", result.stdout)
+        self.assertIn("isinstance: True", result.stdout)
         self.assertTrue(result.success)
 
     def test_json_module_available(self):
@@ -211,8 +212,8 @@ print(f"deque: {list(dq)}")
             """
 # Test datetime (direct construction - sandbox restricts time-based methods)
 dt = datetime(2024, 1, 15, 10, 30, 0)
-print(f"datetime type: {type(dt).__name__}")
 print(f"datetime value: {dt.year}-{dt.month}-{dt.day}")
+print(f"datetime is datetime: {isinstance(dt, datetime)}")
 
 # Test timedelta
 delta = timedelta(days=1, hours=2)
@@ -220,12 +221,12 @@ print(f"timedelta: {delta.total_seconds()} seconds")
 
 # Test date (direct construction)
 d = date(2024, 1, 15)
-print(f"date type: {type(d).__name__}")
 print(f"date value: {d}")
+print(f"date is date: {isinstance(d, date)}")
 
 # Test time
 t = time(10, 30, 0)
-print(f"time type: {type(t).__name__}")
+print(f"time is time: {isinstance(t, time)}")
 
 # Test timezone
 utc = timezone.utc
@@ -233,11 +234,11 @@ print(f"timezone: {utc}")
 """
         )
 
-        self.assertIn("datetime type: datetime", result.stdout)
+        self.assertIn("datetime is datetime: True", result.stdout)
         self.assertIn("datetime value: 2024-1-15", result.stdout)
         self.assertIn("timedelta:", result.stdout)
-        self.assertIn("date type: date", result.stdout)
-        self.assertIn("time type: time", result.stdout)
+        self.assertIn("date is date: True", result.stdout)
+        self.assertIn("time is time: True", result.stdout)
         self.assertIn("timezone:", result.stdout)
         self.assertTrue(result.success)
 
@@ -729,6 +730,101 @@ print(results)
         result = subagent.ask("Question", "Context")
 
         self.assertEqual(result, "Sub LLM response")
+
+
+@pytest.mark.unit
+class TestFinalVarFunction(unittest.TestCase):
+    """Test FINAL_VAR convenience function."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.trace = TraceContext(
+            steps=[
+                TraceStep(index=0, action="test", thought="Testing", observation="OK")
+            ],
+            raw_reasoning="Test step",
+        )
+
+    def test_final_var_basic(self):
+        """Test FINAL_VAR with an existing variable."""
+        sandbox = TraceSandbox(trace=self.trace, llm_query_fn=None)
+        sandbox.execute(
+            """
+result = {"reasoning": "test", "key_insight": "works"}
+FINAL_VAR("result")
+"""
+        )
+
+        self.assertTrue(sandbox.final_called)
+        self.assertEqual(sandbox.final_value["reasoning"], "test")
+        self.assertEqual(sandbox.final_value["key_insight"], "works")
+
+    def test_final_var_nonexistent(self):
+        """Test FINAL_VAR with non-existent variable raises error."""
+        sandbox = TraceSandbox(trace=self.trace, llm_query_fn=None)
+        result = sandbox.execute('FINAL_VAR("nonexistent")')
+
+        self.assertIn("ValueError", result.stderr)
+        self.assertIn("not found", result.stderr)
+        self.assertFalse(sandbox.final_called)
+
+    def test_final_var_equivalent_to_final(self):
+        """Test FINAL_VAR produces same result as FINAL."""
+        sandbox1 = TraceSandbox(trace=self.trace, llm_query_fn=None)
+        sandbox2 = TraceSandbox(trace=self.trace, llm_query_fn=None)
+
+        sandbox1.execute('FINAL({"value": 42})')
+        sandbox2.execute(
+            """
+data = {"value": 42}
+FINAL_VAR("data")
+"""
+        )
+
+        self.assertEqual(sandbox1.final_value, sandbox2.final_value)
+
+
+@pytest.mark.unit
+class TestShowVarsFunction(unittest.TestCase):
+    """Test SHOW_VARS debugging function."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.trace = TraceContext(
+            steps=[
+                TraceStep(index=0, action="test", thought="Testing", observation="OK")
+            ],
+            raw_reasoning="Test step",
+        )
+
+    def test_show_vars_basic(self):
+        """Test SHOW_VARS prints available variables."""
+        sandbox = TraceSandbox(trace=self.trace, llm_query_fn=None)
+        result = sandbox.execute("SHOW_VARS()")
+
+        self.assertIn("Available variables:", result.stdout)
+        self.assertIn("trace", result.stdout)
+        self.assertIn("FINAL", result.stdout)
+        self.assertIn("FINAL_VAR", result.stdout)
+        self.assertIn("SHOW_VARS", result.stdout)
+
+    def test_show_vars_includes_injected(self):
+        """Test SHOW_VARS shows injected variables."""
+        sandbox = TraceSandbox(trace=self.trace, llm_query_fn=None)
+        sandbox.inject("custom_var", "test")
+        sandbox.inject("another_var", 123)
+        result = sandbox.execute("SHOW_VARS()")
+
+        self.assertIn("custom_var", result.stdout)
+        self.assertIn("another_var", result.stdout)
+
+    def test_show_vars_excludes_internals(self):
+        """Test SHOW_VARS excludes internal variables."""
+        sandbox = TraceSandbox(trace=self.trace, llm_query_fn=None)
+        result = sandbox.execute("SHOW_VARS()")
+
+        # Should not show builtins module or other internals
+        self.assertNotIn("__builtins__", result.stdout)
 
 
 if __name__ == "__main__":

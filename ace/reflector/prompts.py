@@ -29,6 +29,23 @@ Call this when your analysis is complete. The value should be a dict with these 
 - extracted_learnings: List of dicts with "learning", "atomicity_score" (0-1), "evidence" (required!)
 - skill_tags: List of dicts with "id" and "tag" ("helpful"/"harmful"/"neutral")
 
+### FINAL_VAR(variable_name)
+Convenience function to finalize with a pre-built result stored in a variable.
+Useful when building your analysis dict across multiple iterations.
+Example:
+```python
+result = {{"reasoning": "...", "extracted_learnings": [...], ...}}
+FINAL_VAR("result")  # Equivalent to FINAL(result)
+```
+
+### SHOW_VARS()
+Debug helper that prints all available variables in your namespace.
+Call this if you need to see what data you have access to.
+Example:
+```python
+SHOW_VARS()  # Prints: Available variables: [...]
+```
+
 ## Learning Extraction Rules
 
 **CRITICAL: Read the `feedback` variable first - it contains domain-specific extraction guidance!**
@@ -87,7 +104,8 @@ Legacy alias for `ask_llm(prompt, "")`. Prefer `ask_llm` for new code.
 - trace.search_raw(regex): Search raw reasoning text
 - trace.summary(): Get a brief summary of the trace
 
-## Available Modules
+## Available Modules (pre-loaded, do NOT import)
+These modules are already available in your namespace. Do NOT use `import` statements.
 - `json`: For JSON parsing and serialization
 - `re`: For regex pattern matching
 - `collections`: Counter, defaultdict, deque, OrderedDict, namedtuple

@@ -116,9 +116,6 @@ class TraceSandbox:
         "oct": oct,
         # Object inspection
         "hasattr": hasattr,
-        "getattr": getattr,
-        "setattr": setattr,
-        "delattr": delattr,
         "dir": dir,
         "vars": lambda obj=None: {} if obj is None else vars(obj),
         "id": id,
@@ -189,6 +186,8 @@ class TraceSandbox:
             # Core analysis objects
             "trace": trace,
             "FINAL": self._final,
+            "FINAL_VAR": self._final_var,
+            "SHOW_VARS": self._show_vars,
             # Safe stdlib modules
             "json": json,
             "re": re,
@@ -200,6 +199,14 @@ class TraceSandbox:
             "time": time,
             "timezone": timezone,
         }
+
+        # Safe getattr that blocks dunder access
+        def safe_getattr(obj, name, *default):
+            if name.startswith("_"):
+                raise AttributeError(f"Access to '{name}' blocked")
+            return getattr(obj, name, *default) if default else getattr(obj, name)
+
+        self.namespace["safe_getattr"] = safe_getattr
 
         # Add llm_query if provided
         if llm_query_fn is not None:
@@ -226,6 +233,48 @@ class TraceSandbox:
         self._final_value = value
         self._final_called = True
         raise StopIteration("FINAL called - analysis complete")
+
+    def _final_var(self, var_name: str) -> None:
+        """Called by LLM code to output a variable as the final result.
+
+        Convenience function to finalize with a pre-built result stored in a variable.
+        Useful when the analysis result is built up across multiple code blocks.
+
+        Args:
+            var_name: Name of the variable in the namespace to use as the result
+
+        Raises:
+            ValueError: If the variable doesn't exist
+            StopIteration: Always raised to signal completion
+        """
+        if var_name not in self.namespace:
+            available = [k for k in self.namespace.keys() if not k.startswith("_")]
+            raise ValueError(
+                f"Variable '{var_name}' not found. Available: {available[:20]}"
+            )
+        self._final(self.namespace[var_name])
+
+    def _show_vars(self) -> None:
+        """Print available variables in the namespace for debugging.
+
+        Prints a list of user-accessible variables (excludes internal/dunder names).
+        """
+        user_vars = [k for k in self.namespace.keys() if not k.startswith("_")]
+        # Exclude builtins and modules for cleaner output
+        excluded = {
+            "__builtins__",
+            "json",
+            "re",
+            "collections",
+            "datetime",
+            "timedelta",
+            "date",
+            "time",
+            "timezone",
+            "safe_getattr",
+        }
+        user_vars = [k for k in user_vars if k not in excluded]
+        print(f"Available variables: {sorted(user_vars)}")
 
     @property
     def final_value(self) -> Any:

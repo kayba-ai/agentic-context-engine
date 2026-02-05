@@ -30,6 +30,23 @@ def _preview(text: str | None, max_len: int = 150) -> str:
     return text[:max_len]
 
 
+def _truncate_output(output: str, max_chars: int = 20000) -> str:
+    """Truncate output with metadata suffix showing how much was cut.
+
+    Args:
+        output: The output string to potentially truncate
+        max_chars: Maximum characters before truncation
+
+    Returns:
+        Original output if under limit, otherwise truncated with metadata
+    """
+    if not output or len(output) <= max_chars:
+        return output
+    truncated = output[:max_chars]
+    remaining = len(output) - max_chars
+    return f"{truncated}\n... + [{remaining} chars truncated]"
+
+
 class RecursiveReflector:
     """Recursive reflector with code execution for trace analysis.
 
@@ -203,10 +220,10 @@ class RecursiveReflector:
                     pass
                 return output
 
-        # Max iterations reached - build timeout output
+        # Max iterations reached - build timeout output with optional synthesis
         logger.warning(f"Max iterations ({self.config.max_iterations}) reached")
         return self._build_timeout_output(
-            question, agent_output, ground_truth, feedback
+            question, agent_output, ground_truth, feedback, messages
         )
 
     @maybe_track(name="repl_iteration", tags=["reflector", "iteration"])
@@ -300,12 +317,15 @@ class RecursiveReflector:
                 pass
             return self._parse_final_value(sandbox.final_value)
 
-        # Build output message
+        # Build output message with per-output truncation
+        max_output = self.config.max_output_chars
         output_parts = []
         if result.stdout:
-            output_parts.append(f"stdout:\n{result.stdout}")
+            truncated_stdout = _truncate_output(result.stdout, max_output)
+            output_parts.append(f"stdout:\n{truncated_stdout}")
         if result.stderr:
-            output_parts.append(f"stderr:\n{result.stderr}")
+            truncated_stderr = _truncate_output(result.stderr, max_output)
+            output_parts.append(f"stderr:\n{truncated_stderr}")
 
         output_message = "\n".join(output_parts) if output_parts else "(no output)"
 
@@ -513,20 +533,37 @@ class RecursiveReflector:
         agent_output: "AgentOutput",
         ground_truth: Optional[str],
         feedback: Optional[str],
+        messages: Optional[List[Dict[str, str]]] = None,
     ) -> "ReflectorOutput":
         """Build a ReflectorOutput when max iterations is reached.
+
+        If enable_fallback_synthesis is True and messages are provided, attempts
+        to make a final LLM call to synthesize insights from the conversation
+        history before falling back to generic output.
 
         Args:
             question: The original question
             agent_output: The agent's output
             ground_truth: Expected answer
             feedback: Execution feedback
+            messages: Conversation history for fallback synthesis
 
         Returns:
-            ReflectorOutput with timeout analysis
+            ReflectorOutput with timeout analysis or synthesized insights
         """
         from ..roles import ReflectorOutput, ExtractedLearning
 
+        # Try fallback synthesis if enabled and we have conversation history
+        if self.config.enable_fallback_synthesis and messages and len(messages) > 1:
+            try:
+                synthesized = self._attempt_fallback_synthesis(messages)
+                if synthesized is not None:
+                    logger.info("Fallback synthesis succeeded after timeout")
+                    return synthesized
+            except Exception as e:
+                logger.warning(f"Fallback synthesis failed: {e}")
+
+        # Fall back to generic timeout output
         is_correct = False
         if ground_truth:
             is_correct = (
@@ -555,3 +592,52 @@ class RecursiveReflector:
                 "feedback": feedback,
             },
         )
+
+    def _attempt_fallback_synthesis(
+        self, messages: List[Dict[str, str]]
+    ) -> Optional["ReflectorOutput"]:
+        """Attempt to synthesize a final answer from conversation history.
+
+        Makes one final LLM call asking to synthesize insights from the
+        incomplete analysis.
+
+        Args:
+            messages: The conversation history
+
+        Returns:
+            ReflectorOutput if synthesis succeeded, None otherwise
+        """
+        synthesis_prompt = """Your analysis timed out before calling FINAL().
+Based on your exploration so far, provide your final structured output now.
+
+Call FINAL() with your best assessment using the evidence you gathered.
+Include any learnings from the patterns you observed, even if the analysis was incomplete.
+
+If you found no significant insights, call FINAL() with empty extracted_learnings and a brief summary."""
+
+        # Add synthesis request to messages
+        synthesis_messages = messages.copy()
+        synthesis_messages.append({"role": "user", "content": synthesis_prompt})
+
+        # Make one synthesis attempt
+        response = self.llm.complete_messages(synthesis_messages)
+        response_text = response.text
+
+        # Try to extract FINAL() call from response
+        code = self._extract_code(response_text)
+        if code and "FINAL(" in code:
+            # Execute just enough to capture FINAL() call
+            from .sandbox import TraceSandbox
+
+            sandbox = TraceSandbox(trace=None)
+            result = sandbox.execute(code, timeout=10.0)
+            if sandbox.final_called:
+                return self._parse_final_value(sandbox.final_value)
+
+        # Try direct JSON parsing as fallback
+        try:
+            return self._parse_direct_response(response_text)
+        except Exception:
+            pass
+
+        return None
