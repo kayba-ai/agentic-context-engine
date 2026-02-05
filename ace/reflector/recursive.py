@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from .config import RecursiveConfig
 from .prompts import REFLECTOR_RECURSIVE_PROMPT
 from .sandbox import TraceSandbox
-from .subagent import SubAgentConfig, create_ask_llm_function
+from .subagent import CallBudget, SubAgentConfig, create_ask_llm_function
 from .trace_context import TraceContext
 from ..observability.tracers import maybe_track
 
@@ -19,6 +19,15 @@ if TYPE_CHECKING:
     from ..skillbook import Skillbook
 
 logger = logging.getLogger(__name__)
+
+
+def _preview(text: str | None, max_len: int = 150) -> str:
+    """Return a short preview of text for prompt grounding."""
+    if not text:
+        return "(empty)"
+    if len(text) <= max_len:
+        return text
+    return text[:max_len]
 
 
 class RecursiveReflector:
@@ -99,26 +108,10 @@ class RecursiveReflector:
         # Build trace context from agent output
         trace = TraceContext.from_agent_output(agent_output)
 
-        # Create bounded LLM query function for sub-analyses
-        llm_call_count = 0
-        max_llm_calls = self.config.max_llm_calls
+        # Create shared call budget
+        budget = CallBudget(self.config.max_llm_calls)
 
-        def bounded_llm_query(prompt: str) -> str:
-            """Spawn a sub-LLM query for complex analysis (with call limit)."""
-            nonlocal llm_call_count
-            llm_call_count += 1
-            if llm_call_count > max_llm_calls:
-                return f"(Max {max_llm_calls} LLM calls exceeded - analyze with available data)"
-            response = self.llm.complete(prompt, **kwargs)
-            return response.text
-
-        # Create sandbox with trace and utilities
-        sandbox = TraceSandbox(
-            trace=trace,
-            llm_query_fn=bounded_llm_query if self.config.enable_llm_query else None,
-        )
-
-        # Create and inject the sub-agent function if enabled
+        # Create ask_llm function with shared budget
         if self.config.enable_subagent:
             subagent_config = SubAgentConfig(
                 model=self.config.subagent_model,
@@ -131,15 +124,21 @@ class RecursiveReflector:
                 llm=self.llm,
                 config=subagent_config,
                 subagent_llm=self.subagent_llm,
-                max_calls=self.config.max_llm_calls,
+                budget=budget,
             )
-            sandbox.inject("ask_llm", ask_llm_fn)
         else:
-            # Provide a stub that explains the feature is disabled
-            sandbox.inject(
-                "ask_llm",
-                lambda question, context="": "(ask_llm disabled - analyze with code)",
-            )
+
+            def _disabled_ask_llm(question: str, context: str = "") -> str:
+                return "(ask_llm disabled - analyze with code)"
+
+            ask_llm_fn = _disabled_ask_llm
+
+        # Create sandbox with trace
+        sandbox = TraceSandbox(trace=trace, llm_query_fn=None)
+
+        # Inject ask_llm as primary, llm_query as legacy alias
+        sandbox.inject("ask_llm", ask_llm_fn)
+        sandbox.inject("llm_query", lambda prompt: ask_llm_fn(prompt, ""))
 
         # Inject context variables
         sandbox.inject("question", question)
@@ -149,15 +148,20 @@ class RecursiveReflector:
         sandbox.inject("feedback", feedback)
         sandbox.inject("skillbook", skillbook.as_prompt() or "(empty skillbook)")
 
-        # Build initial prompt with ONLY metadata (not full content)
-        # Full data is injected into sandbox - this is the key RLM benefit
+        # Build initial prompt with previews and metadata
+        # Full data is injected into sandbox - previews provide grounding
         skillbook_text = skillbook.as_prompt() or "(empty skillbook)"
         initial_prompt = self.prompt_template.format(
             question_length=len(question),
+            question_preview=_preview(question),
             reasoning_length=len(agent_output.reasoning),
+            reasoning_preview=_preview(agent_output.reasoning),
             answer_length=len(agent_output.final_answer),
+            answer_preview=_preview(agent_output.final_answer),
             ground_truth_length=len(ground_truth) if ground_truth else 0,
+            ground_truth_preview=_preview(ground_truth),
             feedback_length=len(feedback) if feedback else 0,
+            feedback_preview=_preview(feedback),
             skillbook_length=len(skillbook_text),
             step_count=len(trace) if trace else 0,
         )
@@ -166,75 +170,207 @@ class RecursiveReflector:
         messages: List[Dict[str, str]] = [{"role": "user", "content": initial_prompt}]
 
         for iteration in range(self.config.max_iterations):
-            logger.debug(f"Recursive reflector iteration {iteration + 1}")
-
-            # Annotate Opik span with iteration progress
-            try:
-                from opik import opik_context
-
-                opik_context.update_current_span(
-                    metadata={
-                        "iteration": iteration + 1,
-                        "max_iterations": self.config.max_iterations,
-                    },
-                )
-            except Exception:
-                pass
-
-            # Get code from LLM
-            response = self.llm.complete(
-                self._format_messages(messages),
-                **kwargs,
+            output = self._execute_iteration(
+                iteration, messages, sandbox, budget, **kwargs
             )
-            response_text = response.text
-
-            # Extract code blocks
-            code = self._extract_code(response_text)
-
-            if not code:
-                # No code in response - try to parse as final answer
-                logger.debug("No code block found, attempting to parse direct response")
+            if output is not None:
+                # Log FINAL() output to parent span
                 try:
-                    return self._parse_direct_response(response_text)
-                except Exception as e:
-                    logger.warning(f"Failed to parse direct response: {e}")
-                    # Ask LLM to output code
-                    messages.append({"role": "assistant", "content": response_text})
-                    messages.append(
-                        {
-                            "role": "user",
-                            "content": "Please write Python code to analyze the trace and call FINAL() with your analysis.",
+                    from opik import opik_context
+
+                    opik_context.update_current_span(
+                        metadata={
+                            "final_output": {
+                                "key_insight": output.key_insight,
+                                "learnings_count": len(output.extracted_learnings),
+                                "learnings": [
+                                    {
+                                        "learning": l.learning,
+                                        "score": l.atomicity_score,
+                                    }
+                                    for l in output.extracted_learnings
+                                ],
+                                "skill_tags": [
+                                    {"id": t.id, "tag": t.tag}
+                                    for t in output.skill_tags
+                                ],
+                            },
+                            "total_iterations": iteration + 1,
+                            "total_llm_calls": budget.count,
                         }
                     )
-                    continue
-
-            # Execute code in sandbox with timeout
-            logger.debug(f"Executing code:\n{code[:200]}...")
-            result = sandbox.execute(code, timeout=self.config.timeout)
-
-            # Check if FINAL() was called
-            if sandbox.final_called:
-                logger.debug("FINAL() called, parsing result")
-                return self._parse_final_value(sandbox.final_value)
-
-            # Build output message
-            output_parts = []
-            if result.stdout:
-                output_parts.append(f"stdout:\n{result.stdout}")
-            if result.stderr:
-                output_parts.append(f"stderr:\n{result.stderr}")
-
-            output_message = "\n".join(output_parts) if output_parts else "(no output)"
-
-            # Feed output back to LLM
-            messages.append({"role": "assistant", "content": response_text})
-            messages.append({"role": "user", "content": f"Output:\n{output_message}"})
+                except Exception:
+                    pass
+                return output
 
         # Max iterations reached - build timeout output
         logger.warning(f"Max iterations ({self.config.max_iterations}) reached")
         return self._build_timeout_output(
             question, agent_output, ground_truth, feedback
         )
+
+    @maybe_track(name="repl_iteration", tags=["reflector", "iteration"])
+    def _execute_iteration(
+        self,
+        iteration: int,
+        messages: List[Dict[str, str]],
+        sandbox: TraceSandbox,
+        budget: CallBudget,
+        **kwargs: Any,
+    ) -> Optional["ReflectorOutput"]:
+        """Execute a single REPL iteration.
+
+        Args:
+            iteration: Current iteration index
+            messages: Message history (modified in place)
+            sandbox: The trace sandbox
+            budget: Shared call budget
+            **kwargs: Additional LLM kwargs
+
+        Returns:
+            ReflectorOutput if FINAL() was called or direct response parsed, None to continue
+        """
+        logger.debug(f"Recursive reflector iteration {iteration + 1}")
+
+        # Trim messages to fit context budget
+        trimmed = self._trim_messages(messages)
+
+        # Get code from LLM
+        response = self.llm.complete_messages(trimmed, **kwargs)
+        response_text = response.text
+
+        # Extract code blocks
+        code = self._extract_code(response_text)
+
+        if not code:
+            # No code in response - try to parse as final answer
+            logger.debug("No code block found, attempting to parse direct response")
+            try:
+                return self._parse_direct_response(response_text)
+            except Exception as e:
+                logger.warning(f"Failed to parse direct response: {e}")
+                # Ask LLM to output code
+                messages.append({"role": "assistant", "content": response_text})
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": "Please write Python code to analyze the trace and call FINAL() with your analysis.",
+                    }
+                )
+                return None
+
+        # Execute code in sandbox with timeout
+        logger.debug(f"Executing code:\n{code[:200]}...")
+        result = sandbox.execute(code, timeout=self.config.timeout)
+
+        # Reject premature FINAL() on first iteration - force the model
+        # to see actual data before finalizing to prevent hallucination
+        if sandbox.final_called and iteration == 0:
+            sandbox._final_called = False
+            sandbox._final_value = None
+            messages.append({"role": "assistant", "content": response_text})
+            messages.append(
+                {
+                    "role": "user",
+                    "content": f"Output:\n{result.stdout}\n\n"
+                    "You called FINAL() before exploring the data. "
+                    "Read the actual variables first, then call FINAL() with evidence-based analysis.",
+                }
+            )
+            return None  # continue to next iteration
+
+        # Check if FINAL() was called
+        if sandbox.final_called:
+            logger.debug("FINAL() called, parsing result")
+            # Update iteration span metadata
+            try:
+                from opik import opik_context
+
+                opik_context.update_current_span(
+                    metadata={
+                        "iteration_number": iteration + 1,
+                        "code_generated": code[:2000] if code else "(no code)",
+                        "stdout": result.stdout[:2000],
+                        "stderr": result.stderr[:2000],
+                        "execution_success": result.success,
+                        "final_called": True,
+                    }
+                )
+            except Exception:
+                pass
+            return self._parse_final_value(sandbox.final_value)
+
+        # Build output message
+        output_parts = []
+        if result.stdout:
+            output_parts.append(f"stdout:\n{result.stdout}")
+        if result.stderr:
+            output_parts.append(f"stderr:\n{result.stderr}")
+
+        output_message = "\n".join(output_parts) if output_parts else "(no output)"
+
+        # Feed output back to LLM
+        messages.append({"role": "assistant", "content": response_text})
+        messages.append({"role": "user", "content": f"Output:\n{output_message}"})
+
+        # Update iteration span metadata
+        try:
+            from opik import opik_context
+
+            opik_context.update_current_span(
+                metadata={
+                    "iteration_number": iteration + 1,
+                    "code_generated": code[:2000] if code else "(no code)",
+                    "stdout": result.stdout[:2000],
+                    "stderr": result.stderr[:2000],
+                    "execution_success": result.success,
+                    "final_called": False,
+                }
+            )
+        except Exception:
+            pass
+
+        return None
+
+    def _trim_messages(self, messages: List[Dict[str, str]]) -> List[Dict[str, str]]:
+        """Trim messages to fit within context budget.
+
+        Keeps the first message (instructions) and the most recent messages
+        that fit within max_context_chars. Inserts a summary marker for
+        dropped messages.
+
+        Args:
+            messages: Full message history
+
+        Returns:
+            Trimmed message list
+        """
+        max_chars = self.config.max_context_chars
+        total = sum(len(m["content"]) for m in messages)
+        if total <= max_chars:
+            return messages
+
+        # Always keep the first message (instructions)
+        first = messages[0]
+        remaining_budget = max_chars - len(first["content"])
+
+        # Add messages from the end until budget is exhausted
+        kept: List[Dict[str, str]] = []
+        for msg in reversed(messages[1:]):
+            msg_len = len(msg["content"])
+            if remaining_budget - msg_len < 0:
+                break
+            kept.insert(0, msg)
+            remaining_budget -= msg_len
+
+        dropped_count = len(messages) - 1 - len(kept)
+        if dropped_count > 0:
+            summary = {
+                "role": "user",
+                "content": f"[{dropped_count} earlier iterations omitted]",
+            }
+            return [first, summary] + kept
+        return [first] + kept
 
     def _format_messages(self, messages: List[Dict[str, str]]) -> str:
         """Format message list into a single prompt string.
@@ -265,8 +401,8 @@ class RecursiveReflector:
         pattern = r"```python\s*(.*?)```"
         matches = re.findall(pattern, response, re.DOTALL)
         if matches:
-            # Return all code blocks concatenated
-            return "\n\n".join(match.strip() for match in matches)
+            # Return only the first code block to force multi-turn iteration
+            return matches[0].strip()
 
         # Also try ``` ... ``` without language specifier
         pattern = r"```\s*(.*?)```"

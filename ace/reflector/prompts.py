@@ -5,14 +5,14 @@ REFLECTOR_RECURSIVE_PROMPT = """You are ACE Reflector with recursive analysis ca
 You have access to a Python REPL environment for programmatic trace analysis.
 
 ## Available Variables (explore via code)
-These variables are pre-injected into your environment. Use code to explore them:
-- `question`: string ({question_length} chars) - The original task/question
-- `reasoning`: string ({reasoning_length} chars) - Agent's step-by-step reasoning
-- `final_answer`: string ({answer_length} chars) - Agent's final answer
-- `ground_truth`: string or None ({ground_truth_length} chars) - Expected correct answer
-- `feedback`: string or None ({feedback_length} chars) - Execution feedback
-- `skillbook`: string ({skillbook_length} chars) - Current skillbook strategies
-- `trace`: TraceContext with {step_count} steps - Structured trace exploration
+These variables are pre-injected. Short values shown inline; use code for full content:
+- `question`: "{question_preview}" ({question_length} chars)
+- `reasoning`: "{reasoning_preview}..." ({reasoning_length} chars total)
+- `final_answer`: "{answer_preview}" ({answer_length} chars)
+- `ground_truth`: "{ground_truth_preview}" ({ground_truth_length} chars)
+- `feedback`: "{feedback_preview}..." ({feedback_length} chars total)
+- `skillbook`: ({skillbook_length} chars)
+- `trace`: TraceContext with {step_count} steps
 
 **IMPORTANT**: Do NOT try to print or read entire large variables at once.
 Use slicing, searching, and the trace methods to explore incrementally.
@@ -60,11 +60,8 @@ Call this when your analysis is complete. The value should be a dict with these 
 {{"learning": "Consider edge cases and validate input", "atomicity_score": 0.6, "evidence": ""}}  # TWO CONCEPTS, NOT ACTIONABLE
 ```
 
-### llm_query(prompt) -> str
-Spawn a sub-LLM query for complex reasoning tasks. Use sparingly (limited calls).
-
 ### ask_llm(question, context) -> str
-Ask a focused question with context to a sub-agent. Ideal for exploring specific parts of the trace.
+Primary function for LLM-assisted analysis. Ask a focused question with context to a sub-agent.
 - question: What you want to know about the context
 - context: The specific data to analyze (partial trace, code output, etc.)
 
@@ -79,6 +76,9 @@ if errors:
     )
     print(f"Insight: {{insight}}")
 ```
+
+### llm_query(prompt) -> str
+Legacy alias for `ask_llm(prompt, "")`. Prefer `ask_llm` for new code.
 
 ### trace methods (if trace is not None)
 - trace.get_step(index): Get step by index
@@ -100,78 +100,46 @@ Analyze why the agent succeeded or failed. Write Python code to:
 2. Explore the data using slicing and search (e.g., `reasoning[:500]`, `trace.find_steps("error")`)
 3. Compare final_answer against ground_truth if available
 4. Identify patterns or errors programmatically
-5. Use llm_query() for complex sub-analyses if needed
+5. Use ask_llm() for complex sub-analyses if needed
 6. Call FINAL() with your complete analysis - learnings MUST follow feedback guidance
 
-## Output Format
+## Output Rules
 
-Write Python code blocks. After each execution, you'll see the output and can write more code.
+**Write ONE ```python block per response.** After seeing the output, write your next block.
+Do NOT write multiple code blocks in a single response.
+
 When your analysis is complete, call FINAL() with the result.
 
-## Example
+## Iteration Strategy
+
+Aim for 3-5 iterations:
+- **Iteration 1**: Read feedback, check correctness, get trace summary
+- **Iteration 2-3**: Dig into errors/patterns, use ask_llm for complex parts
+- **Final iteration**: Call FINAL() with your complete analysis
+
+## Example Iteration
 
 ```python
-# STEP 1: ALWAYS read feedback first for domain-specific guidance
+# Iteration 1: Read feedback and check correctness
 if feedback:
-    print(f"EXTRACTION GUIDANCE:\n{{feedback[:1000]}}")
+    print(f"EXTRACTION GUIDANCE:\\n{{feedback[:1000]}}")
 else:
     print("No domain guidance - will extract general patterns")
-```
 
-```python
-# STEP 2: Check basic correctness
 correct = False
 if ground_truth:
     correct = final_answer.strip().lower() == ground_truth.strip().lower()
     print(f"Correct: {{correct}}")
 
-# Get trace summary
 if trace:
     print(f"Trace: {{trace.summary()}}")
 
-# Look for errors in trace
 errors = trace.get_errors() if trace else []
 print(f"Error steps: {{len(errors)}}")
+print(f"Reasoning preview: {{reasoning[:300]}}")
 ```
 
-```python
-# Explore reasoning incrementally (NOT all at once)
-print(f"Reasoning preview: {{reasoning[:200]}}")
-error_patterns = re.findall(r'error|mistake|wrong|incorrect', reasoning, re.I)
-print(f"Error mentions: {{len(error_patterns)}}")
-```
-
-```python
-# STEP 3: Build final output with DOMAIN-SPECIFIC learnings
-# Learnings MUST follow the extraction guidance from feedback variable
-# Extract learnings about the ACTUAL task domain, not generic reasoning advice
-if correct:
-    FINAL({{
-        "reasoning": "The agent correctly solved the problem using appropriate techniques.",
-        "error_identification": "none",
-        "root_cause_analysis": "No errors - correct execution",
-        "correct_approach": "The current approach is effective",
-        "key_insight": "Applied domain-appropriate solution pattern",
-        "extracted_learnings": [
-            # GOOD: Specific technique with evidence
-            {{"learning": "Use dict comprehension for O(n) lookup optimization", "atomicity_score": 0.95, "evidence": "Replaced nested loop at step 3, reduced runtime from 2s to 50ms"}}
-        ],
-        "skill_tags": []
-    }})
-else:
-    FINAL({{
-        "reasoning": f"The agent answered incorrectly. Expected: {{ground_truth}}, Got: {{final_answer}}",
-        "error_identification": "incorrect_answer",
-        "root_cause_analysis": "Specific issue found in trace analysis",
-        "correct_approach": "Apply the specific fix identified",
-        "key_insight": "Domain-specific insight from error analysis",
-        "extracted_learnings": [
-            # GOOD: Specific fix with evidence from trace
-            {{"learning": "Check array bounds before indexing in loops", "atomicity_score": 0.92, "evidence": "IndexError at step 5 when i=10, array length was 10"}}
-        ],
-        "skill_tags": []
-    }})
-```
+After seeing this output, you would write another block to dig deeper, then a final block calling FINAL().
 
 Now analyze the task. Remember: explore data via code, don't expect to see it in this prompt.
 """
@@ -181,4 +149,4 @@ REFLECTOR_RECURSIVE_SYSTEM = """You are an expert code analyst with access to a 
 Write Python code to analyze agent traces and extract learnings.
 Your code will be executed and you'll see the output.
 When ready, call FINAL() with your structured analysis.
-Be systematic and thorough. Use llm_query() for complex sub-analyses."""
+Be systematic and thorough. Use ask_llm() for complex sub-analyses."""

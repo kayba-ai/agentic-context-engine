@@ -32,6 +32,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
 
+from ..observability.tracers import maybe_track
+
 if TYPE_CHECKING:
     from ..llm import LLMClient
 
@@ -49,6 +51,35 @@ Your response should be:
 - Actionable when possible (suggest what to do differently)
 
 You have no tools - just analyze the provided context and answer the question directly."""
+
+
+class CallBudget:
+    """Shared budget for tracking LLM calls across functions.
+
+    Used to enforce a single limit across llm_query and ask_llm,
+    preventing the effective budget from being 2x the configured value.
+    """
+
+    def __init__(self, max_calls: int) -> None:
+        self._max_calls = max_calls
+        self._count = 0
+
+    def consume(self) -> bool:
+        """Consume one call. Returns False if budget is exhausted."""
+        if self._count >= self._max_calls:
+            return False
+        self._count += 1
+        return True
+
+    @property
+    def count(self) -> int:
+        """Number of calls consumed so far."""
+        return self._count
+
+    @property
+    def exhausted(self) -> bool:
+        """Whether the budget is exhausted."""
+        return self._count >= self._max_calls
 
 
 @dataclass
@@ -129,6 +160,7 @@ class SubAgentLLM:
         self._call_count = 0
         self._call_history = []
 
+    @maybe_track(name="subagent_ask_llm", tags=["reflector", "subagent"])
     def ask(
         self,
         question: str,
@@ -189,6 +221,21 @@ class SubAgentLLM:
             }
         )
 
+        # Update span metadata
+        try:
+            from opik import opik_context
+
+            opik_context.update_current_span(
+                metadata={
+                    "question_preview": question[:200],
+                    "context_length": len(context),
+                    "response_length": len(result),
+                    "call_number": self._call_count,
+                }
+            )
+        except Exception:
+            pass
+
         return result
 
     def _build_prompt(self, question: str, context: str) -> str:
@@ -217,6 +264,7 @@ def create_ask_llm_function(
     config: Optional[SubAgentConfig] = None,
     subagent_llm: Optional["LLMClient"] = None,
     max_calls: int = 20,
+    budget: Optional[CallBudget] = None,
 ) -> Callable[[str, str], str]:
     """Create a bounded ask_llm function for use in the sandbox.
 
@@ -227,7 +275,8 @@ def create_ask_llm_function(
         llm: The main LLM client
         config: Configuration for the sub-agent
         subagent_llm: Optional separate LLM for sub-agent calls
-        max_calls: Maximum number of sub-agent calls allowed
+        max_calls: Maximum number of sub-agent calls allowed (standalone limit)
+        budget: Optional shared CallBudget (overrides max_calls when provided)
 
     Returns:
         A callable that takes (question, context) and returns a response string
@@ -239,7 +288,7 @@ def create_ask_llm_function(
     subagent = SubAgentLLM(llm, config=config, subagent_llm=subagent_llm)
 
     def bounded_ask_llm(question: str, context: str = "") -> str:
-        """Ask the sub-agent a question with context (bounded by max_calls).
+        """Ask the sub-agent a question with context (bounded by budget/max_calls).
 
         Args:
             question: The question to ask
@@ -248,7 +297,10 @@ def create_ask_llm_function(
         Returns:
             The sub-agent's response, or a limit message if max calls exceeded
         """
-        if subagent.call_count >= max_calls:
+        if budget is not None:
+            if not budget.consume():
+                return f"(Max {budget._max_calls} LLM calls exceeded - continue with available data)"
+        elif subagent.call_count >= max_calls:
             return f"(Max {max_calls} sub-agent calls exceeded - continue with available data)"
         return subagent.ask(question, context)
 
