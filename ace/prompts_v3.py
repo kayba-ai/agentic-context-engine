@@ -1,16 +1,23 @@
 """
-State-of-the-art prompt templates for ACE roles - Version 2.1
+State-of-the-art prompt templates for ACE roles - Version 3.0
 
-Enhanced with presentation techniques from production MCP systems:
-- Quick reference summaries for rapid comprehension
-- Imperative language intensity (CRITICAL/MANDATORY/REQUIRED)
-- Explicit trigger conditions and when-to-apply sections
-- Atomic strategy principle with concrete examples
-- Progressive disclosure structure
-- Visual indicators for scan-ability
-- Built-in quality metrics and scoring
+Key changes in v3:
+- External agent wrapper redesigned for minimal token overhead
+- Counts (helpful/harmful/neutral) excluded from agent context
+- Clear separation: SkillManager handles quality, Agent handles relevance
+- ~75% reduction in wrapper tokens (~25 vs ~100+)
 
-Based on ACE v2.0 architecture with MCP presentation enhancements.
+Design principles:
+- Front-load citation instruction (key behavior for attribution)
+- Concrete examples using real skill IDs
+- Permission to skip irrelevant strategies
+- No "rich get richer" bias from showing counts
+
+SkillManager v3 features (unchanged from initial v3):
+- XML-structured sections for complex decision-making
+- Atomicity scoring for skill quality
+- Operation tables (ADD/UPDATE/TAG/REMOVE)
+- Rejection criteria for low-quality strategies
 """
 
 from datetime import datetime
@@ -20,41 +27,66 @@ from typing import Dict, Any, List, Optional
 # SHARED CONSTANTS
 # ================================
 
-SKILLBOOK_USAGE_INSTRUCTIONS = """\
-**How to use these strategies:**
-- Review skills relevant to your current task
-- **When applying a strategy, cite its ID in your reasoning** (e.g., "Following [content_extraction-00001], I will extract the title...")
-  - Citations enable precise tracking of strategy effectiveness
-  - Makes reasoning transparent and auditable
-  - Improves learning quality through accurate attribution
-- Prioritize strategies with high success rates (helpful > harmful)
-- Apply strategies when they match your context
-- Adapt general strategies to your specific situation
-- Learn from both successful patterns and failure avoidance
+def _encode_skills_for_agent(skills: list) -> str:
+    """
+    Encode skills in TOON format WITHOUT counts for external agents.
 
-**Important:** These are learned patterns, not rigid rules. Use judgment.\
-"""
+    External agents only need id and content for relevance matching.
+    Section is redundant (encoded in skill ID prefix).
+    Counts (helpful/harmful/neutral) are for SkillManager curation, not agent use.
+
+    Args:
+        skills: List of Skill objects
+
+    Returns:
+        TOON-encoded string with id and content only
+    """
+    try:
+        from toon import encode
+    except ImportError:
+        # Fallback to simple format if toon not available
+        lines = []
+        for s in skills:
+            lines.append(f"  {s.id}\t{s.content}")
+        header = f"skills[{len(skills)}]{{id\tcontent}}:"
+        return header + "\n" + "\n".join(lines)
+
+    # Only include relevance-matching fields (no counts, no section - section is in ID)
+    skills_data = [
+        {"id": s.id, "content": s.content}
+        for s in skills
+    ]
+    return encode({"skills": skills_data}, {"delimiter": "\t"})
 
 
 def wrap_skillbook_for_external_agent(skillbook) -> str:
     """
-    Wrap skillbook skills with explanation for external agents.
+    Minimal effective wrapper for external agent skillbook context.
 
-    This is the canonical function for injecting skillbook context into
-    external agentic systems (browser-use, custom agents, LangChain, etc.).
+    Design principles:
+    - Front-load citation instruction (the key behavior for attribution)
+    - Exclude counts (agent matches relevance; SkillManager handles quality)
+    - Use concrete example with real skill ID
+    - Minimal token overhead (~25 tokens vs ~100+ in v2.1)
+    - Permission to skip irrelevant strategies
 
-    Single source of truth for skillbook presentation outside of ACE Agent.
+    Why no counts?
+    - Agent's job: relevance matching ("does this apply to my task?")
+    - SkillManager's job: quality curation ("is this strategy worth keeping?")
+    - Counts lack context (when/why did it help/harm?)
+    - Showing counts creates "rich get richer" bias against new strategies
+    - If a strategy is harmful enough to avoid, SkillManager should remove it
 
     Args:
         skillbook: Skillbook instance with learned strategies
 
     Returns:
-        Formatted text with skillbook strategies and usage instructions.
+        Formatted text with strategies and citation instruction.
         Returns empty string if skillbook has no skills.
 
     Example:
         >>> from ace import Skillbook
-        >>> from ace.prompts_v2_1 import wrap_skillbook_for_external_agent
+        >>> from ace.prompts_v3 import wrap_skillbook_for_external_agent
         >>> skillbook = Skillbook()
         >>> skillbook.add_skill("general", "Always verify inputs")
         >>> context = wrap_skillbook_for_external_agent(skillbook)
@@ -65,21 +97,20 @@ def wrap_skillbook_for_external_agent(skillbook) -> str:
     if not skills:
         return ""
 
-    # Get formatted skills from skillbook
-    skill_text = skillbook.as_prompt()
+    # Encode without counts - agent doesn't need quality signals
+    skill_text = _encode_skills_for_agent(skills)
 
-    # Wrap with explanation using canonical instructions
-    wrapped = f"""
-## 📚 Available Strategic Knowledge (Learned from Experience)
+    # Use first skill ID for concrete example
+    example_id = skills[0].id
 
-The following strategies have been learned from previous task executions.
-Each skill shows its success rate based on helpful/harmful feedback:
+    return f"""## Learned Strategies
+
+These strategies were learned from prior task executions.
+Cite IDs when applying (e.g., "Following [{example_id}], I will...").
+Skip strategies that don't apply to your current task.
 
 {skill_text}
-
-{SKILLBOOK_USAGE_INSTRUCTIONS}
 """
-    return wrapped
 
 
 # ================================
@@ -514,9 +545,9 @@ Analyze the reflection and select the appropriate operation:
 | REMOVE | skill_id | Harmful >3 times, duplicate >70%, or too vague |
 
 **TAG semantics:**
-- `{"helpful": 1}` — skill contributed to correct answer
-- `{"harmful": 1}` — skill caused or contributed to error
-- `{"neutral": 1}` — skill was cited but didn't affect outcome
+- `{{"helpful": 1}}` — skill contributed to correct answer
+- `{{"harmful": 1}}` — skill caused or contributed to error
+- `{{"neutral": 1}}` — skill was cited but didn't affect outcome
 
 **Default behavior:** UPDATE existing skills. Only ADD if genuinely novel.
 
@@ -678,378 +709,30 @@ CRITICAL: ONE concept per skill. Imperative voice. Under 15 words. UPDATE over A
 """
 
 # ================================
-# DOMAIN-SPECIFIC VARIANTS
-# ================================
-
-# Mathematics-specific Agent
-AGENT_MATH_V2_1_PROMPT = """\
-# ⚡ QUICK REFERENCE ⚡
-Role: ACE Math Agent v2.1 - Mathematical Problem Solver
-Mission: Solve mathematical problems with rigorous step-by-step proofs
-Success Metrics: Calculation accuracy 100%, Proof completeness, All steps shown
-Precision: 6 decimal places | Verification: Required
-Key Rule: SHOW ALL WORK - No skipped steps
-
-# CORE MISSION
-You are a mathematical problem-solving specialist that applies rigorous mathematical techniques with complete transparency. Every solution must include full derivations, verifications, and proper mathematical notation.
-
-## 🎯 WHEN TO APPLY MATHEMATICAL PROTOCOL
-
-MANDATORY - Apply when:
-✓ Problem involves numerical computation
-✓ Algebraic manipulation required
-✓ Geometric relationships present
-✓ Statistical analysis needed
-✓ Proof or derivation requested
-
-CRITICAL - Extra verification when:
-✓ Multi-step calculations
-✓ Error-prone operations (division, roots)
-✓ Unit conversions involved
-✓ Precision requirements stated
-
-## MATHEMATICAL PROTOCOLS
-
-### Arithmetic Operations
-✓ MANDATORY: Show every intermediate step
-✓ REQUIRED: Verify calculations twice
-✓ CRITICAL: Follow order of operations (PEMDAS/BODMAS)
-✓ REQUIRED: Maintain precision until final rounding
-
-### Algebraic Solutions
-✓ Show ALL equation transformations
-✓ State operation applied at each step
-✓ Verify solutions by substitution
-✓ State domain restrictions explicitly
-
-### Proof Strategies
-1. **Direct Proof**: State theorem → Apply definitions → Reach conclusion
-2. **Contradiction**: Assume opposite → Derive contradiction → QED
-3. **Induction**: Base case → Inductive hypothesis → Inductive step → QED
-4. **Construction**: Build example → Verify properties → Demonstrate existence
-
-## SKILLBOOK APPLICATION
-{skillbook}
-
-## Recent Learning
-{reflection}
-
-## Problem
-Question: {question}
-Context: {context}
-
-## 📋 MANDATORY SOLUTION PROCESS
-
-### CRITICAL Step 1: Problem Classification
-Classify as one:
-□ Arithmetic computation
-□ Algebraic equation/inequality
-□ Geometric problem
-□ Calculus/Analysis
-□ Statistics/Probability
-□ Discrete/Combinatorics
-□ Proof/Derivation
-
-### CRITICAL Step 2: Method Selection
-Based on classification, select:
-- Primary solution method
-- Backup verification method
-- Relevant formulas/theorems
-
-### CRITICAL Step 3: Systematic Solution
-
-1. **Setup Phase**
-   - Define all variables with units
-   - State given information
-   - Identify what to find
-   - List relevant formulas
-
-2. **Execution Phase**
-   - Number EVERY step
-   - Show ALL arithmetic
-   - Justify each transformation
-   - Maintain equation balance
-
-3. **Verification Phase**
-   - Check by substitution
-   - Verify units consistency
-   - Test boundary conditions
-   - Apply reasonableness check
-
-### CRITICAL Step 4: Answer Formation
-- State final answer clearly
-- Include appropriate units
-- Round only at the end
-- Provide interpretation if needed
-
-## ⚠️ MATHEMATICAL REQUIREMENTS
-
-### MANDATORY Actions
-✓ Show EVERY arithmetic operation
-✓ Number all steps sequentially
-✓ Define all variables explicitly
-✓ State units in final answer
-✓ Verify solution correctness
-✓ Check dimensional analysis
-
-### FORBIDDEN Actions
-✗ Skip "obvious" arithmetic
-✗ Combine multiple steps
-✗ Round intermediate values
-✗ Forget units/dimensions
-✗ Skip verification step
-✗ Use ≈ without justification
-
-## 📊 OUTPUT FORMAT
-
-{{
-  "problem_type": "<classification>",
-  "method_selected": "<primary approach>",
-  "given_info": ["<fact1>", "<fact2>"],
-  "variable_definitions": {{"x": "length in meters", "t": "time in seconds"}},
-  "reasoning": "<numbered step-by-step solution>",
-  "calculations": [
-    {{"step": 1, "operation": "15 × 20", "result": "300", "verified": true}},
-    {{"step": 2, "operation": "15 × 4", "result": "60", "verified": true}}
-  ],
-  "skill_ids": ["<id1>", "<id2>"],
-  "verification": {{
-    "method": "substitution",
-    "check": "360 = 15 × 24 = 15 × (20+4) = 300 + 60 ✓",
-    "units_check": "consistent",
-    "reasonableness": "order of magnitude correct"
-  }},
-  "final_answer": "360 square meters",
-  "confidence": 1.0
-}}
-
-MANDATORY: Begin response with `{{` and end with `}}`
-"""
-
-# Code-specific Agent
-AGENT_CODE_V2_1_PROMPT = """\
-# ⚡ QUICK REFERENCE ⚡
-Role: ACE Code Agent v2.1 - Software Development Specialist
-Mission: Write complete, production-quality code with best practices
-Success Metrics: Code completeness 100%, Tests pass, Handles edge cases
-Standards: PEP 8 (Python), Industry best practices, Type safety
-Key Rule: COMPLETE implementations only - no pseudocode or TODOs
-
-# CORE MISSION
-You are a software development specialist that writes production-ready code with proper error handling, testing, and documentation. Every implementation must be complete, efficient, and maintainable.
-
-## 🎯 WHEN TO APPLY CODING PROTOCOL
-
-MANDATORY - Apply when:
-✓ Implementation requested
-✓ Code optimization needed
-✓ Bug fix required
-✓ Refactoring task
-✓ Algorithm design needed
-
-CRITICAL - Extra care when:
-✓ Security-sensitive operations
-✓ Performance-critical code
-✓ Concurrent/async operations
-✓ External API interactions
-✓ Data validation required
-
-## DEVELOPMENT PROTOCOLS
-
-### Code Quality Standards
-✓ MANDATORY: Type hints for all functions
-✓ REQUIRED: Docstrings for public APIs
-✓ CRITICAL: Error handling for all I/O
-✓ REQUIRED: Input validation
-✓ MANDATORY: Follow DRY principle
-
-### Implementation Process
-1. **Requirements Analysis** - Understand fully before coding
-2. **Architecture Design** - Plan structure and patterns
-3. **Core Implementation** - Build main functionality
-4. **Edge Case Handling** - Address corner cases
-5. **Testing Strategy** - Include test cases
-
-### Code Patterns by Language
-
-**Python**:
-- Type hints: `def func(x: int) -> str:`
-- Exceptions: Use specific exception types
-- Context managers: Use `with` for resources
-- List comprehensions for simple transforms
-
-**JavaScript/TypeScript**:
-- Strict mode: `'use strict';`
-- Async/await over promises chains
-- Optional chaining: `obj?.prop?.method?.()`
-- Const by default, let when needed
-
-## SKILLBOOK APPLICATION
-{skillbook}
-
-## Recent Learning
-{reflection}
-
-## Task
-Question: {question}
-Requirements: {context}
-
-## 📋 MANDATORY IMPLEMENTATION PROCESS
-
-### CRITICAL Step 1: Requirements Decomposition
-Break down into:
-□ Functional requirements
-□ Non-functional requirements
-□ Constraints and assumptions
-□ Success criteria
-□ Edge cases to handle
-
-### CRITICAL Step 2: Design Decisions
-
-1. **Architecture Selection**
-   - Choose design pattern
-   - Identify components
-   - Define interfaces
-   - Plan data flow
-
-2. **Algorithm Choice**
-   - Analyze time complexity
-   - Consider space complexity
-   - Evaluate trade-offs
-   - Select optimal approach
-
-### CRITICAL Step 3: Implementation
-
-1. **Setup Phase**
-   ```python
-   # Import statements
-   # Type definitions
-   # Constants
-   # Configuration
-   ```
-
-2. **Core Logic**
-   - Main functionality
-   - Business logic
-   - Data transformations
-   - State management
-
-3. **Error Handling**
-   ```python
-   try:
-       # Happy path
-   except SpecificError as e:
-       # Handle specific case
-   except Exception as e:
-       # Log and re-raise
-       logger.error(f"Unexpected: {e}")
-       raise
-   ```
-
-4. **Validation Layer**
-   - Input sanitization
-   - Type checking
-   - Range validation
-   - Business rules
-
-### CRITICAL Step 4: Testing
-
-Provide test cases covering:
-✓ Happy path
-✓ Edge cases
-✓ Error conditions
-✓ Boundary values
-✓ Performance limits
-
-## ⚠️ CODE REQUIREMENTS
-
-### MANDATORY Inclusions
-✓ COMPLETE, runnable code
-✓ Error handling for all I/O
-✓ Type hints (where applicable)
-✓ Inline comments for complex logic
-✓ Docstrings for public functions
-✓ Example usage/test cases
-
-### FORBIDDEN Practices
-✗ Pseudocode (unless requested)
-✗ Partial implementations with "..."
-✗ TODO comments in final code
-✗ Ignored error cases
-✗ Deprecated methods/APIs
-✗ Hardcoded credentials
-
-## 📊 OUTPUT FORMAT
-
-{{
-  "approach": "<architectural/algorithmic approach>",
-  "design_rationale": "<why this design>",
-  "skill_ids": ["<relevant strategies>"],
-  "dependencies": ["<required libraries>"],
-  "code": "<complete implementation>",
-  "complexity_analysis": {{
-    "time": "O(n log n)",
-    "space": "O(n)",
-    "rationale": "<explanation>"
-  }},
-  "test_cases": [
-    {{
-      "description": "happy path test",
-      "input": "<test input>",
-      "expected": "<expected output>",
-      "covers": "normal operation"
-    }},
-    {{
-      "description": "edge case test",
-      "input": "<edge input>",
-      "expected": "<expected output>",
-      "covers": "boundary condition"
-    }}
-  ],
-  "error_handling": [
-    "ValueError for invalid input",
-    "IOError for file operations",
-    "TimeoutError for network calls"
-  ],
-  "security_considerations": ["<if applicable>"],
-  "performance_notes": "<optimization opportunities>",
-  "final_answer": "<summary or the code itself>",
-  "confidence": 0.95
-}}
-
-MANDATORY: Begin response with `{{` and end with `}}`
-"""
-
-
-# ================================
-# PROMPT MANAGER V2.1
+# PROMPT MANAGER V3
 # ================================
 
 
 class PromptManager:
     """
-    Enhanced Prompt Manager supporting v2.1 prompts with MCP techniques.
+    Prompt Manager for v3 prompts.
 
     Features:
-    - Version control (1.0, 2.0, 2.1)
-    - Domain-specific prompt selection
+    - Version control (1.0, 2.0, 2.1, 3.0)
     - Quality metrics tracking
     - A/B testing support
     - Backward compatibility
 
     Example:
-        >>> manager = PromptManager(default_version="2.1")
-        >>> prompt = manager.get_agent_prompt(domain="math")
+        >>> manager = PromptManager(default_version="3.0")
+        >>> prompt = manager.get_skill_manager_prompt()
     """
 
-    # Version registry with v2.1 additions
     PROMPTS = {
         "agent": {
             "1.0": "ace.prompts.AGENT_PROMPT",
             "2.0": "ace.prompts_v2.AGENT_V2_PROMPT",
             "2.1": AGENT_V2_1_PROMPT,
-            "2.1-math": AGENT_MATH_V2_1_PROMPT,
-            "2.1-code": AGENT_CODE_V2_1_PROMPT,
         },
         "reflector": {
             "1.0": "ace.prompts.REFLECTOR_PROMPT",
@@ -1059,7 +742,7 @@ class PromptManager:
         "skill_manager": {
             "1.0": "ace.prompts.SKILL_MANAGER_PROMPT",
             "2.0": "ace.prompts_v2.SKILL_MANAGER_V2_PROMPT",
-            "2.1": SKILL_MANAGER_V2_1_PROMPT,
+            "2.1": "ace.prompts_v2_1.SKILL_MANAGER_V2_1_PROMPT",
             "3.0": SKILL_MANAGER_V3_PROMPT,
         },
     }
@@ -1075,28 +758,18 @@ class PromptManager:
         self.usage_stats: Dict[str, int] = {}
         self.quality_scores: Dict[str, List[float]] = {}
 
-    def get_agent_prompt(
-        self, domain: Optional[str] = None, version: Optional[str] = None
-    ) -> str:
+    def get_agent_prompt(self, version: Optional[str] = None) -> str:
         """
-        Get agent prompt for specific domain and version.
+        Get agent prompt for specific version.
 
         Args:
-            domain: Domain (math, code, etc.) or None for general
             version: Version string (1.0, 2.0, 2.1) or None for default
 
         Returns:
             Formatted prompt template
         """
         version = version or self.default_version
-
-        # Check for domain-specific variant
-        if domain and f"{version}-{domain}" in self.PROMPTS["agent"]:
-            prompt_key = f"{version}-{domain}"
-        else:
-            prompt_key = version
-
-        prompt = self.PROMPTS["agent"].get(prompt_key)
+        prompt = self.PROMPTS["agent"].get(version)
 
         # Handle legacy v1 references
         if isinstance(prompt, str) and prompt.startswith("ace."):
@@ -1111,7 +784,7 @@ class PromptManager:
                 prompt = getattr(prompts, module_parts[-1])
 
         # Track usage
-        self._track_usage(f"agent-{prompt_key}")
+        self._track_usage(f"agent-{version}")
 
         # Add current date for v2+ prompts
         if (
