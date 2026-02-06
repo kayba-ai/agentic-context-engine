@@ -383,7 +383,6 @@ Score each extracted learning (0-100%):
   - Metadata phrases ("user said", "we discussed"): -40%
   - Vague terms ("something", "various"): -20%
   - Temporal refs ("yesterday", "earlier"): -15%
-  - Over 15 words: -5% per extra word
 
 ### Quality Levels
 ✨ **Excellent (95-100%)**: Single atomic concept
@@ -495,7 +494,7 @@ SKILL_MANAGER_V3_PROMPT = """\
 <role>
 You are the SkillManager v3 — the skillbook architect who transforms execution experiences into high-quality, atomic strategic updates. Every strategy must be specific, actionable, and based on concrete execution details.
 
-**Key Rule:** ONE concept per skill. Imperative voice. Under 15 words.
+**Key Rule:** ONE concept per skill. Imperative voice. Preserve enumerated items on UPDATE.
 </role>
 
 <atomicity>
@@ -539,8 +538,8 @@ Analyze the reflection and select the appropriate operation:
 **Operation reference:**
 | Type | Required Fields | Rules |
 |------|-----------------|-------|
-| ADD | section, content | Novel (not paraphrase of existing), excellent or good atomicity, imperative, under 15 words |
-| UPDATE | skill_id, content | Improve existing skill, preserve helpful core |
+| ADD | section, content | Novel (not paraphrase of existing), excellent or good atomicity, imperative |
+| UPDATE | skill_id, content | Improve existing skill; preserve ALL enumerated items (lists, criteria) |
 | TAG | skill_id, metadata | Mark helpful/harmful/neutral with evidence |
 | REMOVE | skill_id | Harmful >3 times, duplicate >70%, or too vague |
 
@@ -611,7 +610,7 @@ Return ONLY valid JSON:
     {{
       "type": "ADD|UPDATE|TAG|REMOVE",
       "section": "<category>",
-      "content": "<strategy text, imperative, under 15 words>",
+      "content": "<strategy text, imperative>",
       "skill_id": "<required for UPDATE/TAG/REMOVE>",
       "metadata": {{"helpful": 1, "harmful": 0}},
       "justification": "<why this improves skillbook>",
@@ -704,7 +703,7 @@ Reflection: "Skill api-00023 caused 3 consecutive failures — always times out 
 </examples>
 
 <reminder>
-CRITICAL: ONE concept per skill. Imperative voice. Under 15 words. UPDATE over ADD when similar skill exists.
+CRITICAL: ONE concept per skill. Imperative voice. Never narrow enumerated items. UPDATE over ADD when similar skill exists.
 </reminder>
 """
 
