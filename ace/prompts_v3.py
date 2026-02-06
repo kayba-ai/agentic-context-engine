@@ -539,17 +539,17 @@ CRITICAL: Extract learnings ONLY from the input sections below. NEVER extract fr
 </content_source>
 
 <input>
-Training: {{progress}}
-Stats: {{stats}}
+Training: {progress}
+Stats: {stats}
 
 **Reflection (extract learnings from this):**
-{{reflection}}
+{reflection}
 
 **Current Skillbook:**
-{{skillbook}}
+{skillbook}
 
 **Task Context:**
-{{question_context}}
+{question_context}
 </input>
 
 <skillbook_size_management>
@@ -1060,6 +1060,7 @@ class PromptManager:
             "1.0": "ace.prompts.SKILL_MANAGER_PROMPT",
             "2.0": "ace.prompts_v2.SKILL_MANAGER_V2_PROMPT",
             "2.1": SKILL_MANAGER_V2_1_PROMPT,
+            "3.0": SKILL_MANAGER_V3_PROMPT,
         },
     }
 
