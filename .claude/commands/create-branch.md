@@ -1,14 +1,34 @@
-Create a new git branch following the project naming convention.
+Create a new git branch with an associated worktree following the project naming convention.
 
-Format: `<type>/<developer>/<description>`
+**Format:** `<type>/<developer>/<description>`
+**Worktree:** `../<sanitized-branch-name>` (sibling to current worktree)
 
-Arguments: $ARGUMENTS should be in format: `<type> <description>`
-Example: `/create-branch feature add-caching` or `/create-branch fix login-error`
+**Arguments:** $ARGUMENTS should be in format: `<type> <description>`
 
-Steps:
-1. Parse the type and description from arguments
-2. Get the developer name from git config (user.name or user.email prefix)
-3. Create branch: `git checkout -b <type>/<developer>/<description>`
-4. Confirm the branch was created
+**Examples:**
+- `/create-branch feature add-caching` → branch: `feature/<dev>/add-caching`, worktree: `../feature-<dev>-add-caching`
+- `/create-branch fix login-error` → branch: `fix/<dev>/login-error`, worktree: `../fix-<dev>-login-error`
 
-Valid types: feature, fix, docs, refactor, test, chore
+**Steps:**
+1. Parse type and description from arguments (validate type is one of: feature, fix, docs, refactor, test, chore)
+2. Get developer name from `git config user.name` (sanitize: lowercase, replace spaces with hyphens)
+3. Construct branch name: `<type>/<developer>/<description>`
+4. Construct worktree path: `../<type>-<developer>-<description>` (replace all `/` with `-`)
+5. Create branch and worktree atomically: `git worktree add -b <branch> <worktree-path>`
+6. Report success with the created branch name and worktree path
+
+**Valid types:** feature, fix, docs, refactor, test, chore
+
+**On success, output:**
+```
+✓ Created branch: <branch-name>
+✓ Created worktree: <worktree-path>
+
+To switch to the new worktree:
+  cd <worktree-path>
+```
+
+**Error handling:**
+- If type is invalid, show valid types and abort
+- If branch already exists, suggest checking it out instead
+- If worktree path exists, suggest using existing worktree
