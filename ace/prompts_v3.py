@@ -27,6 +27,7 @@ from typing import Dict, Any, List, Optional
 # SHARED CONSTANTS
 # ================================
 
+
 def _encode_skills_for_agent(skills: list) -> str:
     """
     Encode skills in TOON format WITHOUT counts for external agents.
@@ -52,10 +53,7 @@ def _encode_skills_for_agent(skills: list) -> str:
         return header + "\n" + "\n".join(lines)
 
     # Only include relevance-matching fields (no counts, no section - section is in ID)
-    skills_data = [
-        {"id": s.id, "content": s.content}
-        for s in skills
-    ]
+    skills_data = [{"id": s.id, "content": s.content} for s in skills]
     return encode({"skills": skills_data}, {"delimiter": "\t"})
 
 
@@ -584,10 +582,20 @@ Stats: {stats}
 </input>
 
 <skillbook_size_management>
-IF skillbook exceeds 50 strategies:
+Consult the Stats field above for skillbook health:
+- **high_performing**: Proven skills (helpful>5, harmful<2) — protect these
+- **problematic**: Skills causing errors (harmful >= helpful) — strong REMOVE candidates
+- **unused**: Never-applied skills (0 tags) — REMOVE candidates when skillbook is large
+- **by_section**: Per-section counts; rebalance oversized sections
+
+If token_budget is present in stats:
+- **token_estimate / token_budget / over_budget**: When near or over budget, strongly prefer UPDATE and REMOVE over ADD
+- Remove problematic and unused skills first to free budget
+
+General guidance when skillbook is large (50+ skills) or over budget:
 - Prioritize UPDATE over ADD
+- REMOVE problematic and unused skills first
 - Merge similar strategies (>70% overlap)
-- Remove lowest-performing skills
 - Focus on quality over quantity
 </skillbook_size_management>
 

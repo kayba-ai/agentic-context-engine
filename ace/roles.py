@@ -18,7 +18,7 @@ from .prompts_v2_1 import PromptManager
 _prompt_manager = PromptManager(default_version="2.1")
 AGENT_PROMPT = _prompt_manager.get_agent_prompt()
 REFLECTOR_PROMPT = _prompt_manager.get_reflector_prompt()
-SKILL_MANAGER_PROMPT = _prompt_manager.get_skill_manager_prompt()
+SKILL_MANAGER_PROMPT = _prompt_manager.get_skill_manager_prompt(version="3.0")
 
 if TYPE_CHECKING:
     from .deduplication import DeduplicationManager
@@ -682,6 +682,7 @@ class SkillManager:
         *,
         max_retries: int = 3,
         dedup_manager: Optional["DeduplicationManager"] = None,
+        token_budget: Optional[int] = None,
     ) -> None:
         # Auto-wrap with Instructor if not already wrapped
         # Use duck typing to detect Instructor capability (supports mocking)
@@ -695,6 +696,7 @@ class SkillManager:
         self.prompt_template = prompt_template
         self.max_retries = max_retries
         self.dedup_manager = dedup_manager
+        self.token_budget = token_budget
 
     @maybe_track(
         name="skill_manager_update_skills",
@@ -767,11 +769,22 @@ class SkillManager:
             ],
         }
 
+        # Compute skillbook prompt ONCE (reused for both {skillbook} and token estimate)
+        skillbook_prompt = skillbook.as_prompt() or "(empty skillbook)"
+
+        # Build enriched stats with optional token budget info
+        enriched_stats = skillbook.stats()
+        if self.token_budget is not None:
+            token_estimate = len(skillbook_prompt) // 4
+            enriched_stats["token_estimate"] = token_estimate
+            enriched_stats["token_budget"] = self.token_budget
+            enriched_stats["over_budget"] = token_estimate > self.token_budget
+
         base_prompt = self.prompt_template.format(
             progress=progress,
-            stats=json.dumps(skillbook.stats()),
+            stats=json.dumps(enriched_stats),
             reflection=json.dumps(reflection_data, ensure_ascii=False, indent=2),
-            skillbook=skillbook.as_prompt() or "(empty skillbook)",
+            skillbook=skillbook_prompt,
             question_context=question_context,
         )
 

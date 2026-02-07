@@ -442,15 +442,48 @@ class Skillbook:
         return "\n".join(parts)
 
     def stats(self) -> Dict[str, object]:
-        return {
+        active = list(self.skills())  # active only, same set as as_prompt()
+
+        result: Dict[str, object] = {
+            # Existing (unchanged keys)
             "sections": len(self._sections),
-            "skills": len(self._skills),
+            "skills": len(active),
             "tags": {
-                "helpful": sum(s.helpful for s in self._skills.values()),
-                "harmful": sum(s.harmful for s in self._skills.values()),
-                "neutral": sum(s.neutral for s in self._skills.values()),
+                "helpful": sum(s.helpful for s in active),
+                "harmful": sum(s.harmful for s in active),
+                "neutral": sum(s.neutral for s in active),
+            },
+            # Derived health classifications (thresholds match original ace/ repo)
+            "high_performing": sum(
+                1 for s in active if s.helpful > 5 and s.harmful < 2
+            ),
+            "problematic": sum(
+                1 for s in active if s.harmful >= s.helpful and s.harmful > 0
+            ),
+            "unused": sum(1 for s in active if s.helpful + s.harmful + s.neutral == 0),
+            # Per-section breakdown
+            "by_section": {
+                section: {
+                    "count": sum(
+                        1
+                        for sid in sids
+                        if sid in self._skills and self._skills[sid].status == "active"
+                    ),
+                    "helpful": sum(
+                        self._skills[sid].helpful
+                        for sid in sids
+                        if sid in self._skills and self._skills[sid].status == "active"
+                    ),
+                    "harmful": sum(
+                        self._skills[sid].harmful
+                        for sid in sids
+                        if sid in self._skills and self._skills[sid].status == "active"
+                    ),
+                }
+                for section, sids in self._sections.items()
             },
         }
+        return result
 
     # ------------------------------------------------------------------ #
     # Internal helpers

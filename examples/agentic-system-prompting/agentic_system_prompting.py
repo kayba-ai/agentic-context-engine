@@ -94,10 +94,8 @@ def main():
     # =========================================================================
     # USER CONFIGURATION - Update these values for your use case
     # =========================================================================
-    CONVERSATIONS_DIR = Path(
-        "/path/to/your/conversations"
-    )  # Absolute path to .md files
-    LLM_MODEL = "gpt-5-mini"  # LLM model for analysis
+    CONVERSATIONS_DIR = Path(__file__).parent / "Train_set_airline_traces"
+    LLM_MODEL = "anthropic/claude-haiku-4-5-20251001"  # LLM model for analysis
     EPOCHS = 1  # Number of training epochs
     DEDUPLICATOR_SIMILARITY_THRESHOLD = 0.7  # Deduplication threshold (0.0-1.0)
     # =========================================================================
@@ -134,7 +132,9 @@ def main():
     agent = ReplayAgent()
     reflector = Reflector(llm=llm, prompt_template=prompt_mgr.get_reflector_prompt())
     skill_manager = SkillManager(
-        llm=llm, prompt_template=prompt_mgr.get_skill_manager_prompt()
+        llm=llm,
+        prompt_template=prompt_mgr.get_skill_manager_prompt(version="3.0"),
+        token_budget=1000,
     )
 
     # Deduplication uses OpenAI embeddings to detect and merge similar skills

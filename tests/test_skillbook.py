@@ -412,5 +412,93 @@ class TestSkillbook(unittest.TestCase):
         self.assertEqual(skill.embedding, [0.1, 0.2, 0.3])
 
 
+@pytest.mark.unit
+class TestEnrichedStats(unittest.TestCase):
+    """Test enriched stats with derived classifications."""
+
+    def test_high_performing_count(self):
+        """Skill with helpful=6, harmful=1 is counted as high_performing."""
+        sb = Skillbook()
+        sb.add_skill("general", "Great strategy", metadata={"helpful": 6, "harmful": 1})
+        sb.add_skill("general", "Okay strategy", metadata={"helpful": 3, "harmful": 0})
+        stats = sb.stats()
+        self.assertEqual(stats["high_performing"], 1)
+
+    def test_problematic_count(self):
+        """Skill with harmful >= helpful and harmful > 0 is counted as problematic."""
+        sb = Skillbook()
+        sb.add_skill("general", "Bad strategy", metadata={"helpful": 2, "harmful": 3})
+        sb.add_skill("general", "Equal strategy", metadata={"helpful": 1, "harmful": 1})
+        sb.add_skill("general", "Good strategy", metadata={"helpful": 5, "harmful": 1})
+        stats = sb.stats()
+        self.assertEqual(stats["problematic"], 2)
+
+    def test_unused_count(self):
+        """Skill with helpful=0, harmful=0, neutral=0 is counted as unused."""
+        sb = Skillbook()
+        sb.add_skill("general", "Never used")
+        sb.add_skill("general", "Also unused")
+        sb.add_skill("general", "Used once", metadata={"helpful": 1})
+        stats = sb.stats()
+        self.assertEqual(stats["unused"], 2)
+
+    def test_neutral_not_unused(self):
+        """Skill with neutral > 0 is NOT counted as unused."""
+        sb = Skillbook()
+        skill = sb.add_skill("general", "Noticed but neutral")
+        sb.tag_skill(skill.id, "neutral", 2)
+        stats = sb.stats()
+        self.assertEqual(stats["unused"], 0)
+
+    def test_by_section_breakdown(self):
+        """Verify per-section count/helpful/harmful."""
+        sb = Skillbook()
+        sb.add_skill("math", "Math skill 1", metadata={"helpful": 3, "harmful": 1})
+        sb.add_skill("math", "Math skill 2", metadata={"helpful": 2, "harmful": 0})
+        sb.add_skill("code", "Code skill 1", metadata={"helpful": 5, "harmful": 2})
+        stats = sb.stats()
+
+        self.assertEqual(stats["by_section"]["math"]["count"], 2)
+        self.assertEqual(stats["by_section"]["math"]["helpful"], 5)
+        self.assertEqual(stats["by_section"]["math"]["harmful"], 1)
+        self.assertEqual(stats["by_section"]["code"]["count"], 1)
+        self.assertEqual(stats["by_section"]["code"]["helpful"], 5)
+        self.assertEqual(stats["by_section"]["code"]["harmful"], 2)
+
+    def test_stats_active_skills_only(self):
+        """Soft-deleted skill should NOT appear in stats counts."""
+        sb = Skillbook()
+        s1 = sb.add_skill("general", "Active", metadata={"helpful": 3})
+        s2 = sb.add_skill("general", "To be deleted", metadata={"helpful": 5})
+        sb.remove_skill(s2.id, soft=True)
+
+        stats = sb.stats()
+        self.assertEqual(stats["skills"], 1)
+        self.assertEqual(stats["tags"]["helpful"], 3)
+        self.assertEqual(stats["by_section"]["general"]["count"], 1)
+
+    def test_stats_backward_compatible(self):
+        """Existing keys (sections, skills, tags) still present and unchanged."""
+        sb = Skillbook()
+        sb.add_skill("general", "S1", metadata={"helpful": 5, "harmful": 0})
+        sb.add_skill("math", "S2", metadata={"helpful": 3, "harmful": 1})
+
+        stats = sb.stats()
+        # Original keys
+        self.assertIn("sections", stats)
+        self.assertIn("skills", stats)
+        self.assertIn("tags", stats)
+        self.assertEqual(stats["sections"], 2)
+        self.assertEqual(stats["skills"], 2)
+        self.assertEqual(stats["tags"]["helpful"], 8)
+        self.assertEqual(stats["tags"]["harmful"], 1)
+        self.assertEqual(stats["tags"]["neutral"], 0)
+        # New keys
+        self.assertIn("high_performing", stats)
+        self.assertIn("problematic", stats)
+        self.assertIn("unused", stats)
+        self.assertIn("by_section", stats)
+
+
 if __name__ == "__main__":
     unittest.main()

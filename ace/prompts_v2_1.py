@@ -16,6 +16,8 @@ Based on ACE v2.0 architecture with MCP presentation enhancements.
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 
+from .prompts_v3 import SKILL_MANAGER_V3_PROMPT
+
 # ================================
 # SHARED CONSTANTS
 # ================================
@@ -1172,6 +1174,7 @@ class PromptManager:
             "1.0": "ace.prompts.SKILL_MANAGER_PROMPT",
             "2.0": "ace.prompts_v2.SKILL_MANAGER_V2_PROMPT",
             "2.1": SKILL_MANAGER_V2_1_PROMPT,
+            "3.0": SKILL_MANAGER_V3_PROMPT,
         },
     }
 

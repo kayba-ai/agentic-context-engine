@@ -479,6 +479,114 @@ class TestSkillManager(unittest.TestCase):
         self.assertIn("sufficient", skill_manager_output.update.reasoning)
 
 
+@pytest.mark.unit
+class TestSkillManagerEnrichedStats(unittest.TestCase):
+    """Test that SkillManager receives enriched stats and token budget info."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.skillbook = Skillbook()
+        self.skillbook.add_skill(
+            "general", "Great strategy", metadata={"helpful": 6, "harmful": 1}
+        )
+        self.skillbook.add_skill("general", "Unused strategy")
+        self.skillbook.add_skill(
+            "math", "Bad strategy", metadata={"helpful": 1, "harmful": 3}
+        )
+
+        from tests.conftest import MockLLMClient
+
+        self.mock_llm = MockLLMClient()
+
+    def _make_reflection(self):
+        return ReflectorOutput(
+            reasoning="Test reflection",
+            error_identification="",
+            root_cause_analysis="",
+            correct_approach="",
+            key_insight="",
+            skill_tags=[],
+            raw={},
+        )
+
+    def test_skill_manager_enriched_stats_in_prompt(self):
+        """Verify the prompt contains enriched stats fields."""
+        self.mock_llm.set_response(
+            '{"update": {"reasoning": "No changes", "operations": []}}'
+        )
+
+        skill_manager = SkillManager(self.mock_llm)
+        skill_manager.update_skills(
+            reflection=self._make_reflection(),
+            skillbook=self.skillbook,
+            question_context="Test",
+            progress="1/1",
+        )
+
+        prompt = self.mock_llm.call_history[0]["prompt"]
+        self.assertIn("high_performing", prompt)
+        self.assertIn("problematic", prompt)
+        self.assertIn("unused", prompt)
+        self.assertIn("by_section", prompt)
+
+    def test_skill_manager_token_budget_in_prompt(self):
+        """SkillManager with token_budget includes token info in prompt."""
+        self.mock_llm.set_response(
+            '{"update": {"reasoning": "No changes", "operations": []}}'
+        )
+
+        skill_manager = SkillManager(self.mock_llm, token_budget=80000)
+        skill_manager.update_skills(
+            reflection=self._make_reflection(),
+            skillbook=self.skillbook,
+            question_context="Test",
+            progress="1/1",
+        )
+
+        prompt = self.mock_llm.call_history[0]["prompt"]
+        self.assertIn("token_budget", prompt)
+        self.assertIn("token_estimate", prompt)
+        self.assertIn("over_budget", prompt)
+
+    def test_skill_manager_no_token_budget(self):
+        """SkillManager without token_budget does NOT include token info in stats."""
+        self.mock_llm.set_response(
+            '{"update": {"reasoning": "No changes", "operations": []}}'
+        )
+
+        skill_manager = SkillManager(self.mock_llm)
+        skill_manager.update_skills(
+            reflection=self._make_reflection(),
+            skillbook=self.skillbook,
+            question_context="Test",
+            progress="1/1",
+        )
+
+        prompt = self.mock_llm.call_history[0]["prompt"]
+        # The v3 prompt template mentions "token_budget" in its guidance text,
+        # but the stats JSON should NOT contain token_budget/token_estimate.
+        # Extract the stats JSON from "Stats: {...}" in the prompt.
+        import json
+
+        stats_prefix = "Stats: "
+        stats_start = prompt.index(stats_prefix) + len(stats_prefix)
+        # Find the matching closing brace for the JSON object
+        depth = 0
+        stats_end = stats_start
+        for i in range(stats_start, len(prompt)):
+            if prompt[i] == "{":
+                depth += 1
+            elif prompt[i] == "}":
+                depth -= 1
+                if depth == 0:
+                    stats_end = i + 1
+                    break
+        stats_data = json.loads(prompt[stats_start:stats_end])
+        self.assertNotIn("token_budget", stats_data)
+        self.assertNotIn("token_estimate", stats_data)
+        self.assertNotIn("over_budget", stats_data)
+
+
 class TestExtractCitedSkillIds(unittest.TestCase):
     """Test skill ID extraction utility."""
 
