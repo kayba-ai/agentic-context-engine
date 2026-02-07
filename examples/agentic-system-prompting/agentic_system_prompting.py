@@ -44,7 +44,7 @@ from ace import (
     DeduplicationConfig,
 )
 from ace.llm_providers.litellm_client import LiteLLMClient, LiteLLMConfig
-from ace.prompts_v2_1 import PromptManager
+from ace.prompts_v3 import PromptManager, wrap_skillbook_for_external_agent
 
 
 def load_conversations(conversations_dir: Path) -> List[Dict[str, Any]]:
@@ -95,11 +95,12 @@ def main():
     # USER CONFIGURATION - Update these values for your use case
     # =========================================================================
     CONVERSATIONS_DIR = Path(
-        "/path/to/your/conversations"
-    )  # Absolute path to .md files
-    LLM_MODEL = "gpt-5-mini"  # LLM model for analysis
+        "/absolute/path/to/your/traces"  # Update to absolute path of your .md or .toon trace files
+    )  # Absolute path to directory containing conversation traces
+    LLM_MODEL = "claude-haiku-4-5-20251001"  # LLM model for analysis
     EPOCHS = 1  # Number of training epochs
     DEDUPLICATOR_SIMILARITY_THRESHOLD = 0.7  # Deduplication threshold (0.0-1.0)
+    INPUT_SKILLBOOK = ""  # No pre-existing skillbook
     # =========================================================================
 
     SCRIPT_DIR = Path(__file__).parent
@@ -124,8 +125,12 @@ def main():
     samples = create_samples(conversations)
     print(f"Created {len(samples)} samples")
 
-    # Initialize ACE components
-    skillbook = Skillbook()
+    # Initialize ACE components - load existing or create new skillbook
+    if INPUT_SKILLBOOK:
+        skillbook = Skillbook.load_from_file(INPUT_SKILLBOOK)
+        print(f"Loaded existing skillbook: {len(skillbook.skills())} skills from {INPUT_SKILLBOOK}")
+    else:
+        skillbook = Skillbook()
 
     config = LiteLLMConfig(model=LLM_MODEL, max_tokens=8192, temperature=1)
     llm = LiteLLMClient(config=config)
@@ -134,7 +139,7 @@ def main():
     agent = ReplayAgent()
     reflector = Reflector(llm=llm, prompt_template=prompt_mgr.get_reflector_prompt())
     skill_manager = SkillManager(
-        llm=llm, prompt_template=prompt_mgr.get_skill_manager_prompt()
+        llm=llm, prompt_template=prompt_mgr.get_skill_manager_prompt(version="3.0")
     )
 
     # Deduplication uses OpenAI embeddings to detect and merge similar skills
@@ -193,6 +198,16 @@ def main():
             sorted(skills, key=lambda s: s.helpful, reverse=True)[:5], 1
         ):
             print(f"  {i}. [{skill.section}] {skill.content[:80]}...")
+
+    # Generate external agent injection file
+    OUTPUT_INJECTION = SCRIPT_DIR / f"external_agent_injection_{timestamp}.txt"
+    injection_text = wrap_skillbook_for_external_agent(adapter.skillbook)
+    if injection_text:
+        with open(OUTPUT_INJECTION, "w") as f:
+            f.write(injection_text)
+        print(f"External agent injection: {OUTPUT_INJECTION}")
+    else:
+        print("No skills generated - skipping external agent injection file")
 
 
 if __name__ == "__main__":
