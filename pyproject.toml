@@ -66,6 +66,9 @@ transformers = [
     "torch>=2.0.0",
     "accelerate>=0.20.0",
 ]
+tau-bench = [
+    "tau2 @ git+https://github.com/sierra-research/tau2-bench.git",
+]
 all = [
     "browser-use>=0.9.0",
     "opik>=1.8.0",

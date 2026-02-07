@@ -1,0 +1,610 @@
+#!/usr/bin/env python3
+"""
+Run TAU-bench (τ²-bench) evaluation with ACE framework.
+
+TAU-bench evaluates tool-calling agents in customer service domains
+(airline, retail, telecom) using multi-turn conversations and database
+state assertions.
+
+Key metrics:
+- pass^k: Run each task k times, pass only if ALL k succeed (consistency)
+- ACE epochs: Train skillbook on subset before evaluation
+
+Workflow: Train on subset (ACE epochs) → Evaluate on test set with pass^k (frozen skillbook)
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, List
+
+# Add project root to path
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except ImportError:
+    pass
+
+from ace import (
+    Agent,
+    Reflector,
+    SkillManager,
+    Skillbook,
+    Sample,
+    AgentOutput,
+)
+from ace.llm_providers import LiteLLMClient
+
+# Suppress LiteLLM debug messages
+import litellm
+
+litellm.suppress_debug_info = True
+
+
+def parse_args() -> argparse.Namespace:
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+
+    # Domain configuration
+    parser.add_argument(
+        "--domain",
+        choices=["airline", "retail", "telecom", "all"],
+        default="airline",
+        help="Domain to evaluate (default: airline)",
+    )
+    parser.add_argument(
+        "--task-split",
+        choices=["base", "human", "gpt4o"],
+        default="base",
+        help="Task split to use (default: base)",
+    )
+
+    # Data configuration
+    parser.add_argument(
+        "--limit",
+        type=int,
+        help="Limit number of tasks to evaluate (default: all)",
+    )
+    parser.add_argument(
+        "--split-ratio",
+        type=float,
+        default=0.8,
+        help="Train/test split ratio (default: 0.8 = 80%% train, 20%% test)",
+    )
+
+    # Pass^k configuration
+    parser.add_argument(
+        "-k",
+        "--k",
+        type=int,
+        default=1,
+        help="K value for pass^k metric (default: 1)",
+    )
+
+    # ACE configuration
+    parser.add_argument(
+        "--epochs",
+        type=int,
+        default=1,
+        help="Number of ACE training epochs (default: 1)",
+    )
+    parser.add_argument(
+        "--max-refinement-rounds",
+        type=int,
+        default=3,
+        help="Maximum refinement rounds per sample (default: 3)",
+    )
+    parser.add_argument(
+        "--skip-ace",
+        action="store_true",
+        help="Skip ACE training, run baseline only",
+    )
+    parser.add_argument(
+        "--compare",
+        action="store_true",
+        help="Run both baseline and ACE, then compare results",
+    )
+
+    # Model configuration
+    parser.add_argument(
+        "--model",
+        default="gpt-4o-mini",
+        help="Agent model to use (default: gpt-4o-mini)",
+    )
+    parser.add_argument(
+        "--user-llm",
+        default="gpt-4o-mini",
+        help="User simulator model (default: gpt-4o-mini)",
+    )
+    parser.add_argument(
+        "--temperature",
+        type=float,
+        default=0.0,
+        help="Sampling temperature (default: 0.0)",
+    )
+    parser.add_argument(
+        "--max-tokens",
+        type=int,
+        default=2048,
+        help="Maximum tokens to generate (default: 2048)",
+    )
+
+    # Output configuration
+    parser.add_argument(
+        "--output",
+        default="tau_benchmark_results",
+        help="Output directory for results (default: tau_benchmark_results)",
+    )
+    parser.add_argument(
+        "--save-detailed",
+        action="store_true",
+        help="Save detailed per-task results",
+    )
+    parser.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Suppress progress output",
+    )
+
+    return parser.parse_args()
+
+
+def create_llm_client(args: argparse.Namespace) -> LiteLLMClient:
+    """Create LLM client with specified configuration."""
+    return LiteLLMClient(
+        model=args.model,
+        temperature=args.temperature,
+        max_tokens=args.max_tokens,
+        timeout=120,
+    )
+
+
+def load_tau_tasks(args: argparse.Namespace) -> List[Dict[str, Any]]:
+    """Load TAU-bench tasks for the specified domain."""
+    try:
+        from benchmarks.loaders.tau2 import Tau2Loader
+    except ImportError:
+        print("Error: tau2-bench is not installed.")
+        print(
+            "Install with: pip install tau2-bench or pip install ace-framework[tau-bench]"
+        )
+        sys.exit(1)
+
+    loader = Tau2Loader()
+    domains = (
+        ["airline", "retail", "telecom"] if args.domain == "all" else [args.domain]
+    )
+
+    all_tasks = []
+    for domain in domains:
+        if not args.quiet:
+            print(f"Loading {domain} tasks (split: {args.task_split})...")
+
+        tasks = list(
+            loader.load(
+                domain=domain,
+                task_split=args.task_split,
+                limit=args.limit,
+                user_llm=args.user_llm,
+            )
+        )
+        all_tasks.extend(tasks)
+
+        if not args.quiet:
+            print(f"  Loaded {len(tasks)} tasks from {domain}")
+
+    return all_tasks
+
+
+def convert_to_samples(tasks: List[Dict[str, Any]]) -> List[Sample]:
+    """Convert TAU tasks to ACE Sample format."""
+    samples = []
+    for task in tasks:
+        sample = Sample(
+            question=task["instruction"],
+            context=f"Domain: {task['domain']}",
+            metadata=task["metadata"],
+        )
+        samples.append(sample)
+    return samples
+
+
+def split_data(tasks: List[Dict[str, Any]], split_ratio: float) -> tuple:
+    """Split tasks into train and test sets."""
+    if split_ratio >= 1.0:
+        return tasks, []
+
+    split_idx = int(len(tasks) * split_ratio)
+    return tasks[:split_idx], tasks[split_idx:]
+
+
+def run_conversation(
+    task: Dict[str, Any],
+    agent: Agent,
+    skillbook: Skillbook,
+    environment,
+) -> Dict[str, Any]:
+    """Run a single TAU-bench conversation."""
+    # Use environment's conversation runner
+    result = environment.run_conversation(
+        task_data=task,
+        agent_generate_fn=lambda question, context, skillbook: agent.generate(
+            question=question, context=context, skillbook=skillbook
+        ),
+        skillbook=skillbook,
+    )
+
+    return {
+        "task_id": task["task_id"],
+        "domain": task["domain"],
+        "result": result,
+        "success": result.get("reward", 0.0) >= 1.0,
+    }
+
+
+def evaluate_pass_k(
+    tasks: List[Dict[str, Any]],
+    agent: Agent,
+    skillbook: Skillbook,
+    environment,
+    k: int,
+    quiet: bool = False,
+) -> Dict[str, Any]:
+    """
+    Evaluate tasks using pass^k metric.
+
+    pass^k = 1.0 if ALL k trials succeed, else 0.0
+    """
+    results = []
+    pass_counts = {i: 0 for i in range(1, k + 1)}  # pass^1, pass^2, ..., pass^k
+
+    for i, task in enumerate(tasks):
+        if not quiet:
+            print(f"  Task {i + 1}/{len(tasks)}: {task['task_id']}", end=" ")
+
+        # Run k trials
+        trial_results = []
+
+        for _ in range(k):
+            trial_result = run_conversation(task, agent, skillbook, environment)
+            trial_results.append(trial_result)
+
+        # Record final pass^k for this task
+        task_passed_all = all(tr["success"] for tr in trial_results)
+
+        results.append(
+            {
+                "task_id": task["task_id"],
+                "domain": task["domain"],
+                "trials": trial_results,
+                "passed_all": task_passed_all,
+            }
+        )
+
+        # Update pass counts - a task contributes to pass^j if all j trials passed
+        for j in range(1, k + 1):
+            if all(trial_results[t]["success"] for t in range(j)):
+                pass_counts[j] += 1
+
+        if not quiet:
+            status = "✓" if task_passed_all else "✗"
+            print(status)
+
+    # Calculate pass^k metrics
+    n_tasks = len(tasks)
+    metrics = {}
+    for j in range(1, k + 1):
+        metrics[f"pass_{j}"] = pass_counts[j] / n_tasks if n_tasks > 0 else 0.0
+
+    return {
+        "tasks_evaluated": n_tasks,
+        "k": k,
+        "pass_counts": pass_counts,
+        "metrics": metrics,
+        "results": results,
+    }
+
+
+def run_ace_training(
+    train_tasks: List[Dict[str, Any]],
+    args: argparse.Namespace,
+    quiet: bool = False,
+) -> Skillbook:
+    """Run ACE training on train tasks."""
+    if not quiet:
+        print(
+            f"\n📚 ACE Training Phase ({len(train_tasks)} tasks × {args.epochs} epochs)"
+        )
+
+    client = create_llm_client(args)
+    agent = Agent(client)
+    reflector = Reflector(client)
+    skill_manager = SkillManager(client)
+    skillbook = Skillbook()
+
+    # Create environment for training
+    from benchmarks import BenchmarkTaskManager
+
+    manager = BenchmarkTaskManager()
+    environment = manager.get_benchmark("tau_bench")
+
+    # Convert tasks to samples for ACE training
+    samples = convert_to_samples(train_tasks)
+
+    # Run adaptation with conversation-based learning
+    for epoch in range(1, args.epochs + 1):
+        if not quiet:
+            print(f"  Epoch {epoch}/{args.epochs}")
+
+        for i, (task, sample) in enumerate(zip(train_tasks, samples)):
+            try:
+                # Run conversation
+                conv_result = run_conversation(task, agent, skillbook, environment)
+
+                # Update sample metadata with result for Reflector
+                sample.metadata["task_result"] = conv_result["result"]
+
+                # Create agent output from conversation
+                agent_output = AgentOutput(
+                    final_answer=conv_result["result"].get("conversation_summary", ""),
+                    reasoning="Multi-turn conversation completed",
+                    skill_ids=[],
+                )
+
+                # Evaluate
+                env_result = environment.evaluate(sample, agent_output)
+
+                # Learn from result
+                reflection = reflector.reflect(
+                    question=sample.question,
+                    agent_output=agent_output,
+                    skillbook=skillbook,
+                    ground_truth=None,
+                    feedback=env_result.feedback,
+                )
+
+                skill_manager_output = skill_manager.update_skills(
+                    reflection=reflection,
+                    skillbook=skillbook,
+                    question_context=sample.question,
+                    progress=f"epoch {epoch}/{args.epochs} · task {i + 1}/{len(train_tasks)}",
+                )
+
+                skillbook.apply_update(skill_manager_output.update)
+
+                if not quiet and (i + 1) % 5 == 0:
+                    print(f"    Processed {i + 1}/{len(train_tasks)} tasks")
+
+            except Exception as e:
+                if not quiet:
+                    print(f"    Warning: Failed to process task {task['task_id']}: {e}")
+                continue
+
+    if not quiet:
+        print(f"  Training complete. Skillbook has {len(skillbook.skills())} skills")
+
+    return skillbook
+
+
+def run_evaluation(
+    args: argparse.Namespace,
+    tasks: List[Dict[str, Any]],
+    skillbook: Skillbook,
+    phase_name: str = "Evaluation",
+) -> Dict[str, Any]:
+    """Run pass^k evaluation on tasks."""
+    if not args.quiet:
+        print(f"\n🧪 {phase_name} Phase (k={args.k})")
+
+    client = create_llm_client(args)
+    agent = Agent(client)
+
+    # Create environment
+    from benchmarks import BenchmarkTaskManager
+
+    manager = BenchmarkTaskManager()
+    environment = manager.get_benchmark("tau_bench")
+
+    # Run pass^k evaluation
+    eval_results = evaluate_pass_k(
+        tasks=tasks,
+        agent=agent,
+        skillbook=skillbook,
+        environment=environment,
+        k=args.k,
+        quiet=args.quiet,
+    )
+
+    return eval_results
+
+
+def print_results(
+    results: Dict[str, Any],
+    title: str,
+    args: argparse.Namespace,
+) -> None:
+    """Print evaluation results summary."""
+    print(f"\n{'=' * 60}")
+    print(f"  {title}")
+    print(f"{'=' * 60}")
+    print(f"Domain: {args.domain}")
+    print(f"Tasks evaluated: {results['tasks_evaluated']}")
+    print(f"K value: {results['k']}")
+    print()
+    print("Pass^k Metrics:")
+    for j in range(1, results["k"] + 1):
+        metric = results["metrics"][f"pass_{j}"]
+        count = results["pass_counts"][j]
+        total = results["tasks_evaluated"]
+        print(f"  pass^{j}: {metric:.2%} ({count}/{total})")
+    print("=" * 60)
+
+
+def save_results(
+    args: argparse.Namespace,
+    results: Dict[str, Any],
+    skillbook: Skillbook,
+    phase: str,
+) -> None:
+    """Save evaluation results to files."""
+    output_dir = Path(args.output)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    base_name = f"tau_{args.domain}_{args.model}_{phase}_{timestamp}"
+
+    # Save summary
+    summary_file = output_dir / f"{base_name}_summary.json"
+    summary = {
+        "benchmark": "tau_bench",
+        "domain": args.domain,
+        "task_split": args.task_split,
+        "model": args.model,
+        "user_llm": args.user_llm,
+        "phase": phase,
+        "timestamp": timestamp,
+        "configuration": {
+            "k": args.k,
+            "epochs": args.epochs,
+            "split_ratio": args.split_ratio,
+            "temperature": args.temperature,
+            "max_tokens": args.max_tokens,
+        },
+        "results": {
+            "tasks_evaluated": results["tasks_evaluated"],
+            "pass_counts": results["pass_counts"],
+            "metrics": results["metrics"],
+        },
+        "skillbook_stats": skillbook.stats() if skillbook else {},
+    }
+
+    with open(summary_file, "w") as f:
+        json.dump(summary, f, indent=2)
+
+    if not args.quiet:
+        print(f"\n💾 Results saved to: {summary_file}")
+
+    # Save detailed results if requested
+    if args.save_detailed:
+        detailed_file = output_dir / f"{base_name}_detailed.json"
+        with open(detailed_file, "w") as f:
+            json.dump(results, f, indent=2, default=str)
+
+        if not args.quiet:
+            print(f"   Detailed results: {detailed_file}")
+
+    # Save skillbook
+    if skillbook and len(skillbook.skills()) > 0:
+        skillbook_file = output_dir / f"{base_name}_skillbook.json"
+        skillbook.save_to_file(str(skillbook_file))
+
+        if not args.quiet:
+            print(f"   Skillbook: {skillbook_file}")
+
+
+def main() -> None:
+    """Main entry point."""
+    args = parse_args()
+
+    if not args.quiet:
+        print("🚀 TAU-bench Evaluation")
+        print(f"   Domain: {args.domain}")
+        print(f"   Model: {args.model}")
+        print(f"   K: {args.k}")
+        if not args.skip_ace:
+            print(f"   ACE epochs: {args.epochs}")
+            print(f"   Split ratio: {args.split_ratio}")
+
+    # Load tasks
+    tasks = load_tau_tasks(args)
+    if not tasks:
+        print("Error: No tasks loaded")
+        sys.exit(1)
+
+    if not args.quiet:
+        print(f"\n📊 Loaded {len(tasks)} tasks")
+
+    if args.compare:
+        # Comparison mode: baseline vs ACE
+        train_tasks, test_tasks = split_data(tasks, args.split_ratio)
+
+        if not args.quiet:
+            print(f"   Train: {len(train_tasks)}, Test: {len(test_tasks)}")
+
+        # Run baseline (empty skillbook)
+        print("\n" + "=" * 60)
+        print("  1️⃣  BASELINE (no ACE)")
+        print("=" * 60)
+        baseline_skillbook = Skillbook()
+        baseline_results = run_evaluation(
+            args, test_tasks, baseline_skillbook, "Baseline"
+        )
+        print_results(baseline_results, "BASELINE Results", args)
+
+        # Run ACE training + evaluation
+        print("\n" + "=" * 60)
+        print("  2️⃣  ACE (with training)")
+        print("=" * 60)
+        ace_skillbook = run_ace_training(train_tasks, args, args.quiet)
+        ace_results = run_evaluation(args, test_tasks, ace_skillbook, "ACE Test")
+        print_results(ace_results, "ACE Results", args)
+
+        # Compare
+        print("\n" + "=" * 60)
+        print("  📊 COMPARISON")
+        print("=" * 60)
+        for j in range(1, args.k + 1):
+            baseline_metric = baseline_results["metrics"][f"pass_{j}"]
+            ace_metric = ace_results["metrics"][f"pass_{j}"]
+            diff = ace_metric - baseline_metric
+            indicator = "✅" if diff > 0 else ("⚠️" if diff < 0 else "➖")
+            print(
+                f"  pass^{j}: {baseline_metric:.2%} → {ace_metric:.2%} ({diff:+.2%}) {indicator}"
+            )
+
+        print(f"\n  Skills learned: {len(ace_skillbook.skills())}")
+        print("=" * 60)
+
+        # Save both results
+        save_results(args, baseline_results, baseline_skillbook, "baseline")
+        save_results(args, ace_results, ace_skillbook, "ace")
+
+    elif args.skip_ace:
+        # Baseline only
+        baseline_skillbook = Skillbook()
+        results = run_evaluation(args, tasks, baseline_skillbook, "Baseline")
+        print_results(results, "BASELINE Results", args)
+        save_results(args, results, baseline_skillbook, "baseline")
+
+    else:
+        # ACE training + evaluation
+        train_tasks, test_tasks = split_data(tasks, args.split_ratio)
+
+        if not args.quiet:
+            print(f"   Train: {len(train_tasks)}, Test: {len(test_tasks)}")
+
+        # Train
+        skillbook = run_ace_training(train_tasks, args, args.quiet)
+
+        # Evaluate on test set (frozen skillbook)
+        results = run_evaluation(args, test_tasks, skillbook, "Test")
+        print_results(results, "TAU-bench Results (ACE)", args)
+        save_results(args, results, skillbook, "ace")
+
+    if not args.quiet:
+        print("\n✅ Evaluation completed successfully!")
+
+
+if __name__ == "__main__":
+    main()
