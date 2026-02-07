@@ -27,6 +27,7 @@ from typing import Dict, Any, List, Optional
 # SHARED CONSTANTS
 # ================================
 
+
 def _encode_skills_for_agent(skills: list) -> str:
     """
     Encode skills in TOON format WITHOUT counts for external agents.
@@ -52,10 +53,7 @@ def _encode_skills_for_agent(skills: list) -> str:
         return header + "\n" + "\n".join(lines)
 
     # Only include relevance-matching fields (no counts, no section - section is in ID)
-    skills_data = [
-        {"id": s.id, "content": s.content}
-        for s in skills
-    ]
+    skills_data = [{"id": s.id, "content": s.content} for s in skills]
     return encode({"skills": skills_data}, {"delimiter": "\t"})
 
 

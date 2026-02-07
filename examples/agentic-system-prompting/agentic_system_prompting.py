@@ -97,22 +97,39 @@ def main():
         description="Analyze agent conversations and generate system prompt improvements"
     )
     parser.add_argument(
-        "traces_dir", type=Path, help="Path to directory containing .md or .toon trace files"
+        "traces_dir",
+        type=Path,
+        help="Path to directory containing .md or .toon trace files",
     )
     parser.add_argument(
-        "-m", "--model", default="claude-haiku-4-5-20251001", help="LLM model for analysis"
+        "-m",
+        "--model",
+        default="claude-haiku-4-5-20251001",
+        help="LLM model for analysis",
     )
     parser.add_argument(
         "-e", "--epochs", type=int, default=1, help="Number of training epochs"
     )
     parser.add_argument(
-        "-t", "--threshold", type=float, default=0.7, help="Deduplication similarity threshold (0.0-1.0)"
+        "-t",
+        "--threshold",
+        type=float,
+        default=0.7,
+        help="Deduplication similarity threshold (0.0-1.0)",
     )
     parser.add_argument(
-        "-i", "--input-skillbook", type=Path, default=None, help="Path to existing skillbook to continue from"
+        "-i",
+        "--input-skillbook",
+        type=Path,
+        default=None,
+        help="Path to existing skillbook to continue from",
     )
     parser.add_argument(
-        "-o", "--output-dir", type=Path, default=None, help="Output directory for results"
+        "-o",
+        "--output-dir",
+        type=Path,
+        default=None,
+        help="Output directory for results",
     )
     args = parser.parse_args()
 
@@ -147,7 +164,9 @@ def main():
     # Initialize ACE components - load existing or create new skillbook
     if INPUT_SKILLBOOK and INPUT_SKILLBOOK.exists():
         skillbook = Skillbook.load_from_file(str(INPUT_SKILLBOOK))
-        print(f"Loaded existing skillbook: {len(skillbook.skills())} skills from {INPUT_SKILLBOOK}")
+        print(
+            f"Loaded existing skillbook: {len(skillbook.skills())} skills from {INPUT_SKILLBOOK}"
+        )
     else:
         skillbook = Skillbook()
 
