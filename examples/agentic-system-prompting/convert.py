@@ -16,7 +16,7 @@ from toon import encode
 # =========================================================================
 # USER CONFIGURATION - Update this path to your JSON files directory
 # =========================================================================
-INPUT_DIR = Path("/path/to/your/directory")
+INPUT_DIR = Path("/Users/filip/Desktop/Kayba/Code/KaybaACE/agentic-context-engine/examples/agentic-system-prompting/tasks")
 # =========================================================================
 
 input_dir = INPUT_DIR

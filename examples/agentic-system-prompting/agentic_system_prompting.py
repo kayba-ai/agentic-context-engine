@@ -6,22 +6,24 @@ Demonstrates using ACE's OfflineACE adapter to analyze past agent
 conversations and generate system prompt improvements.
 
 Usage:
-    1. Export/convert your agent conversations to .md or .toon files
-       - To convert JSON to TOON, use the toon library (included with ACE):
-         import toon
-         toon_str = toon.encode(your_json_data)
-       - Or use the CLI: toon input.json -o output.toon
-    2. Place them in a directory
-    3. Update CONVERSATIONS_DIR path below
-    4. Run: python agentic_system_prompting.py
-    5. View the generated suggestions with reasoning and evidence in the skills_{timestamp}.md file
-    6. Review the suggestions and implement them in your system prompt
+    python agentic_system_prompting.py /path/to/traces
+    python agentic_system_prompting.py /path/to/traces --model gpt-4o --epochs 2
+    python agentic_system_prompting.py /path/to/traces --input-skillbook existing.json
+
+Options:
+    traces_dir              Path to directory containing .md or .toon trace files
+    --model, -m             LLM model for analysis (default: claude-haiku-4-5-20251001)
+    --epochs, -e            Number of training epochs (default: 1)
+    --threshold, -t         Deduplication similarity threshold 0.0-1.0 (default: 0.7)
+    --input-skillbook, -i   Path to existing skillbook to continue from
+    --output-dir, -o        Output directory for results (default: script directory)
 
 Requirements:
-    - LLM API key for analysis (e.g., OPENAI_API_KEY, ANTHROPIC_API_KEY, Alternative_api_key)
+    - LLM API key for analysis (e.g., OPENAI_API_KEY, ANTHROPIC_API_KEY)
     - OPENAI_API_KEY for deduplication (uses OpenAI embeddings to detect similar skills)
 """
 
+import argparse
 import os
 from pathlib import Path
 from datetime import datetime
@@ -91,19 +93,36 @@ def create_samples(conversations: List[Dict[str, Any]]) -> List[Sample]:
 
 
 def main():
-    # =========================================================================
-    # USER CONFIGURATION - Update these values for your use case
-    # =========================================================================
-    CONVERSATIONS_DIR = Path(
-        "/absolute/path/to/your/traces"  # Update to absolute path of your .md or .toon trace files
-    )  # Absolute path to directory containing conversation traces
-    LLM_MODEL = "claude-haiku-4-5-20251001"  # LLM model for analysis
-    EPOCHS = 1  # Number of training epochs
-    DEDUPLICATOR_SIMILARITY_THRESHOLD = 0.7  # Deduplication threshold (0.0-1.0)
-    INPUT_SKILLBOOK = ""  # No pre-existing skillbook
-    # =========================================================================
+    parser = argparse.ArgumentParser(
+        description="Analyze agent conversations and generate system prompt improvements"
+    )
+    parser.add_argument(
+        "traces_dir", type=Path, help="Path to directory containing .md or .toon trace files"
+    )
+    parser.add_argument(
+        "-m", "--model", default="claude-haiku-4-5-20251001", help="LLM model for analysis"
+    )
+    parser.add_argument(
+        "-e", "--epochs", type=int, default=1, help="Number of training epochs"
+    )
+    parser.add_argument(
+        "-t", "--threshold", type=float, default=0.7, help="Deduplication similarity threshold (0.0-1.0)"
+    )
+    parser.add_argument(
+        "-i", "--input-skillbook", type=Path, default=None, help="Path to existing skillbook to continue from"
+    )
+    parser.add_argument(
+        "-o", "--output-dir", type=Path, default=None, help="Output directory for results"
+    )
+    args = parser.parse_args()
 
-    SCRIPT_DIR = Path(__file__).parent
+    CONVERSATIONS_DIR = args.traces_dir
+    LLM_MODEL = args.model
+    EPOCHS = args.epochs
+    DEDUPLICATOR_SIMILARITY_THRESHOLD = args.threshold
+    INPUT_SKILLBOOK = args.input_skillbook
+
+    SCRIPT_DIR = args.output_dir or Path(__file__).parent
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     OUTPUT_SKILLBOOK = SCRIPT_DIR / f"skillbook_{timestamp}.json"
 
@@ -126,8 +145,8 @@ def main():
     print(f"Created {len(samples)} samples")
 
     # Initialize ACE components - load existing or create new skillbook
-    if INPUT_SKILLBOOK:
-        skillbook = Skillbook.load_from_file(INPUT_SKILLBOOK)
+    if INPUT_SKILLBOOK and INPUT_SKILLBOOK.exists():
+        skillbook = Skillbook.load_from_file(str(INPUT_SKILLBOOK))
         print(f"Loaded existing skillbook: {len(skillbook.skills())} skills from {INPUT_SKILLBOOK}")
     else:
         skillbook = Skillbook()
