@@ -9,18 +9,20 @@ Switch to an existing branch by checking out its worktree, or creating one if ne
 
 **Steps:**
 1. Parse branch name from arguments
-2. Get all local branches: `git branch --format='%(refname:short)'`
-3. Resolve branch name:
+2. Fetch latest from remote: `git fetch --prune`
+3. Get all branches (local + remote): `git branch -a --format='%(refname:short)'`
+4. Resolve branch name:
    - Exact match: use directly
    - Partial match: find branches containing the search term
    - No match: show error with similar branches (if any)
-4. Get worktree list: `git worktree list --porcelain`
-5. Check if resolved branch has an existing worktree
-6. If worktree exists:
+5. Get worktree list: `git worktree list --porcelain`
+6. Check if resolved branch has an existing worktree
+7. If worktree exists:
    - Show path and suggest `cd <path>`
-7. If no worktree:
+8. If no worktree:
    - Construct worktree path: `../<sanitized-branch-name>` (replace all `/` with `-`)
-   - Create worktree: `git worktree add <path> <branch>`
+   - If remote-only branch (starts with `origin/`): `git worktree add <path> -b <local-name> <remote-name>`
+   - If local branch: `git worktree add <path> <branch>`
    - Show path and suggest `cd <path>`
 
 **On success (worktree exists), output:**
@@ -31,8 +33,17 @@ To switch to the worktree:
   cd <worktree-path>
 ```
 
-**On success (worktree created), output:**
+**On success (worktree created from local branch), output:**
 ```
+✓ Created worktree: <worktree-path>
+
+To switch to the worktree:
+  cd <worktree-path>
+```
+
+**On success (worktree created from remote branch), output:**
+```
+✓ Created local branch: <branch-name> (tracking origin/<branch-name>)
 ✓ Created worktree: <worktree-path>
 
 To switch to the worktree:
