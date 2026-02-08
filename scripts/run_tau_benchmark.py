@@ -36,6 +36,7 @@ except ImportError:
 
 from ace import (
     Reflector,
+    ReflectorMode,
     SkillManager,
     Skillbook,
     AgentOutput,
@@ -484,7 +485,7 @@ def run_ace_training(
         )
 
     client = create_llm_client(args)
-    reflector = Reflector(client)
+    reflector = Reflector(client, mode=ReflectorMode.RECURSIVE)
     skill_manager = SkillManager(client)
     skillbook = Skillbook()
 

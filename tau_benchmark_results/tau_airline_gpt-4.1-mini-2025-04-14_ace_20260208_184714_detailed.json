@@ -1,0 +1,918 @@
+{
+  "tasks_evaluated": 20,
+  "k": 4,
+  "pass_sums": {
+    "1": 9.75,
+    "2": 6.0,
+    "3": 3.75,
+    "4": 2.0
+  },
+  "metrics": {
+    "pass_1": 0.4875,
+    "pass_2": 0.3,
+    "pass_3": 0.1875,
+    "pass_4": 0.1
+  },
+  "results": [
+    {
+      "task_id": "2",
+      "domain": "airline",
+      "trials": [
+        {
+          "task_id": "2",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 34,
+          "cost": 0.0189632
+        },
+        {
+          "task_id": "2",
+          "domain": "airline",
+          "reward": 1.0,
+          "success": true,
+          "steps": 26,
+          "cost": 0.0138656
+        },
+        {
+          "task_id": "2",
+          "domain": "airline",
+          "reward": 1.0,
+          "success": true,
+          "steps": 26,
+          "cost": 0.009856799999999999
+        },
+        {
+          "task_id": "2",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 27,
+          "cost": 0.0102452
+        }
+      ],
+      "passed_all": false,
+      "pass_k_values": {
+        "1": 0.5,
+        "2": 0.16666666666666666,
+        "3": 0.0,
+        "4": 0.0
+      }
+    },
+    {
+      "task_id": "6",
+      "domain": "airline",
+      "trials": [
+        {
+          "task_id": "6",
+          "domain": "airline",
+          "reward": 1.0,
+          "success": true,
+          "steps": 22,
+          "cost": 0.008619599999999998
+        },
+        {
+          "task_id": "6",
+          "domain": "airline",
+          "reward": 1.0,
+          "success": true,
+          "steps": 20,
+          "cost": 0.007739199999999999
+        },
+        {
+          "task_id": "6",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 28,
+          "cost": 0.013186799999999999
+        },
+        {
+          "task_id": "6",
+          "domain": "airline",
+          "reward": 1.0,
+          "success": true,
+          "steps": 24,
+          "cost": 0.009680399999999999
+        }
+      ],
+      "passed_all": false,
+      "pass_k_values": {
+        "1": 0.75,
+        "2": 0.5,
+        "3": 0.25,
+        "4": 0.0
+      }
+    },
+    {
+      "task_id": "8",
+      "domain": "airline",
+      "trials": [
+        {
+          "task_id": "8",
+          "domain": "airline",
+          "reward": 1.0,
+          "success": true,
+          "steps": 30,
+          "cost": 0.0162848
+        },
+        {
+          "task_id": "8",
+          "domain": "airline",
+          "reward": 1.0,
+          "success": true,
+          "steps": 32,
+          "cost": 0.0175968
+        },
+        {
+          "task_id": "8",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 28,
+          "cost": 0.013784
+        },
+        {
+          "task_id": "8",
+          "domain": "airline",
+          "reward": 1.0,
+          "success": true,
+          "steps": 32,
+          "cost": 0.0161368
+        }
+      ],
+      "passed_all": false,
+      "pass_k_values": {
+        "1": 0.75,
+        "2": 0.5,
+        "3": 0.25,
+        "4": 0.0
+      }
+    },
+    {
+      "task_id": "13",
+      "domain": "airline",
+      "trials": [
+        {
+          "task_id": "13",
+          "domain": "airline",
+          "reward": 1.0,
+          "success": true,
+          "steps": 27,
+          "cost": 0.0116572
+        },
+        {
+          "task_id": "13",
+          "domain": "airline",
+          "reward": 1.0,
+          "success": true,
+          "steps": 28,
+          "cost": 0.0163028
+        },
+        {
+          "task_id": "13",
+          "domain": "airline",
+          "reward": 1.0,
+          "success": true,
+          "steps": 30,
+          "cost": 0.013336400000000002
+        },
+        {
+          "task_id": "13",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 20,
+          "cost": 0.0102092
+        }
+      ],
+      "passed_all": false,
+      "pass_k_values": {
+        "1": 0.75,
+        "2": 0.5,
+        "3": 0.25,
+        "4": 0.0
+      }
+    },
+    {
+      "task_id": "16",
+      "domain": "airline",
+      "trials": [
+        {
+          "task_id": "16",
+          "domain": "airline",
+          "reward": 1.0,
+          "success": true,
+          "steps": 25,
+          "cost": 0.0123176
+        },
+        {
+          "task_id": "16",
+          "domain": "airline",
+          "reward": 1.0,
+          "success": true,
+          "steps": 25,
+          "cost": 0.0129528
+        },
+        {
+          "task_id": "16",
+          "domain": "airline",
+          "reward": 1.0,
+          "success": true,
+          "steps": 25,
+          "cost": 0.0130092
+        },
+        {
+          "task_id": "16",
+          "domain": "airline",
+          "reward": 1.0,
+          "success": true,
+          "steps": 25,
+          "cost": 0.014612
+        }
+      ],
+      "passed_all": true,
+      "pass_k_values": {
+        "1": 1.0,
+        "2": 1.0,
+        "3": 1.0,
+        "4": 1.0
+      }
+    },
+    {
+      "task_id": "18",
+      "domain": "airline",
+      "trials": [
+        {
+          "task_id": "18",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 48,
+          "cost": 0.023337200000000002
+        },
+        {
+          "task_id": "18",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 33,
+          "cost": 0.0126692
+        },
+        {
+          "task_id": "18",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 64,
+          "cost": 0.034593200000000005
+        },
+        {
+          "task_id": "18",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 42,
+          "cost": 0.0208328
+        }
+      ],
+      "passed_all": false,
+      "pass_k_values": {
+        "1": 0.0,
+        "2": 0.0,
+        "3": 0.0,
+        "4": 0.0
+      }
+    },
+    {
+      "task_id": "19",
+      "domain": "airline",
+      "trials": [
+        {
+          "task_id": "19",
+          "domain": "airline",
+          "reward": 1.0,
+          "success": true,
+          "steps": 20,
+          "cost": 0.008496799999999999
+        },
+        {
+          "task_id": "19",
+          "domain": "airline",
+          "reward": 1.0,
+          "success": true,
+          "steps": 29,
+          "cost": 0.015094799999999998
+        },
+        {
+          "task_id": "19",
+          "domain": "airline",
+          "reward": 1.0,
+          "success": true,
+          "steps": 26,
+          "cost": 0.0107064
+        },
+        {
+          "task_id": "19",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 32,
+          "cost": 0.0150212
+        }
+      ],
+      "passed_all": false,
+      "pass_k_values": {
+        "1": 0.75,
+        "2": 0.5,
+        "3": 0.25,
+        "4": 0.0
+      }
+    },
+    {
+      "task_id": "22",
+      "domain": "airline",
+      "trials": [
+        {
+          "task_id": "22",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 29,
+          "cost": 0.0201344
+        },
+        {
+          "task_id": "22",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 33,
+          "cost": 0.014803600000000002
+        },
+        {
+          "task_id": "22",
+          "domain": "airline",
+          "reward": 1.0,
+          "success": true,
+          "steps": 33,
+          "cost": 0.016229599999999997
+        },
+        {
+          "task_id": "22",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 23,
+          "cost": 0.0093448
+        }
+      ],
+      "passed_all": false,
+      "pass_k_values": {
+        "1": 0.25,
+        "2": 0.0,
+        "3": 0.0,
+        "4": 0.0
+      }
+    },
+    {
+      "task_id": "24",
+      "domain": "airline",
+      "trials": [
+        {
+          "task_id": "24",
+          "domain": "airline",
+          "reward": 1.0,
+          "success": true,
+          "steps": 29,
+          "cost": 0.012078799999999999
+        },
+        {
+          "task_id": "24",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 49,
+          "cost": 0.0410136
+        },
+        {
+          "task_id": "24",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 33,
+          "cost": 0.015003199999999998
+        },
+        {
+          "task_id": "24",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 38,
+          "cost": 0.020641999999999997
+        }
+      ],
+      "passed_all": false,
+      "pass_k_values": {
+        "1": 0.25,
+        "2": 0.0,
+        "3": 0.0,
+        "4": 0.0
+      }
+    },
+    {
+      "task_id": "25",
+      "domain": "airline",
+      "trials": [
+        {
+          "task_id": "25",
+          "domain": "airline",
+          "reward": 1.0,
+          "success": true,
+          "steps": 26,
+          "cost": 0.011125600000000001
+        },
+        {
+          "task_id": "25",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 26,
+          "cost": 0.013177199999999998
+        },
+        {
+          "task_id": "25",
+          "domain": "airline",
+          "reward": 1.0,
+          "success": true,
+          "steps": 28,
+          "cost": 0.0128268
+        },
+        {
+          "task_id": "25",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 30,
+          "cost": 0.015524399999999997
+        }
+      ],
+      "passed_all": false,
+      "pass_k_values": {
+        "1": 0.5,
+        "2": 0.16666666666666666,
+        "3": 0.0,
+        "4": 0.0
+      }
+    },
+    {
+      "task_id": "26",
+      "domain": "airline",
+      "trials": [
+        {
+          "task_id": "26",
+          "domain": "airline",
+          "reward": 1.0,
+          "success": true,
+          "steps": 14,
+          "cost": 0.0053204
+        },
+        {
+          "task_id": "26",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 17,
+          "cost": 0.006372399999999999
+        },
+        {
+          "task_id": "26",
+          "domain": "airline",
+          "reward": 1.0,
+          "success": true,
+          "steps": 14,
+          "cost": 0.004742799999999999
+        },
+        {
+          "task_id": "26",
+          "domain": "airline",
+          "reward": 1.0,
+          "success": true,
+          "steps": 15,
+          "cost": 0.0066528
+        }
+      ],
+      "passed_all": false,
+      "pass_k_values": {
+        "1": 0.75,
+        "2": 0.5,
+        "3": 0.25,
+        "4": 0.0
+      }
+    },
+    {
+      "task_id": "29",
+      "domain": "airline",
+      "trials": [
+        {
+          "task_id": "29",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 29,
+          "cost": 0.0166376
+        },
+        {
+          "task_id": "29",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 27,
+          "cost": 0.014452799999999998
+        },
+        {
+          "task_id": "29",
+          "domain": "airline",
+          "reward": 1.0,
+          "success": true,
+          "steps": 25,
+          "cost": 0.0126544
+        },
+        {
+          "task_id": "29",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 27,
+          "cost": 0.0143184
+        }
+      ],
+      "passed_all": false,
+      "pass_k_values": {
+        "1": 0.25,
+        "2": 0.0,
+        "3": 0.0,
+        "4": 0.0
+      }
+    },
+    {
+      "task_id": "30",
+      "domain": "airline",
+      "trials": [
+        {
+          "task_id": "30",
+          "domain": "airline",
+          "reward": 1.0,
+          "success": true,
+          "steps": 20,
+          "cost": 0.009265200000000001
+        },
+        {
+          "task_id": "30",
+          "domain": "airline",
+          "reward": 1.0,
+          "success": true,
+          "steps": 21,
+          "cost": 0.0094288
+        },
+        {
+          "task_id": "30",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 21,
+          "cost": 0.009131599999999998
+        },
+        {
+          "task_id": "30",
+          "domain": "airline",
+          "reward": 1.0,
+          "success": true,
+          "steps": 25,
+          "cost": 0.011466
+        }
+      ],
+      "passed_all": false,
+      "pass_k_values": {
+        "1": 0.75,
+        "2": 0.5,
+        "3": 0.25,
+        "4": 0.0
+      }
+    },
+    {
+      "task_id": "31",
+      "domain": "airline",
+      "trials": [
+        {
+          "task_id": "31",
+          "domain": "airline",
+          "reward": 1.0,
+          "success": true,
+          "steps": 22,
+          "cost": 0.009490799999999999
+        },
+        {
+          "task_id": "31",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 24,
+          "cost": 0.0120076
+        },
+        {
+          "task_id": "31",
+          "domain": "airline",
+          "reward": 1.0,
+          "success": true,
+          "steps": 18,
+          "cost": 0.007359199999999999
+        },
+        {
+          "task_id": "31",
+          "domain": "airline",
+          "reward": 1.0,
+          "success": true,
+          "steps": 26,
+          "cost": 0.012938799999999999
+        }
+      ],
+      "passed_all": false,
+      "pass_k_values": {
+        "1": 0.75,
+        "2": 0.5,
+        "3": 0.25,
+        "4": 0.0
+      }
+    },
+    {
+      "task_id": "32",
+      "domain": "airline",
+      "trials": [
+        {
+          "task_id": "32",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 46,
+          "cost": 0.029183199999999996
+        },
+        {
+          "task_id": "32",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 30,
+          "cost": 0.01585
+        },
+        {
+          "task_id": "32",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 26,
+          "cost": 0.012072
+        },
+        {
+          "task_id": "32",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 29,
+          "cost": 0.013157200000000003
+        }
+      ],
+      "passed_all": false,
+      "pass_k_values": {
+        "1": 0.0,
+        "2": 0.0,
+        "3": 0.0,
+        "4": 0.0
+      }
+    },
+    {
+      "task_id": "35",
+      "domain": "airline",
+      "trials": [
+        {
+          "task_id": "35",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 33,
+          "cost": 0.016457600000000003
+        },
+        {
+          "task_id": "35",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 39,
+          "cost": 0.0185384
+        },
+        {
+          "task_id": "35",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 39,
+          "cost": 0.0215588
+        },
+        {
+          "task_id": "35",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 44,
+          "cost": 0.0257
+        }
+      ],
+      "passed_all": false,
+      "pass_k_values": {
+        "1": 0.0,
+        "2": 0.0,
+        "3": 0.0,
+        "4": 0.0
+      }
+    },
+    {
+      "task_id": "37",
+      "domain": "airline",
+      "trials": [
+        {
+          "task_id": "37",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 35,
+          "cost": 0.016709599999999998
+        },
+        {
+          "task_id": "37",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 27,
+          "cost": 0.012758
+        },
+        {
+          "task_id": "37",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 23,
+          "cost": 0.0100252
+        },
+        {
+          "task_id": "37",
+          "domain": "airline",
+          "reward": 1.0,
+          "success": true,
+          "steps": 23,
+          "cost": 0.009824
+        }
+      ],
+      "passed_all": false,
+      "pass_k_values": {
+        "1": 0.25,
+        "2": 0.0,
+        "3": 0.0,
+        "4": 0.0
+      }
+    },
+    {
+      "task_id": "44",
+      "domain": "airline",
+      "trials": [
+        {
+          "task_id": "44",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 64,
+          "cost": 0.0280464
+        },
+        {
+          "task_id": "44",
+          "domain": "airline",
+          "reward": 1.0,
+          "success": true,
+          "steps": 45,
+          "cost": 0.0203556
+        },
+        {
+          "task_id": "44",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 46,
+          "cost": 0.0161848
+        },
+        {
+          "task_id": "44",
+          "domain": "airline",
+          "reward": 1.0,
+          "success": true,
+          "steps": 52,
+          "cost": 0.025611599999999998
+        }
+      ],
+      "passed_all": false,
+      "pass_k_values": {
+        "1": 0.5,
+        "2": 0.16666666666666666,
+        "3": 0.0,
+        "4": 0.0
+      }
+    },
+    {
+      "task_id": "45",
+      "domain": "airline",
+      "trials": [
+        {
+          "task_id": "45",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 27,
+          "cost": 0.0116392
+        },
+        {
+          "task_id": "45",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 35,
+          "cost": 0.018604000000000002
+        },
+        {
+          "task_id": "45",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 26,
+          "cost": 0.011713600000000001
+        },
+        {
+          "task_id": "45",
+          "domain": "airline",
+          "reward": 0.0,
+          "success": false,
+          "steps": 26,
+          "cost": 0.0113068
+        }
+      ],
+      "passed_all": false,
+      "pass_k_values": {
+        "1": 0.0,
+        "2": 0.0,
+        "3": 0.0,
+        "4": 0.0
+      }
+    },
+    {
+      "task_id": "48",
+      "domain": "airline",
+      "trials": [
+        {
+          "task_id": "48",
+          "domain": "airline",
+          "reward": 1.0,
+          "success": true,
+          "steps": 18,
+          "cost": 0.00757
+        },
+        {
+          "task_id": "48",
+          "domain": "airline",
+          "reward": 1.0,
+          "success": true,
+          "steps": 16,
+          "cost": 0.0066456
+        },
+        {
+          "task_id": "48",
+          "domain": "airline",
+          "reward": 1.0,
+          "success": true,
+          "steps": 18,
+          "cost": 0.008105999999999999
+        },
+        {
+          "task_id": "48",
+          "domain": "airline",
+          "reward": 1.0,
+          "success": true,
+          "steps": 16,
+          "cost": 0.006039999999999999
+        }
+      ],
+      "passed_all": true,
+      "pass_k_values": {
+        "1": 1.0,
+        "2": 1.0,
+        "3": 1.0,
+        "4": 1.0
+      }
+    }
+  ]
+}
