@@ -33,6 +33,73 @@ Enhancement suggestions are welcome! Please provide:
 6. Push to your branch
 7. Open a Pull Request
 
+## Branch Naming Convention
+
+Use consistent prefixes for branch names:
+
+| Prefix | Purpose | Example |
+|--------|---------|---------|
+| `feature/` | New features | `feature/john/benchmarks` |
+| `fix/` | Bug fixes | `fix/jane/memory-leak` |
+| `docs/` | Documentation changes | `docs/john/api-reference` |
+| `refactor/` | Code refactoring | `refactor/jane/llm-client` |
+| `test/` | Test additions/fixes | `test/john/integration-suite` |
+| `chore/` | Maintenance tasks | `chore/jane/update-deps` |
+
+**Format:** `<type>/<developer>/<description>`
+
+**Rules:**
+- Use lowercase with hyphens (kebab-case)
+- Use your GitHub username or first name as developer identifier
+- Keep descriptions short but descriptive
+- Include issue number if applicable: `fix/john/123-login-error`
+- Never push directly to `main` - always use feature branches
+
+## Worktree Workflow
+
+We use git worktrees to work on multiple branches simultaneously without switching. Each branch gets its own directory.
+
+### Claude Code Commands
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `/create-branch` | Create branch + worktree | `/create-branch feature add-caching` |
+| `/checkout-branch` | Switch to branch (creates worktree if needed) | `/checkout-branch add-caching` |
+| `/list-branches` | List branches with worktree status | `/list-branches` or `/list-branches feature` |
+| `/remove-branch` | Remove branch + worktree | `/remove-branch feature/john/add-caching` |
+
+### Worktree Path Convention
+
+Worktrees are created as siblings to the main worktree:
+- Branch: `feature/john/add-caching`
+- Worktree: `../feature-john-add-caching`
+
+### Manual Worktree Commands
+
+```bash
+# List all worktrees
+git worktree list
+
+# Add worktree for existing branch
+git worktree add ../path-name branch-name
+
+# Add worktree with new branch
+git worktree add -b new-branch ../path-name
+
+# Remove worktree
+git worktree remove ../path-name
+
+# Prune stale worktree references
+git worktree prune
+```
+
+### Benefits
+
+- **Parallel development**: Work on multiple features without stashing
+- **Faster context switching**: No need to rebuild dependencies
+- **Cleaner git history**: No accidental commits to wrong branch
+- **IDE-friendly**: Open each worktree in separate IDE windows
+
 ## Development Setup
 
 ```bash

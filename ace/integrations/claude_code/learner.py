@@ -52,7 +52,7 @@ for _env_path in _env_paths:
 
 from ...skillbook import Skillbook
 from ...roles import Reflector, SkillManager, AgentOutput
-from ...prompts_v2_1 import PromptManager
+from ...prompt_manager import PromptManager
 from .cli_client import CLIClient
 
 logger = logging.getLogger(__name__)

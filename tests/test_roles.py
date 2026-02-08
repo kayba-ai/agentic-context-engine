@@ -92,7 +92,7 @@ class TestAgent(unittest.TestCase):
         """Set up test fixtures."""
         self.skillbook = Skillbook()
         # Import mock from conftest
-        from tests.conftest import MockLLMClient
+        from conftest import MockLLMClient
 
         self.mock_llm = MockLLMClient()
 
@@ -174,7 +174,7 @@ class TestReflector(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures."""
         self.skillbook = Skillbook()
-        from tests.conftest import MockLLMClient
+        from conftest import MockLLMClient
 
         self.mock_llm = MockLLMClient()
 
@@ -302,7 +302,7 @@ class TestSkillManager(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures."""
         self.skillbook = Skillbook()
-        from tests.conftest import MockLLMClient
+        from conftest import MockLLMClient
 
         self.mock_llm = MockLLMClient()
 

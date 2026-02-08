@@ -93,6 +93,7 @@ EXPECTED_ITEMS = {
 @dataclass
 class RunResult:
     """Results from a single shopping run."""
+
     run_number: int
     success: bool
     result_text: str
@@ -244,15 +245,27 @@ def calculate_accuracy(result_text: str) -> tuple[int, float]:
         correct_items += 1
 
     # Eggs: M-Budget @ 4.25
-    if "M-Budget" in result_text and "eggs" in result_text.lower() and "4.25" in result_text:
+    if (
+        "M-Budget" in result_text
+        and "eggs" in result_text.lower()
+        and "4.25" in result_text
+    ):
         correct_items += 1
 
     # Bananas: Fresca @ 2.55
-    if "Fresca" in result_text and ("bananas" in result_text.lower()) and "2.55" in result_text:
+    if (
+        "Fresca" in result_text
+        and ("bananas" in result_text.lower())
+        and "2.55" in result_text
+    ):
         correct_items += 1
 
     # Butter: M-Budget @ 7.00
-    if "M-Budget" in result_text and "butter" in result_text.lower() and "7." in result_text:
+    if (
+        "M-Budget" in result_text
+        and "butter" in result_text.lower()
+        and "7." in result_text
+    ):
         correct_items += 1
 
     # Bread: Fleur de Pains @ 3.60
@@ -309,10 +322,14 @@ def print_aggregate_summary(results: List[RunResult]):
     max_possible_correct = total_runs * 5
 
     avg_steps = total_steps / total_runs if total_runs > 0 else 0
-    avg_browseruse_tokens = total_browseruse_tokens / total_runs if total_runs > 0 else 0
+    avg_browseruse_tokens = (
+        total_browseruse_tokens / total_runs if total_runs > 0 else 0
+    )
     avg_ace_tokens = total_ace_tokens / total_runs if total_runs > 0 else 0
     avg_duration = total_duration / total_runs if total_runs > 0 else 0
-    avg_accuracy = (total_correct / max_possible_correct) * 100 if max_possible_correct > 0 else 0
+    avg_accuracy = (
+        (total_correct / max_possible_correct) * 100 if max_possible_correct > 0 else 0
+    )
 
     # Per-run accuracy stats
     accuracies = [r.accuracy_pct for r in results]
@@ -328,7 +345,9 @@ def print_aggregate_summary(results: List[RunResult]):
     print(f"{'=' * 70}")
 
     print(f"\n  Run Statistics:")
-    print(f"    Successful: {successful_runs}/{total_runs} ({(successful_runs/total_runs)*100:.0f}%)")
+    print(
+        f"    Successful: {successful_runs}/{total_runs} ({(successful_runs/total_runs)*100:.0f}%)"
+    )
     print(f"    Failed: {failed_runs}/{total_runs}")
 
     print(f"\n  Performance Metrics:")
@@ -338,7 +357,9 @@ def print_aggregate_summary(results: List[RunResult]):
     print(f"    Avg Steps: {avg_steps:.1f} per run")
 
     print(f"\n  Token Usage:")
-    print(f"    Browser-use: {total_browseruse_tokens:,} total ({avg_browseruse_tokens:,.0f} avg)")
+    print(
+        f"    Browser-use: {total_browseruse_tokens:,} total ({avg_browseruse_tokens:,.0f} avg)"
+    )
     print(f"    ACE Learning: {total_ace_tokens:,} total ({avg_ace_tokens:,.0f} avg)")
     print(f"    Combined: {total_tokens:,} total")
 
@@ -355,11 +376,15 @@ def print_aggregate_summary(results: List[RunResult]):
 
     # Per-run breakdown table
     print(f"\n  Per-Run Breakdown:")
-    print(f"    {'Run':<5} {'Status':<8} {'Duration':<10} {'Steps':<7} {'BU Tok':<10} {'ACE Tok':<10} {'Accuracy':<12} {'Skills':<6}")
+    print(
+        f"    {'Run':<5} {'Status':<8} {'Duration':<10} {'Steps':<7} {'BU Tok':<10} {'ACE Tok':<10} {'Accuracy':<12} {'Skills':<6}"
+    )
     print(f"    {'-'*5} {'-'*8} {'-'*10} {'-'*7} {'-'*10} {'-'*10} {'-'*12} {'-'*6}")
     for r in results:
         status = "OK" if r.success else "FAIL"
-        print(f"    {r.run_number:<5} {status:<8} {r.duration_seconds:<10.1f} {r.steps:<7} {r.browseruse_tokens:<10,} {r.ace_tokens:<10,} {r.correct_items}/5 ({r.accuracy_pct:.0f}%)    {r.skills_count:<6}")
+        print(
+            f"    {r.run_number:<5} {status:<8} {r.duration_seconds:<10.1f} {r.steps:<7} {r.browseruse_tokens:<10,} {r.ace_tokens:<10,} {r.correct_items}/5 ({r.accuracy_pct:.0f}%)    {r.skills_count:<6}"
+        )
 
     print(f"\n{'=' * 70}")
 
@@ -420,10 +445,18 @@ async def run_grocery_shopping(
                         browseruse_tokens = usage.total_tokens
                     elif isinstance(usage, dict) and "total_tokens" in usage:
                         browseruse_tokens = usage["total_tokens"]
-                    elif hasattr(usage, "input_tokens") and hasattr(usage, "output_tokens"):
+                    elif hasattr(usage, "input_tokens") and hasattr(
+                        usage, "output_tokens"
+                    ):
                         browseruse_tokens = usage.input_tokens + usage.output_tokens
-                    elif isinstance(usage, dict) and "input_tokens" in usage and "output_tokens" in usage:
-                        browseruse_tokens = usage["input_tokens"] + usage["output_tokens"]
+                    elif (
+                        isinstance(usage, dict)
+                        and "input_tokens" in usage
+                        and "output_tokens" in usage
+                    ):
+                        browseruse_tokens = (
+                            usage["input_tokens"] + usage["output_tokens"]
+                        )
             except Exception as e:
                 print(f"  Warning: Could not get tokens from history: {e}")
 
@@ -448,7 +481,9 @@ async def run_grocery_shopping(
             pass
 
     duration = time.time() - start_time
-    correct_items, accuracy_pct = calculate_accuracy(result_text) if success else (0, 0.0)
+    correct_items, accuracy_pct = (
+        calculate_accuracy(result_text) if success else (0, 0.0)
+    )
 
     return RunResult(
         run_number=run_number,
@@ -477,7 +512,8 @@ Examples:
         """,
     )
     parser.add_argument(
-        "--runs", "-n",
+        "--runs",
+        "-n",
         type=int,
         default=1,
         help="Number of runs to execute (default: 1)",
@@ -488,7 +524,8 @@ Examples:
         help="Don't pause between runs or at the end",
     )
     parser.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         type=str,
         help="Save results to JSON file",
     )
@@ -583,8 +620,14 @@ Examples:
                 "total_browseruse_tokens": sum(r.browseruse_tokens for r in results),
                 "total_ace_tokens": sum(r.ace_tokens for r in results),
                 "total_duration": sum(r.duration_seconds for r in results),
-                "avg_accuracy": sum(r.accuracy_pct for r in results) / len(results) if results else 0,
-                "skills_learned": results[-1].skills_count - results[0].skills_count if results else 0,
+                "avg_accuracy": (
+                    sum(r.accuracy_pct for r in results) / len(results)
+                    if results
+                    else 0
+                ),
+                "skills_learned": (
+                    results[-1].skills_count - results[0].skills_count if results else 0
+                ),
             },
         }
         with open(args.output, "w") as f:

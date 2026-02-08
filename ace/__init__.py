@@ -120,6 +120,9 @@ from .reflector import (
     TraceContext,
 )
 
+# Import unified PromptManager
+from .prompt_manager import PromptManager
+
 __all__ = [
     # Core components
     "Skill",
@@ -175,4 +178,6 @@ __all__ = [
     "BROWSER_USE_AVAILABLE",
     "LANGCHAIN_AVAILABLE",
     "CLAUDE_CODE_AVAILABLE",
+    # Prompt management
+    "PromptManager",
 ]

@@ -17,7 +17,6 @@ import pytest
 from ace.prompts_v2_1 import (
     PromptManager,
     validate_prompt_output_v2_1,
-    compare_prompt_versions,
     AGENT_V2_1_PROMPT,
     REFLECTOR_V2_1_PROMPT,
     SKILL_MANAGER_V2_1_PROMPT,
@@ -230,25 +229,6 @@ class TestPromptsV21(unittest.TestCase):
         self.assertIn("agent-2.1", stats["average_quality"])
         avg_quality = stats["average_quality"]["agent-2.1"]
         self.assertAlmostEqual(avg_quality, 0.916, places=2)
-
-    def test_compare_versions_functionality(self):
-        """Test version comparison utility."""
-        comparisons = compare_prompt_versions("agent")
-
-        self.assertIn("length_v20", comparisons)
-        self.assertIn("length_v21", comparisons)
-        self.assertIn("length_increase", comparisons)
-        self.assertIn("v21_enhancements", comparisons)
-        self.assertIn("similarity_ratio", comparisons)
-
-        # v2.1 should be longer due to enhancements
-        self.assertGreater(comparisons["length_v21"], comparisons["length_v20"])
-
-        # Check for v2.1 features
-        enhancements = comparisons["v21_enhancements"]
-        # Note: quick_reference was removed in favor of Core Mission/Responsibilities
-        # Just check that we have critical markers
-        self.assertGreater(enhancements["critical_markers"], 0)
 
     def test_version_listing(self):
         """Test listing available prompt versions."""

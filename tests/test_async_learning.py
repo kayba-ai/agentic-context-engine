@@ -33,7 +33,7 @@ from ace.updates import UpdateBatch
 from ace.roles import SkillTag, AgentOutput, ReflectorOutput, SkillManagerOutput
 
 # Import MockLLMClient from conftest
-from tests.conftest import MockLLMClient
+from conftest import MockLLMClient
 
 
 # ---------------------------------------------------------------------------
