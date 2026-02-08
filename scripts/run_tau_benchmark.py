@@ -49,6 +49,7 @@ litellm.suppress_debug_info = True
 
 # TAU2 imports
 from tau2.agent.llm_agent import LLMAgent
+from tau2.metrics.agent_metrics import pass_hat_k
 from tau2.registry import registry
 from tau2.run import run_task
 
@@ -317,12 +318,15 @@ def evaluate_pass_k(
     quiet: bool = False,
 ) -> Dict[str, Any]:
     """
-    Evaluate tasks using pass^k metric.
+    Evaluate tasks using pass^k metric per TAU-bench paper (arXiv:2406.12045).
 
-    pass^k = 1.0 if ALL k trials succeed, else 0.0
+    pass^k = average of C(successes, k) / C(trials, k) across all tasks.
+
+    This is a combinatorial probability: the chance that all k randomly
+    selected trials from the pool would be successes.
     """
     results = []
-    pass_counts = {i: 0 for i in range(1, k + 1)}  # pass^1, pass^2, ..., pass^k
+    pass_sums = {i: 0.0 for i in range(1, k + 1)}  # Accumulate pass^1, ..., pass^k
 
     for i, task in enumerate(tasks):
         if not quiet:
@@ -339,35 +343,41 @@ def evaluate_pass_k(
         # Record final pass^k for this task
         task_passed_all = all(tr["success"] for tr in trial_results)
 
+        # Compute pass^j for each j using combinatorial formula
+        num_successes = sum(1 for tr in trial_results if tr["success"])
+        task_pass_k = {}
+        for j in range(1, k + 1):
+            task_pass_k[j] = pass_hat_k(k, num_successes, j)
+
         results.append(
             {
                 "task_id": task["task_id"],
                 "domain": task["domain"],
                 "trials": trial_results,
                 "passed_all": task_passed_all,
+                "pass_k_values": task_pass_k,
             }
         )
 
-        # Update pass counts - a task contributes to pass^j if all j trials passed
+        # Accumulate for averaging
         for j in range(1, k + 1):
-            if all(trial_results[t]["success"] for t in range(j)):
-                pass_counts[j] += 1
+            pass_sums[j] += task_pass_k[j]
 
         if not quiet:
             status = "✓" if task_passed_all else "✗"
             reward = trial_results[0]["reward"] if trial_results else 0.0
-            print(f"{status} (reward={reward:.2f})")
+            print(f"{status} (reward={reward:.2f}, pass^k={task_pass_k})")
 
-    # Calculate pass^k metrics
+    # Average pass^k across all tasks
     n_tasks = len(tasks)
     metrics = {}
     for j in range(1, k + 1):
-        metrics[f"pass_{j}"] = pass_counts[j] / n_tasks if n_tasks > 0 else 0.0
+        metrics[f"pass_{j}"] = pass_sums[j] / n_tasks if n_tasks > 0 else 0.0
 
     return {
         "tasks_evaluated": n_tasks,
         "k": k,
-        "pass_counts": pass_counts,
+        "pass_sums": pass_sums,
         "metrics": metrics,
         "results": results,
     }
@@ -491,12 +501,10 @@ def print_results(
     print(f"Tasks evaluated: {results['tasks_evaluated']}")
     print(f"K value: {results['k']}")
     print()
-    print("Pass^k Metrics:")
+    print("Pass^k Metrics (TAU-bench formula: C(successes,k)/C(trials,k)):")
     for j in range(1, results["k"] + 1):
         metric = results["metrics"][f"pass_{j}"]
-        count = results["pass_counts"][j]
-        total = results["tasks_evaluated"]
-        print(f"  pass^{j}: {metric:.2%} ({count}/{total})")
+        print(f"  pass^{j}: {metric:.2%}")
     print("=" * 60)
 
 
@@ -532,7 +540,7 @@ def save_results(
         },
         "results": {
             "tasks_evaluated": results["tasks_evaluated"],
-            "pass_counts": results["pass_counts"],
+            "pass_sums": results["pass_sums"],
             "metrics": results["metrics"],
         },
         "skillbook_stats": skillbook.stats() if skillbook else {},
