@@ -20,7 +20,7 @@ import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 # Add project root to path
 ROOT = Path(__file__).resolve().parents[1]
@@ -49,6 +49,8 @@ litellm.suppress_debug_info = True
 
 # TAU2 imports
 from tau2.agent.llm_agent import LLMAgent
+from tau2.data_model.message import AssistantMessage, UserMessage, ToolMessage
+from tau2.data_model.simulation import SimulationRun
 from tau2.metrics.agent_metrics import pass_hat_k
 from tau2.registry import registry
 from tau2.run import run_task
@@ -118,12 +120,6 @@ def parse_args() -> argparse.Namespace:
         "--limit",
         type=int,
         help="Limit number of tasks to evaluate (default: all)",
-    )
-    parser.add_argument(
-        "--split-ratio",
-        type=float,
-        default=0.8,
-        help="Train/test split ratio (default: 0.8 = 80%% train, 20%% test)",
     )
 
     # Pass^k configuration
@@ -215,8 +211,15 @@ def create_llm_client(
     )
 
 
-def load_tau_tasks(args: argparse.Namespace) -> List[Dict[str, Any]]:
-    """Load TAU-bench tasks for the specified domain."""
+def load_tau_tasks(
+    args: argparse.Namespace, split: str = "base"
+) -> List[Dict[str, Any]]:
+    """Load TAU-bench tasks for the specified domain and split.
+
+    Args:
+        args: Command line arguments
+        split: Task split to load ("base", "train", "test", "human", "gpt4o")
+    """
     try:
         from benchmarks.loaders.tau2 import Tau2Loader
     except ImportError:
@@ -234,12 +237,12 @@ def load_tau_tasks(args: argparse.Namespace) -> List[Dict[str, Any]]:
     all_tasks = []
     for domain in domains:
         if not args.quiet:
-            print(f"Loading {domain} tasks (split: {args.task_split})...")
+            print(f"Loading {domain} tasks (split: {split})...")
 
         tasks = list(
             loader.load(
                 domain=domain,
-                task_split=args.task_split,
+                task_split=split,
                 limit=args.limit,
                 user_llm=args.user_llm,
             )
@@ -252,25 +255,84 @@ def load_tau_tasks(args: argparse.Namespace) -> List[Dict[str, Any]]:
     return all_tasks
 
 
-def split_data(tasks: List[Dict[str, Any]], split_ratio: float) -> tuple:
-    """Split tasks into train and test sets."""
-    if split_ratio >= 1.0:
-        return tasks, []
+def extract_conversation_trace(simulation: SimulationRun) -> str:
+    """Extract meso-level trace from tau2 simulation for Reflector.
 
-    split_idx = int(len(tasks) * split_ratio)
-    return tasks[:split_idx], tasks[split_idx:]
+    This provides the Reflector with full conversation context including:
+    - All agent/user messages
+    - Tool calls and their results
+    - Failed assertions with justifications
+    - Error details
+
+    This enables meso-level learning from execution patterns,
+    not just micro-level outcome-based feedback.
+    """
+    lines = ["## Conversation Trace\n"]
+
+    for msg in simulation.messages:
+        if isinstance(msg, AssistantMessage):
+            if msg.tool_calls:
+                for tool in msg.tool_calls:
+                    # Truncate long arguments
+                    args_str = str(tool.arguments)
+                    if len(args_str) > 200:
+                        args_str = args_str[:200] + "..."
+                    lines.append(f"Agent: [TOOL] {tool.name}({args_str})")
+            elif msg.content:
+                content = msg.content[:300] if len(msg.content) > 300 else msg.content
+                lines.append(f"Agent: {content}")
+        elif isinstance(msg, ToolMessage):
+            status = "[ERROR]" if msg.error else "[OK]"
+            content = msg.content[:200] if len(msg.content) > 200 else msg.content
+            lines.append(f"Tool {status}: {content}")
+        elif isinstance(msg, UserMessage):
+            content = msg.content[:200] if len(msg.content) > 200 else msg.content
+            lines.append(f"User: {content}")
+
+    # Add failed assertions for learning
+    if simulation.reward_info and simulation.reward_info.nl_assertions:
+        failed = [a for a in simulation.reward_info.nl_assertions if not a.met]
+        if failed:
+            lines.append("\n## Failed Assertions")
+            for a in failed:
+                lines.append(f"- {a.nl_assertion}")
+                if a.justification:
+                    lines.append(f"  Reason: {a.justification}")
+
+    # Add action check failures
+    if simulation.reward_info and simulation.reward_info.action_checks:
+        failed_actions = [
+            a for a in simulation.reward_info.action_checks if not a.action_match
+        ]
+        if failed_actions:
+            lines.append("\n## Failed Action Checks")
+            for a in failed_actions:
+                lines.append(f"- Action: {a.action}")
+
+    # Add termination reason if abnormal
+    if (
+        simulation.termination_reason
+        and simulation.termination_reason.value != "success"
+    ):
+        lines.append(f"\n## Termination: {simulation.termination_reason.value}")
+
+    return "\n".join(lines)
 
 
 def run_single_task(
     task: Dict[str, Any],
     skillbook: Skillbook,
     args: argparse.Namespace,
-) -> Dict[str, Any]:
+) -> Tuple[Dict[str, Any], Optional[SimulationRun]]:
     """
     Run a single TAU task using tau2's run_task with skillbook injection.
 
     This uses tau2's proper tool-calling LLMAgent (via ACELLMAgent subclass)
     instead of ACE's simple text-based Agent.
+
+    Returns:
+        Tuple of (result_dict, simulation_object) where simulation_object
+        contains the full conversation trace for meso-level learning.
     """
     # Set skillbook on the custom agent class before running
     ACELLMAgent.set_skillbook(skillbook)
@@ -290,7 +352,7 @@ def run_single_task(
         )
 
         reward = simulation.reward_info.reward if simulation.reward_info else 0.0
-        return {
+        result = {
             "task_id": task["task_id"],
             "domain": task["domain"],
             "reward": reward,
@@ -298,8 +360,9 @@ def run_single_task(
             "steps": len(simulation.messages) if simulation.messages else 0,
             "cost": getattr(simulation, "agent_cost", None),
         }
+        return result, simulation
     except Exception as e:
-        return {
+        result = {
             "task_id": task["task_id"],
             "domain": task["domain"],
             "reward": 0.0,
@@ -308,6 +371,7 @@ def run_single_task(
             "cost": None,
             "error": str(e),
         }
+        return result, None
 
 
 def evaluate_pass_k(
@@ -337,7 +401,7 @@ def evaluate_pass_k(
         # Run k trials
         trial_results = []
         for _ in range(k):
-            trial_result = run_single_task(task, skillbook, args)
+            trial_result, _ = run_single_task(task, skillbook, args)
             trial_results.append(trial_result)
 
         # Record final pass^k for this task
@@ -404,7 +468,7 @@ def run_ace_training(
     skill_manager = SkillManager(client)
     skillbook = Skillbook()
 
-    # Run adaptation with conversation-based learning
+    # Run adaptation with meso-level learning (full conversation trace)
     for epoch in range(1, args.epochs + 1):
         if not quiet:
             print(f"  Epoch {epoch}/{args.epochs}")
@@ -412,24 +476,25 @@ def run_ace_training(
         for i, task in enumerate(train_tasks):
             try:
                 # Run task with current skillbook using tau2's proper tool-calling agent
-                result = run_single_task(task, skillbook, args)
+                result, simulation = run_single_task(task, skillbook, args)
 
-                # Create feedback for Reflector based on task outcome
-                if result["success"]:
-                    feedback = f"Task SUCCEEDED. Reward: {result['reward']:.2f}, Steps: {result['steps']}"
+                # Extract full conversation trace for meso-level learning
+                if simulation:
+                    trace = extract_conversation_trace(simulation)
+                    outcome = "SUCCEEDED" if result["success"] else "FAILED"
+                    feedback = f"Task {outcome}. Reward: {result['reward']:.2f}, Steps: {result['steps']}\n\n{trace}"
                 else:
-                    feedback = f"Task FAILED. Reward: {result['reward']:.2f}, Steps: {result['steps']}"
-                    if "error" in result:
-                        feedback += f". Error: {result['error']}"
+                    trace = "No trace available"
+                    feedback = f"Task FAILED. Error: {result.get('error', 'Unknown')}"
 
-                # Create agent output representation for ACE learning
+                # Create agent output with trace context for meso-level learning
                 agent_output = AgentOutput(
                     final_answer=f"reward={result['reward']:.2f}",
-                    reasoning="Multi-turn tool-calling conversation",
+                    reasoning=trace,
                     skill_ids=[],
                 )
 
-                # Learn from result
+                # Learn from result with full conversation context
                 reflection = reflector.reflect(
                     question=task["instruction"],
                     agent_output=agent_output,
@@ -534,7 +599,6 @@ def save_results(
         "configuration": {
             "k": args.k,
             "epochs": args.epochs,
-            "split_ratio": args.split_ratio,
             "temperature": args.temperature,
             "max_tokens": args.max_tokens,
         },
@@ -581,23 +645,33 @@ def main() -> None:
         print(f"   K: {args.k}")
         if not args.skip_ace:
             print(f"   ACE epochs: {args.epochs}")
-            print(f"   Split ratio: {args.split_ratio}")
 
-    # Load tasks
-    tasks = load_tau_tasks(args)
-    if not tasks:
-        print("Error: No tasks loaded")
-        sys.exit(1)
+    if args.compare or not args.skip_ace:
+        # Load train/test splits from tau2's official splits
+        train_tasks = load_tau_tasks(args, split="train")
+        test_tasks = load_tau_tasks(args, split="test")
 
-    if not args.quiet:
-        print(f"\n📊 Loaded {len(tasks)} tasks")
-
-    if args.compare:
-        # Comparison mode: baseline vs ACE
-        train_tasks, test_tasks = split_data(tasks, args.split_ratio)
+        if not train_tasks or not test_tasks:
+            print("Error: No tasks loaded")
+            sys.exit(1)
 
         if not args.quiet:
-            print(f"   Train: {len(train_tasks)}, Test: {len(test_tasks)}")
+            print(
+                f"\n📊 Loaded {len(train_tasks)} train + {len(test_tasks)} test tasks"
+            )
+    else:
+        # Baseline only: load all tasks (base split)
+        test_tasks = load_tau_tasks(args, split="base")
+        train_tasks = []
+
+        if not test_tasks:
+            print("Error: No tasks loaded")
+            sys.exit(1)
+
+        if not args.quiet:
+            print(f"\n📊 Loaded {len(test_tasks)} tasks")
+
+    if args.compare:
 
         # Run baseline (empty skillbook)
         print("\n" + "=" * 60)
@@ -640,18 +714,12 @@ def main() -> None:
     elif args.skip_ace:
         # Baseline only
         baseline_skillbook = Skillbook()
-        results = run_evaluation(args, tasks, baseline_skillbook, "Baseline")
+        results = run_evaluation(args, test_tasks, baseline_skillbook, "Baseline")
         print_results(results, "BASELINE Results", args)
         save_results(args, results, baseline_skillbook, "baseline")
 
     else:
-        # ACE training + evaluation
-        train_tasks, test_tasks = split_data(tasks, args.split_ratio)
-
-        if not args.quiet:
-            print(f"   Train: {len(train_tasks)}, Test: {len(test_tasks)}")
-
-        # Train
+        # ACE training + evaluation (train/test already loaded above)
         skillbook = run_ace_training(train_tasks, args, args.quiet)
 
         # Evaluate on test set (frozen skillbook)
