@@ -20,7 +20,7 @@ import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 # Add project root to path
 ROOT = Path(__file__).resolve().parents[1]
@@ -35,11 +35,9 @@ except ImportError:
     pass
 
 from ace import (
-    Agent,
     Reflector,
     SkillManager,
     Skillbook,
-    Sample,
     AgentOutput,
 )
 from ace.llm_providers import LiteLLMClient
@@ -48,6 +46,50 @@ from ace.llm_providers import LiteLLMClient
 import litellm
 
 litellm.suppress_debug_info = True
+
+# TAU2 imports
+from tau2.agent.llm_agent import LLMAgent
+from tau2.registry import registry
+from tau2.run import run_task
+
+
+class ACELLMAgent(LLMAgent):
+    """LLMAgent with ACE skillbook injection into the system prompt."""
+
+    # Class-level skillbook (set before each run)
+    _skillbook: Optional[Skillbook] = None
+
+    @classmethod
+    def set_skillbook(cls, skillbook: Optional[Skillbook]):
+        """Set the skillbook to inject into the system prompt."""
+        cls._skillbook = skillbook
+
+    @property
+    def system_prompt(self) -> str:
+        """Return system prompt with skillbook strategies appended."""
+        base_prompt = super().system_prompt
+
+        if self._skillbook and len(self._skillbook.skills()) > 0:
+            skillbook_section = f"""
+
+<learned_strategies>
+## Learned Strategies (from previous tasks)
+{self._skillbook.as_prompt()}
+
+Use these strategies when applicable. Cite skill IDs in your reasoning.
+</learned_strategies>
+"""
+            return base_prompt + skillbook_section
+
+        return base_prompt
+
+
+# Register the custom agent with tau2's registry
+try:
+    registry.register_agent(ACELLMAgent, "ace_llm_agent")
+except ValueError:
+    # Already registered (e.g., when running multiple times in same process)
+    pass
 
 
 def parse_args() -> argparse.Namespace:
@@ -160,10 +202,12 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def create_llm_client(args: argparse.Namespace) -> LiteLLMClient:
+def create_llm_client(
+    args: argparse.Namespace, model: Optional[str] = None
+) -> LiteLLMClient:
     """Create LLM client with specified configuration."""
     return LiteLLMClient(
-        model=args.model,
+        model=model or args.model,
         temperature=args.temperature,
         max_tokens=args.max_tokens,
         timeout=120,
@@ -207,19 +251,6 @@ def load_tau_tasks(args: argparse.Namespace) -> List[Dict[str, Any]]:
     return all_tasks
 
 
-def convert_to_samples(tasks: List[Dict[str, Any]]) -> List[Sample]:
-    """Convert TAU tasks to ACE Sample format."""
-    samples = []
-    for task in tasks:
-        sample = Sample(
-            question=task["instruction"],
-            context=f"Domain: {task['domain']}",
-            metadata=task["metadata"],
-        )
-        samples.append(sample)
-    return samples
-
-
 def split_data(tasks: List[Dict[str, Any]], split_ratio: float) -> tuple:
     """Split tasks into train and test sets."""
     if split_ratio >= 1.0:
@@ -229,36 +260,60 @@ def split_data(tasks: List[Dict[str, Any]], split_ratio: float) -> tuple:
     return tasks[:split_idx], tasks[split_idx:]
 
 
-def run_conversation(
+def run_single_task(
     task: Dict[str, Any],
-    agent: Agent,
     skillbook: Skillbook,
-    environment,
+    args: argparse.Namespace,
 ) -> Dict[str, Any]:
-    """Run a single TAU-bench conversation."""
-    # Use environment's conversation runner
-    result = environment.run_conversation(
-        task_data=task,
-        agent_generate_fn=lambda question, context, skillbook: agent.generate(
-            question=question, context=context, skillbook=skillbook
-        ),
-        skillbook=skillbook,
-    )
+    """
+    Run a single TAU task using tau2's run_task with skillbook injection.
 
-    return {
-        "task_id": task["task_id"],
-        "domain": task["domain"],
-        "result": result,
-        "success": result.get("reward", 0.0) >= 1.0,
-    }
+    This uses tau2's proper tool-calling LLMAgent (via ACELLMAgent subclass)
+    instead of ACE's simple text-based Agent.
+    """
+    # Set skillbook on the custom agent class before running
+    ACELLMAgent.set_skillbook(skillbook)
+
+    try:
+        # Run with our custom agent that has skillbook injected
+        simulation = run_task(
+            domain=task["domain"],
+            task=task["task"],  # The actual tau2 Task object
+            agent="ace_llm_agent",  # Our registered custom agent
+            user="user_simulator",
+            llm_agent=args.model,
+            llm_args_agent={"temperature": args.temperature},
+            llm_user=args.user_llm,
+            llm_args_user={"temperature": 0.0},
+            max_steps=30,
+        )
+
+        reward = simulation.reward_info.reward if simulation.reward_info else 0.0
+        return {
+            "task_id": task["task_id"],
+            "domain": task["domain"],
+            "reward": reward,
+            "success": reward >= 1.0,
+            "steps": len(simulation.messages) if simulation.messages else 0,
+            "cost": getattr(simulation, "agent_cost", None),
+        }
+    except Exception as e:
+        return {
+            "task_id": task["task_id"],
+            "domain": task["domain"],
+            "reward": 0.0,
+            "success": False,
+            "steps": 0,
+            "cost": None,
+            "error": str(e),
+        }
 
 
 def evaluate_pass_k(
     tasks: List[Dict[str, Any]],
-    agent: Agent,
     skillbook: Skillbook,
-    environment,
-    k: int,
+    args: argparse.Namespace,
+    k: int = 1,
     quiet: bool = False,
 ) -> Dict[str, Any]:
     """
@@ -271,13 +326,14 @@ def evaluate_pass_k(
 
     for i, task in enumerate(tasks):
         if not quiet:
-            print(f"  Task {i + 1}/{len(tasks)}: {task['task_id']}", end=" ")
+            print(
+                f"  Task {i + 1}/{len(tasks)}: {task['task_id']}", end=" ", flush=True
+            )
 
         # Run k trials
         trial_results = []
-
         for _ in range(k):
-            trial_result = run_conversation(task, agent, skillbook, environment)
+            trial_result = run_single_task(task, skillbook, args)
             trial_results.append(trial_result)
 
         # Record final pass^k for this task
@@ -299,7 +355,8 @@ def evaluate_pass_k(
 
         if not quiet:
             status = "✓" if task_passed_all else "✗"
-            print(status)
+            reward = trial_results[0]["reward"] if trial_results else 0.0
+            print(f"{status} (reward={reward:.2f})")
 
     # Calculate pass^k metrics
     n_tasks = len(tasks)
@@ -321,74 +378,76 @@ def run_ace_training(
     args: argparse.Namespace,
     quiet: bool = False,
 ) -> Skillbook:
-    """Run ACE training on train tasks."""
+    """
+    Run ACE training on train tasks.
+
+    Uses tau2's run_task with our ACELLMAgent to execute tasks,
+    then learns from the results using ACE's Reflector and SkillManager.
+    """
     if not quiet:
         print(
             f"\n📚 ACE Training Phase ({len(train_tasks)} tasks × {args.epochs} epochs)"
         )
 
     client = create_llm_client(args)
-    agent = Agent(client)
     reflector = Reflector(client)
     skill_manager = SkillManager(client)
     skillbook = Skillbook()
-
-    # Create environment for training
-    from benchmarks import BenchmarkTaskManager
-
-    manager = BenchmarkTaskManager()
-    environment = manager.get_benchmark("tau_bench")
-
-    # Convert tasks to samples for ACE training
-    samples = convert_to_samples(train_tasks)
 
     # Run adaptation with conversation-based learning
     for epoch in range(1, args.epochs + 1):
         if not quiet:
             print(f"  Epoch {epoch}/{args.epochs}")
 
-        for i, (task, sample) in enumerate(zip(train_tasks, samples)):
+        for i, task in enumerate(train_tasks):
             try:
-                # Run conversation
-                conv_result = run_conversation(task, agent, skillbook, environment)
+                # Run task with current skillbook using tau2's proper tool-calling agent
+                result = run_single_task(task, skillbook, args)
 
-                # Update sample metadata with result for Reflector
-                sample.metadata["task_result"] = conv_result["result"]
+                # Create feedback for Reflector based on task outcome
+                if result["success"]:
+                    feedback = f"Task SUCCEEDED. Reward: {result['reward']:.2f}, Steps: {result['steps']}"
+                else:
+                    feedback = f"Task FAILED. Reward: {result['reward']:.2f}, Steps: {result['steps']}"
+                    if "error" in result:
+                        feedback += f". Error: {result['error']}"
 
-                # Create agent output from conversation
+                # Create agent output representation for ACE learning
                 agent_output = AgentOutput(
-                    final_answer=conv_result["result"].get("conversation_summary", ""),
-                    reasoning="Multi-turn conversation completed",
+                    final_answer=f"reward={result['reward']:.2f}",
+                    reasoning="Multi-turn tool-calling conversation",
                     skill_ids=[],
                 )
 
-                # Evaluate
-                env_result = environment.evaluate(sample, agent_output)
-
                 # Learn from result
                 reflection = reflector.reflect(
-                    question=sample.question,
+                    question=task["instruction"],
                     agent_output=agent_output,
                     skillbook=skillbook,
                     ground_truth=None,
-                    feedback=env_result.feedback,
+                    feedback=feedback,
                 )
 
                 skill_manager_output = skill_manager.update_skills(
                     reflection=reflection,
                     skillbook=skillbook,
-                    question_context=sample.question,
+                    question_context=task["instruction"],
                     progress=f"epoch {epoch}/{args.epochs} · task {i + 1}/{len(train_tasks)}",
                 )
 
                 skillbook.apply_update(skill_manager_output.update)
 
-                if not quiet and (i + 1) % 5 == 0:
-                    print(f"    Processed {i + 1}/{len(train_tasks)} tasks")
+                if not quiet:
+                    status = "✓" if result["success"] else "✗"
+                    print(
+                        f"    [{i + 1}/{len(train_tasks)}] {task['task_id']} {status} (reward={result['reward']:.2f})"
+                    )
 
             except Exception as e:
                 if not quiet:
-                    print(f"    Warning: Failed to process task {task['task_id']}: {e}")
+                    print(
+                        f"    [{i + 1}/{len(train_tasks)}] {task['task_id']} ERROR: {e}"
+                    )
                 continue
 
     if not quiet:
@@ -407,21 +466,11 @@ def run_evaluation(
     if not args.quiet:
         print(f"\n🧪 {phase_name} Phase (k={args.k})")
 
-    client = create_llm_client(args)
-    agent = Agent(client)
-
-    # Create environment
-    from benchmarks import BenchmarkTaskManager
-
-    manager = BenchmarkTaskManager()
-    environment = manager.get_benchmark("tau_bench")
-
-    # Run pass^k evaluation
+    # Run pass^k evaluation using tau2's run_task
     eval_results = evaluate_pass_k(
         tasks=tasks,
-        agent=agent,
         skillbook=skillbook,
-        environment=environment,
+        args=args,
         k=args.k,
         quiet=args.quiet,
     )
