@@ -110,9 +110,9 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--task-split",
-        choices=["base", "human", "gpt4o"],
-        default="base",
-        help="Task split to use (default: base)",
+        choices=["base", "train", "test", "human", "gpt4o"],
+        default="test",
+        help="Task split to use (default: test). Use 'test' to match official leaderboard.",
     )
 
     # Data configuration
@@ -127,8 +127,26 @@ def parse_args() -> argparse.Namespace:
         "-k",
         "--k",
         type=int,
-        default=1,
-        help="K value for pass^k metric (default: 1)",
+        default=4,
+        help="K value for pass^k metric (default: 4, matches official leaderboard)",
+    )
+    parser.add_argument(
+        "--max-steps",
+        type=int,
+        default=200,
+        help="Maximum steps per task (default: 200, matches official leaderboard)",
+    )
+    parser.add_argument(
+        "--max-errors",
+        type=int,
+        default=10,
+        help="Maximum errors before termination (default: 10)",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=300,
+        help="Random seed for reproducibility (default: 300, matches official leaderboard)",
     )
 
     # ACE configuration
@@ -158,13 +176,13 @@ def parse_args() -> argparse.Namespace:
     # Model configuration
     parser.add_argument(
         "--model",
-        default="gpt-4o-mini",
-        help="Agent model to use (default: gpt-4o-mini)",
+        default="gpt-4.1-mini-2025-04-14",
+        help="Agent model to use (default: gpt-4.1-mini-2025-04-14)",
     )
     parser.add_argument(
         "--user-llm",
-        default="gpt-4o-mini",
-        help="User simulator model (default: gpt-4o-mini)",
+        default="gpt-4.1-2025-04-14",
+        help="User simulator model (default: gpt-4.1-2025-04-14, matches official leaderboard)",
     )
     parser.add_argument(
         "--temperature",
@@ -348,7 +366,9 @@ def run_single_task(
             llm_args_agent={"temperature": args.temperature},
             llm_user=args.user_llm,
             llm_args_user={"temperature": 0.0},
-            max_steps=30,
+            max_steps=args.max_steps,
+            max_errors=args.max_errors,
+            seed=args.seed,
         )
 
         reward = simulation.reward_info.reward if simulation.reward_info else 0.0
@@ -601,6 +621,9 @@ def save_results(
             "epochs": args.epochs,
             "temperature": args.temperature,
             "max_tokens": args.max_tokens,
+            "max_steps": args.max_steps,
+            "max_errors": args.max_errors,
+            "seed": args.seed,
         },
         "results": {
             "tasks_evaluated": results["tasks_evaluated"],
@@ -642,7 +665,8 @@ def main() -> None:
         print("🚀 TAU-bench Evaluation")
         print(f"   Domain: {args.domain}")
         print(f"   Model: {args.model}")
-        print(f"   K: {args.k}")
+        print(f"   User LLM: {args.user_llm}")
+        print(f"   K: {args.k}, Max steps: {args.max_steps}, Seed: {args.seed}")
         if not args.skip_ace:
             print(f"   ACE epochs: {args.epochs}")
 
@@ -660,8 +684,8 @@ def main() -> None:
                 f"\n📊 Loaded {len(train_tasks)} train + {len(test_tasks)} test tasks"
             )
     else:
-        # Baseline only: load all tasks (base split)
-        test_tasks = load_tau_tasks(args, split="base")
+        # Baseline only: load tasks from specified split (default: test for official benchmark)
+        test_tasks = load_tau_tasks(args, split=args.task_split)
         train_tasks = []
 
         if not test_tasks:
@@ -669,7 +693,7 @@ def main() -> None:
             sys.exit(1)
 
         if not args.quiet:
-            print(f"\n📊 Loaded {len(test_tasks)} tasks")
+            print(f"\n📊 Loaded {len(test_tasks)} tasks (split: {args.task_split})")
 
     if args.compare:
 

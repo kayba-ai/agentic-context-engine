@@ -189,6 +189,61 @@ python scripts/analyze_ace_results.py
 python scripts/explain_ace_performance.py
 ```
 
+### TAU-bench (τ-bench) Evaluation
+
+TAU-bench evaluates tool-calling agents in customer service domains. Official leaderboard: https://tau-bench.github.io
+
+**CRITICAL: To match official leaderboard results, use these settings:**
+
+```bash
+# Baseline evaluation (matches leaderboard) - defaults are now correct
+uv run python scripts/run_tau_benchmark.py \
+  --domain airline \
+  --skip-ace
+
+# With explicit settings (same as defaults)
+uv run python scripts/run_tau_benchmark.py \
+  --domain airline \
+  --skip-ace \
+  --model gpt-4.1-mini-2025-04-14 \
+  --user-llm gpt-4.1-2025-04-14 \
+  --temperature 0 \
+  --max-steps 200 \
+  --k 4 \
+  --seed 300
+
+# ACE comparison (train on train split, test on test split)
+uv run python scripts/run_tau_benchmark.py \
+  --domain airline \
+  --compare
+```
+
+**Key configuration details (now defaults):**
+| Setting | Official Value | Notes |
+|---------|---------------|-------|
+| Agent model | `gpt-4.1-mini-2025-04-14` | Cheaper than o4-mini, similar performance |
+| User simulator | `gpt-4.1-2025-04-14` | NOT gpt-4o-mini! Wrong model gives ~50% lower scores |
+| Temperature | `0` | Deterministic for reproducibility |
+| Max steps | `200` | Critical! 30 is way too low - tasks fail early |
+| Max errors | `10` | Stop after 10 consecutive errors |
+| Seed | `300` | For reproducibility |
+| Task split | `test` | 20 tasks for airline |
+| k value | `4` | For pass^1 through pass^4 metrics |
+
+**Task splits per domain:**
+- **airline**: train=30, test=20, base=50
+- **retail**: Similar structure
+- **telecom**: Similar structure
+
+**Expected results (from leaderboard):**
+| Model | pass^1 | pass^2 | pass^3 | pass^4 |
+|-------|--------|--------|--------|--------|
+| gpt-4o-mini (o4-mini) | 52.1% | 44.2% | 38.9% | 34.7% |
+| gpt-4.1-mini | ~50% | ~42% | ~37% | ~33% |
+| gpt-4.1 | 56.0% | 47.8% | 42.4% | 38.1% |
+
+**Data location:** `TAU2_DATA_DIR` environment variable (default: `/tmp/tau2-bench/data`)
+
 ## Architecture
 
 ### Core Concepts
