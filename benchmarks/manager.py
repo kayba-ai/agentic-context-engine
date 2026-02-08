@@ -72,6 +72,14 @@ class BenchmarkTaskManager:
         except ImportError:
             pass
 
+        # Try to import and register Tau2 loader if available
+        try:
+            from .loaders.tau2 import Tau2Loader
+
+            self._loaders["tau2"] = Tau2Loader()
+        except ImportError:
+            pass
+
         # Discover all available task configs
         self._discover_configs()
 
@@ -170,6 +178,7 @@ class BenchmarkTaskManager:
                 FiNEREnvironment,
                 XBRLMathEnvironment,
                 AppWorldEnvironment,
+                TauBenchEnvironment,
                 GenericBenchmarkEnvironment,
             )
         except ImportError:
@@ -184,6 +193,8 @@ class BenchmarkTaskManager:
             return XBRLMathEnvironment
         elif "appworld" in task_name:
             return AppWorldEnvironment
+        elif "tau" in task_name:
+            return TauBenchEnvironment
         else:
             return GenericBenchmarkEnvironment
 

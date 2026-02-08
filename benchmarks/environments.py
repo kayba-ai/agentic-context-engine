@@ -368,6 +368,251 @@ class XBRLMathEnvironment(BenchmarkEnvironment):
             )
 
 
+class TauBenchEnvironment(BenchmarkEnvironment):
+    """
+    Environment for TAU-bench (τ²-bench) tool-calling agent evaluation.
+
+    TAU-bench evaluates agents in customer service domains through
+    multi-turn conversations with simulated users, measuring task
+    completion through database state assertions.
+
+    Key features:
+    - Multi-turn conversation handling via tau2 gym interface
+    - User simulation with configurable LLM
+    - Database state assertions for task evaluation
+    - Pass^k consistency metrics
+    """
+
+    def __init__(self, config: BenchmarkConfig, user_llm: str = "gpt-4o-mini"):
+        """
+        Initialize TAU-bench environment.
+
+        Args:
+            config: Benchmark configuration
+            user_llm: LLM model for user simulation
+        """
+        super().__init__(config)
+        self.user_llm = user_llm
+        self.max_steps = config.metadata.get("max_steps", 30) if config.metadata else 30
+
+    def evaluate(self, sample: Sample, agent_output) -> EnvironmentResult:
+        """
+        Evaluate agent output for TAU-bench task.
+
+        For TAU-bench, the actual evaluation happens during the conversation loop
+        in the runner. This method is called with the final conversation result
+        stored in the sample metadata.
+
+        Args:
+            sample: Sample containing task info and conversation result in metadata
+            agent_output: Agent's final output (contains conversation history)
+
+        Returns:
+            EnvironmentResult with task_success and assertion metrics
+        """
+        # Get evaluation results from sample metadata (set by conversation loop)
+        metadata: Dict[str, Any] = dict(sample.metadata) if sample.metadata else {}
+        task_result: Dict[str, Any] = metadata.get("task_result", {})
+
+        # Extract metrics from tau2 evaluation
+        task_success = task_result.get("reward", 0.0)
+        db_check_passed = task_result.get("db_check_passed", False)
+        nl_assertion_passed = task_result.get("nl_assertion_passed", False)
+        steps_taken = task_result.get("steps_taken", 0)
+
+        metrics = {
+            "task_success": float(task_success),
+            "db_check": 1.0 if db_check_passed else 0.0,
+            "nl_assertion": 1.0 if nl_assertion_passed else 0.0,
+            "steps_taken": float(steps_taken),
+        }
+
+        # Generate feedback for the Reflector
+        feedback = self._generate_feedback(task_result, metrics)
+
+        return EnvironmentResult(
+            feedback=feedback,
+            ground_truth=None,  # TAU-bench uses assertions, not ground truth
+            metrics=metrics,
+        )
+
+    def _generate_feedback(
+        self, task_result: Dict[str, Any], metrics: Dict[str, float]
+    ) -> str:
+        """Generate detailed feedback for Reflector analysis."""
+        parts = []
+
+        if metrics["task_success"] >= 1.0:
+            parts.append("Task completed successfully!")
+        else:
+            parts.append(f"Task incomplete (reward: {metrics['task_success']:.2f}).")
+
+        if not metrics["db_check"]:
+            error = task_result.get("db_error", "Unknown database assertion failure")
+            parts.append(f"Database check failed: {error}")
+
+        if not metrics["nl_assertion"]:
+            error = task_result.get("nl_error", "Natural language assertion failed")
+            parts.append(f"NL assertion failed: {error}")
+
+        steps = int(metrics["steps_taken"])
+        max_steps = task_result.get("max_steps", self.max_steps)
+        if steps >= max_steps:
+            parts.append(f"Reached maximum steps ({max_steps}).")
+        else:
+            parts.append(f"Completed in {steps} steps.")
+
+        # Add conversation summary if available
+        conversation_summary = task_result.get("conversation_summary", "")
+        if conversation_summary:
+            parts.append(f"Conversation: {conversation_summary}")
+
+        return " ".join(parts)
+
+    def run_conversation(
+        self,
+        task_data: Dict[str, Any],
+        agent_generate_fn,
+        skillbook,
+    ) -> Dict[str, Any]:
+        """
+        Run a multi-turn conversation for a TAU-bench task.
+
+        This method handles the conversation loop between the agent
+        and the simulated user via tau2's gym interface.
+
+        Args:
+            task_data: Task data from Tau2Loader
+            agent_generate_fn: Function to generate agent responses
+            skillbook: Current skillbook for context injection
+
+        Returns:
+            Dict with conversation result and evaluation metrics
+        """
+        try:
+            from tau2.gym import AgentGymEnv
+        except ImportError:
+            raise ImportError(
+                "tau2-bench is required for TAU-bench environment. "
+                "Install with: pip install ace-framework[tau-bench]"
+            )
+
+        domain = task_data.get("domain", "airline")
+        task_id = task_data["task_id"]
+        user_llm = task_data.get("user_llm", self.user_llm)
+
+        # Create gym environment for this task
+        env = AgentGymEnv(
+            domain=domain,
+            task_id=task_id,
+            user_llm=user_llm,
+            max_steps=self.max_steps,
+        )
+
+        # Reset environment to get initial observation
+        # Returns: (observation: str, info: dict)
+        observation, info = env.reset()
+        conversation_history = []
+        steps = 0
+        done = False
+        reward = 0.0
+
+        while not done and steps < self.max_steps:
+            # Build context from observation and history
+            context = self._build_context(observation, conversation_history, task_data)
+
+            # Generate agent response
+            agent_output = agent_generate_fn(
+                question=observation,
+                context=context,
+                skillbook=skillbook,
+            )
+
+            # Extract action from agent output (agent's response text)
+            action = agent_output.final_answer
+
+            # Step the environment
+            # Returns: (observation: str, reward: float, terminated: bool, truncated: bool, info: dict)
+            observation, reward, terminated, truncated, info = env.step(action)
+            done = terminated or truncated
+
+            # Record conversation turn
+            conversation_history.append(
+                {
+                    "step": steps,
+                    "user_message": observation,
+                    "agent_response": action,
+                }
+            )
+
+            steps += 1
+
+        # Extract evaluation info
+        return {
+            "reward": reward,
+            "db_check_passed": info.get("db_check_passed", reward >= 1.0),
+            "nl_assertion_passed": info.get("nl_assertion_passed", True),
+            "db_error": info.get("db_error", ""),
+            "nl_error": info.get("nl_error", ""),
+            "steps_taken": steps,
+            "max_steps": self.max_steps,
+            "done": done,
+            "terminated": terminated if "terminated" in dir() else done,
+            "truncated": truncated if "truncated" in dir() else False,
+            "conversation_history": conversation_history,
+            "conversation_summary": self._summarize_conversation(conversation_history),
+        }
+
+    def _build_context(
+        self,
+        observation: str,
+        conversation_history: list,
+        task_data: Dict[str, Any],
+    ) -> str:
+        """Build context string for agent generation."""
+        parts = []
+
+        # Add domain and task info
+        domain = task_data.get("domain", "unknown")
+        parts.append(f"Domain: {domain}")
+        parts.append(f"Task: {task_data.get('instruction', '')}")
+
+        # Add available tools
+        tools = task_data.get("tools", [])
+        if tools:
+            tool_names = [
+                t.get("name", str(t)) if isinstance(t, dict) else str(t)
+                for t in tools[:10]
+            ]
+            parts.append(f"Available tools: {', '.join(tool_names)}")
+
+        # Add conversation history (last 5 turns)
+        if conversation_history:
+            recent = conversation_history[-5:]
+            history_lines = []
+            for t in recent:
+                user_msg = str(t.get("user_message", ""))[:100]
+                agent_msg = str(t.get("agent_response", ""))[:100]
+                history_lines.append(
+                    f"Turn {t['step']}: User: {user_msg}... Agent: {agent_msg}..."
+                )
+            history_str = "\n".join(history_lines)
+            parts.append(f"Recent conversation:\n{history_str}")
+
+        return "\n\n".join(parts)
+
+    def _summarize_conversation(self, history: list) -> str:
+        """Create a brief summary of the conversation."""
+        if not history:
+            return "No conversation occurred."
+
+        n_turns = len(history)
+        if n_turns == 1:
+            return f"Single turn conversation."
+
+        return f"{n_turns} turn conversation."
+
+
 class AppWorldEnvironment(BenchmarkEnvironment):
     """
     Environment for AppWorld benchmark (autonomous agent execution).
