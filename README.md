@@ -242,6 +242,7 @@ ACE enables agents to learn from execution feedback: what works, what doesn't, a
 - ⚡ **Async Learning**: Agent responds instantly while learning happens in background
 - 🚀 **100+ LLM Providers**: Works with OpenAI, Anthropic, Google, and more
 - 📊 **Production Observability**: Built-in Opik integration for enterprise monitoring
+- 🔍 **Recursive Reflection**: Code-based trace analysis with sandboxed REPL for deep pattern extraction
 - 🔄 **Smart Deduplication**: Automatically consolidates similar skills
 
 ### Build Self-Improving Agents
@@ -313,11 +314,11 @@ ACE integrates with popular agent frameworks:
 
 ## How Does ACE Work?
 
-*Based on the [ACE research framework](https://arxiv.org/abs/2510.04618) from Stanford & SambaNova.*
+*Inspired by the [ACE research paper](https://arxiv.org/abs/2510.04618), extended by [Kayba](https://kayba.ai) with recursive reflection, async learning, and production integrations.*
 
 ACE uses three specialized roles that work together:
 1. **Agent** - Creates a plan using learned skills and executes the task
-2. **Reflector** - Analyzes what worked and what didn't after execution
+2. **Reflector** - Analyzes what worked and what didn't — supports simple (single-pass) and recursive (code-based REPL) modes
 3. **SkillManager** - Updates the skillbook with new strategies based on reflection
 
 **Important:** The three ACE roles are different specialized prompts using the same language model, not separate models.
@@ -362,6 +363,7 @@ flowchart LR
 - [Prompt Engineering](docs/PROMPT_ENGINEERING.md) - Advanced prompt techniques
 - [Agentic System Prompting](examples/agentic-system-prompting/README.md) - Automatically generate prompt improvements from past traces
 - [Examples](examples/) - Ready-to-run code examples
+- [Recursive Reflector](ace/reflector/) - Code-based trace analysis with sandboxed REPL
 - [Benchmarks](benchmarks/README.md) - Evaluate ACE performance
 - [Changelog](CHANGELOG.md) - Recent changes
 
@@ -375,7 +377,7 @@ We love contributions! Check out our [Contributing Guide](CONTRIBUTING.md) to ge
 
 ## Acknowledgment
 
-Based on the [ACE paper](https://arxiv.org/abs/2510.04618) and inspired by [Dynamic Cheatsheet](https://arxiv.org/abs/2504.07952).
+Inspired by the [ACE paper](https://arxiv.org/abs/2510.04618), [Dynamic Cheatsheet](https://arxiv.org/abs/2504.07952), and [Recursive Language Models](https://arxiv.org/abs/2512.24601). This implementation extends the original research with recursive reflection, async learning, production integrations, and skill deduplication.
 
 If you use ACE in your research, please cite:
 ```bibtex
