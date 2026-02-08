@@ -173,7 +173,13 @@ class TraceContext:
         error_patterns = ["error", "exception", "failed", "failure", "traceback"]
         error_regex = re.compile("|".join(error_patterns), re.IGNORECASE)
 
-        return [s for s in self._steps if error_regex.search(s.observation)]
+        return [
+            s
+            for s in self._steps
+            if error_regex.search(s.action)
+            or error_regex.search(s.thought)
+            or error_regex.search(s.observation)
+        ]
 
     def get_actions(self, action_type: str) -> List[TraceStep]:
         """Get all steps with a specific action type.

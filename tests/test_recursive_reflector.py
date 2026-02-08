@@ -552,6 +552,126 @@ FINAL({
 
 
 @pytest.mark.unit
+class TestFinalRejectedAfterExecutionError(unittest.TestCase):
+    """Test that FINAL() is rejected if code execution had errors."""
+
+    def setUp(self):
+        self.skillbook = Skillbook()
+        self.agent_output = AgentOutput(
+            reasoning="I analyzed the data",
+            final_answer="42",
+            skill_ids=[],
+        )
+
+    def test_final_rejected_after_execution_error(self):
+        """FINAL() should be rejected if code execution failed.
+
+        This tests the scenario where code has an error but still calls FINAL().
+        The reflector should reject the FINAL() and ask for a fix.
+        """
+        call_count = [0]
+
+        class ErrorThenFixLLMClient(MockLLMClient):
+            def complete_messages(
+                self, messages: List[Dict[str, str]], **kwargs: Any
+            ) -> LLMResponse:
+                call_count[0] += 1
+                if call_count[0] == 1:
+                    # Iteration 0: explore first
+                    return LLMResponse(text="```python\nprint(question[:50])\n```")
+                elif call_count[0] == 2:
+                    # Iteration 1: code that triggers an error before FINAL
+                    # Using undefined_variable triggers NameError which sets result.success=False
+                    return LLMResponse(
+                        text="""```python
+# This will cause a NameError
+x = undefined_variable
+FINAL({
+    "reasoning": "Hallucinated success based on imagined output",
+    "error_identification": "none",
+    "root_cause_analysis": "N/A",
+    "correct_approach": "N/A",
+    "key_insight": "Hallucinated",
+    "extracted_learnings": [],
+    "skill_tags": []
+})
+```"""
+                    )
+                else:
+                    # Iteration 2+: should see rejection message, provide proper fix
+                    last_msg = messages[-1]["content"]
+                    # Verify the rejection message was sent (contains error info)
+                    assert (
+                        "error" in last_msg.lower() or "Error" in last_msg
+                    ), f"Expected 'error' in message: {last_msg[:200]}"
+                    return LLMResponse(
+                        text="""```python
+FINAL({
+    "reasoning": "After fixing the error, analysis is complete.",
+    "error_identification": "none",
+    "root_cause_analysis": "No remaining errors",
+    "correct_approach": "Fixed the undefined variable issue",
+    "key_insight": "Error was fixed before finalizing",
+    "extracted_learnings": [],
+    "skill_tags": []
+})
+```"""
+                    )
+
+        llm = ErrorThenFixLLMClient()
+        reflector = RecursiveReflector(llm, config=RecursiveConfig(max_iterations=5))
+
+        result = reflector.reflect(
+            question="Analyze data",
+            agent_output=self.agent_output,
+            skillbook=self.skillbook,
+            ground_truth="42",
+            feedback="Correct!",
+        )
+
+        # Should have made 3 calls: explore, error+FINAL (rejected), fixed FINAL (accepted)
+        self.assertEqual(call_count[0], 3)
+        # Final result should be from the fixed response, not hallucinated
+        self.assertIn("fixing the error", result.reasoning.lower())
+
+    def test_final_accepted_when_code_succeeds(self):
+        """FINAL() should be accepted when code execution succeeds."""
+        responses = [
+            # Iteration 0: explore
+            "```python\nprint(question[:50])\n```",
+            # Iteration 1: successful code + FINAL
+            """```python
+result = "success"
+print(result)
+FINAL({
+    "reasoning": "Code ran successfully",
+    "error_identification": "none",
+    "root_cause_analysis": "N/A",
+    "correct_approach": "N/A",
+    "key_insight": "Clean execution",
+    "extracted_learnings": [],
+    "skill_tags": []
+})
+```""",
+        ]
+        llm = MockLLMClient()
+        llm.set_responses(responses)
+
+        reflector = RecursiveReflector(llm, config=RecursiveConfig(max_iterations=5))
+        result = reflector.reflect(
+            question="Test",
+            agent_output=self.agent_output,
+            skillbook=self.skillbook,
+            ground_truth="42",
+            feedback="OK",
+        )
+
+        # Should only need 2 calls (explore + successful FINAL)
+        self.assertEqual(llm.call_count, 2)
+        self.assertIn("successfully", result.reasoning.lower())
+
+
+@pytest.mark.unit
 class TestPreviewInPrompt(unittest.TestCase):
     """Test that question/reasoning previews appear in the initial prompt."""
 
@@ -1052,6 +1172,400 @@ class TestFallbackSynthesis(unittest.TestCase):
         self.assertEqual(len(synthesis_called), 0)
         # Should return timeout output with timeout=True in raw
         self.assertTrue(result.raw.get("timeout", False))
+
+
+@pytest.mark.unit
+class TestCodeExtractionRobustness(unittest.TestCase):
+    """Test robust code extraction from various markdown formats."""
+
+    def setUp(self):
+        self.llm = MockLLMClient()
+        self.reflector = RecursiveReflector(self.llm)
+
+    def test_extract_code_tilde_fence(self):
+        """Test extraction from ~~~python fence."""
+        code = self.reflector._extract_code("~~~python\nprint('hello')\n~~~")
+        self.assertEqual(code, "print('hello')")
+
+    def test_extract_code_indented_block(self):
+        """Test extraction from 4-space indented block."""
+        text = """Here's the code:
+
+    x = 1
+    print(x)
+    FINAL({"key": x})
+
+That should work."""
+        code = self.reflector._extract_code(text)
+        self.assertIn("x = 1", code)
+        self.assertIn("print(x)", code)
+        self.assertIn("FINAL", code)
+
+    def test_extract_code_tab_indented_block(self):
+        """Test extraction from tab-indented block."""
+        text = "Here's the code:\n\n\tx = 1\n\tprint(x)\n\nDone."
+        code = self.reflector._extract_code(text)
+        self.assertIn("x = 1", code)
+        self.assertIn("print(x)", code)
+
+    def test_extract_code_final_call_fallback(self):
+        """Test FINAL() extraction as last resort."""
+        text = """Based on my analysis, the result is:
+
+FINAL({
+    "reasoning": "Complete",
+    "extracted_learnings": []
+})
+
+That's all."""
+        code = self.reflector._extract_code(text)
+        self.assertIsNotNone(code)
+        self.assertIn("FINAL(", code)
+        self.assertIn("reasoning", code)
+
+    def test_extract_code_unclosed_fence_fallback(self):
+        """Test fallback when fence is unclosed."""
+        text = """```python
+print('hello')
+# Missing closing fence
+
+FINAL({"key": "value"})
+"""
+        code = self.reflector._extract_code(text)
+        # Should fall back to FINAL() extraction
+        self.assertIsNotNone(code)
+        self.assertIn("FINAL", code)
+
+    def test_looks_like_python_positive(self):
+        """Test _looks_like_python with valid Python code."""
+        self.assertTrue(self.reflector._looks_like_python("def foo(): pass"))
+        self.assertTrue(self.reflector._looks_like_python("import json"))
+        self.assertTrue(self.reflector._looks_like_python("x = 1"))
+        self.assertTrue(self.reflector._looks_like_python("print(x)"))
+        self.assertTrue(self.reflector._looks_like_python("FINAL({})"))
+
+    def test_looks_like_python_negative(self):
+        """Test _looks_like_python with non-Python content."""
+        self.assertFalse(self.reflector._looks_like_python("just some text"))
+        self.assertFalse(self.reflector._looks_like_python(""))
+        self.assertFalse(self.reflector._looks_like_python("1234567890"))
+
+
+@pytest.mark.unit
+class TestBatchCodeBlocks(unittest.TestCase):
+    """Test batch code block execution."""
+
+    def setUp(self):
+        self.llm = MockLLMClient()
+        self.reflector = RecursiveReflector(self.llm)
+
+    def test_batch_marker_combines_blocks(self):
+        """Test that # BATCH marker combines all code blocks."""
+        text = """
+```python
+# BATCH
+x = 1
+```
+
+Some explanation...
+
+```python
+y = x + 1
+print(y)
+```
+
+```python
+FINAL({"result": y})
+```
+"""
+        code = self.reflector._extract_code(text)
+        self.assertIn("# BATCH", code)
+        self.assertIn("x = 1", code)
+        self.assertIn("y = x + 1", code)
+        self.assertIn("FINAL", code)
+
+    def test_no_batch_marker_single_block(self):
+        """Test that without # BATCH, only first block is returned."""
+        text = """
+```python
+x = 1
+```
+
+```python
+y = 2
+```
+"""
+        code = self.reflector._extract_code(text)
+        self.assertIn("x = 1", code)
+        self.assertNotIn("y = 2", code)
+
+
+@pytest.mark.unit
+class TestSemanticTrimming(unittest.TestCase):
+    """Test semantic context window trimming."""
+
+    def setUp(self):
+        self.llm = MockLLMClient()
+        self.reflector = RecursiveReflector(
+            self.llm, config=RecursiveConfig(max_context_chars=500)
+        )
+
+    def test_score_iteration_errors_high_value(self):
+        """Test that iterations with errors get high scores."""
+        asst_msg = {"role": "assistant", "content": "```python\nprint(x)\n```"}
+        user_msg_error = {
+            "role": "user",
+            "content": "stdout:\n\nstderr:\nNameError: name 'x' is not defined",
+        }
+        user_msg_ok = {"role": "user", "content": "stdout:\nhello\n"}
+
+        error_score = self.reflector._score_iteration(asst_msg, user_msg_error)
+        ok_score = self.reflector._score_iteration(asst_msg, user_msg_ok)
+
+        self.assertGreater(error_score, ok_score)
+
+    def test_score_iteration_findings_high_value(self):
+        """Test that iterations with findings get higher scores."""
+        asst_msg = {"role": "assistant", "content": "```python\nprint(x)\n```"}
+        user_msg_finding = {
+            "role": "user",
+            "content": "stdout:\nFound pattern: API error at step 3",
+        }
+        user_msg_empty = {"role": "user", "content": "(no output)"}
+
+        finding_score = self.reflector._score_iteration(asst_msg, user_msg_finding)
+        empty_score = self.reflector._score_iteration(asst_msg, user_msg_empty)
+
+        self.assertGreater(finding_score, empty_score)
+
+    def test_score_iteration_final_high_value(self):
+        """Test that iterations with FINAL() get higher scores."""
+        asst_final = {
+            "role": "assistant",
+            "content": "```python\nFINAL({'key': 'val'})\n```",
+        }
+        asst_print = {"role": "assistant", "content": "```python\nprint('x')\n```"}
+        user_msg = {"role": "user", "content": "stdout:\n"}
+
+        final_score = self.reflector._score_iteration(asst_final, user_msg)
+        print_score = self.reflector._score_iteration(asst_print, user_msg)
+
+        self.assertGreater(final_score, print_score)
+
+    def test_trim_keeps_error_iterations(self):
+        """Test that trimming prioritizes keeping error iterations."""
+        messages = [
+            {"role": "user", "content": "A" * 200},  # instructions
+            {"role": "assistant", "content": "print('explore')"},  # low value
+            {"role": "user", "content": "(no output)"},
+            {"role": "assistant", "content": "print(undefined)"},  # high value
+            {"role": "user", "content": "stderr:\nNameError: undefined"},
+            {"role": "assistant", "content": "FINAL({})"},  # high value
+            {"role": "user", "content": "stdout:\n"},
+        ]
+        trimmed = self.reflector._trim_messages(messages)
+
+        # Should have summary of dropped iterations
+        content_str = " ".join(m["content"] for m in trimmed)
+        # Error iteration should be kept
+        self.assertIn("NameError", content_str)
+
+    def test_summarize_dropped_iterations(self):
+        """Test that dropped iteration summary is generated."""
+        dropped = [
+            (
+                {"role": "assistant", "content": "print('x')"},
+                {"role": "user", "content": "stderr:\nError"},
+            ),
+            (
+                {"role": "assistant", "content": "print('y')"},
+                {"role": "user", "content": "stdout:\n5"},
+            ),
+        ]
+        summary = self.reflector._summarize_dropped_iterations(dropped)
+        self.assertIn("error", summary.lower())
+
+
+@pytest.mark.unit
+class TestWindowsTimeout(unittest.TestCase):
+    """Test Windows-compatible timeout support."""
+
+    def test_execute_with_multiprocessing_simple(self):
+        """Test that simple code executes correctly via multiprocessing."""
+        import platform
+
+        if platform.system() != "Windows":
+            pytest.skip("Windows-specific test")
+
+        sandbox = TraceSandbox(trace=None)
+        sandbox.inject("question", "test question")
+
+        result = sandbox.execute("print(question)", timeout=5.0)
+        self.assertIn("test question", result.stdout)
+        self.assertIsNone(result.exception)
+
+    def test_execute_no_timeout_fallback(self):
+        """Test the no-timeout fallback works."""
+        sandbox = TraceSandbox(trace=None)
+
+        # Test the _execute_no_timeout method directly
+        result = sandbox._execute_no_timeout("print('hello')")
+        self.assertIn("hello", result.stdout)
+        self.assertIsNone(result.exception)
+
+    def test_execute_no_timeout_with_final(self):
+        """Test that FINAL() works in no-timeout mode."""
+        sandbox = TraceSandbox(trace=None)
+
+        result = sandbox._execute_no_timeout("FINAL({'key': 'value'})")
+        self.assertTrue(sandbox.final_called)
+        self.assertEqual(sandbox.final_value, {"key": "value"})
+
+    def test_get_serializable_namespace(self):
+        """Test namespace serialization for subprocess."""
+        sandbox = TraceSandbox(trace=None)
+        sandbox.inject("question", "test")
+        sandbox.inject("reasoning", "some reasoning")
+        sandbox.inject("complex_obj", lambda x: x)  # Not serializable
+
+        serializable = sandbox._get_serializable_namespace()
+
+        self.assertEqual(serializable["question"], "test")
+        self.assertEqual(serializable["reasoning"], "some reasoning")
+        self.assertNotIn("complex_obj", serializable)
+
+
+@pytest.mark.unit
+class TestExtractFinalCall(unittest.TestCase):
+    """Test FINAL() call extraction."""
+
+    def setUp(self):
+        self.llm = MockLLMClient()
+        self.reflector = RecursiveReflector(self.llm)
+
+    def test_extract_simple_final(self):
+        """Test extraction of simple FINAL() call."""
+        text = 'FINAL({"key": "value"})'
+        code = self.reflector._extract_final_call(text)
+        self.assertEqual(code, text)
+
+    def test_extract_nested_final(self):
+        """Test extraction of FINAL() with nested structures."""
+        text = 'FINAL({"outer": {"inner": [1, 2, 3]}})'
+        code = self.reflector._extract_final_call(text)
+        self.assertEqual(code, text)
+
+    def test_extract_final_with_strings(self):
+        """Test extraction of FINAL() with string containing parens."""
+        text = 'FINAL({"msg": "hello (world)"})'
+        code = self.reflector._extract_final_call(text)
+        self.assertEqual(code, text)
+
+    def test_extract_final_multiline(self):
+        """Test extraction of multiline FINAL() call."""
+        text = """FINAL({
+    "reasoning": "Analysis",
+    "extracted_learnings": []
+})"""
+        code = self.reflector._extract_final_call(text)
+        self.assertIn("reasoning", code)
+        self.assertIn("extracted_learnings", code)
+
+    def test_no_final_returns_none(self):
+        """Test that text without FINAL() returns None."""
+        text = "Just some text without a FINAL call"
+        code = self.reflector._extract_final_call(text)
+        self.assertIsNone(code)
+
+
+@pytest.mark.unit
+class TestPreviewBraceEscaping(unittest.TestCase):
+    """Test that _preview escapes curly braces for str.format() safety."""
+
+    def test_preview_escapes_braces(self):
+        """Test that braces in text are doubled for format safety."""
+        from ace.reflector.recursive import _preview
+
+        text = "Use {name} for {purpose}"
+        result = _preview(text)
+        self.assertEqual(result, "Use {{name}} for {{purpose}}")
+
+    def test_preview_escapes_braces_in_truncated_text(self):
+        """Test that braces are escaped even in truncated text."""
+        from ace.reflector.recursive import _preview
+
+        text = "{x}" * 100  # 300 chars
+        result = _preview(text, max_len=150)
+        # All single braces should be doubled
+        # No single { without a following { (i.e., no unescaped braces)
+        import re
+
+        self.assertIsNone(re.search(r"(?<!\{)\{(?!\{)", result))
+        self.assertIn("{{x}}", result)
+
+    def test_preview_no_braces_unchanged(self):
+        """Test that text without braces is unchanged."""
+        from ace.reflector.recursive import _preview
+
+        text = "no braces here"
+        result = _preview(text)
+        self.assertEqual(result, "no braces here")
+
+    def test_preview_empty_returns_marker(self):
+        """Test that empty/None returns (empty)."""
+        from ace.reflector.recursive import _preview
+
+        self.assertEqual(_preview(None), "(empty)")
+        self.assertEqual(_preview(""), "(empty)")
+
+
+@pytest.mark.unit
+class TestSuccessHeuristic(unittest.TestCase):
+    """Test that ExecutionResult.success only checks exception."""
+
+    def test_success_with_error_in_stderr(self):
+        """Test that 'Error' in stderr does NOT make success=False."""
+        from ace.reflector.sandbox import ExecutionResult
+
+        result = ExecutionResult(stdout="", stderr="No Error occurred", exception=None)
+        self.assertTrue(result.success)
+
+    def test_success_with_exception(self):
+        """Test that an exception makes success=False."""
+        from ace.reflector.sandbox import ExecutionResult
+
+        result = ExecutionResult(stdout="", stderr="", exception=ValueError("test"))
+        self.assertFalse(result.success)
+
+    def test_success_clean_execution(self):
+        """Test that clean execution is success=True."""
+        from ace.reflector.sandbox import ExecutionResult
+
+        result = ExecutionResult(stdout="hello", stderr="", exception=None)
+        self.assertTrue(result.success)
+
+
+@pytest.mark.unit
+class TestSignalAlarmCeiling(unittest.TestCase):
+    """Test that signal.alarm uses math.ceil for sub-second timeouts."""
+
+    def test_subsecond_timeout_not_zero(self):
+        """Test that a sub-second timeout doesn't disable the alarm."""
+        import math
+
+        # math.ceil(0.5) == 1, not 0
+        self.assertEqual(math.ceil(0.5), 1)
+        # int(0.5) would be 0, which disables the alarm
+        self.assertEqual(int(0.5), 0)
+
+    def test_sandbox_uses_ceil(self):
+        """Test that sandbox execute uses math.ceil via code inspection."""
+        import inspect
+        from ace.reflector.sandbox import TraceSandbox
+
+        source = inspect.getsource(TraceSandbox._execute_unix)
+        self.assertIn("math.ceil(timeout)", source)
+        self.assertNotIn("int(timeout)", source)
 
 
 if __name__ == "__main__":

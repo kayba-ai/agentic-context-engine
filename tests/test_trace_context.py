@@ -432,6 +432,67 @@ class TestFromLangchain(unittest.TestCase):
 
 
 @pytest.mark.unit
+class TestSearchRaw(unittest.TestCase):
+    """Test search_raw and search_raw_text methods."""
+
+    def test_search_raw_returns_indices(self):
+        """search_raw() should return step indices, not matched strings."""
+        messages = [
+            {"role": "user", "content": "fix the error"},
+            {"role": "assistant", "content": "I'll help"},
+            {"role": "user", "content": "still has error"},
+        ]
+        trace = TraceContext.from_conversation_history(messages)
+        indices = trace.search_raw(r"error")
+
+        # Should return list of integers (indices)
+        self.assertTrue(all(isinstance(i, int) for i in indices))
+        # Steps 0 and 2 contain "error"
+        self.assertEqual(indices, [0, 2])
+
+    def test_search_raw_returns_empty_on_no_match(self):
+        """search_raw() should return empty list when no matches."""
+        trace = TraceContext(
+            steps=[
+                TraceStep(index=0, action="test", thought="hello", observation="world")
+            ],
+            raw_reasoning="hello world",
+        )
+        indices = trace.search_raw(r"nonexistent")
+        self.assertEqual(indices, [])
+
+    def test_search_raw_text_returns_strings(self):
+        """search_raw_text() should return matched substrings."""
+        trace = TraceContext(
+            steps=[],
+            raw_reasoning="Found error in line 5. Another error in line 10.",
+        )
+        matches = trace.search_raw_text(r"error")
+        self.assertEqual(matches, ["error", "error"])
+
+    def test_search_raw_indices_can_be_used_for_slicing(self):
+        """Verify indices from search_raw() can be used to access steps."""
+        steps = [
+            TraceStep(index=0, action="start", thought="beginning", observation=""),
+            TraceStep(
+                index=1,
+                action="process",
+                thought="working",
+                observation="error occurred",
+            ),
+            TraceStep(index=2, action="end", thought="finished", observation=""),
+        ]
+        trace = TraceContext(steps=steps, raw_reasoning="")
+        indices = trace.search_raw(r"error")
+
+        # Should be able to use indices to access steps
+        self.assertEqual(len(indices), 1)
+        self.assertEqual(indices[0], 1)
+        error_step = trace[indices[0]]
+        self.assertEqual(error_step.action, "process")
+
+
+@pytest.mark.unit
 class TestFindStepsRegex(unittest.TestCase):
     """Test find_steps_regex method."""
 
@@ -470,6 +531,69 @@ class TestFindStepsRegex(unittest.TestCase):
         """Test regex with no matches."""
         results = self.trace.find_steps_regex(r"nonexistent_pattern")
         self.assertEqual(len(results), 0)
+
+
+@pytest.mark.unit
+class TestGetErrorsAllFields(unittest.TestCase):
+    """Test that get_errors() searches action, thought, and observation."""
+
+    def test_error_in_observation(self):
+        """Test that errors in observation field are found."""
+        steps = [
+            TraceStep(
+                index=0, action="run", thought="running", observation="Error: timeout"
+            ),
+        ]
+        trace = TraceContext(steps=steps, raw_reasoning="")
+        errors = trace.get_errors()
+        self.assertEqual(len(errors), 1)
+
+    def test_error_in_thought(self):
+        """Test that errors in thought field are found."""
+        steps = [
+            TraceStep(
+                index=0, action="run", thought="Got an exception here", observation=""
+            ),
+        ]
+        trace = TraceContext(steps=steps, raw_reasoning="")
+        errors = trace.get_errors()
+        self.assertEqual(len(errors), 1)
+
+    def test_error_in_action(self):
+        """Test that errors in action field are found."""
+        steps = [
+            TraceStep(
+                index=0, action="handle_failure", thought="processing", observation="ok"
+            ),
+        ]
+        trace = TraceContext(steps=steps, raw_reasoning="")
+        errors = trace.get_errors()
+        self.assertEqual(len(errors), 1)
+
+    def test_no_errors(self):
+        """Test that steps without error indicators return empty."""
+        steps = [
+            TraceStep(
+                index=0, action="search", thought="looking", observation="found it"
+            ),
+        ]
+        trace = TraceContext(steps=steps, raw_reasoning="")
+        errors = trace.get_errors()
+        self.assertEqual(len(errors), 0)
+
+    def test_error_across_multiple_fields(self):
+        """Test step with errors in multiple fields only appears once."""
+        steps = [
+            TraceStep(
+                index=0,
+                action="error_handler",
+                thought="exception caught",
+                observation="failed",
+            ),
+        ]
+        trace = TraceContext(steps=steps, raw_reasoning="")
+        errors = trace.get_errors()
+        self.assertEqual(len(errors), 1)
 
 
 @pytest.mark.unit

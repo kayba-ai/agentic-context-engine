@@ -22,12 +22,14 @@ logger = logging.getLogger(__name__)
 
 
 def _preview(text: str | None, max_len: int = 150) -> str:
-    """Return a short preview of text for prompt grounding."""
+    """Return a short preview of text for prompt grounding.
+
+    Escapes curly braces so the result is safe for str.format().
+    """
     if not text:
         return "(empty)"
-    if len(text) <= max_len:
-        return text
-    return text[:max_len]
+    snippet = text if len(text) <= max_len else text[:max_len]
+    return snippet.replace("{", "{{").replace("}", "}}")
 
 
 def _truncate_output(output: str, max_chars: int = 20000) -> str:
@@ -283,8 +285,7 @@ class RecursiveReflector:
         # Reject premature FINAL() on first iteration - force the model
         # to see actual data before finalizing to prevent hallucination
         if sandbox.final_called and iteration == 0:
-            sandbox._final_called = False
-            sandbox._final_value = None
+            sandbox.reset()
             messages.append({"role": "assistant", "content": response_text})
             messages.append(
                 {
@@ -299,8 +300,7 @@ class RecursiveReflector:
         # Reject FINAL() if execution had errors - prevent hallucinated analysis
         if sandbox.final_called and not result.success:
             logger.warning("Rejecting FINAL() called after execution error")
-            sandbox._final_called = False
-            sandbox._final_value = None
+            sandbox.reset()
             messages.append({"role": "assistant", "content": response_text})
             messages.append(
                 {
@@ -369,11 +369,16 @@ class RecursiveReflector:
         return None
 
     def _trim_messages(self, messages: List[Dict[str, str]]) -> List[Dict[str, str]]:
-        """Trim messages to fit within context budget.
+        """Trim messages to fit within context budget using semantic scoring.
 
-        Keeps the first message (instructions) and the most recent messages
-        that fit within max_context_chars. Inserts a summary marker for
-        dropped messages.
+        Scores each iteration by importance and keeps highest-value ones:
+        - Errors are high value (debugging context)
+        - Findings/insights are high value
+        - Substantive output is medium value
+        - Empty output is low value
+
+        Always keeps the first message (instructions) and ensures chronological
+        order of kept messages.
 
         Args:
             messages: Full message history
@@ -390,23 +395,152 @@ class RecursiveReflector:
         first = messages[0]
         remaining_budget = max_chars - len(first["content"])
 
-        # Add messages from the end until budget is exhausted
-        kept: List[Dict[str, str]] = []
-        for msg in reversed(messages[1:]):
-            msg_len = len(msg["content"])
-            if remaining_budget - msg_len < 0:
-                break
-            kept.insert(0, msg)
-            remaining_budget -= msg_len
+        # Group messages into iteration pairs (assistant response + user output)
+        # Messages after first: [asst, user, asst, user, ...]
+        iterations: List[tuple] = []
+        i = 1
+        while i < len(messages):
+            if i + 1 < len(messages):
+                # Full pair: assistant response + execution output
+                iterations.append((i, messages[i], messages[i + 1]))
+                i += 2
+            else:
+                # Single trailing message
+                iterations.append((i, messages[i], None))
+                i += 1
 
-        dropped_count = len(messages) - 1 - len(kept)
+        # Score and sort iterations by importance
+        scored = []
+        for idx, asst_msg, user_msg in iterations:
+            score = self._score_iteration(asst_msg, user_msg)
+            pair_size = len(asst_msg["content"])
+            if user_msg:
+                pair_size += len(user_msg["content"])
+            scored.append((score, idx, asst_msg, user_msg, pair_size))
+
+        # Sort by score descending, keep highest-scoring within budget
+        scored.sort(key=lambda x: (-x[0], x[1]))
+
+        kept_indices = []
+        used_budget = 0
+        for score, idx, asst_msg, user_msg, pair_size in scored:
+            if used_budget + pair_size <= remaining_budget:
+                kept_indices.append((idx, asst_msg, user_msg))
+                used_budget += pair_size
+
+        # Sort kept iterations back to chronological order
+        kept_indices.sort(key=lambda x: x[0])
+
+        # Build result list
+        kept: List[Dict[str, str]] = []
+        for _, asst_msg, user_msg in kept_indices:
+            kept.append(asst_msg)
+            if user_msg:
+                kept.append(user_msg)
+
+        dropped_count = len(iterations) - len(kept_indices)
         if dropped_count > 0:
+            # Generate semantic summary of dropped iterations
+            dropped_summary = self._summarize_dropped_iterations(
+                [(asst, user) for _, _, asst, user, _ in scored[len(kept_indices) :]]
+            )
             summary = {
                 "role": "user",
-                "content": f"[{dropped_count} earlier iterations omitted]",
+                "content": f"[{dropped_count} earlier iterations omitted: {dropped_summary}]",
             }
             return [first, summary] + kept
         return [first] + kept
+
+    def _score_iteration(
+        self, assistant_msg: Dict[str, str], user_msg: Optional[Dict[str, str]]
+    ) -> float:
+        """Score iteration importance for retention priority.
+
+        Higher scores indicate more valuable context to keep.
+
+        Args:
+            assistant_msg: The assistant's response (code generated)
+            user_msg: The user message with execution output (may be None)
+
+        Returns:
+            Importance score (higher = more important to keep)
+        """
+        score = 0.0
+
+        if user_msg:
+            content = user_msg["content"]
+
+            # Errors are high value (debugging context)
+            error_indicators = ["Error", "Exception", "Traceback", "stderr:"]
+            if any(ind in content for ind in error_indicators):
+                score += 3.0
+
+            # Findings/insights are high value
+            finding_indicators = [
+                "found",
+                "pattern",
+                "insight",
+                "discovered",
+                "result:",
+            ]
+            if any(ind.lower() in content.lower() for ind in finding_indicators):
+                score += 2.0
+
+            # Substantive output is medium value
+            if len(content) > 500:
+                score += 1.0
+
+            # Empty output is low value
+            if "(no output)" in content:
+                score -= 1.0
+
+        # Code with FINAL() call is high value
+        if "FINAL(" in assistant_msg["content"]:
+            score += 2.0
+
+        # Code with ask_llm/llm_query is medium value
+        if (
+            "ask_llm(" in assistant_msg["content"]
+            or "llm_query(" in assistant_msg["content"]
+        ):
+            score += 1.0
+
+        return score
+
+    def _summarize_dropped_iterations(self, dropped: List[tuple]) -> str:
+        """Generate a brief semantic summary of dropped iterations.
+
+        Args:
+            dropped: List of (assistant_msg, user_msg) tuples that were dropped
+
+        Returns:
+            Brief summary string
+        """
+        if not dropped:
+            return "no significant findings"
+
+        summaries = []
+
+        # Check for common patterns in dropped content
+        error_count = 0
+        explore_count = 0
+
+        for asst_msg, user_msg in dropped:
+            if user_msg and any(
+                ind in user_msg["content"] for ind in ["Error", "Exception", "stderr:"]
+            ):
+                error_count += 1
+            if "print(" in asst_msg["content"]:
+                explore_count += 1
+
+        if error_count:
+            summaries.append(f"{error_count} error(s)")
+        if explore_count:
+            summaries.append(f"{explore_count} exploration(s)")
+
+        if summaries:
+            return ", ".join(summaries)
+        return "exploration iterations"
 
     def _format_messages(self, messages: List[Dict[str, str]]) -> str:
         """Format message list into a single prompt string.
@@ -427,38 +561,191 @@ class RecursiveReflector:
     def _extract_code(self, response: str) -> Optional[str]:
         """Extract Python code from LLM response.
 
+        Uses a layered extraction approach with fallback chain:
+        1. Fenced blocks: ```python, ~~~python, bare ```
+        2. Indented blocks: 4-space or tab-indented code
+        3. FINAL() extraction: extract just the FINAL(...) call
+
+        Supports batch mode: if first block starts with '# BATCH',
+        all code blocks are combined for sequential execution.
+
         Args:
             response: The LLM response text
 
         Returns:
             Extracted Python code or None if no code block found
         """
-        # Match ```python ... ``` blocks
+        # Layer 1: Fenced blocks - try ```python first
+        matches = self._extract_fenced_blocks(response)
+        if matches:
+            first_block = matches[0].strip()
+            # Explicit batch request: combine all blocks
+            if first_block.startswith("# BATCH"):
+                return "\n\n".join(m.strip() for m in matches)
+            # Default: single block (forces multi-turn iteration)
+            return first_block
+
+        # Layer 2: Indented blocks (4 spaces or tab)
+        indented = self._extract_indented_block(response)
+        if indented and self._looks_like_python(indented):
+            return indented
+
+        # Layer 3: FINAL() extraction - last resort
+        final_call = self._extract_final_call(response)
+        if final_call:
+            return final_call
+
+        return None
+
+    def _extract_fenced_blocks(self, response: str) -> List[str]:
+        """Extract all fenced code blocks from response.
+
+        Tries multiple fence styles in order:
+        1. ```python ... ```
+        2. ~~~python ... ~~~
+        3. ``` ... ``` (validates as Python)
+
+        Args:
+            response: The LLM response text
+
+        Returns:
+            List of extracted code blocks (may be empty)
+        """
+        # Try ```python blocks first
         pattern = r"```python\s*(.*?)```"
         matches = re.findall(pattern, response, re.DOTALL)
         if matches:
-            # Return only the first code block to force multi-turn iteration
-            return matches[0].strip()
+            return matches
 
-        # Also try ``` ... ``` without language specifier
+        # Try ~~~python blocks
+        pattern = r"~~~python\s*(.*?)~~~"
+        matches = re.findall(pattern, response, re.DOTALL)
+        if matches:
+            return matches
+
+        # Try bare ``` blocks, but validate they look like Python
         pattern = r"```\s*(.*?)```"
         matches = re.findall(pattern, response, re.DOTALL)
         if matches:
-            # Filter to likely Python code (has common Python keywords/syntax)
-            python_indicators = [
-                "def ",
-                "import ",
-                "print(",
-                "FINAL(",
-                "=",
-                "if ",
-                "for ",
-            ]
-            for match in matches:
-                if any(indicator in match for indicator in python_indicators):
-                    return match.strip()
+            python_matches = [m for m in matches if self._looks_like_python(m)]
+            if python_matches:
+                return python_matches
+
+        return []
+
+    def _extract_indented_block(self, response: str) -> Optional[str]:
+        """Extract code from indented block (4 spaces or tab).
+
+        Finds contiguous lines that are indented and returns them
+        with indentation removed.
+
+        Args:
+            response: The LLM response text
+
+        Returns:
+            Extracted code or None
+        """
+        lines = response.split("\n")
+        code_lines = []
+        in_code = False
+
+        for line in lines:
+            # Check for 4-space or tab indentation
+            if line.startswith("    ") or line.startswith("\t"):
+                in_code = True
+                # Remove one level of indentation
+                if line.startswith("    "):
+                    code_lines.append(line[4:])
+                else:
+                    code_lines.append(line[1:])
+            elif in_code:
+                # End of indented block - stop at first non-blank, non-indented line
+                if line.strip():
+                    break
+                # Allow blank lines within code
+                code_lines.append("")
+
+        if code_lines:
+            # Trim trailing blank lines
+            while code_lines and not code_lines[-1].strip():
+                code_lines.pop()
+            return "\n".join(code_lines)
 
         return None
+
+    def _extract_final_call(self, response: str) -> Optional[str]:
+        """Extract FINAL(...) call from response text.
+
+        Last-resort extraction when no code blocks are found.
+        Attempts to extract a complete FINAL() call with balanced parentheses.
+
+        Args:
+            response: The LLM response text
+
+        Returns:
+            Extracted FINAL() call or None
+        """
+        # Find FINAL( and extract with balanced parentheses
+        match = re.search(r"FINAL\s*\(", response)
+        if not match:
+            return None
+
+        start = match.start()
+        # Find balanced closing paren
+        depth = 0
+        in_string = None
+        escape_next = False
+
+        for i, char in enumerate(response[match.end() - 1 :], start=match.end() - 1):
+            if escape_next:
+                escape_next = False
+                continue
+
+            if char == "\\":
+                escape_next = True
+                continue
+
+            if char in "\"'" and not in_string:
+                in_string = char
+            elif char == in_string:
+                in_string = None
+            elif not in_string:
+                if char == "(":
+                    depth += 1
+                elif char == ")":
+                    depth -= 1
+                    if depth == 0:
+                        return response[start : i + 1]
+
+        return None
+
+    def _looks_like_python(self, code: str) -> bool:
+        """Check if code looks like valid Python.
+
+        Args:
+            code: Code string to validate
+
+        Returns:
+            True if code contains Python indicators
+        """
+        indicators = [
+            "def ",
+            "import ",
+            "print(",
+            "FINAL(",
+            "for ",
+            "if ",
+            "while ",
+            "class ",
+            "return ",
+            "= ",
+            "==",
+            "+=",
+            "try:",
+            "except",
+            "with ",
+        ]
+        return any(ind in code for ind in indicators)
 
     def _parse_final_value(self, value: Any) -> "ReflectorOutput":
         """Parse the value from FINAL() into ReflectorOutput.
