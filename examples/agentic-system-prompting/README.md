@@ -54,6 +54,7 @@ Or for development:
 git clone https://github.com/kayba-ai/agentic-context-engine
 cd agentic-context-engine
 uv sync
+uv pip install -e .  # Required to run examples
 ```
 
 ### API Keys
@@ -80,9 +81,34 @@ OPENAI_API_KEY=your-openai-key
 
 Process past traces and conversations in batch to generate insights **without the agent running**.
 
-> **Quick start tip:** Run [`agentic_system_prompting.py`](./agentic_system_prompting.py) - a simple, ready-to-use example script.
-
 **Use case:** Periodic automated system prompt revision. Feed historical data, let ACE analyze patterns, then have a human review and choose what to implement.
+
+#### Quick Start (CLI)
+
+```bash
+# Basic usage
+python agentic_system_prompting.py /path/to/traces
+
+# With options
+python agentic_system_prompting.py /path/to/traces --model gpt-4o --epochs 2
+python agentic_system_prompting.py /path/to/traces --input-skillbook existing.json
+python agentic_system_prompting.py /path/to/traces --output-dir ./results --threshold 0.8
+```
+
+**CLI Options:**
+- `traces_dir` - Required: path to directory containing `.md` or `.toon` trace files
+- `-m, --model` - LLM model for analysis (default: `claude-haiku-4-5-20251001`)
+- `-e, --epochs` - Number of training epochs (default: 1)
+- `-t, --threshold` - Deduplication similarity threshold 0.0-1.0 (default: 0.7)
+- `-i, --input-skillbook` - Continue learning from an existing skillbook
+- `-o, --output-dir` - Output directory for results (default: script directory)
+
+**Outputs:**
+- `skillbook_{timestamp}.json` - The learned skillbook
+- `skills_{timestamp}.md` - Human-readable skills grouped by section
+- `external_agent_injection_{timestamp}.txt` - Ready-to-inject prompt text for external agents
+
+#### Python API
 
 ```python
 from ace import (
@@ -95,7 +121,7 @@ from ace import (
     SimpleEnvironment,
 )
 from ace.llm_providers.litellm_client import LiteLLMClient, LiteLLMConfig
-from ace.prompts_v2_1 import PromptManager
+from ace.prompts_v3 import PromptManager
 
 # 1. Initialize LLM client
 config = LiteLLMConfig(

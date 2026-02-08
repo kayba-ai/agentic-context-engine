@@ -35,7 +35,7 @@ except ImportError:
 from ..llm_providers import LiteLLMClient
 from ..skillbook import Skillbook
 from ..roles import Reflector, SkillManager, AgentOutput
-from ..prompts_v2_1 import PromptManager
+from ..prompt_manager import PromptManager
 from .base import wrap_skillbook_context
 
 if TYPE_CHECKING:

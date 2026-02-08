@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 import json
 from collections import deque
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Deque, Dict, Optional, Type, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Deque, Dict, List, Optional, Type, TypeVar, Union
 
 from pydantic import BaseModel
 
@@ -34,6 +34,18 @@ class LLMClient(ABC):
     def complete(self, prompt: str, **kwargs: Any) -> LLMResponse:
         """Return the model text for a given prompt."""
 
+    def complete_messages(
+        self, messages: List[Dict[str, str]], **kwargs: Any
+    ) -> LLMResponse:
+        """Multi-turn completion. Default: flatten and call complete()."""
+        parts = []
+        for msg in messages:
+            if msg["role"] == "user":
+                parts.append(msg["content"])
+            elif msg["role"] == "assistant":
+                parts.append(f"[Assistant]\n{msg['content']}")
+        return self.complete("\n\n".join(parts), **kwargs)
+
 
 class DummyLLMClient(LLMClient):
     """Deterministic LLM stub for testing and dry runs.
@@ -50,6 +62,14 @@ class DummyLLMClient(LLMClient):
         self._responses.append(text)
 
     def complete(self, prompt: str, **kwargs: Any) -> LLMResponse:
+        if not self._responses:
+            raise RuntimeError("DummyLLMClient ran out of queued responses.")
+        return LLMResponse(text=self._responses.popleft())
+
+    def complete_messages(
+        self, messages: List[Dict[str, str]], **kwargs: Any
+    ) -> LLMResponse:
+        """Multi-turn completion for testing - pops next queued response."""
         if not self._responses:
             raise RuntimeError("DummyLLMClient ran out of queued responses.")
         return LLMResponse(text=self._responses.popleft())

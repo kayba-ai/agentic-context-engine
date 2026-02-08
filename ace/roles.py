@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence
 
@@ -12,7 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from .updates import UpdateBatch
 from .llm import LLMClient
 from .skillbook import Skillbook
-from .prompts_v2_1 import PromptManager
+from .prompt_manager import PromptManager
 
 # Use PromptManager to get v2.1 prompts with {current_date} filled in
 _prompt_manager = PromptManager(default_version="2.1")
@@ -22,6 +23,7 @@ SKILL_MANAGER_PROMPT = _prompt_manager.get_skill_manager_prompt()
 
 if TYPE_CHECKING:
     from .deduplication import DeduplicationManager
+    from .reflector.config import RecursiveConfig
 
 logger = logging.getLogger(__name__)
 
@@ -461,6 +463,20 @@ class SkillTag(BaseModel):
     )
 
 
+class ReflectorMode(Enum):
+    """Mode of operation for the Reflector.
+
+    Attributes:
+        SIMPLE: Single-pass reflection (default, 1 LLM call)
+        RECURSIVE: Code execution with REPL loop (3-15 LLM calls)
+        AUTO: Automatically select based on trace complexity
+    """
+
+    SIMPLE = "simple"
+    RECURSIVE = "recursive"
+    AUTO = "auto"
+
+
 class ReflectorOutput(BaseModel):
     """Output from the Reflector role containing analysis and skill classifications."""
 
@@ -498,9 +514,16 @@ class Reflector:
     and environment feedback to understand what went right or wrong, classifying
     which skillbook skills were helpful, harmful, or neutral.
 
+    Supports multiple modes of operation:
+    - SIMPLE: Single-pass reflection (default, 1 LLM call)
+    - RECURSIVE: Code execution with REPL loop for complex traces (3-15 LLM calls)
+    - AUTO: Automatically select based on trace complexity
+
     Args:
         llm: The LLM client to use for reflection
         prompt_template: Custom prompt template (uses REFLECTOR_PROMPT by default)
+        mode: Reflection mode (SIMPLE, RECURSIVE, or AUTO). Default: SIMPLE
+        recursive_config: Configuration for recursive mode (max_iterations, timeout, etc.)
         max_retries: Maximum validation retries via Instructor (default: 3)
 
     Example:
@@ -517,6 +540,17 @@ class Reflector:
         ... )
         >>> print(reflection.key_insight)
         Successfully solved the arithmetic problem
+
+    Recursive Mode Example:
+        >>> from ace import Reflector, ReflectorMode
+        >>> from ace.reflector import RecursiveConfig
+        >>>
+        >>> reflector = Reflector(
+        ...     client,
+        ...     mode=ReflectorMode.RECURSIVE,
+        ...     recursive_config=RecursiveConfig(max_iterations=5)
+        ... )
+        >>> # Recursive mode uses code execution for complex trace analysis
     """
 
     def __init__(
@@ -524,8 +558,13 @@ class Reflector:
         llm: LLMClient,
         prompt_template: str = REFLECTOR_PROMPT,
         *,
+        mode: ReflectorMode = ReflectorMode.SIMPLE,
+        recursive_config: Optional["RecursiveConfig"] = None,
         max_retries: int = 3,
     ) -> None:
+        # Store the raw LLM for recursive mode (which doesn't use Instructor)
+        self._raw_llm = llm
+
         # Auto-wrap with Instructor if not already wrapped
         # Use duck typing to detect Instructor capability (supports mocking)
         if hasattr(llm, "complete_structured"):
@@ -536,6 +575,8 @@ class Reflector:
             self.llm = wrap_with_instructor(llm, max_retries=max_retries)  # type: ignore[assignment]
 
         self.prompt_template = prompt_template
+        self.mode = mode
+        self.recursive_config = recursive_config
         self.max_retries = max_retries
 
     @maybe_track(
@@ -553,7 +594,75 @@ class Reflector:
         feedback: Optional[str] = None,
         **kwargs: Any,
     ) -> ReflectorOutput:
+        # Route based on mode
+        mode = self._select_mode(agent_output)
+
+        if mode == ReflectorMode.RECURSIVE:
+            return self._recursive_reflect(
+                question=question,
+                agent_output=agent_output,
+                skillbook=skillbook,
+                ground_truth=ground_truth,
+                feedback=feedback,
+                **kwargs,
+            )
+
+        # Default to simple reflection
         return self._reflect_impl(
+            question=question,
+            agent_output=agent_output,
+            skillbook=skillbook,
+            ground_truth=ground_truth,
+            feedback=feedback,
+            **kwargs,
+        )
+
+    def _select_mode(self, agent_output: AgentOutput) -> ReflectorMode:
+        """Select the reflection mode based on configuration and trace complexity.
+
+        Args:
+            agent_output: The agent's output to analyze
+
+        Returns:
+            The selected ReflectorMode
+        """
+        if self.mode == ReflectorMode.AUTO:
+            # Estimate complexity based on reasoning length
+            reasoning_tokens = len(agent_output.reasoning) // 4  # Rough token estimate
+            if reasoning_tokens > 2000:
+                logger.debug(
+                    f"AUTO mode: selecting RECURSIVE (reasoning ~{reasoning_tokens} tokens)"
+                )
+                return ReflectorMode.RECURSIVE
+            logger.debug(
+                f"AUTO mode: selecting SIMPLE (reasoning ~{reasoning_tokens} tokens)"
+            )
+            return ReflectorMode.SIMPLE
+
+        return self.mode
+
+    def _recursive_reflect(
+        self,
+        *,
+        question: str,
+        agent_output: AgentOutput,
+        skillbook: Skillbook,
+        ground_truth: Optional[str],
+        feedback: Optional[str],
+        **kwargs: Any,
+    ) -> ReflectorOutput:
+        """Perform recursive reflection using code execution.
+
+        Uses the RecursiveReflector for complex trace analysis.
+        """
+        from .reflector import RecursiveReflector
+
+        recursive_reflector = RecursiveReflector(
+            llm=self._raw_llm,
+            config=self.recursive_config,
+        )
+
+        return recursive_reflector.reflect(
             question=question,
             agent_output=agent_output,
             skillbook=skillbook,

@@ -44,7 +44,7 @@ from typing import TYPE_CHECKING, List, Optional, Dict, Any, Tuple, Union
 from ..skillbook import Skillbook
 from ..roles import Agent, Reflector, SkillManager, AgentOutput
 from ..adaptation import OfflineACE, Sample, TaskEnvironment
-from ..prompts_v2_1 import PromptManager
+from ..prompt_manager import PromptManager
 
 if TYPE_CHECKING:
     from ..deduplication import DeduplicationConfig
