@@ -46,7 +46,7 @@ from ace import (
     DeduplicationConfig,
 )
 from ace.llm_providers.litellm_client import LiteLLMClient, LiteLLMConfig
-from ace.prompts_v3 import PromptManager, wrap_skillbook_for_external_agent
+from ace.prompt_manager import PromptManager, wrap_skillbook_for_external_agent
 
 
 def load_conversations(conversations_dir: Path) -> List[Dict[str, Any]]:

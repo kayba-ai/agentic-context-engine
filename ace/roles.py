@@ -12,7 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from .updates import UpdateBatch
 from .llm import LLMClient
 from .skillbook import Skillbook
-from .prompts_v2_1 import PromptManager
+from .prompt_manager import PromptManager
 
 # Use PromptManager to get v2.1 prompts with {current_date} filled in
 _prompt_manager = PromptManager(default_version="2.1")
