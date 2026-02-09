@@ -22,6 +22,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+import yaml
+
 # Add project root to path
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -96,30 +98,172 @@ except ValueError:
     pass
 
 
+# --- Opik tracing setup ---
+
+
+def setup_opik_tracing(domain: str, model: str) -> Optional["OpikIntegration"]:
+    """Set up Opik tracing for all LiteLLM calls (agent + user simulator).
+
+    Registers OpikLogger on litellm.callbacks so every litellm.completion()
+    call from tau2 is automatically traced — zero tau2 modifications needed.
+
+    Returns the OpikIntegration instance, or None if unavailable/disabled.
+    """
+    try:
+        from ace.observability.opik_integration import (
+            OpikIntegration,
+            _should_skip_opik,
+        )
+    except ImportError:
+        return None
+
+    if _should_skip_opik():
+        return None
+
+    try:
+        integration = OpikIntegration(
+            project_name="tau-bench",
+            tags=["tau-bench", domain, model],
+        )
+        if not integration.enabled:
+            return None
+        integration.setup_litellm_callback()
+        return integration
+    except Exception:
+        return None
+
+
+def run_single_task_traced(
+    task: Dict[str, Any],
+    skillbook: Skillbook,
+    args: argparse.Namespace,
+    *,
+    phase: str = "eval",
+    trial: int = 0,
+    experiment_name: str = "",
+) -> Tuple[Dict[str, Any], Optional[SimulationRun]]:
+    """Wrap run_single_task with an Opik trace per task execution.
+
+    Each call becomes a parent trace; all litellm.completion() calls inside
+    become child spans automatically via the OpikLogger callback.
+    Falls back to plain run_single_task when Opik is not installed.
+    """
+    try:
+        from opik import track as opik_track
+
+        @opik_track(
+            name=f"tau_{task['domain']}_{task['task_id']}",
+            project_name="tau-bench",
+            tags=[
+                f"domain:{task['domain']}",
+                f"phase:{phase}",
+                f"trial:{trial}",
+                f"model:{args.model}",
+            ],
+            metadata={
+                "task_id": task["task_id"],
+                "domain": task["domain"],
+                "phase": phase,
+                "trial": trial,
+                "experiment_name": experiment_name,
+                "model": args.model,
+            },
+        )
+        def _traced_run() -> Tuple[Dict[str, Any], Optional[SimulationRun]]:
+            result, sim = run_single_task(task, skillbook, args)
+            # Attach reward as Opik feedback score
+            try:
+                from opik import opik_context
+
+                opik_context.update_current_trace(
+                    feedback_scores=[
+                        {
+                            "name": "reward",
+                            "value": result.get("reward", 0.0),
+                            "reason": f"tau2 reward for {task['task_id']}",
+                        }
+                    ],
+                )
+            except Exception:
+                pass
+            return result, sim
+
+        return _traced_run()
+    except ImportError:
+        return run_single_task(task, skillbook, args)
+
+
+CONFIG_DIR = ROOT / "benchmarks" / "tasks" / "tau_bench"
+
+
+def load_config(name_or_path: str) -> Dict[str, Any]:
+    """Load a YAML config profile, resolving inheritance.
+
+    Args:
+        name_or_path: Profile name (e.g. "sonnet") or path to YAML file.
+
+    Returns:
+        Merged config dict (parent values overridden by child values).
+    """
+    path = Path(name_or_path)
+    if not path.suffix:
+        path = CONFIG_DIR / f"{name_or_path}.yaml"
+
+    if not path.exists():
+        print(f"Error: Config not found: {path}")
+        sys.exit(1)
+
+    with open(path) as f:
+        cfg = yaml.safe_load(f) or {}
+
+    # Resolve inheritance
+    parent_name = cfg.pop("inherits", None)
+    if parent_name:
+        parent = load_config(parent_name)
+        # Deep-merge ace section
+        parent_ace = parent.pop("ace", {})
+        child_ace = cfg.pop("ace", {})
+        merged = {**parent, **cfg}
+        merged["ace"] = {**parent_ace, **child_ace}
+        merged["_config_file"] = str(path)
+        return merged
+
+    cfg["_config_file"] = str(path)
+    return cfg
+
+
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
 
-    # Domain configuration
+    # Config profile
+    parser.add_argument(
+        "--config",
+        default="default",
+        help="Config profile name or path to YAML (default: default)",
+    )
+
+    # Domain configuration — defaults are None so CLI overrides are detectable
     parser.add_argument(
         "--domain",
         choices=["airline", "retail", "telecom", "all"],
-        default="airline",
-        help="Domain to evaluate (default: airline)",
+        default=None,
+        help="Domain to evaluate (default: from config)",
     )
     parser.add_argument(
         "--task-split",
         choices=["base", "train", "test", "human", "gpt4o"],
-        default="test",
-        help="Task split to use (default: test). Use 'test' to match official leaderboard.",
+        default=None,
+        help="Task split to use (default: from config)",
     )
 
     # Data configuration
     parser.add_argument(
         "--limit",
         type=int,
+        default=None,
         help="Limit number of tasks to evaluate (default: all)",
     )
 
@@ -128,40 +272,40 @@ def parse_args() -> argparse.Namespace:
         "-k",
         "--k",
         type=int,
-        default=4,
-        help="K value for pass^k metric (default: 4, matches official leaderboard)",
+        default=None,
+        help="K value for pass^k metric (default: from config)",
     )
     parser.add_argument(
         "--max-steps",
         type=int,
-        default=200,
-        help="Maximum steps per task (default: 200, matches official leaderboard)",
+        default=None,
+        help="Maximum steps per task (default: from config)",
     )
     parser.add_argument(
         "--max-errors",
         type=int,
-        default=10,
-        help="Maximum errors before termination (default: 10)",
+        default=None,
+        help="Maximum errors before termination (default: from config)",
     )
     parser.add_argument(
         "--seed",
         type=int,
-        default=300,
-        help="Random seed for reproducibility (default: 300, matches official leaderboard)",
+        default=None,
+        help="Random seed for reproducibility (default: from config)",
     )
 
     # ACE configuration
     parser.add_argument(
         "--epochs",
         type=int,
-        default=1,
-        help="Number of ACE training epochs (default: 1)",
+        default=None,
+        help="Number of ACE training epochs (default: from config)",
     )
     parser.add_argument(
         "--max-refinement-rounds",
         type=int,
-        default=3,
-        help="Maximum refinement rounds per sample (default: 3)",
+        default=None,
+        help="Maximum refinement rounds per sample (default: from config)",
     )
     parser.add_argument(
         "--skip-ace",
@@ -173,35 +317,53 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Run both baseline and ACE, then compare results",
     )
+    parser.add_argument(
+        "--skillbook",
+        type=str,
+        default=None,
+        help="Path to pre-trained skillbook JSON. Skips training, evaluates directly.",
+    )
+    parser.add_argument(
+        "--batch-reflect",
+        action="store_true",
+        default=None,
+        help="Defer learning until all tasks complete, then reflect on all traces together",
+    )
+    parser.add_argument(
+        "--trace-limit",
+        type=int,
+        default=None,
+        help="Max tokens per trace in batch mode (default: from config)",
+    )
 
     # Model configuration
     parser.add_argument(
         "--model",
-        default="gpt-4.1-mini-2025-04-14",
-        help="Agent model to use (default: gpt-4.1-mini-2025-04-14)",
+        default=None,
+        help="Agent model to use (default: from config)",
     )
     parser.add_argument(
         "--user-llm",
-        default="gpt-4.1-2025-04-14",
-        help="User simulator model (default: gpt-4.1-2025-04-14, matches official leaderboard)",
+        default=None,
+        help="User simulator model (default: from config)",
     )
     parser.add_argument(
         "--temperature",
         type=float,
-        default=0.0,
-        help="Sampling temperature (default: 0.0)",
+        default=None,
+        help="Sampling temperature (default: from config)",
     )
     parser.add_argument(
         "--max-tokens",
         type=int,
-        default=2048,
-        help="Maximum tokens to generate (default: 2048)",
+        default=None,
+        help="Maximum tokens to generate (default: from config)",
     )
 
     # Output configuration
     parser.add_argument(
         "--output",
-        default="tau_benchmark_results",
+        default=None,
         help="Output directory for results (default: tau_benchmark_results)",
     )
     parser.add_argument(
@@ -215,7 +377,61 @@ def parse_args() -> argparse.Namespace:
         help="Suppress progress output",
     )
 
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    # Load config and merge: config < CLI overrides
+    cfg = load_config(args.config)
+    ace_cfg = cfg.pop("ace", {})
+
+    # Mapping from config keys to argparse dest names
+    flat = {**cfg, **ace_cfg}
+    # Normalize config keys: YAML uses underscores, argparse uses underscores too
+    key_map = {
+        "user_llm": "user_llm",
+        "task_split": "task_split",
+        "max_steps": "max_steps",
+        "max_errors": "max_errors",
+        "max_tokens": "max_tokens",
+        "batch_reflect": "batch_reflect",
+        "trace_limit": "trace_limit",
+        "max_refinement_rounds": "max_refinement_rounds",
+    }
+
+    for cfg_key, value in flat.items():
+        if cfg_key.startswith("_"):
+            continue
+        attr = key_map.get(cfg_key, cfg_key)
+        # Only apply config value if CLI didn't set it (CLI value is None)
+        if hasattr(args, attr) and getattr(args, attr) is None:
+            setattr(args, attr, value)
+
+    # Store config metadata for banner
+    args._config_name = args.config
+    args._config_file = cfg.get("_config_file", "")
+
+    # Final fallback defaults for anything still None
+    _fallbacks = {
+        "domain": "airline",
+        "task_split": "test",
+        "k": 4,
+        "max_steps": 200,
+        "max_errors": 10,
+        "seed": 300,
+        "epochs": 1,
+        "max_refinement_rounds": 3,
+        "batch_reflect": False,
+        "trace_limit": 500,
+        "model": "gpt-4.1-mini-2025-04-14",
+        "user_llm": "gpt-4.1-2025-04-14",
+        "temperature": 0.0,
+        "max_tokens": 2048,
+        "output": "tau_benchmark_results",
+    }
+    for attr, default in _fallbacks.items():
+        if getattr(args, attr, None) is None:
+            setattr(args, attr, default)
+
+    return args
 
 
 def create_llm_client(
@@ -401,6 +617,8 @@ def evaluate_pass_k(
     args: argparse.Namespace,
     k: int = 1,
     quiet: bool = False,
+    phase: str = "eval",
+    experiment_name: str = "",
 ) -> Dict[str, Any]:
     """
     Evaluate tasks using pass^k metric per TAU-bench paper (arXiv:2406.12045).
@@ -421,8 +639,31 @@ def evaluate_pass_k(
 
         # Run k trials
         trial_results = []
-        for _ in range(k):
-            trial_result, _ = run_single_task(task, skillbook, args)
+        for trial_idx in range(k):
+            trial_result, simulation = run_single_task_traced(
+                task,
+                skillbook,
+                args,
+                phase=phase,
+                trial=trial_idx,
+                experiment_name=experiment_name,
+            )
+            # Preserve simulation summary in trial result
+            if simulation is not None:
+                trial_result["simulation_summary"] = {
+                    "id": getattr(simulation, "id", None),
+                    "duration": getattr(simulation, "duration", None),
+                    "termination_reason": (
+                        str(simulation.termination_reason)
+                        if simulation.termination_reason
+                        else None
+                    ),
+                    "num_messages": (
+                        len(simulation.messages) if simulation.messages else 0
+                    ),
+                    "agent_cost": getattr(simulation, "agent_cost", None),
+                    "user_cost": getattr(simulation, "user_cost", None),
+                }
             trial_results.append(trial_result)
 
         # Record final pass^k for this task
@@ -472,6 +713,7 @@ def run_ace_training(
     train_tasks: List[Dict[str, Any]],
     args: argparse.Namespace,
     quiet: bool = False,
+    experiment_name: str = "",
 ) -> Skillbook:
     """
     Run ACE training on train tasks.
@@ -497,7 +739,14 @@ def run_ace_training(
         for i, task in enumerate(train_tasks):
             try:
                 # Run task with current skillbook using tau2's proper tool-calling agent
-                result, simulation = run_single_task(task, skillbook, args)
+                result, simulation = run_single_task_traced(
+                    task,
+                    skillbook,
+                    args,
+                    phase="train",
+                    trial=0,
+                    experiment_name=experiment_name,
+                )
 
                 # Extract full conversation trace for meso-level learning
                 if simulation:
@@ -552,11 +801,145 @@ def run_ace_training(
     return skillbook
 
 
+def run_ace_batch_training(
+    train_tasks: List[Dict[str, Any]],
+    args: argparse.Namespace,
+    quiet: bool = False,
+    experiment_name: str = "",
+) -> Skillbook:
+    """
+    Run ACE batch training: execute all tasks first, then reflect on all traces together.
+
+    This defers learning until all tasks complete, then performs a single reflection
+    on the combined traces. This enables cross-task pattern recognition.
+
+    Flow:
+        Task 1, Task 2, ..., Task N → Reflect on ALL → Single Update
+    """
+    if not quiet:
+        print(f"\n📚 ACE Batch Training ({len(train_tasks)} tasks)")
+        print("  Phase 1: Execute all tasks and collect traces...")
+
+    client = create_llm_client(args)
+    reflector = Reflector(client, mode=ReflectorMode.RECURSIVE)
+    skill_manager = SkillManager(client)
+    skillbook = Skillbook()
+
+    # Phase 1: Execute all tasks and collect traces
+    traces: List[Tuple[Dict[str, Any], Dict[str, Any], str, str]] = []
+    success_count = 0
+
+    for i, task in enumerate(train_tasks):
+        try:
+            result, simulation = run_single_task_traced(
+                task,
+                skillbook,
+                args,
+                phase="train",
+                trial=0,
+                experiment_name=experiment_name,
+            )
+
+            # Extract trace for batch learning
+            if simulation:
+                trace = extract_conversation_trace(simulation)
+                # Truncate trace if needed (configurable via --trace-limit)
+                trace_lines = trace.split("\n")
+                if len(trace_lines) > args.trace_limit // 10:  # ~10 chars per line
+                    half = args.trace_limit // 20
+                    trace = "\n".join(
+                        trace_lines[:half] + ["..."] + trace_lines[-half:]
+                    )
+            else:
+                trace = f"Error: {result.get('error', 'Unknown')}"
+
+            outcome = "SUCCEEDED" if result["success"] else "FAILED"
+            feedback = f"Task {outcome}. Reward: {result['reward']:.2f}, Steps: {result['steps']}"
+
+            traces.append((task, result, trace, feedback))
+
+            if result["success"]:
+                success_count += 1
+
+            if not quiet:
+                status = "✓" if result["success"] else "✗"
+                print(
+                    f"    [{i + 1}/{len(train_tasks)}] {task['task_id']} {status} (reward={result['reward']:.2f})"
+                )
+
+        except Exception as e:
+            if not quiet:
+                print(f"    [{i + 1}/{len(train_tasks)}] {task['task_id']} ERROR: {e}")
+            traces.append(
+                (
+                    task,
+                    {"reward": 0.0, "success": False, "error": str(e)},
+                    f"Error: {e}",
+                    "Task FAILED",
+                )
+            )
+
+    if not quiet:
+        print(f"\n  Phase 1 complete: {success_count}/{len(traces)} tasks succeeded")
+        print("  Phase 2: Batch reflection on all traces...")
+
+    # Phase 2: Combine traces into mega-context
+    combined_reasoning = []
+    combined_feedback = []
+
+    for i, (task, result, trace, feedback) in enumerate(traces):
+        task_header = f"### Task {i + 1}: {task['task_id']}"
+        status = "✓ SUCCESS" if result.get("success") else "✗ FAILED"
+        combined_reasoning.append(f"{task_header} ({status})\n{trace}")
+        combined_feedback.append(f"Task {i + 1} ({task['task_id']}): {feedback}")
+
+    mega_trace = "\n\n---\n\n".join(combined_reasoning)
+    mega_feedback = "\n".join(combined_feedback)
+
+    # Phase 3: Single reflection on all traces
+    agent_output = AgentOutput(
+        final_answer=f"{success_count}/{len(traces)} tasks succeeded",
+        reasoning=mega_trace,
+        skill_ids=[],
+    )
+
+    if not quiet:
+        print(f"    Combined trace size: ~{len(mega_trace)} chars")
+
+    try:
+        reflection = reflector.reflect(
+            question="Analyze patterns across all training tasks. Look for common failure modes, successful strategies, and cross-task patterns.",
+            agent_output=agent_output,
+            skillbook=skillbook,
+            ground_truth=None,
+            feedback=mega_feedback,
+        )
+
+        skill_manager_output = skill_manager.update_skills(
+            reflection=reflection,
+            skillbook=skillbook,
+            question_context=f"Batch analysis of {len(traces)} {args.domain} customer service tasks",
+            progress="batch learning",
+        )
+
+        skillbook.apply_update(skill_manager_output.update)
+
+        if not quiet:
+            print(f"  Phase 2 complete. Skillbook has {len(skillbook.skills())} skills")
+
+    except Exception as e:
+        if not quiet:
+            print(f"  ERROR in batch reflection: {e}")
+
+    return skillbook
+
+
 def run_evaluation(
     args: argparse.Namespace,
     tasks: List[Dict[str, Any]],
     skillbook: Skillbook,
     phase_name: str = "Evaluation",
+    experiment_name: str = "",
 ) -> Dict[str, Any]:
     """Run pass^k evaluation on tasks."""
     if not args.quiet:
@@ -569,6 +952,8 @@ def run_evaluation(
         args=args,
         k=args.k,
         quiet=args.quiet,
+        phase=phase_name.lower().replace(" ", "_"),
+        experiment_name=experiment_name,
     )
 
     return eval_results
@@ -625,6 +1010,9 @@ def save_results(
             "max_steps": args.max_steps,
             "max_errors": args.max_errors,
             "seed": args.seed,
+            "batch_reflect": getattr(args, "batch_reflect", False),
+            "trace_limit": getattr(args, "trace_limit", 500),
+            "skillbook_path": getattr(args, "skillbook", None),
         },
         "results": {
             "tasks_evaluated": results["tasks_evaluated"],
@@ -662,16 +1050,55 @@ def main() -> None:
     """Main entry point."""
     args = parse_args()
 
+    # Validate --skillbook flag
+    if args.skillbook:
+        skillbook_path = Path(args.skillbook)
+        if not skillbook_path.exists():
+            print(f"Error: Skillbook file not found: {args.skillbook}")
+            sys.exit(1)
+        if args.skip_ace:
+            print(
+                "Warning: --skip-ace is redundant with --skillbook (training is already skipped)"
+            )
+
+    # Set up Opik tracing (registers OpikLogger on litellm.callbacks)
+    opik_integration = setup_opik_tracing(args.domain, args.model)
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    experiment_name = f"tau_{args.domain}_{args.model}_{timestamp}"
+
     if not args.quiet:
+        config_label = getattr(args, "_config_name", "default")
+        config_file = getattr(args, "_config_file", "")
         print("🚀 TAU-bench Evaluation")
+        print(f"   Config: {config_label} ({config_file})")
         print(f"   Domain: {args.domain}")
         print(f"   Model: {args.model}")
         print(f"   User LLM: {args.user_llm}")
         print(f"   K: {args.k}, Max steps: {args.max_steps}, Seed: {args.seed}")
-        if not args.skip_ace:
+        opik_status = "enabled (project: tau-bench)" if opik_integration else "disabled"
+        print(f"   Opik tracing: {opik_status}")
+        if args.skillbook:
+            print(f"   Skillbook: {args.skillbook}")
+        if not args.skip_ace and not args.skillbook:
             print(f"   ACE epochs: {args.epochs}")
+            if args.batch_reflect:
+                print("   Learning mode: BATCH (deferred reflection)")
 
-    if args.compare or not args.skip_ace:
+    if args.skillbook:
+        # Pre-trained skillbook: only need test tasks
+        test_tasks = load_tau_tasks(args, split=args.task_split)
+        train_tasks = []
+
+        if not test_tasks:
+            print("Error: No tasks loaded")
+            sys.exit(1)
+
+        if not args.quiet:
+            print(
+                f"\n📊 Loaded {len(test_tasks)} test tasks (split: {args.task_split})"
+            )
+
+    elif args.compare or not args.skip_ace:
         # Load train/test splits from tau2's official splits
         train_tasks = load_tau_tasks(args, split="train")
         test_tasks = load_tau_tasks(args, split="test")
@@ -696,7 +1123,76 @@ def main() -> None:
         if not args.quiet:
             print(f"\n📊 Loaded {len(test_tasks)} tasks (split: {args.task_split})")
 
-    if args.compare:
+    if args.skillbook and args.compare:
+        # Compare baseline vs pre-trained skillbook (no training)
+        loaded_skillbook = Skillbook.load_from_file(args.skillbook)
+        if not args.quiet:
+            print(f"  Loaded skillbook: {len(loaded_skillbook.skills())} skills")
+
+        # Run baseline (empty skillbook)
+        print("\n" + "=" * 60)
+        print("  1️⃣  BASELINE (no skillbook)")
+        print("=" * 60)
+        baseline_skillbook = Skillbook()
+        baseline_results = run_evaluation(
+            args,
+            test_tasks,
+            baseline_skillbook,
+            "Baseline",
+            experiment_name=experiment_name,
+        )
+        print_results(baseline_results, "BASELINE Results", args)
+
+        # Run enhanced (loaded skillbook, no training)
+        print("\n" + "=" * 60)
+        print("  2️⃣  ENHANCED (pre-trained skillbook)")
+        print("=" * 60)
+        enhanced_results = run_evaluation(
+            args,
+            test_tasks,
+            loaded_skillbook,
+            "Enhanced",
+            experiment_name=experiment_name,
+        )
+        print_results(enhanced_results, "ENHANCED Results", args)
+
+        # Compare
+        print("\n" + "=" * 60)
+        print("  📊 COMPARISON")
+        print("=" * 60)
+        for j in range(1, args.k + 1):
+            baseline_metric = baseline_results["metrics"][f"pass_{j}"]
+            enhanced_metric = enhanced_results["metrics"][f"pass_{j}"]
+            diff = enhanced_metric - baseline_metric
+            indicator = "✅" if diff > 0 else ("⚠️" if diff < 0 else "➖")
+            print(
+                f"  pass^{j}: {baseline_metric:.2%} → {enhanced_metric:.2%} ({diff:+.2%}) {indicator}"
+            )
+
+        print(f"\n  Skills in skillbook: {len(loaded_skillbook.skills())}")
+        print("=" * 60)
+
+        # Save both results
+        save_results(args, baseline_results, baseline_skillbook, "baseline")
+        save_results(args, enhanced_results, loaded_skillbook, "ace")
+
+    elif args.skillbook:
+        # Evaluate with pre-trained skillbook only (no baseline, no training)
+        loaded_skillbook = Skillbook.load_from_file(args.skillbook)
+        if not args.quiet:
+            print(f"  Loaded skillbook: {len(loaded_skillbook.skills())} skills")
+
+        results = run_evaluation(
+            args,
+            test_tasks,
+            loaded_skillbook,
+            "Enhanced",
+            experiment_name=experiment_name,
+        )
+        print_results(results, "ENHANCED Results (pre-trained skillbook)", args)
+        save_results(args, results, loaded_skillbook, "ace")
+
+    elif args.compare:
 
         # Run baseline (empty skillbook)
         print("\n" + "=" * 60)
@@ -704,7 +1200,11 @@ def main() -> None:
         print("=" * 60)
         baseline_skillbook = Skillbook()
         baseline_results = run_evaluation(
-            args, test_tasks, baseline_skillbook, "Baseline"
+            args,
+            test_tasks,
+            baseline_skillbook,
+            "Baseline",
+            experiment_name=experiment_name,
         )
         print_results(baseline_results, "BASELINE Results", args)
 
@@ -712,8 +1212,27 @@ def main() -> None:
         print("\n" + "=" * 60)
         print("  2️⃣  ACE (with training)")
         print("=" * 60)
-        ace_skillbook = run_ace_training(train_tasks, args, args.quiet)
-        ace_results = run_evaluation(args, test_tasks, ace_skillbook, "ACE Test")
+        if args.batch_reflect:
+            ace_skillbook = run_ace_batch_training(
+                train_tasks,
+                args,
+                args.quiet,
+                experiment_name=experiment_name,
+            )
+        else:
+            ace_skillbook = run_ace_training(
+                train_tasks,
+                args,
+                args.quiet,
+                experiment_name=experiment_name,
+            )
+        ace_results = run_evaluation(
+            args,
+            test_tasks,
+            ace_skillbook,
+            "ACE Test",
+            experiment_name=experiment_name,
+        )
         print_results(ace_results, "ACE Results", args)
 
         # Compare
@@ -739,16 +1258,41 @@ def main() -> None:
     elif args.skip_ace:
         # Baseline only
         baseline_skillbook = Skillbook()
-        results = run_evaluation(args, test_tasks, baseline_skillbook, "Baseline")
+        results = run_evaluation(
+            args,
+            test_tasks,
+            baseline_skillbook,
+            "Baseline",
+            experiment_name=experiment_name,
+        )
         print_results(results, "BASELINE Results", args)
         save_results(args, results, baseline_skillbook, "baseline")
 
     else:
         # ACE training + evaluation (train/test already loaded above)
-        skillbook = run_ace_training(train_tasks, args, args.quiet)
+        if args.batch_reflect:
+            skillbook = run_ace_batch_training(
+                train_tasks,
+                args,
+                args.quiet,
+                experiment_name=experiment_name,
+            )
+        else:
+            skillbook = run_ace_training(
+                train_tasks,
+                args,
+                args.quiet,
+                experiment_name=experiment_name,
+            )
 
         # Evaluate on test set (frozen skillbook)
-        results = run_evaluation(args, test_tasks, skillbook, "Test")
+        results = run_evaluation(
+            args,
+            test_tasks,
+            skillbook,
+            "Test",
+            experiment_name=experiment_name,
+        )
         print_results(results, "TAU-bench Results (ACE)", args)
         save_results(args, results, skillbook, "ace")
 
