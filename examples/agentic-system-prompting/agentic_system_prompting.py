@@ -114,6 +114,9 @@ def main():
     parser.add_argument(
         "-o", "--output-dir", type=Path, default=None, help="Output directory for results"
     )
+    parser.add_argument(
+        "-n", "--name", type=str, default=None, help="Custom name prefix for output files (default: timestamp)"
+    )
     args = parser.parse_args()
 
     CONVERSATIONS_DIR = args.traces_dir
@@ -123,8 +126,8 @@ def main():
     INPUT_SKILLBOOK = args.input_skillbook
 
     SCRIPT_DIR = args.output_dir or Path(__file__).parent
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    OUTPUT_SKILLBOOK = SCRIPT_DIR / f"skillbook_{timestamp}.json"
+    file_prefix = args.name or datetime.now().strftime("%Y%m%d_%H%M%S")
+    OUTPUT_SKILLBOOK = SCRIPT_DIR / f"skillbook_{file_prefix}.json"
 
     # Check for API keys
     if not os.getenv("OPENAI_API_KEY"):
@@ -196,7 +199,7 @@ def main():
     print(f"Saved to: {OUTPUT_SKILLBOOK}")
 
     # Save skills grouped by section in markdown format
-    OUTPUT_SKILLS_MD = SCRIPT_DIR / f"skills_{timestamp}.md"
+    OUTPUT_SKILLS_MD = SCRIPT_DIR / f"skills_{file_prefix}.md"
     with open(OUTPUT_SKILLS_MD, "w") as f:
         for section, section_skills in groupby(
             sorted(skills, key=lambda s: s.section), key=lambda s: s.section
@@ -219,7 +222,7 @@ def main():
             print(f"  {i}. [{skill.section}] {skill.content[:80]}...")
 
     # Generate external agent injection file
-    OUTPUT_INJECTION = SCRIPT_DIR / f"external_agent_injection_{timestamp}.txt"
+    OUTPUT_INJECTION = SCRIPT_DIR / f"external_agent_injection_{file_prefix}.txt"
     injection_text = wrap_skillbook_for_external_agent(adapter.skillbook)
     if injection_text:
         with open(OUTPUT_INJECTION, "w") as f:

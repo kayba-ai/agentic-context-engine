@@ -5,21 +5,19 @@ JSON to TOON Converter
 Converts all JSON files in a directory to TOON format (token-efficient encoding).
 
 Usage:
-    1. Update INPUT_DIR below to point to your JSON files
-    2. Run: python convert.py
+    python convert.py /path/to/json/files
 """
 
+import argparse
 import json
 from pathlib import Path
 from toon import encode
 
-# =========================================================================
-# USER CONFIGURATION - Update this path to your JSON files directory
-# =========================================================================
-INPUT_DIR = Path("/Users/filip/Desktop/Kayba/Code/KaybaACE/agentic-context-engine/examples/agentic-system-prompting/tasks")
-# =========================================================================
+parser = argparse.ArgumentParser(description="Convert JSON files to TOON format")
+parser.add_argument("input_dir", type=Path, help="Directory containing JSON files")
+args = parser.parse_args()
 
-input_dir = INPUT_DIR
+input_dir = args.input_dir
 json_files = list(input_dir.glob("*.json"))
 print(f"Converting {len(json_files)} JSON files to TOON format...")
 
