@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields as dataclass_fields
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, FrozenSet, Iterable, List, Literal, Optional, Union, cast
@@ -266,6 +266,10 @@ class Skillbook:
                         skill_data["justification"] = None
                     if "evidence" not in skill_data:
                         skill_data["evidence"] = None
+                    valid_fields = {f.name for f in dataclass_fields(Skill)}
+                    skill_data = {
+                        k: v for k, v in skill_data.items() if k in valid_fields
+                    }
                     instance._skills[skill_id] = Skill(**skill_data)
         sections_payload = payload.get("sections", {})
         if isinstance(sections_payload, dict):

@@ -64,28 +64,38 @@ class ACELLMAgent(LLMAgent):
 
     # Class-level skillbook (set before each run)
     _skillbook: Optional[Skillbook] = None
+    _playbook_text: Optional[str] = None
 
     @classmethod
     def set_skillbook(cls, skillbook: Optional[Skillbook]):
         """Set the skillbook to inject into the system prompt."""
         cls._skillbook = skillbook
 
+    @classmethod
+    def set_playbook_text(cls, text: Optional[str]):
+        """Set raw playbook text for direct system prompt injection."""
+        cls._playbook_text = text
+
     @property
     def system_prompt(self) -> str:
-        """Return system prompt with skillbook strategies appended."""
+        """Return system prompt with skillbook/playbook strategies appended."""
         base_prompt = super().system_prompt
 
+        # Raw playbook injection takes priority
+        if self._playbook_text:
+            return (
+                base_prompt
+                + f"\n\n<learned_strategies>\n{self._playbook_text}\n</learned_strategies>\n"
+            )
+
         if self._skillbook and len(self._skillbook.skills()) > 0:
-            skillbook_section = f"""
+            from ace.prompts_v3 import wrap_skillbook_for_external_agent
 
-<learned_strategies>
-## Learned Strategies (from previous tasks)
-{self._skillbook.as_prompt()}
-
-Use these strategies when applicable. Cite skill IDs in your reasoning.
-</learned_strategies>
-"""
-            return base_prompt + skillbook_section
+            wrapped = wrap_skillbook_for_external_agent(self._skillbook)
+            return (
+                base_prompt
+                + f"\n\n<learned_strategies>\n{wrapped}\n</learned_strategies>\n"
+            )
 
         return base_prompt
 
@@ -101,7 +111,9 @@ except ValueError:
 # --- Opik tracing setup ---
 
 
-def setup_opik_tracing(domain: str, model: str) -> Optional["OpikIntegration"]:
+def setup_opik_tracing(
+    domain: str, model: str, project_name: Optional[str] = None
+) -> Optional["OpikIntegration"]:
     """Set up Opik tracing for all LiteLLM calls (agent + user simulator).
 
     Registers OpikLogger on litellm.callbacks so every litellm.completion()
@@ -122,7 +134,7 @@ def setup_opik_tracing(domain: str, model: str) -> Optional["OpikIntegration"]:
 
     try:
         integration = OpikIntegration(
-            project_name="tau-bench",
+            project_name=project_name or "tau-bench",
             tags=["tau-bench", domain, model],
         )
         if not integration.enabled:
@@ -324,6 +336,12 @@ def parse_args() -> argparse.Namespace:
         help="Path to pre-trained skillbook JSON. Skips training, evaluates directly.",
     )
     parser.add_argument(
+        "--playbook",
+        type=str,
+        default=None,
+        help="Path to markdown/text playbook for direct system prompt injection.",
+    )
+    parser.add_argument(
         "--batch-reflect",
         action="store_true",
         default=None,
@@ -346,6 +364,12 @@ def parse_args() -> argparse.Namespace:
         "--user-llm",
         default=None,
         help="User simulator model (default: from config)",
+    )
+    parser.add_argument(
+        "--reflector-model",
+        type=str,
+        default=None,
+        help="Model for Reflector/SkillManager (default: same as --model)",
     )
     parser.add_argument(
         "--temperature",
@@ -375,6 +399,18 @@ def parse_args() -> argparse.Namespace:
         "--quiet",
         action="store_true",
         help="Suppress progress output",
+    )
+    parser.add_argument(
+        "--opik-project",
+        type=str,
+        default=None,
+        help="Opik project name for tracing (e.g. 'haiku-cleaned-50-airline')",
+    )
+    parser.add_argument(
+        "--task-ids",
+        type=str,
+        default=None,
+        help="Comma-separated task IDs to run (e.g. '35,37,44,45,48'). Filters loaded tasks.",
     )
 
     args = parser.parse_args()
@@ -726,9 +762,17 @@ def run_ace_training(
             f"\n📚 ACE Training Phase ({len(train_tasks)} tasks × {args.epochs} epochs)"
         )
 
-    client = create_llm_client(args)
-    reflector = Reflector(client, mode=ReflectorMode.RECURSIVE)
-    skill_manager = SkillManager(client)
+    from ace.prompt_manager import PromptManager
+
+    pm = PromptManager()
+
+    # Use reflector-model for Reflector/SkillManager if specified
+    reflector_model = getattr(args, "reflector_model", None) or args.model
+    reflector_client = create_llm_client(args, model=reflector_model)
+    reflector = Reflector(reflector_client, mode=ReflectorMode.RECURSIVE)
+    skill_manager = SkillManager(
+        reflector_client, prompt_template=pm.get_skill_manager_prompt(version="3.0")
+    )
     skillbook = Skillbook()
 
     # Run adaptation with meso-level learning (full conversation trace)
@@ -820,9 +864,17 @@ def run_ace_batch_training(
         print(f"\n📚 ACE Batch Training ({len(train_tasks)} tasks)")
         print("  Phase 1: Execute all tasks and collect traces...")
 
-    client = create_llm_client(args)
-    reflector = Reflector(client, mode=ReflectorMode.RECURSIVE)
-    skill_manager = SkillManager(client)
+    from ace.prompt_manager import PromptManager
+
+    pm = PromptManager()
+
+    # Use reflector-model for Reflector/SkillManager if specified
+    reflector_model = getattr(args, "reflector_model", None) or args.model
+    reflector_client = create_llm_client(args, model=reflector_model)
+    reflector = Reflector(reflector_client, mode=ReflectorMode.RECURSIVE)
+    skill_manager = SkillManager(
+        reflector_client, prompt_template=pm.get_skill_manager_prompt(version="3.0")
+    )
     skillbook = Skillbook()
 
     # Phase 1: Execute all tasks and collect traces
@@ -1013,6 +1065,7 @@ def save_results(
             "batch_reflect": getattr(args, "batch_reflect", False),
             "trace_limit": getattr(args, "trace_limit", 500),
             "skillbook_path": getattr(args, "skillbook", None),
+            "reflector_model": getattr(args, "reflector_model", None),
         },
         "results": {
             "tasks_evaluated": results["tasks_evaluated"],
@@ -1061,8 +1114,19 @@ def main() -> None:
                 "Warning: --skip-ace is redundant with --skillbook (training is already skipped)"
             )
 
+    # Validate --playbook flag
+    playbook_text: Optional[str] = None
+    if getattr(args, "playbook", None):
+        playbook_path = Path(args.playbook)
+        if not playbook_path.exists():
+            print(f"Error: Playbook file not found: {args.playbook}")
+            sys.exit(1)
+        playbook_text = playbook_path.read_text()
+
     # Set up Opik tracing (registers OpikLogger on litellm.callbacks)
-    opik_integration = setup_opik_tracing(args.domain, args.model)
+    opik_integration = setup_opik_tracing(
+        args.domain, args.model, getattr(args, "opik_project", None)
+    )
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     experiment_name = f"tau_{args.domain}_{args.model}_{timestamp}"
 
@@ -1073,20 +1137,38 @@ def main() -> None:
         print(f"   Config: {config_label} ({config_file})")
         print(f"   Domain: {args.domain}")
         print(f"   Model: {args.model}")
+        reflector_model = getattr(args, "reflector_model", None) or args.model
+        if reflector_model != args.model:
+            print(f"   Reflector Model: {reflector_model}")
         print(f"   User LLM: {args.user_llm}")
         print(f"   K: {args.k}, Max steps: {args.max_steps}, Seed: {args.seed}")
-        opik_status = "enabled (project: tau-bench)" if opik_integration else "disabled"
+        opik_project = getattr(args, "opik_project", None) or "tau-bench"
+        opik_status = (
+            f"enabled (project: {opik_project})" if opik_integration else "disabled"
+        )
         print(f"   Opik tracing: {opik_status}")
         if args.skillbook:
             print(f"   Skillbook: {args.skillbook}")
-        if not args.skip_ace and not args.skillbook:
+        if playbook_text:
+            print(f"   Playbook: {args.playbook} ({len(playbook_text)} chars)")
+        if not args.skip_ace and not args.skillbook and not playbook_text:
             print(f"   ACE epochs: {args.epochs}")
             if args.batch_reflect:
                 print("   Learning mode: BATCH (deferred reflection)")
 
-    if args.skillbook:
-        # Pre-trained skillbook: only need test tasks
-        test_tasks = load_tau_tasks(args, split=args.task_split)
+    def _filter_task_ids(tasks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Filter tasks to only specified IDs if --task-ids is set."""
+        if not getattr(args, "task_ids", None):
+            return tasks
+        ids = set(args.task_ids.split(","))
+        filtered = [t for t in tasks if str(t["task_id"]) in ids]
+        if not args.quiet:
+            print(f"  Filtered to {len(filtered)} tasks by --task-ids: {args.task_ids}")
+        return filtered
+
+    if args.skillbook or playbook_text:
+        # Pre-trained skillbook or playbook: only need test tasks
+        test_tasks = _filter_task_ids(load_tau_tasks(args, split=args.task_split))
         train_tasks = []
 
         if not test_tasks:
@@ -1101,7 +1183,7 @@ def main() -> None:
     elif args.compare or not args.skip_ace:
         # Load train/test splits from tau2's official splits
         train_tasks = load_tau_tasks(args, split="train")
-        test_tasks = load_tau_tasks(args, split="test")
+        test_tasks = _filter_task_ids(load_tau_tasks(args, split="test"))
 
         if not train_tasks or not test_tasks:
             print("Error: No tasks loaded")
@@ -1113,7 +1195,7 @@ def main() -> None:
             )
     else:
         # Baseline only: load tasks from specified split (default: test for official benchmark)
-        test_tasks = load_tau_tasks(args, split=args.task_split)
+        test_tasks = _filter_task_ids(load_tau_tasks(args, split=args.task_split))
         train_tasks = []
 
         if not test_tasks:
@@ -1123,7 +1205,73 @@ def main() -> None:
         if not args.quiet:
             print(f"\n📊 Loaded {len(test_tasks)} tasks (split: {args.task_split})")
 
-    if args.skillbook and args.compare:
+    if playbook_text and args.compare:
+        # Compare baseline vs playbook (no training)
+
+        # Run baseline (no injection)
+        print("\n" + "=" * 60)
+        print("  1️⃣  BASELINE (no playbook)")
+        print("=" * 60)
+        ACELLMAgent.set_playbook_text(None)
+        baseline_skillbook = Skillbook()
+        baseline_results = run_evaluation(
+            args,
+            test_tasks,
+            baseline_skillbook,
+            "Baseline",
+            experiment_name=experiment_name,
+        )
+        print_results(baseline_results, "BASELINE Results", args)
+
+        # Run enhanced (with playbook injected)
+        print("\n" + "=" * 60)
+        print("  2️⃣  ENHANCED (with playbook)")
+        print("=" * 60)
+        ACELLMAgent.set_playbook_text(playbook_text)
+        enhanced_results = run_evaluation(
+            args,
+            test_tasks,
+            baseline_skillbook,
+            "Enhanced",
+            experiment_name=experiment_name,
+        )
+        ACELLMAgent.set_playbook_text(None)
+        print_results(enhanced_results, "ENHANCED Results", args)
+
+        # Compare
+        print("\n" + "=" * 60)
+        print("  📊 COMPARISON")
+        print("=" * 60)
+        for j in range(1, args.k + 1):
+            baseline_metric = baseline_results["metrics"][f"pass_{j}"]
+            enhanced_metric = enhanced_results["metrics"][f"pass_{j}"]
+            diff = enhanced_metric - baseline_metric
+            indicator = "✅" if diff > 0 else ("⚠️" if diff < 0 else "➖")
+            print(
+                f"  pass^{j}: {baseline_metric:.2%} → {enhanced_metric:.2%} ({diff:+.2%}) {indicator}"
+            )
+        print("=" * 60)
+
+        # Save both results
+        save_results(args, baseline_results, baseline_skillbook, "baseline")
+        save_results(args, enhanced_results, baseline_skillbook, "ace")
+
+    elif playbook_text:
+        # Evaluate with playbook only (no comparison)
+        ACELLMAgent.set_playbook_text(playbook_text)
+        enhanced_skillbook = Skillbook()
+        results = run_evaluation(
+            args,
+            test_tasks,
+            enhanced_skillbook,
+            "Enhanced",
+            experiment_name=experiment_name,
+        )
+        ACELLMAgent.set_playbook_text(None)
+        print_results(results, "ENHANCED Results (playbook)", args)
+        save_results(args, results, enhanced_skillbook, "ace")
+
+    elif args.skillbook and args.compare:
         # Compare baseline vs pre-trained skillbook (no training)
         loaded_skillbook = Skillbook.load_from_file(args.skillbook)
         if not args.quiet:

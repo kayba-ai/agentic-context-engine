@@ -314,8 +314,8 @@ class OpikIntegration:
         try:
             import litellm
 
-            # Initialize OpikLogger
-            opik_logger = OpikLogger()  # type: ignore[misc]
+            # Initialize OpikLogger with project name
+            opik_logger = OpikLogger(project_name=self.project_name)  # type: ignore[misc]
 
             # Add to LiteLLM callbacks if not already present
             if not hasattr(litellm, "callbacks") or litellm.callbacks is None:
