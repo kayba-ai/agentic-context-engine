@@ -53,7 +53,7 @@ litellm.suppress_debug_info = True
 
 # TAU2 imports
 from tau2.agent.llm_agent import LLMAgent
-from tau2.data_model.message import AssistantMessage, ToolMessage, UserMessage
+from tau2.data_model.message import AssistantMessage
 from tau2.data_model.simulation import SimulationRun
 from tau2.metrics.agent_metrics import pass_hat_k
 from tau2.registry import registry
@@ -538,74 +538,6 @@ def load_tau_tasks(
     return all_tasks
 
 
-def extract_conversation_trace(
-    simulation: SimulationRun, feedback_level: str = "outcome"
-) -> str:
-    """Extract conversation trace from tau2 simulation for Reflector.
-
-    Keeps UserMessage (customer requests), AssistantMessage (agent actions),
-    and ToolMessage (environment responses) so the reflector sees the full
-    conversation context that drove the agent's decisions.
-
-    Feedback levels control data leakage:
-    - trace: conversation only (no reward, no assertions)
-    - outcome: conversation + reward/steps (default, no ground truth leakage)
-    - full: conversation + failed assertions + action checks (data leakage!)
-    """
-    lines = ["## Conversation Trace\n"]
-
-    for msg in simulation.messages:
-        if isinstance(msg, AssistantMessage):
-            if msg.tool_calls:
-                for tool in msg.tool_calls:
-                    args_str = str(tool.arguments)
-                    if len(args_str) > 500:
-                        args_str = args_str[:500] + "..."
-                    lines.append(f"Agent: [TOOL] {tool.name}({args_str})")
-            elif msg.content:
-                content = msg.content[:1000] if len(msg.content) > 1000 else msg.content
-                lines.append(f"Agent: {content}")
-        elif isinstance(msg, UserMessage):
-            if msg.content:
-                content = msg.content[:1000] if len(msg.content) > 1000 else msg.content
-                lines.append(f"User: {content}")
-        elif isinstance(msg, ToolMessage):
-            status = "[ERROR]" if msg.error else "[OK]"
-            content = msg.content[:1000] if len(msg.content) > 1000 else msg.content
-            lines.append(f"Tool {status}: {content}")
-
-    if feedback_level == "full":
-        # WARNING: Including assertions causes data leakage - assertion text
-        # encodes expected correct behavior (effectively ground truth).
-        # Use --feedback-level full only for A/B leakage comparison.
-        if simulation.reward_info and simulation.reward_info.nl_assertions:
-            failed = [a for a in simulation.reward_info.nl_assertions if not a.met]
-            if failed:
-                lines.append("\n## Failed Assertions")
-                for a in failed:
-                    lines.append(f"- {a.nl_assertion}")
-                    if a.justification:
-                        lines.append(f"  Reason: {a.justification}")
-
-        if simulation.reward_info and simulation.reward_info.action_checks:
-            failed_actions = [
-                a for a in simulation.reward_info.action_checks if not a.action_match
-            ]
-            if failed_actions:
-                lines.append("\n## Failed Action Checks")
-                for a in failed_actions:
-                    lines.append(f"- Action: {a.action}")
-
-        # Add termination reason if abnormal (only for full level)
-        if (
-            simulation.termination_reason
-            and simulation.termination_reason.value != "success"
-        ):
-            lines.append(f"\n## Termination: {simulation.termination_reason.value}")
-
-    return "\n".join(lines)
-
-
 def _enrich_trace_with_feedback(
     trace_str: str, simulation: SimulationRun, feedback_level: str
 ) -> str:
@@ -847,10 +779,6 @@ def run_ace_training(
     )
     skillbook = Skillbook()
 
-    # Fetch domain policy so the reflector can learn policy-aware strategies
-    env_constructor = registry.get_env_constructor(args.domain)
-    domain_policy = env_constructor().get_policy()
-
     # Run adaptation with meso-level learning (full conversation trace)
     for epoch in range(1, args.epochs + 1):
         if not quiet:
@@ -885,10 +813,10 @@ def run_ace_training(
                     trace_ctx = None
 
                 if feedback_level == "trace":
-                    feedback = f"## Agent Domain Policy\n{domain_policy}"
+                    feedback = "Task completed"
                 else:
                     outcome = "SUCCEEDED" if result["success"] else "FAILED"
-                    feedback = f"Task {outcome}. Reward: {result['reward']:.2f}, Steps: {result['steps']}\n\n## Agent Domain Policy\n{domain_policy}"
+                    feedback = f"Task {outcome}. Reward: {result['reward']:.2f}, Steps: {result['steps']}"
 
                 # Trace goes in reasoning (Model Reasoning), outcome+policy in feedback (Environment Feedback)
                 # Use last agent message as final_answer so reflector sees a real prediction
@@ -906,7 +834,7 @@ def run_ace_training(
 
                 # Learn from result with full conversation context
                 reflection = reflector.reflect(
-                    question=task["instruction"],
+                    question="customer service task",
                     agent_output=agent_output,
                     skillbook=skillbook,
                     ground_truth=None,
@@ -916,7 +844,7 @@ def run_ace_training(
                 skill_manager_output = skill_manager.update_skills(
                     reflection=reflection,
                     skillbook=skillbook,
-                    question_context=task["instruction"],
+                    question_context="customer service task",
                     progress=f"epoch {epoch}/{args.epochs} · task {i + 1}/{len(train_tasks)}",
                 )
 
@@ -972,10 +900,6 @@ def run_ace_batch_training(
         reflector_client, prompt_template=pm.get_skill_manager_prompt(version="3.0")
     )
     skillbook = Skillbook()
-
-    # Fetch domain policy so the reflector can learn policy-aware strategies
-    env_constructor = registry.get_env_constructor(args.domain)
-    domain_policy = env_constructor().get_policy()
 
     # Phase 1: Execute all tasks and collect traces
     # Each entry: (task, result, trace_str, feedback, trace_ctx)
@@ -1063,9 +987,7 @@ def run_ace_batch_training(
             trace_contexts.append(trace_ctx)
 
     mega_trace = "\n\n---\n\n".join(combined_reasoning)
-    mega_feedback = f"## Agent Domain Policy\n{domain_policy}\n\n" + "\n".join(
-        combined_feedback
-    )
+    mega_feedback = "\n".join(combined_feedback)
 
     # Build combined TraceContext so the recursive reflector gets structured steps
     combined_trace_ctx = (
@@ -1145,14 +1067,34 @@ def print_results(
     print(f"\n{'=' * 60}")
     print(f"  {title}")
     print(f"{'=' * 60}")
-    print(f"Domain: {args.domain}")
-    print(f"Tasks evaluated: {results['tasks_evaluated']}")
-    print(f"K value: {results['k']}")
+    print(f"  Model:      {args.model}")
+    print(f"  User LLM:   {args.user_llm}")
+    print(f"  Domain:     {args.domain} ({results['tasks_evaluated']} tasks)")
+    print(
+        f"  Config:     k={results['k']}, seed={args.seed}, max_steps={args.max_steps}"
+    )
     print()
-    print("Pass^k Metrics (TAU-bench formula: C(successes,k)/C(trials,k)):")
     for j in range(1, results["k"] + 1):
         metric = results["metrics"][f"pass_{j}"]
-        print(f"  pass^{j}: {metric:.2%}")
+        print(f"  pass^{j}:  {metric:.1%}")
+    print("=" * 60)
+
+
+def _print_comparison(
+    baseline_results: Dict[str, Any],
+    enhanced_results: Dict[str, Any],
+    k: int,
+) -> None:
+    """Print side-by-side comparison of baseline vs enhanced metrics."""
+    print("\n" + "=" * 60)
+    print("  COMPARISON")
+    print("=" * 60)
+    for j in range(1, k + 1):
+        b = baseline_results["metrics"][f"pass_{j}"]
+        e = enhanced_results["metrics"][f"pass_{j}"]
+        diff = e - b
+        indicator = "+" if diff > 0 else ("-" if diff < 0 else "=")
+        print(f"  pass^{j}:  {b:.1%} -> {e:.1%}  ({diff:+.1%}) {indicator}")
     print("=" * 60)
 
 
@@ -1194,6 +1136,7 @@ def save_results(
             "trace_limit": getattr(args, "trace_limit", 500),
             "skillbook_path": getattr(args, "skillbook", None),
             "reflector_model": getattr(args, "reflector_model", None),
+            "feedback_level": getattr(args, "feedback_level", "outcome"),
         },
         "results": {
             "tasks_evaluated": results["tasks_evaluated"],
@@ -1366,19 +1309,7 @@ def main() -> None:
         ACELLMAgent.set_playbook_text(None)
         print_results(enhanced_results, "ENHANCED Results", args)
 
-        # Compare
-        print("\n" + "=" * 60)
-        print("  📊 COMPARISON")
-        print("=" * 60)
-        for j in range(1, args.k + 1):
-            baseline_metric = baseline_results["metrics"][f"pass_{j}"]
-            enhanced_metric = enhanced_results["metrics"][f"pass_{j}"]
-            diff = enhanced_metric - baseline_metric
-            indicator = "✅" if diff > 0 else ("⚠️" if diff < 0 else "➖")
-            print(
-                f"  pass^{j}: {baseline_metric:.2%} → {enhanced_metric:.2%} ({diff:+.2%}) {indicator}"
-            )
-        print("=" * 60)
+        _print_comparison(baseline_results, enhanced_results, args.k)
 
         # Save both results
         save_results(args, baseline_results, baseline_skillbook, "baseline")
@@ -1432,21 +1363,7 @@ def main() -> None:
         )
         print_results(enhanced_results, "ENHANCED Results", args)
 
-        # Compare
-        print("\n" + "=" * 60)
-        print("  📊 COMPARISON")
-        print("=" * 60)
-        for j in range(1, args.k + 1):
-            baseline_metric = baseline_results["metrics"][f"pass_{j}"]
-            enhanced_metric = enhanced_results["metrics"][f"pass_{j}"]
-            diff = enhanced_metric - baseline_metric
-            indicator = "✅" if diff > 0 else ("⚠️" if diff < 0 else "➖")
-            print(
-                f"  pass^{j}: {baseline_metric:.2%} → {enhanced_metric:.2%} ({diff:+.2%}) {indicator}"
-            )
-
-        print(f"\n  Skills in skillbook: {len(loaded_skillbook.skills())}")
-        print("=" * 60)
+        _print_comparison(baseline_results, enhanced_results, args.k)
 
         # Save both results
         save_results(args, baseline_results, baseline_skillbook, "baseline")
@@ -1511,21 +1428,7 @@ def main() -> None:
         )
         print_results(ace_results, "ACE Results", args)
 
-        # Compare
-        print("\n" + "=" * 60)
-        print("  📊 COMPARISON")
-        print("=" * 60)
-        for j in range(1, args.k + 1):
-            baseline_metric = baseline_results["metrics"][f"pass_{j}"]
-            ace_metric = ace_results["metrics"][f"pass_{j}"]
-            diff = ace_metric - baseline_metric
-            indicator = "✅" if diff > 0 else ("⚠️" if diff < 0 else "➖")
-            print(
-                f"  pass^{j}: {baseline_metric:.2%} → {ace_metric:.2%} ({diff:+.2%}) {indicator}"
-            )
-
-        print(f"\n  Skills learned: {len(ace_skillbook.skills())}")
-        print("=" * 60)
+        _print_comparison(baseline_results, ace_results, args.k)
 
         # Save both results
         save_results(args, baseline_results, baseline_skillbook, "baseline")
