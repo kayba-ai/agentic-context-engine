@@ -2,6 +2,8 @@
 
 TAU-bench (tau2) evaluates tool-calling agents in customer service domains using multi-turn conversations and database state assertions. Official leaderboard: https://tau-bench.github.io
 
+Use `/benchmark <config> [mode] [extra-args]` for quick runs (e.g. `/benchmark haiku`, `/benchmark fast`).
+
 ## Quick Start
 
 ```bash
@@ -32,113 +34,30 @@ CLI args override config values: `--config sonnet --domain retail --k 2`
 
 ## Best Practices
 
-### Configuration
-- **User simulator must be `gpt-4.1-2025-04-14`** (not gpt-4o-mini). Wrong model gives ~50% lower scores.
-- **max_steps must be 200**. Lower values (e.g. 30) cause tasks to fail early.
-- **Temperature 0** for reproducibility.
-- **k=4** matches the official leaderboard (pass^1 through pass^4).
-- **Seed 300** for reproducible runs.
-
-### Running Evaluations
-- Always run `--skip-ace` first to establish a baseline before testing ACE.
-- Use `--compare` to get side-by-side baseline vs ACE in one run.
-- Use `--save-detailed` to capture per-task trial-level data for debugging.
+- **User simulator must be `gpt-4.1-2025-04-14`** — wrong model gives ~50% lower scores.
+- **max_steps=200** — lower values cause tasks to fail early.
+- **Temperature 0**, **seed 300**, **k=4** for reproducibility matching the leaderboard.
 - Task splits: train=30, test=20 for airline. Use `test` split to match leaderboard.
-
-### ACE-Specific
-- ACE trains on the `train` split and evaluates on the `test` split (automatic with `--compare`).
+- Always run `--skip-ace` first to establish a baseline before testing ACE.
+- Use `--compare` for side-by-side baseline vs ACE in one run.
+- Use `--save-detailed` for per-task trial-level data (debugging).
+- ACE trains on `train` split, evaluates on `test` split (automatic with `--compare`).
 - Use `--skillbook path/to/skillbook.json` to evaluate a pre-trained skillbook without re-training.
-- `--batch-reflect` defers learning until all training tasks complete, then reflects on all traces together.
-- ACE currently shows mixed results on TAU-bench: modest gains for weaker models, possible degradation for stronger models due to instruction dilution with the detailed domain policy.
+- `--batch-reflect` defers learning until all training tasks complete.
 
 ## Presenting Results
 
-When reporting results, always include the full run configuration header and pass^k table.
+Always include these fields: exact model ID (e.g. `claude-sonnet-4-5-20250929`), user LLM, domain, split + task count, skillbook status, training info (or "none"), and all pass^k metrics. Only include max steps / seed if non-default (200 / 300).
 
-### Single Run (Baseline)
-
-```
-## Baseline: Sonnet 4.5 — Airline (test split, k=4)
-
-| Setting | Value |
-|---------|-------|
-| Model | claude-sonnet-4-5-20250929 |
-| User LLM | gpt-4.1-2025-04-14 |
-| Domain | airline |
-| Split | test (20 tasks) |
-| Max steps | 200 |
-| Seed | 300 |
-| Skillbook | none |
-
-| Metric | Score |
-|--------|-------|
-| pass^1 | 66.25% |
-| pass^2 | 59.17% |
-| pass^3 | 53.75% |
-| pass^4 | 50.00% |
-```
-
-### Comparison Run (Baseline vs ACE)
-
-```
-## Comparison: GPT-4.1-mini — Airline (test split, k=4)
-
-| Setting | Value |
-|---------|-------|
-| Model | gpt-4.1-mini-2025-04-14 |
-| User LLM | gpt-4.1-2025-04-14 |
-| Domain | airline |
-| Split | test (20 tasks) |
-| Training | 30 train tasks, 1 epoch, recursive reflector |
-| Skillbook | learned (94 skills) |
-
-| Metric | Baseline | ACE | Delta |
-|--------|----------|-----|-------|
-| pass^1 | 53.75% | 58.75% | +5.00% |
-| pass^2 | 41.67% | 41.67% | 0.00% |
-| pass^3 | 32.50% | 31.25% | -1.25% |
-| pass^4 | 25.00% | 25.00% | 0.00% |
-```
-
-### Pre-trained Skillbook Evaluation
-
-```
-## Skillbook Eval: Sonnet 4.5 + Consolidated Playbook — Airline (test split, k=4)
-
-| Setting | Value |
-|---------|-------|
-| Model | claude-sonnet-4-5-20250929 |
-| User LLM | gpt-4.1-2025-04-14 |
-| Domain | airline |
-| Split | test (20 tasks) |
-| Skillbook | consolidated_airline_skillbook.json (20 skills, 123 helpful votes) |
-| Training | none (pre-trained) |
-
-| Metric | Baseline | Enhanced | Delta |
-|--------|----------|----------|-------|
-| pass^1 | 66.25% | 60.00% | -6.25% |
-| pass^2 | 59.17% | 47.50% | -11.67% |
-| pass^3 | 53.75% | 40.00% | -13.75% |
-| pass^4 | 50.00% | 35.00% | -15.00% |
-```
-
-### Key Fields to Always Include
-
-- **Model**: Exact model ID (e.g. `claude-sonnet-4-5-20250929`, not just "Sonnet")
-- **User LLM**: The simulator model — results are not comparable across different user LLMs
-- **Domain**: airline / retail / telecom
-- **Split + task count**: e.g. "test (20 tasks)"
-- **Skillbook**: `none`, `learned (N skills)`, or filename with skill count
-- **Training**: epochs, reflector mode, batch vs sequential — or "none" for baseline/pre-trained
-- **Max steps / seed**: only if non-default (200 / 300)
+Use a settings table + pass^k table. For comparisons, add Baseline / ACE / Delta columns.
 
 ## Output Files
 
-Results are saved to `tau_benchmark_results/` with naming:
+Results saved to `tau_benchmark_results/`:
 ```
-tau_{domain}_{model}_{phase}_{timestamp}_summary.json
-tau_{domain}_{model}_{phase}_{timestamp}_detailed.json   (with --save-detailed)
-tau_{domain}_{model}_{phase}_{timestamp}_skillbook.json   (if skills learned)
+tau_{domain}_{config}_{phase}_{timestamp}_summary.json
+tau_{domain}_{config}_{phase}_{timestamp}_detailed.json   (with --save-detailed)
+tau_{domain}_{config}_{phase}_{timestamp}_skillbook.json   (if skills learned)
 ```
 
 The summary JSON contains all configuration and metrics needed to reproduce the result.

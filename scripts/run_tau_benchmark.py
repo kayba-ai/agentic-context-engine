@@ -1083,7 +1083,8 @@ def save_results(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    base_name = f"tau_{args.domain}_{args.model}_{phase}_{timestamp}"
+    config_name = getattr(args, "_config_name", args.model)
+    base_name = f"tau_{args.domain}_{config_name}_{phase}_{timestamp}"
 
     # Save summary
     summary_file = output_dir / f"{base_name}_summary.json"
@@ -1095,6 +1096,8 @@ def save_results(
         "user_llm": args.user_llm,
         "phase": phase,
         "timestamp": timestamp,
+        "config_profile": getattr(args, "_config_name", None),
+        "config_file": getattr(args, "_config_file", None),
         "configuration": {
             "k": args.k,
             "epochs": args.epochs,
