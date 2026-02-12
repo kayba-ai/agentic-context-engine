@@ -82,15 +82,22 @@ class TraceContext:
         >>> search_steps = trace.find_steps("search")
     """
 
-    def __init__(self, steps: List[TraceStep], raw_reasoning: str = "") -> None:
+    def __init__(
+        self,
+        steps: List[TraceStep],
+        raw_reasoning: str = "",
+        system_prompt: str = "",
+    ) -> None:
         """Initialize TraceContext with a list of steps.
 
         Args:
             steps: List of TraceStep objects representing the execution trace
             raw_reasoning: The raw reasoning string (for fallback text search)
+            system_prompt: The agent's system prompt (rendered before conversation)
         """
         self._steps = steps
         self._raw_reasoning = raw_reasoning
+        self._system_prompt = system_prompt
 
     @property
     def steps(self) -> List[TraceStep]:
@@ -221,10 +228,18 @@ class TraceContext:
         and before agent text responses after tool results, but NOT between
         consecutive tool_call + tool result pairs (those are one atomic action).
 
+        If a system_prompt is set, it is rendered as a separate section before
+        the conversation trace.
+
         Returns:
             Markdown string suitable for the reflector's reasoning field.
         """
-        lines = ["## Conversation Trace\n"]
+        lines = []
+        if self._system_prompt:
+            lines.append("## Agent System Prompt\n")
+            lines.append(self._system_prompt)
+            lines.append("")
+        lines.append("## Conversation Trace\n")
         prev_action = None
 
         for step in self._steps:
@@ -584,7 +599,9 @@ class TraceContext:
         return cls(steps=steps, raw_reasoning="\n\n".join(raw_parts))
 
     @classmethod
-    def from_tau_simulation(cls, messages: list) -> "TraceContext":
+    def from_tau_simulation(
+        cls, messages: list, system_prompt: str = ""
+    ) -> "TraceContext":
         """Create TraceContext from TAU-bench SimulationRun messages.
 
         Builds structured steps directly from TAU message objects using
@@ -594,6 +611,7 @@ class TraceContext:
         Args:
             messages: List of TAU-bench message objects with .tool_calls,
                       .content, and .error attributes.
+            system_prompt: The agent's system prompt to include in the trace.
 
         Returns:
             A TraceContext with structured tool-call steps.
@@ -667,4 +685,8 @@ class TraceContext:
                     step_idx += 1
                 raw_parts.append(f"Tool {status}: {text}")
 
-        return cls(steps=steps, raw_reasoning="\n".join(raw_parts))
+        return cls(
+            steps=steps,
+            raw_reasoning="\n".join(raw_parts),
+            system_prompt=system_prompt,
+        )

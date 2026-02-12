@@ -53,7 +53,7 @@ litellm.suppress_debug_info = True
 
 # TAU2 imports
 from tau2.agent.llm_agent import LLMAgent
-from tau2.data_model.message import AssistantMessage, ToolMessage
+from tau2.data_model.message import AssistantMessage, ToolMessage, UserMessage
 from tau2.data_model.simulation import SimulationRun
 from tau2.metrics.agent_metrics import pass_hat_k
 from tau2.registry import registry
@@ -66,6 +66,7 @@ class ACELLMAgent(LLMAgent):
     # Class-level skillbook (set before each run)
     _skillbook: Optional[Skillbook] = None
     _playbook_text: Optional[str] = None
+    _last_system_prompt: Optional[str] = None
 
     @classmethod
     def set_skillbook(cls, skillbook: Optional[Skillbook]):
@@ -84,21 +85,23 @@ class ACELLMAgent(LLMAgent):
 
         # Raw playbook injection takes priority
         if self._playbook_text:
-            return (
+            prompt = (
                 base_prompt
                 + f"\n\n<learned_strategies>\n{self._playbook_text}\n</learned_strategies>\n"
             )
-
-        if self._skillbook and len(self._skillbook.skills()) > 0:
+        elif self._skillbook and len(self._skillbook.skills()) > 0:
             from ace.prompts_v3 import wrap_skillbook_for_external_agent
 
             wrapped = wrap_skillbook_for_external_agent(self._skillbook)
-            return (
+            prompt = (
                 base_prompt
                 + f"\n\n<learned_strategies>\n{wrapped}\n</learned_strategies>\n"
             )
+        else:
+            prompt = base_prompt
 
-        return base_prompt
+        ACELLMAgent._last_system_prompt = prompt
+        return prompt
 
 
 # Register the custom agent with tau2's registry
@@ -538,12 +541,11 @@ def load_tau_tasks(
 def extract_conversation_trace(
     simulation: SimulationRun, feedback_level: str = "outcome"
 ) -> str:
-    """Extract agent-only trace from tau2 simulation for Reflector.
+    """Extract conversation trace from tau2 simulation for Reflector.
 
-    Only keeps AssistantMessage (agent actions) and ToolMessage (environment
-    responses). UserMessage turns are excluded because they encode
-    task-specific knowledge from the user simulator's scenario prompt —
-    the reflector should learn from the agent's behavior, not the task setup.
+    Keeps UserMessage (customer requests), AssistantMessage (agent actions),
+    and ToolMessage (environment responses) so the reflector sees the full
+    conversation context that drove the agent's decisions.
 
     Feedback levels control data leakage:
     - trace: conversation only (no reward, no assertions)
@@ -563,6 +565,10 @@ def extract_conversation_trace(
             elif msg.content:
                 content = msg.content[:1000] if len(msg.content) > 1000 else msg.content
                 lines.append(f"Agent: {content}")
+        elif isinstance(msg, UserMessage):
+            if msg.content:
+                content = msg.content[:1000] if len(msg.content) > 1000 else msg.content
+                lines.append(f"User: {content}")
         elif isinstance(msg, ToolMessage):
             status = "[ERROR]" if msg.error else "[OK]"
             content = msg.content[:1000] if len(msg.content) > 1000 else msg.content
@@ -598,6 +604,62 @@ def extract_conversation_trace(
             lines.append(f"\n## Termination: {simulation.termination_reason.value}")
 
     return "\n".join(lines)
+
+
+def _enrich_trace_with_feedback(
+    trace_str: str, simulation: SimulationRun, feedback_level: str
+) -> str:
+    """Append feedback-level enrichments (assertions, action checks) to a trace string.
+
+    This is separated from trace construction so that TraceContext.to_markdown()
+    produces the base trace and enrichment is applied on top.
+    """
+    if feedback_level != "full":
+        return trace_str
+
+    lines = [trace_str]
+
+    if simulation.reward_info and simulation.reward_info.nl_assertions:
+        failed = [a for a in simulation.reward_info.nl_assertions if not a.met]
+        if failed:
+            lines.append("\n## Failed Assertions")
+            for a in failed:
+                lines.append(f"- {a.nl_assertion}")
+                if a.justification:
+                    lines.append(f"  Reason: {a.justification}")
+
+    if simulation.reward_info and simulation.reward_info.action_checks:
+        failed_actions = [
+            a for a in simulation.reward_info.action_checks if not a.action_match
+        ]
+        if failed_actions:
+            lines.append("\n## Failed Action Checks")
+            for a in failed_actions:
+                lines.append(f"- Action: {a.action}")
+
+    if (
+        simulation.termination_reason
+        and simulation.termination_reason.value != "success"
+    ):
+        lines.append(f"\n## Termination: {simulation.termination_reason.value}")
+
+    return "\n".join(lines)
+
+
+def _extract_last_agent_message(simulation: SimulationRun) -> str:
+    """Extract the last substantive agent message from a simulation.
+
+    Returns the last text message the agent sent to the user (not a tool call),
+    or a summary of the last tool call if no text message exists.
+    """
+    for msg in reversed(simulation.messages):
+        if isinstance(msg, AssistantMessage):
+            if msg.content:
+                return msg.content[:500] if len(msg.content) > 500 else msg.content
+            if msg.tool_calls:
+                tc = msg.tool_calls[-1]
+                return f"[TOOL] {tc.name}(...)"
+    return "No agent response"
 
 
 def run_single_task(
@@ -809,11 +871,15 @@ def run_ace_training(
                 # Extract agent-only conversation trace for meso-level learning
                 feedback_level = getattr(args, "feedback_level", "outcome")
                 if simulation:
-                    trace_str = extract_conversation_trace(
-                        simulation,
-                        feedback_level=feedback_level,
+                    trace_ctx = TraceContext.from_tau_simulation(
+                        simulation.messages,
+                        system_prompt=ACELLMAgent._last_system_prompt or "",
                     )
-                    trace_ctx = TraceContext.from_tau_simulation(simulation.messages)
+                    trace_str = trace_ctx.to_markdown()
+                    # Append feedback-level enrichments
+                    trace_str = _enrich_trace_with_feedback(
+                        trace_str, simulation, feedback_level
+                    )
                 else:
                     trace_str = "No trace available"
                     trace_ctx = None
@@ -825,12 +891,14 @@ def run_ace_training(
                     feedback = f"Task {outcome}. Reward: {result['reward']:.2f}, Steps: {result['steps']}\n\n## Agent Domain Policy\n{domain_policy}"
 
                 # Trace goes in reasoning (Model Reasoning), outcome+policy in feedback (Environment Feedback)
+                # Use last agent message as final_answer so reflector sees a real prediction
+                last_msg = (
+                    _extract_last_agent_message(simulation)
+                    if simulation
+                    else "No agent response"
+                )
                 agent_output = AgentOutput(
-                    final_answer=(
-                        "task completed"
-                        if feedback_level == "trace"
-                        else f"reward={result['reward']:.2f}"
-                    ),
+                    final_answer=last_msg,
                     reasoning=trace_str,
                     skill_ids=[],
                     trace_context=trace_ctx,
@@ -910,7 +978,10 @@ def run_ace_batch_training(
     domain_policy = env_constructor().get_policy()
 
     # Phase 1: Execute all tasks and collect traces
-    traces: List[Tuple[Dict[str, Any], Dict[str, Any], str, str]] = []
+    # Each entry: (task, result, trace_str, feedback, trace_ctx)
+    traces: List[
+        Tuple[Dict[str, Any], Dict[str, Any], str, str, Optional[TraceContext]]
+    ] = []
     success_count = 0
 
     for i, task in enumerate(train_tasks):
@@ -927,10 +998,12 @@ def run_ace_batch_training(
             # Extract trace for batch learning
             feedback_level = getattr(args, "feedback_level", "outcome")
             if simulation:
-                trace = extract_conversation_trace(
-                    simulation,
-                    feedback_level=feedback_level,
+                trace_ctx = TraceContext.from_tau_simulation(
+                    simulation.messages,
+                    system_prompt=ACELLMAgent._last_system_prompt or "",
                 )
+                trace = trace_ctx.to_markdown()
+                trace = _enrich_trace_with_feedback(trace, simulation, feedback_level)
                 # Truncate trace if needed (configurable via --trace-limit)
                 trace_lines = trace.split("\n")
                 if len(trace_lines) > args.trace_limit // 10:  # ~10 chars per line
@@ -940,6 +1013,7 @@ def run_ace_batch_training(
                     )
             else:
                 trace = f"Error: {result.get('error', 'Unknown')}"
+                trace_ctx = None
 
             if feedback_level == "trace":
                 feedback = "Task completed"
@@ -947,7 +1021,7 @@ def run_ace_batch_training(
                 outcome = "SUCCEEDED" if result["success"] else "FAILED"
                 feedback = f"Task {outcome}. Reward: {result['reward']:.2f}, Steps: {result['steps']}"
 
-            traces.append((task, result, trace, feedback))
+            traces.append((task, result, trace, feedback, trace_ctx))
 
             if result["success"]:
                 success_count += 1
@@ -967,6 +1041,7 @@ def run_ace_batch_training(
                     {"reward": 0.0, "success": False, "error": str(e)},
                     f"Error: {e}",
                     "Task FAILED",
+                    None,
                 )
             )
 
@@ -977,16 +1052,24 @@ def run_ace_batch_training(
     # Phase 2: Combine traces into mega-context
     combined_reasoning = []
     combined_feedback = []
+    trace_contexts: List[TraceContext] = []
 
-    for i, (task, result, trace, feedback) in enumerate(traces):
+    for i, (task, result, trace, feedback, trace_ctx) in enumerate(traces):
         task_header = f"### Task {i + 1}: {task['task_id']}"
         status = "✓ SUCCESS" if result.get("success") else "✗ FAILED"
         combined_reasoning.append(f"{task_header} ({status})\n{trace}")
         combined_feedback.append(f"Task {i + 1} ({task['task_id']}): {feedback}")
+        if trace_ctx is not None:
+            trace_contexts.append(trace_ctx)
 
     mega_trace = "\n\n---\n\n".join(combined_reasoning)
     mega_feedback = f"## Agent Domain Policy\n{domain_policy}\n\n" + "\n".join(
         combined_feedback
+    )
+
+    # Build combined TraceContext so the recursive reflector gets structured steps
+    combined_trace_ctx = (
+        TraceContext.combine(trace_contexts) if trace_contexts else None
     )
 
     # Phase 3: Single reflection on all traces
@@ -994,6 +1077,7 @@ def run_ace_batch_training(
         final_answer=f"{success_count}/{len(traces)} tasks succeeded",
         reasoning=mega_trace,
         skill_ids=[],
+        trace_context=combined_trace_ctx,
     )
 
     if not quiet:
