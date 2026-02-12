@@ -206,6 +206,61 @@ class TraceContext:
             f"{self._steps[0].action[:20]}... -> {self._steps[-1].action[:20]}..."
         )
 
+    def to_markdown(self) -> str:
+        """Render the trace as a markdown conversation trace.
+
+        Produces a readable format with turn separation:
+            User: customer message
+
+            Agent: [TOOL] tool_name(args)
+            Tool [OK]: result
+
+            Agent: response text
+
+        Blank lines are inserted at speaker changes (user→agent, agent→user)
+        and before agent text responses after tool results, but NOT between
+        consecutive tool_call + tool result pairs (those are one atomic action).
+
+        Returns:
+            Markdown string suitable for the reflector's reasoning field.
+        """
+        lines = ["## Conversation Trace\n"]
+        prev_action = None
+
+        for step in self._steps:
+            # Determine if we need a blank line before this step
+            if prev_action is not None:
+                if step.action == "user_message":
+                    # Always separate before user messages
+                    lines.append("")
+                elif step.action == "agent_response":
+                    # Always separate before agent text responses
+                    lines.append("")
+                elif step.action.startswith("tool_call:") and (
+                    prev_action == "user_message" or prev_action == "agent_response"
+                ):
+                    # Separate when switching from user/agent text to tool calls
+                    lines.append("")
+
+            # Render the step
+            if step.action == "user_message":
+                lines.append(f"User: {step.thought}")
+            elif step.action.startswith("tool_call:"):
+                tool_name = step.action.split(":", 1)[1]
+                lines.append(f"Agent: [TOOL] {tool_name}({step.thought})")
+            elif step.action == "agent_response":
+                lines.append(f"Agent: {step.thought}")
+            elif step.action == "tool_result":
+                lines.append(f"Tool {step.observation}")
+
+            # Attach observation (tool result) inline
+            if step.observation and step.action != "tool_result":
+                lines.append(f"Tool {step.observation}")
+
+            prev_action = step.action
+
+        return "\n".join(lines)
+
     def search_raw(self, pattern: str) -> List[int]:
         """Search steps for a pattern and return matching indices.
 
@@ -310,6 +365,40 @@ class TraceContext:
     # -------------------------------------------------------------------------
     # Factory class methods
     # -------------------------------------------------------------------------
+
+    @classmethod
+    def combine(cls, traces: List["TraceContext"]) -> "TraceContext":
+        """Combine multiple TraceContexts into a single one.
+
+        Re-indexes steps sequentially and concatenates raw reasoning.
+
+        Args:
+            traces: List of TraceContext objects to combine
+
+        Returns:
+            A single TraceContext containing all steps from all traces
+        """
+        combined_steps: List[TraceStep] = []
+        raw_parts: List[str] = []
+        idx = 0
+
+        for trace in traces:
+            for step in trace.steps:
+                combined_steps.append(
+                    TraceStep(
+                        index=idx,
+                        action=step.action,
+                        thought=step.thought,
+                        observation=step.observation,
+                        timestamp=step.timestamp,
+                        metadata=step.metadata,
+                    )
+                )
+                idx += 1
+            if trace.raw_reasoning:
+                raw_parts.append(trace.raw_reasoning)
+
+        return cls(steps=combined_steps, raw_reasoning="\n\n---\n\n".join(raw_parts))
 
     @classmethod
     def from_agent_output(cls, agent_output: "AgentOutput") -> "TraceContext":
@@ -536,17 +625,22 @@ class TraceContext:
                     raw_parts.append(f"Agent: [TOOL] {name}({args})")
                     step_idx += 1
             elif content and not hasattr(msg, "tool_call_id"):
-                # AssistantMessage with text content (not a ToolMessage)
+                # AssistantMessage or UserMessage with text content (not a ToolMessage)
+                role = getattr(msg, "role", "assistant")
+                if role == "user":
+                    action = "user_message"
+                else:
+                    action = "agent_response"
                 text = content[:1000] if len(content) > 1000 else content
                 steps.append(
                     TraceStep(
                         index=step_idx,
-                        action="agent_response",
+                        action=action,
                         thought=text,
                         observation="",
                     )
                 )
-                raw_parts.append(f"Agent: {text}")
+                raw_parts.append(f"{'User' if role == 'user' else 'Agent'}: {text}")
                 step_idx += 1
             elif content is not None:
                 # ToolMessage — attach as observation to previous step
