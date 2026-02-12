@@ -7,11 +7,14 @@ task discovery, and benchmark instantiation following lm-evaluation-harness patt
 
 from __future__ import annotations
 
+import logging
 import os
 import sys
 import yaml
 from pathlib import Path
 from typing import Dict, List, Optional, Type
+
+logger = logging.getLogger(__name__)
 
 # Try to import tomllib (Python 3.11+) or tomli for TOML support
 try:
@@ -25,6 +28,9 @@ except ImportError:
 
 from .base import BenchmarkConfig, BenchmarkEnvironment, DataLoader
 from .loaders.huggingface import HuggingFaceLoader
+
+
+__all__ = ["BenchmarkTaskManager"]
 
 
 class BenchmarkTaskManager:
@@ -72,6 +78,14 @@ class BenchmarkTaskManager:
         except ImportError:
             pass
 
+        # Try to import and register Letta loader if available
+        try:
+            from .loaders.letta import LettaLoader
+
+            self._loaders["letta"] = LettaLoader()
+        except ImportError:
+            pass
+
         # Discover all available task configs
         self._discover_configs()
 
@@ -87,8 +101,12 @@ class BenchmarkTaskManager:
                 config_dict = yaml.safe_load(yaml_file.read_text())
                 config = BenchmarkConfig.from_dict(config_dict)
                 self._configs[config.task] = config
+            except (yaml.YAMLError, KeyError, TypeError, ValueError) as e:
+                logger.warning("Failed to load config from %s: %s", yaml_file, e)
             except Exception as e:
-                print(f"Warning: Failed to load YAML config from {yaml_file}: {e}")
+                logger.error(
+                    "Unexpected error loading %s: %s", yaml_file, e, exc_info=True
+                )
 
         # Load TOML configs if available
         if TOML_AVAILABLE:
@@ -98,8 +116,12 @@ class BenchmarkTaskManager:
                     config = BenchmarkConfig.from_dict(config_dict)
                     # TOML configs take precedence over YAML if same task name
                     self._configs[config.task] = config
+                except (KeyError, TypeError, ValueError) as e:
+                    logger.warning("Failed to load config from %s: %s", toml_file, e)
                 except Exception as e:
-                    print(f"Warning: Failed to load TOML config from {toml_file}: {e}")
+                    logger.error(
+                        "Unexpected error loading %s: %s", toml_file, e, exc_info=True
+                    )
 
     def list_benchmarks(self) -> List[str]:
         """Return list of available benchmark task names."""
@@ -170,6 +192,10 @@ class BenchmarkTaskManager:
                 FiNEREnvironment,
                 XBRLMathEnvironment,
                 AppWorldEnvironment,
+                SWEBenchEnvironment,
+                LettaEnvironment,
+                MultipleChoiceEnvironment,
+                MathEnvironment,
                 GenericBenchmarkEnvironment,
             )
         except ImportError:
@@ -177,13 +203,43 @@ class BenchmarkTaskManager:
             return BenchmarkEnvironment
 
         task_name = config.task.lower()
+        task_type = config.metadata.get("task_type", "") if config.metadata else ""
 
+        # Check for specialized environments first
         if "finer" in task_name:
             return FiNEREnvironment
-        elif "xbrl" in task_name or "math" in task_name:
+        elif "xbrl" in task_name:
             return XBRLMathEnvironment
+        elif "letta" in task_name:
+            return LettaEnvironment
+        elif "swe" in task_name:
+            return SWEBenchEnvironment
         elif "appworld" in task_name:
             return AppWorldEnvironment
+
+        # Check for multiple-choice benchmarks
+        elif task_type == "multiple_choice" or task_name in (
+            "mmlu",
+            "hellaswag",
+            "arc_easy",
+            "arc_challenge",
+            "truthfulqa",
+        ):
+            return MultipleChoiceEnvironment
+
+        # Binary choice benchmarks (like WinoGrande)
+        elif task_type == "binary_choice" or task_name == "winogrande":
+            return MultipleChoiceEnvironment
+
+        # Check for math/numerical benchmarks
+        elif (
+            task_type == "numerical_reasoning"
+            or task_name in ("gsm8k", "simple_math")
+            or "math" in task_name
+            or "gsm" in task_name
+        ):
+            return MathEnvironment
+
         else:
             return GenericBenchmarkEnvironment
 

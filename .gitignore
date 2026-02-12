@@ -102,3 +102,7 @@ huggingface_cache/
 
 # Sensitive/private data (NEVER commit!)
 .private/
+
+# Temporary/scratch files
+descr.txt
+docs/BENCHMARK_IMPLEMENTATION_GUIDE.md

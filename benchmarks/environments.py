@@ -14,7 +14,25 @@ from typing import Dict, List, Set, Any
 from ace import EnvironmentResult
 
 from ace import Sample
-from .base import BenchmarkConfig, BenchmarkEnvironment, BenchmarkSample
+from .base import BenchmarkConfig, BenchmarkEnvironment
+from .constants import (
+    PerformanceThreshold,
+    ResponseLimits,
+    Tolerance,
+    Timeouts,
+)
+
+
+__all__ = [
+    "GenericBenchmarkEnvironment",
+    "FiNEREnvironment",
+    "XBRLMathEnvironment",
+    "SWEBenchEnvironment",
+    "LettaEnvironment",
+    "MultipleChoiceEnvironment",
+    "MathEnvironment",
+    "AppWorldEnvironment",
+]
 
 
 class GenericBenchmarkEnvironment(BenchmarkEnvironment):
@@ -39,9 +57,9 @@ class GenericBenchmarkEnvironment(BenchmarkEnvironment):
         )
         score = metrics.get(primary_metric, 0.0)
 
-        if score >= 0.8:
+        if score >= PerformanceThreshold.EXCELLENT:
             feedback = f"Good performance ({score:.1%}). Answer aligns well with expected output."
-        elif score >= 0.5:
+        elif score >= PerformanceThreshold.MODERATE:
             feedback = f"Moderate performance ({score:.1%}). Consider refining approach for better accuracy."
         else:
             feedback = f"Low performance ({score:.1%}). Significant improvement needed in reasoning or format."
@@ -212,9 +230,9 @@ class FiNEREnvironment(BenchmarkEnvironment):
             f"F1: {f1_score:.2%}, Precision: {precision:.2%}, Recall: {recall:.2%}"
         ]
 
-        if f1_score >= 0.8:
+        if f1_score >= PerformanceThreshold.EXCELLENT:
             feedback_parts.append("Excellent entity recognition performance.")
-        elif f1_score >= 0.6:
+        elif f1_score >= PerformanceThreshold.GOOD:
             feedback_parts.append("Good entity recognition with room for improvement.")
         else:
             feedback_parts.append("Entity recognition needs significant improvement.")
@@ -313,15 +331,15 @@ class XBRLMathEnvironment(BenchmarkEnvironment):
                 "within_5_percent": 0.0,
             }
 
-        exact_match = float(abs(predicted - ground_truth) < 1e-6)
+        exact_match = float(abs(predicted - ground_truth) < Tolerance.EXACT_MATCH)
 
         if ground_truth != 0:
             relative_error = abs(predicted - ground_truth) / abs(ground_truth)
         else:
             relative_error = float("inf") if predicted != 0 else 0.0
 
-        within_1_percent = float(relative_error <= 0.01)
-        within_5_percent = float(relative_error <= 0.05)
+        within_1_percent = float(relative_error <= Tolerance.WITHIN_1_PERCENT)
+        within_5_percent = float(relative_error <= Tolerance.WITHIN_5_PERCENT)
 
         return {
             "exact_match": exact_match,
@@ -368,26 +386,563 @@ class XBRLMathEnvironment(BenchmarkEnvironment):
             )
 
 
+class SWEBenchEnvironment(BenchmarkEnvironment):
+    """
+    Environment for SWE-bench evaluation.
+
+    Executes generated patches in Docker containers and runs test suites.
+    """
+
+    def __init__(self, config: BenchmarkConfig):
+        super().__init__(config)
+        self._docker_available = self._check_docker()
+
+    def _check_docker(self) -> bool:
+        """Verify Docker is available."""
+        import subprocess
+
+        try:
+            result = subprocess.run(
+                ["docker", "info"],
+                capture_output=True,
+                timeout=10,
+            )
+            return result.returncode == 0
+        except Exception:
+            return False
+
+    def evaluate(self, sample: Sample, agent_output) -> EnvironmentResult:
+        """
+        Evaluate a generated patch by running it in a Docker container.
+        """
+        if not self._docker_available:
+            return EnvironmentResult(
+                feedback="Docker is not available. SWE-bench requires Docker for evaluation.",
+                ground_truth=sample.ground_truth,
+                metrics={"resolved": 0.0, "tests_passed": 0.0, "partial_fix": 0.0},
+            )
+
+        prediction = agent_output.final_answer or ""
+
+        # Extract patch from prediction
+        patch = self._extract_patch(prediction)
+
+        # Run evaluation in Docker
+        result = self._run_docker_evaluation(sample, patch)
+
+        metrics = {
+            "resolved": float(result["resolved"]),
+            "tests_passed": result["tests_passed_ratio"],
+            "partial_fix": float(result["partial_fix"]),
+        }
+
+        feedback = self._generate_feedback(result)
+
+        return EnvironmentResult(
+            feedback=feedback,
+            ground_truth=sample.ground_truth,
+            metrics=metrics,
+        )
+
+    def _extract_patch(self, prediction: str) -> str:
+        """Extract patch content from model output."""
+        # Try to find diff/patch block
+        patterns = [
+            r"```diff\n(.*?)```",
+            r"```patch\n(.*?)```",
+            r"```\n(diff.*?)```",
+        ]
+
+        for pattern in patterns:
+            match = re.search(pattern, prediction, re.DOTALL)
+            if match:
+                return match.group(1).strip()
+
+        # Return raw prediction if no block found
+        return prediction
+
+    def _run_docker_evaluation(self, sample: Sample, patch: str) -> Dict[str, Any]:
+        """
+        Run patch evaluation in Docker container.
+
+        Uses SWE-bench harness for proper test execution.
+        """
+        import os
+        import subprocess
+        import tempfile
+
+        metadata = sample.metadata or {}
+        instance_id = metadata.get("instance_id", "")
+        run_id = "ace_eval"
+
+        # Use context manager for automatic cleanup
+        with tempfile.TemporaryDirectory(prefix="swebench_") as temp_dir:
+            predictions_file = os.path.join(temp_dir, "predictions.jsonl")
+            report_dir = os.path.join(temp_dir, "reports")
+            os.makedirs(report_dir, exist_ok=True)
+
+            # Write predictions in SWE-bench JSONL format
+            prediction_data = {
+                "instance_id": instance_id,
+                "model_patch": patch,
+                "model_name_or_path": run_id,
+            }
+            with open(predictions_file, "w") as f:
+                f.write(json.dumps(prediction_data) + "\n")
+
+            try:
+                # Run SWE-bench evaluation harness
+                result = subprocess.run(
+                    [
+                        "python",
+                        "-m",
+                        "swebench.harness.run_evaluation",
+                        "--predictions_path",
+                        predictions_file,
+                        "--run_id",
+                        run_id,
+                        "--report_dir",
+                        report_dir,
+                        "--max_workers",
+                        "1",
+                        "--timeout",
+                        "300",
+                    ],
+                    capture_output=True,
+                    timeout=600,  # 10 minute timeout for harness
+                    text=True,
+                )
+
+                if result.returncode == 0:
+                    # Read results from report file
+                    # SWE-bench creates: {run_id}.{instance_id}.json
+                    report_file = os.path.join(
+                        report_dir, f"{run_id}.{instance_id}.json"
+                    )
+                    if os.path.exists(report_file):
+                        with open(report_file) as f:
+                            output = json.load(f)
+                        resolved = output.get("resolved", False)
+                        # Check test results
+                        tests_status = output.get("tests_status", {})
+                        passed = sum(1 for v in tests_status.values() if v == "PASSED")
+                        total = len(tests_status) if tests_status else 1
+                        return {
+                            "resolved": resolved,
+                            "tests_passed_ratio": passed / max(total, 1),
+                            "partial_fix": passed > 0 and not resolved,
+                            "error": None,
+                        }
+                    else:
+                        # Check for summary report
+                        summary_file = os.path.join(report_dir, f"{run_id}.json")
+                        if os.path.exists(summary_file):
+                            with open(summary_file) as f:
+                                summary = json.load(f)
+                            resolved_ids = summary.get("resolved", [])
+                            return {
+                                "resolved": instance_id in resolved_ids,
+                                "tests_passed_ratio": (
+                                    1.0 if instance_id in resolved_ids else 0.0
+                                ),
+                                "partial_fix": False,
+                                "error": None,
+                            }
+                        return {
+                            "resolved": False,
+                            "tests_passed_ratio": 0.0,
+                            "partial_fix": False,
+                            "error": f"Report file not found. stdout: {result.stdout[:500]}",
+                        }
+                else:
+                    return {
+                        "resolved": False,
+                        "tests_passed_ratio": 0.0,
+                        "partial_fix": False,
+                        "error": (
+                            result.stderr[:1000]
+                            if result.stderr
+                            else result.stdout[:1000]
+                        ),
+                    }
+            except subprocess.TimeoutExpired:
+                return {
+                    "resolved": False,
+                    "tests_passed_ratio": 0.0,
+                    "partial_fix": False,
+                    "error": "Evaluation timed out",
+                }
+            except Exception as e:
+                return {
+                    "resolved": False,
+                    "tests_passed_ratio": 0.0,
+                    "partial_fix": False,
+                    "error": str(e),
+                }
+
+    def _generate_feedback(self, result: Dict[str, Any]) -> str:
+        """Generate feedback for the evaluation result."""
+        if result["resolved"]:
+            return "Excellent! The patch fully resolves the issue and all tests pass."
+        elif result["partial_fix"]:
+            passed = result["tests_passed_ratio"]
+            return f"Partial fix achieved. {passed:.0%} of tests pass. Review failing tests for remaining issues."
+        elif result["error"]:
+            return (
+                f"Evaluation error: {result['error']}. Check patch format and syntax."
+            )
+        else:
+            return "The patch does not resolve the issue. Analyze the problem statement and test requirements."
+
+
+class LettaEnvironment(BenchmarkEnvironment):
+    """
+    Environment for Letta benchmark evaluation.
+
+    Evaluates memory recall, response quality, and conversation coherence.
+    """
+
+    def evaluate(self, sample: Sample, agent_output) -> EnvironmentResult:
+        """Evaluate agent response against Letta benchmark criteria."""
+        prediction = agent_output.final_answer or ""
+        ground_truth = sample.ground_truth or ""
+        metadata = sample.metadata or {}
+
+        # Compute metrics
+        metrics = self._compute_letta_metrics(prediction, ground_truth, metadata)
+
+        feedback = self._generate_feedback(metrics, metadata)
+
+        return EnvironmentResult(
+            feedback=feedback,
+            ground_truth=ground_truth,
+            metrics=metrics,
+        )
+
+    def _compute_letta_metrics(
+        self,
+        prediction: str,
+        ground_truth: str,
+        metadata: Dict[str, Any],
+    ) -> Dict[str, float]:
+        """Compute Letta-specific evaluation metrics."""
+        # Memory recall - check if key information is present
+        relevant_memories = metadata.get("relevant_memories", [])
+        memory_hits = sum(
+            1 for mem in relevant_memories if mem.lower() in prediction.lower()
+        )
+        memory_recall = memory_hits / max(len(relevant_memories), 1)
+
+        # Response quality - semantic similarity to expected
+        response_quality = self._compute_similarity(prediction, ground_truth)
+
+        # Conversation coherence - heuristic based on structure
+        coherence = self._compute_coherence(prediction, metadata)
+
+        return {
+            "memory_recall": memory_recall,
+            "response_quality": response_quality,
+            "conversation_coherence": coherence,
+        }
+
+    def _compute_similarity(self, pred: str, gold: str) -> float:
+        """Compute semantic similarity between prediction and ground truth."""
+        # Simple word overlap for now
+        pred_words = set(pred.lower().split())
+        gold_words = set(gold.lower().split())
+
+        if not gold_words:
+            return 1.0 if not pred_words else 0.0
+
+        overlap = len(pred_words & gold_words)
+        return overlap / len(gold_words)
+
+    def _compute_coherence(self, prediction: str, metadata: Dict[str, Any]) -> float:
+        """Compute conversation coherence score."""
+        # Basic heuristics
+        score = 1.0
+
+        # Penalize very short responses
+        if len(prediction.split()) < ResponseLimits.MIN_WORDS:
+            score -= 0.3
+
+        # Penalize very long responses
+        if len(prediction.split()) > ResponseLimits.MAX_WORDS:
+            score -= 0.2
+
+        # Check for complete sentences
+        if not prediction.strip().endswith((".", "!", "?")):
+            score -= 0.1
+
+        return max(0.0, score)
+
+    def _generate_feedback(
+        self,
+        metrics: Dict[str, float],
+        metadata: Dict[str, Any],
+    ) -> str:
+        """Generate evaluation feedback."""
+        parts = []
+
+        memory_recall = metrics["memory_recall"]
+        if memory_recall >= PerformanceThreshold.EXCELLENT:
+            parts.append(
+                "Excellent memory recall - retrieved relevant information effectively."
+            )
+        elif memory_recall >= PerformanceThreshold.MODERATE:
+            parts.append(
+                f"Moderate memory recall ({memory_recall:.0%}). Some relevant memories were missed."
+            )
+        else:
+            parts.append(
+                f"Low memory recall ({memory_recall:.0%}). Important context was not incorporated."
+            )
+
+        response_quality = metrics["response_quality"]
+        if (
+            response_quality >= 0.7
+        ):  # Note: Using different threshold for response quality
+            parts.append("Response quality is good.")
+        else:
+            parts.append(
+                f"Response quality needs improvement ({response_quality:.0%})."
+            )
+
+        coherence = metrics["conversation_coherence"]
+        if coherence < 0.8:
+            parts.append("Response coherence could be improved.")
+
+        return " ".join(parts)
+
+
+class MultipleChoiceEnvironment(BenchmarkEnvironment):
+    """
+    Environment for multiple-choice benchmarks (MMLU, HellaSwag, ARC, etc.).
+
+    Provides robust answer extraction and evaluation for multiple-choice questions.
+    """
+
+    def __init__(self, config: BenchmarkConfig):
+        super().__init__(config)
+        self.valid_answers = {"A", "B", "C", "D", "E"}
+
+    def evaluate(self, sample: Sample, agent_output) -> EnvironmentResult:
+        """Evaluate multiple-choice answer."""
+        prediction = agent_output.final_answer or ""
+        ground_truth = sample.ground_truth or ""
+
+        # Extract answer letter from prediction
+        extracted_answer = self._extract_answer(prediction)
+
+        # Normalize ground truth (handle both letter and numeric formats)
+        normalized_gt = self._normalize_answer(ground_truth)
+
+        # Compute metrics
+        is_correct = extracted_answer == normalized_gt
+        metrics = {
+            "accuracy": float(is_correct),
+            "exact_match": float(is_correct),
+        }
+
+        # Generate feedback
+        if is_correct:
+            feedback = f"Correct! Answer: {extracted_answer}"
+        else:
+            feedback = (
+                f"Incorrect. Predicted: {extracted_answer}, Expected: {normalized_gt}"
+            )
+            if extracted_answer not in self.valid_answers:
+                feedback += " (Could not extract valid answer from response)"
+
+        return EnvironmentResult(
+            feedback=feedback,
+            ground_truth=ground_truth,
+            metrics=metrics,
+        )
+
+    def _extract_answer(self, prediction: str) -> str:
+        """Extract answer letter from model prediction."""
+        # Clean the prediction
+        prediction = prediction.strip().upper()
+
+        # Direct single letter answer
+        if prediction in self.valid_answers:
+            return prediction
+
+        # Look for patterns like "A)", "(A)", "Answer: A", etc.
+        patterns = [
+            r"(?:answer|choice|option)[\s:]*([A-E])\b",
+            r"^([A-E])\)",
+            r"\(([A-E])\)",
+            r"^([A-E])\.",
+            r"^([A-E])\b",
+            r"\b([A-E])$",
+        ]
+
+        for pattern in patterns:
+            match = re.search(pattern, prediction, re.IGNORECASE)
+            if match:
+                return match.group(1).upper()
+
+        # Last resort: find any letter A-E in the response
+        letters = re.findall(r"\b([A-E])\b", prediction)
+        if letters:
+            return letters[-1].upper()  # Take the last one
+
+        return "?"  # Unknown
+
+    def _normalize_answer(self, answer: str) -> str:
+        """Normalize ground truth answer to uppercase letter."""
+        answer = str(answer).strip().upper()
+
+        if answer in self.valid_answers:
+            return answer
+
+        # Handle numeric answers (0-4 -> A-E)
+        letter_map = {"0": "A", "1": "B", "2": "C", "3": "D", "4": "E"}
+        return letter_map.get(answer, answer)
+
+
+class MathEnvironment(BenchmarkEnvironment):
+    """
+    Environment for math benchmarks (GSM8K, etc.).
+
+    Provides numerical answer extraction and tolerance-based evaluation.
+    """
+
+    def evaluate(self, sample: Sample, agent_output) -> EnvironmentResult:
+        """Evaluate numerical answer with tolerance."""
+        prediction = agent_output.final_answer or ""
+        ground_truth = sample.ground_truth or ""
+
+        # Extract numbers from both
+        predicted_num = self._extract_number(prediction)
+        expected_num = self._extract_number(ground_truth)
+
+        # Compute metrics
+        metrics = self._compute_math_metrics(predicted_num, expected_num)
+
+        # Generate feedback
+        feedback = self._generate_feedback(predicted_num, expected_num, metrics)
+
+        return EnvironmentResult(
+            feedback=feedback,
+            ground_truth=ground_truth,
+            metrics=metrics,
+        )
+
+    def _extract_number(self, text: str) -> float:
+        """Extract final numerical answer from text."""
+        import math
+
+        if not text:
+            return float("nan")
+
+        # Look for #### pattern (GSM8K format)
+        match = re.search(r"####\s*(-?\d[\d,]*\.?\d*)", text)
+        if match:
+            return float(match.group(1).replace(",", ""))
+
+        # Look for "answer is X" or "= X" patterns
+        patterns = [
+            r"(?:answer|result|equals?)[\s:]*(-?\d[\d,]*\.?\d*)",
+            r"=\s*(-?\d[\d,]*\.?\d*)\s*$",
+            r"(-?\d[\d,]*\.?\d*)\s*$",
+        ]
+
+        for pattern in patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                try:
+                    return float(match.group(1).replace(",", ""))
+                except ValueError:
+                    continue
+
+        # Find all numbers and return the last one
+        numbers = re.findall(r"-?\d[\d,]*\.?\d*", text)
+        if numbers:
+            try:
+                return float(numbers[-1].replace(",", ""))
+            except ValueError:
+                pass
+
+        return float("nan")
+
+    def _compute_math_metrics(
+        self, predicted: float, expected: float
+    ) -> Dict[str, float]:
+        """Compute math evaluation metrics."""
+        import math
+
+        if math.isnan(predicted) or math.isnan(expected):
+            return {
+                "exact_match": 0.0,
+                "accuracy": 0.0,
+                "within_1_percent": 0.0,
+                "within_5_percent": 0.0,
+            }
+
+        # Exact match (with small tolerance for floating point)
+        exact_match = float(abs(predicted - expected) < Tolerance.MATH_ANSWER)
+
+        # Relative error
+        if expected != 0:
+            rel_error = abs(predicted - expected) / abs(expected)
+        else:
+            rel_error = float("inf") if predicted != 0 else 0.0
+
+        return {
+            "exact_match": exact_match,
+            "accuracy": exact_match,
+            "within_1_percent": float(rel_error <= 0.01),
+            "within_5_percent": float(rel_error <= 0.05),
+        }
+
+    def _generate_feedback(
+        self, predicted: float, expected: float, metrics: Dict[str, float]
+    ) -> str:
+        """Generate feedback for math evaluation."""
+        import math
+
+        if math.isnan(predicted):
+            return "Could not extract numerical answer from response."
+
+        if metrics["exact_match"]:
+            return f"Correct! Answer: {predicted}"
+        elif metrics["within_1_percent"]:
+            return f"Close! Predicted: {predicted}, Expected: {expected} (within 1%)"
+        elif metrics["within_5_percent"]:
+            return f"Nearly correct. Predicted: {predicted}, Expected: {expected} (within 5%)"
+        else:
+            return f"Incorrect. Predicted: {predicted}, Expected: {expected}"
+
+
 class AppWorldEnvironment(BenchmarkEnvironment):
     """
     Environment for AppWorld benchmark (autonomous agent execution).
 
     Evaluates agent performance in realistic application environments with
     API interactions, task completion, and execution success metrics.
+
+    Note: For iterative execution mode, the IterativeRunner handles the
+    execution loop directly using AppWorld's context manager pattern.
+    This environment is used for:
+    1. Evaluating pre-computed execution results (passed via sample metadata)
+    2. Providing configuration (max_steps, timeout, etc.) to the runner
     """
 
     def evaluate(self, sample: Sample, agent_output) -> EnvironmentResult:
-        """Evaluate agent execution in AppWorld environment."""
-        # AppWorld evaluation is typically done through the world.execute() method
-        # This environment focuses on analyzing the execution results
+        """
+        Evaluate agent execution in AppWorld environment.
 
-        prediction = agent_output.final_answer or ""
-
+        For iterative benchmarks, this method evaluates results that were
+        computed by the IterativeRunner and stored in sample metadata.
+        """
         # Extract execution results from sample metadata if available
         execution_results = self._extract_execution_results(sample)
 
         # Compute execution metrics
-        metrics = self._compute_execution_metrics(execution_results, prediction)
+        metrics = self._compute_execution_metrics(execution_results)
 
         # Generate feedback based on execution success
         feedback = self._generate_execution_feedback(execution_results, metrics)
@@ -401,13 +956,17 @@ class AppWorldEnvironment(BenchmarkEnvironment):
         if not sample.metadata:
             return {"success": False, "error": "No execution results available"}
 
-        return sample.metadata.get(
-            "execution_results",
-            {"success": False, "error": "No execution results in metadata"},
+        result = sample.metadata.get("execution_results")
+        if result is None:
+            return {"success": False, "error": "No execution results in metadata"}
+        return (
+            dict(result)
+            if isinstance(result, dict)
+            else {"success": False, "error": "Invalid execution results"}
         )
 
     def _compute_execution_metrics(
-        self, execution_results: Dict[str, Any], prediction: str
+        self, execution_results: Dict[str, Any]
     ) -> Dict[str, float]:
         """Compute execution success metrics."""
         success = execution_results.get("success", False)
@@ -417,16 +976,30 @@ class AppWorldEnvironment(BenchmarkEnvironment):
             "execution_error": float(not success),
         }
 
+        # Add step count if available
+        steps_taken = execution_results.get("steps_taken")
+        if steps_taken is not None:
+            metrics["steps_taken"] = float(steps_taken)
+
+        # Add goal conditions if available
+        goal_met = execution_results.get("goal_conditions_met")
+        if goal_met is not None:
+            metrics["goal_conditions_met"] = float(goal_met)
+
         # Add API usage metrics if available
         if "api_calls" in execution_results:
             api_calls = execution_results["api_calls"]
             metrics["api_calls_count"] = float(len(api_calls))
-            metrics["api_success_rate"] = float(
-                sum(1 for call in api_calls if call.get("success", False))
-                / len(api_calls)
-                if api_calls
-                else 0.0
-            )
+            if api_calls:
+                successful = sum(1 for call in api_calls if call.get("success", False))
+                metrics["api_success_rate"] = float(successful) / len(api_calls)
+            else:
+                metrics["api_success_rate"] = 0.0
+
+        # Add error rate if available
+        error_rate = execution_results.get("error_rate")
+        if error_rate is not None:
+            metrics["error_rate"] = float(error_rate)
 
         return metrics
 
@@ -434,28 +1007,43 @@ class AppWorldEnvironment(BenchmarkEnvironment):
         self, execution_results: Dict[str, Any], metrics: Dict[str, float]
     ) -> str:
         """Generate feedback for agent execution performance."""
+        parts = []
+
         if metrics["task_success"]:
-            feedback = "Task completed successfully! "
+            steps = metrics.get("steps_taken", 0)
+            parts.append(f"Task completed successfully in {int(steps)} steps.")
 
-            api_success_rate = metrics.get("api_success_rate", 0.0)
-            if api_success_rate >= 0.9:
-                feedback += "Excellent API usage with minimal errors."
-            elif api_success_rate >= 0.7:
-                feedback += "Good API usage with some recoverable errors."
-            else:
-                feedback += "API usage had issues but task still completed."
+            # Add goal condition info
+            goal_met = metrics.get("goal_conditions_met")
+            if goal_met is not None:
+                parts.append(f"Goal conditions: {goal_met:.0%} met.")
 
+            # Add API usage feedback
+            api_success_rate = metrics.get("api_success_rate")
+            if api_success_rate is not None:
+                if api_success_rate >= 0.9:
+                    parts.append("Excellent API usage with minimal errors.")
+                elif api_success_rate >= 0.7:
+                    parts.append("Good API usage with some recoverable errors.")
+                else:
+                    parts.append("API usage had issues but task still completed.")
         else:
             error = execution_results.get("error", "Unknown error")
-            feedback = f"Task failed: {error}. "
+            parts.append(f"Task failed: {error}.")
 
-            if "timeout" in error.lower():
-                feedback += "Consider optimizing execution time and reducing unnecessary API calls."
-            elif "api" in error.lower():
-                feedback += (
+            # Add specific guidance based on error type
+            error_lower = error.lower() if error else ""
+            if "timeout" in error_lower:
+                parts.append(
+                    "Consider optimizing execution time and reducing API calls."
+                )
+            elif "api" in error_lower:
+                parts.append(
                     "Review API documentation and ensure correct parameter usage."
                 )
             else:
-                feedback += "Analyze task requirements and improve reasoning approach."
+                parts.append(
+                    "Analyze task requirements and improve reasoning approach."
+                )
 
-        return feedback
+        return " ".join(parts)

@@ -9,11 +9,22 @@ from __future__ import annotations
 
 import os
 from abc import ABC, abstractmethod
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Union
+from typing import Any, Dict, Iterator, List, Optional
 
 from ace import Sample, TaskEnvironment, EnvironmentResult
+
+
+__all__ = [
+    "BenchmarkConfig",
+    "BenchmarkSample",
+    "DataLoader",
+    "BenchmarkEnvironment",
+    "get_cache_dir",
+    "get_data_dir",
+]
 
 
 @dataclass
@@ -38,6 +49,36 @@ class BenchmarkConfig:
             metrics=config_dict["metrics"],
             metadata=config_dict.get("metadata"),
         )
+
+    @property
+    def execution_mode(self) -> str:
+        """Get execution mode for this benchmark.
+
+        Execution modes determine how the benchmark runner processes samples:
+        - 'standard': Single-turn Q&A evaluation (default)
+        - 'iterative': Multi-step agent execution loop (AppWorld, SWE-bench)
+        - 'sandbox': Docker-isolated execution with test harness
+
+        Returns:
+            Execution mode string from metadata, defaults to 'standard'.
+        """
+        if self.metadata:
+            return self.metadata.get("execution_mode", "standard")
+        return "standard"
+
+    @property
+    def requires_docker(self) -> bool:
+        """Check if this benchmark requires Docker for execution."""
+        if self.metadata:
+            return self.metadata.get("requires_docker", False)
+        return False
+
+    @property
+    def max_steps(self) -> int:
+        """Get maximum execution steps for iterative benchmarks."""
+        if self.metadata:
+            return self.metadata.get("max_steps", 50)
+        return 50
 
 
 # Note: BenchmarkSample is now just an alias for Sample for simplicity
@@ -89,19 +130,34 @@ class BenchmarkEnvironment(TaskEnvironment):
         return metrics
 
     def _compute_f1(self, prediction: str, ground_truth: str) -> float:
-        """Compute F1 score between prediction and ground truth."""
-        pred_tokens = set(prediction.lower().split())
-        gt_tokens = set(ground_truth.lower().split())
+        """Compute token-level F1 score with proper frequency handling.
+
+        Uses Counter to correctly handle repeated tokens, unlike set-based
+        approaches which only count unique token matches.
+
+        Args:
+            prediction: The predicted text.
+            ground_truth: The expected ground truth text.
+
+        Returns:
+            F1 score between 0.0 and 1.0.
+        """
+        pred_tokens = Counter(prediction.lower().split())
+        gt_tokens = Counter(ground_truth.lower().split())
 
         if not gt_tokens:
             return 1.0 if not pred_tokens else 0.0
 
-        intersection = pred_tokens & gt_tokens
-        if not intersection:
+        # Count common tokens considering frequency (min of both counts)
+        common = sum((pred_tokens & gt_tokens).values())
+        pred_total = sum(pred_tokens.values())
+        gt_total = sum(gt_tokens.values())
+
+        if common == 0:
             return 0.0
 
-        precision = len(intersection) / len(pred_tokens) if pred_tokens else 0.0
-        recall = len(intersection) / len(gt_tokens)
+        precision = common / pred_total if pred_total else 0.0
+        recall = common / gt_total
 
         if precision + recall == 0:
             return 0.0

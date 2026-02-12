@@ -11,12 +11,17 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from statistics import mean
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional, Tuple
+from dataclasses import dataclass, field
+
+logger = logging.getLogger(__name__)
 
 # Add project root to path
 ROOT = Path(__file__).resolve().parents[1]
@@ -40,12 +45,94 @@ from ace import (
 )
 from ace.llm_providers import LiteLLMClient
 from ace import Sample
+from ace.deduplication import DeduplicationConfig
 from benchmarks import BenchmarkTaskManager
+from benchmarks.constants import OverfittingThreshold
+
+# Import runner utilities - use try/except to handle both package and direct execution
+try:
+    from .runners import get_runner, IterativeRunner
+except ImportError:
+    from benchmarks.runners import get_runner, IterativeRunner
 
 # Suppress LiteLLM debug messages
 import litellm
 
 litellm.suppress_debug_info = True
+
+
+@dataclass
+class TokenTracker:
+    """Track token usage and cost across LLM calls."""
+
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
+    total_cost: float = 0.0
+    call_count: int = 0
+
+    def reset(self):
+        """Reset all counters."""
+        self.prompt_tokens = 0
+        self.completion_tokens = 0
+        self.total_tokens = 0
+        self.total_cost = 0.0
+        self.call_count = 0
+
+    def update(self, response):
+        """Update counters from a litellm response."""
+        self.call_count += 1
+        if hasattr(response, "usage") and response.usage:
+            usage = response.usage
+            self.prompt_tokens += getattr(usage, "prompt_tokens", 0) or 0
+            self.completion_tokens += getattr(usage, "completion_tokens", 0) or 0
+            self.total_tokens += getattr(usage, "total_tokens", 0) or 0
+        if hasattr(response, "_hidden_params"):
+            cost = response._hidden_params.get("response_cost", 0) or 0
+            self.total_cost += cost
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Return tracker state as dict."""
+        return {
+            "prompt_tokens": self.prompt_tokens,
+            "completion_tokens": self.completion_tokens,
+            "total_tokens": self.total_tokens,
+            "total_cost": round(self.total_cost, 6),
+            "call_count": self.call_count,
+        }
+
+
+class TokenTrackingContext:
+    """Context manager for thread-safe token tracking.
+
+    Usage:
+        with TokenTrackingContext() as tracker:
+            # ... LLM calls ...
+            tokens = tracker.to_dict()
+    """
+
+    def __init__(self):
+        self.tracker = TokenTracker()
+        self._callback = None
+
+    def _create_callback(self):
+        """Create a callback bound to this tracker instance."""
+
+        def callback(_kwargs, completion_response, _start_time, _end_time):
+            self.tracker.update(completion_response)
+
+        return callback
+
+    def __enter__(self) -> TokenTracker:
+        """Register callback and return tracker."""
+        self._callback = self._create_callback()
+        litellm.success_callback.append(self._callback)
+        return self.tracker
+
+    def __exit__(self, _exc_type, _exc_val, _exc_tb):
+        """Remove callback on exit."""
+        if self._callback is not None and self._callback in litellm.success_callback:
+            litellm.success_callback.remove(self._callback)
 
 
 def parse_args() -> argparse.Namespace:
@@ -57,14 +144,19 @@ def parse_args() -> argparse.Namespace:
     # Benchmark selection
     parser.add_argument(
         "benchmark",
-        help="Benchmark name to run (finer_ord, xbrl_math, appworld, or 'list' to show available)",
+        help="Benchmark name to run (e.g., simple_qa, finer_ord, gsm8k, mmlu, hellaswag) or 'list' to show all available",
     )
 
     # Model configuration
     parser.add_argument(
         "--model",
         default="gpt-4o-mini",
-        help="Model to use for evaluation (default: gpt-4o-mini)",
+        help="Model to use for Agent (default: gpt-4o-mini)",
+    )
+    parser.add_argument(
+        "--reflector-model",
+        type=str,
+        help="Model to use for Reflector (default: same as --model)",
     )
     parser.add_argument(
         "--temperature",
@@ -127,6 +219,16 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Run both baseline and ACE, then compare results",
     )
+    parser.add_argument(
+        "--async-learning",
+        action="store_true",
+        help="Enable async learning (Reflector runs in parallel threads)",
+    )
+    parser.add_argument(
+        "--dedup",
+        action="store_true",
+        help="Enable skill deduplication to consolidate similar skills",
+    )
 
     # Output configuration
     parser.add_argument(
@@ -138,6 +240,11 @@ def parse_args() -> argparse.Namespace:
         "--save-detailed", action="store_true", help="Save detailed per-sample results"
     )
     parser.add_argument("--quiet", action="store_true", help="Suppress progress output")
+    parser.add_argument(
+        "--save-skillbook",
+        type=str,
+        help="Path to save learned skillbook after training (JSON format)",
+    )
 
     # Cache configuration
     parser.add_argument(
@@ -156,9 +263,54 @@ def list_available_benchmarks() -> None:
     for name in benchmarks:
         try:
             config = manager.get_config(name)
-            print(f"  {name} - {config.metadata.get('description', 'No description')}")
+            desc = (
+                config.metadata.get("description", "No description")
+                if config.metadata
+                else "No description"
+            )
+            mode = config.execution_mode
+            mode_indicator = f" [{mode}]" if mode != "standard" else ""
+            print(f"  {name}{mode_indicator} - {desc}")
         except Exception as e:
             print(f"  {name} - (Error loading config: {e})")
+
+
+def is_iterative_benchmark(manager: BenchmarkTaskManager, benchmark_name: str) -> bool:
+    """Check if a benchmark requires iterative execution."""
+    try:
+        config = manager.get_config(benchmark_name)
+        return config.execution_mode == "iterative"
+    except Exception:
+        return False
+
+
+def check_docker_if_required(
+    manager: BenchmarkTaskManager, benchmark_name: str
+) -> bool:
+    """Check Docker availability if required by benchmark. Returns True if OK."""
+    try:
+        config = manager.get_config(benchmark_name)
+        if not config.requires_docker:
+            return True
+
+        # Check Docker availability
+        import subprocess
+
+        result = subprocess.run(
+            ["docker", "info"],
+            capture_output=True,
+            timeout=10,
+        )
+        if result.returncode != 0:
+            print(
+                f"⚠️  Warning: {benchmark_name} requires Docker but Docker is not running."
+            )
+            print("   Some benchmarks may fail without Docker.")
+            return False
+        return True
+    except Exception as e:
+        print(f"⚠️  Warning: Could not check Docker status: {e}")
+        return False
 
 
 def create_llm_client(args: argparse.Namespace) -> LiteLLMClient:
@@ -171,6 +323,36 @@ def create_llm_client(args: argparse.Namespace) -> LiteLLMClient:
     )
 
 
+def load_benchmark_data_raw(
+    args: argparse.Namespace, manager: BenchmarkTaskManager
+) -> List[Dict[str, Any]]:
+    """Load raw benchmark data without conversion to Sample format.
+
+    Used for iterative benchmarks where the runner handles data differently.
+    """
+    if not args.quiet:
+        print(f"Loading {args.benchmark} data (split: {args.split})...")
+
+    # Load raw data
+    try:
+        raw_data = list(manager.load_benchmark_data(args.benchmark))
+    except (ValueError, KeyError, ImportError) as e:
+        logger.error("Failed to load benchmark data: %s", e)
+        raise SystemExit(2) from e
+    except Exception as e:
+        logger.exception("Unexpected error loading benchmark data")
+        raise SystemExit(1) from e
+
+    # Apply limit if specified
+    if args.limit:
+        raw_data = raw_data[: args.limit]
+
+    if not args.quiet:
+        print(f"Loaded {len(raw_data)} tasks")
+
+    return raw_data
+
+
 def load_benchmark_data(
     args: argparse.Namespace, manager: BenchmarkTaskManager
 ) -> List[Sample]:
@@ -181,9 +363,12 @@ def load_benchmark_data(
     # Load raw data
     try:
         raw_data = list(manager.load_benchmark_data(args.benchmark))
+    except (ValueError, KeyError, ImportError) as e:
+        logger.error("Failed to load benchmark data: %s", e)
+        raise SystemExit(2) from e
     except Exception as e:
-        print(f"Error loading benchmark data: {e}")
-        sys.exit(1)
+        logger.exception("Unexpected error loading benchmark data")
+        raise SystemExit(1) from e
 
     # Apply limit if specified
     if args.limit:
@@ -231,54 +416,27 @@ def load_benchmark_data(
                 context=data.get("context", ""),
             )
         elif args.benchmark == "hellaswag":
-            # HellaSwag handling - format multiple choice and convert label
-            choices = data["endings"]
-            question = f"""Context: {data['ctx']}
-
-Which ending makes the most sense?
-
-A) {choices[0]}
-B) {choices[1]}
-C) {choices[2]}
-D) {choices[3]}
-
-Answer with just the letter (A, B, C, or D)."""
-
-            # Convert numeric label to letter
-            label_map = {"0": "A", "1": "B", "2": "C", "3": "D"}
-            ground_truth = label_map.get(str(data["label"]), "A")
-
-            sample = Sample(question=question, ground_truth=ground_truth)
+            # HellaSwag - data is pre-processed by MultipleChoiceProcessor
+            sample = Sample(
+                question=data.get("question", ""),
+                ground_truth=data.get("ground_truth", ""),
+                context=data.get("context", ""),
+            )
         elif args.benchmark in ["arc_easy", "arc_challenge"]:
-            # ARC handling - format multiple choice
-            choices = data["choices"]["text"]
-            question = f"""Question: {data['question']}
-
-A) {choices[0]}
-B) {choices[1]}
-C) {choices[2]}
-D) {choices[3]}
-
-Answer with just the letter (A, B, C, or D)."""
-
-            sample = Sample(question=question, ground_truth=data["answerKey"])
+            # ARC - data is pre-processed by MultipleChoiceProcessor
+            sample = Sample(
+                question=data.get("question", ""),
+                ground_truth=data.get("ground_truth", ""),
+                context=data.get("context", ""),
+            )
         elif args.benchmark == "mmlu":
-            # MMLU handling - format multiple choice
-            choices = data["choices"]
-            question = f"""Question: {data['question']}
-
-A) {choices[0]}
-B) {choices[1]}
-C) {choices[2]}
-D) {choices[3]}
-
-Answer with just the letter (A, B, C, or D)."""
-
-            # Convert numeric answer to letter
-            answer_map = {0: "A", 1: "B", 2: "C", 3: "D"}
-            ground_truth = answer_map.get(data["answer"], "A")
-
-            sample = Sample(question=question, ground_truth=ground_truth)
+            # MMLU - data is pre-processed by MultipleChoiceProcessor
+            sample = Sample(
+                question=data.get("question", ""),
+                ground_truth=data.get("ground_truth", ""),
+                context=data.get("context", ""),
+                metadata=data.get("metadata", {}),
+            )
         else:
             # Generic handling - check if already processed
             if "question" in data:
@@ -287,6 +445,7 @@ Answer with just the letter (A, B, C, or D)."""
                     question=data["question"],
                     ground_truth=data.get("ground_truth", ""),
                     context=data.get("context", ""),
+                    metadata=data.get("metadata", {}),
                 )
             else:
                 # Raw data - use generic handling
@@ -294,6 +453,7 @@ Answer with just the letter (A, B, C, or D)."""
                     question=str(data.get("question", data.get("input", ""))),
                     ground_truth=str(data.get("answer", data.get("output", ""))),
                     context=str(data.get("context", "")),
+                    metadata=data.get("metadata", {}),
                 )
 
         samples.append(sample)
@@ -311,17 +471,44 @@ def run_comparison_mode(
     )
     print("=" * 60)
 
-    # Run baseline evaluation
+    # Run baseline evaluation with timing and token tracking
     print("\n1️⃣ Running BASELINE evaluation...")
     baseline_args = argparse.Namespace(**vars(args))
     baseline_args.skip_adaptation = True
-    baseline_results = run_evaluation(baseline_args, samples, manager)
+    baseline_start = time.time()
+    with TokenTrackingContext() as baseline_tracker:
+        baseline_results = run_evaluation(baseline_args, samples, manager)
+    baseline_elapsed = time.time() - baseline_start
+    baseline_tokens = baseline_tracker.to_dict()
 
-    # Run ACE evaluation
+    # Run ACE evaluation with timing and token tracking
     print("\n2️⃣ Running ACE evaluation...")
     ace_args = argparse.Namespace(**vars(args))
     ace_args.skip_adaptation = False
-    ace_results = run_evaluation(ace_args, samples, manager)
+    ace_start = time.time()
+    with TokenTrackingContext() as ace_tracker:
+        ace_results = run_evaluation(ace_args, samples, manager)
+    ace_elapsed = time.time() - ace_start
+    ace_tokens = ace_tracker.to_dict()
+
+    # Save skillbook if requested
+    if args.save_skillbook and "skillbook" in ace_results:
+        skillbook = ace_results["skillbook"]
+        # Ensure directory exists
+        skillbook_path = Path(args.save_skillbook)
+        skillbook_path.parent.mkdir(parents=True, exist_ok=True)
+        skillbook.save_to_file(str(skillbook_path))
+        print(f"📚 Skillbook saved to: {skillbook_path}")
+
+    # Remove skillbook from results (not JSON serializable)
+    ace_results.pop("skillbook", None)
+    baseline_results.pop("skillbook", None)
+
+    # Add timing and token info to results
+    baseline_results["elapsed_seconds"] = round(baseline_elapsed, 2)
+    baseline_results["tokens"] = baseline_tokens
+    ace_results["elapsed_seconds"] = round(ace_elapsed, 2)
+    ace_results["tokens"] = ace_tokens
 
     # Compare and display results
     print("\n" + "=" * 80)
@@ -364,11 +551,11 @@ def run_comparison_mode(
         for metric, gap in overfitting_gap.items():
             if metric.endswith("_mean"):
                 base_metric = metric[:-5]
-                if gap > 0.05:
+                if gap > OverfittingThreshold.SIGNIFICANT:
                     print(
                         f"  {base_metric.replace('_', ' ').title()}: {gap:.2%} ⚠️  (significant overfitting)"
                     )
-                elif gap > 0.02:
+                elif gap > OverfittingThreshold.MINOR:
                     print(
                         f"  {base_metric.replace('_', ' ').title()}: {gap:.2%} ⚡ (minor overfitting)"
                     )
@@ -376,6 +563,29 @@ def run_comparison_mode(
                     print(
                         f"  {base_metric.replace('_', ' ').title()}: {gap:.2%} ✅ (good generalization)"
                     )
+
+    # Display time and token comparison
+    print(f"\n⏱️  TIME COMPARISON:")
+    print(f"  Baseline: {baseline_elapsed:.1f}s")
+    print(f"  ACE:      {ace_elapsed:.1f}s ({ace_elapsed/baseline_elapsed:.1f}x)")
+
+    print(f"\n🪙 TOKEN USAGE:")
+    print(
+        f"  Baseline: {baseline_tokens['total_tokens']:,} tokens ({baseline_tokens['call_count']} calls)"
+    )
+    print(
+        f"  ACE:      {ace_tokens['total_tokens']:,} tokens ({ace_tokens['call_count']} calls)"
+    )
+    if baseline_tokens["total_tokens"] > 0:
+        token_ratio = ace_tokens["total_tokens"] / baseline_tokens["total_tokens"]
+        print(f"  Ratio:    {token_ratio:.1f}x")
+
+    print(f"\n💰 COST:")
+    print(f"  Baseline: ${baseline_tokens['total_cost']:.4f}")
+    print(f"  ACE:      ${ace_tokens['total_cost']:.4f}")
+    if baseline_tokens["total_cost"] > 0:
+        cost_ratio = ace_tokens["total_cost"] / baseline_tokens["total_cost"]
+        print(f"  Ratio:    {cost_ratio:.1f}x")
 
     print("\n" + "=" * 80)
 
@@ -402,6 +612,8 @@ def run_comparison_mode(
             "split_ratio": args.split_ratio,
             "online_mode": args.online_mode,
             "prompt_version": args.prompt_version,
+            "async_learning": args.async_learning,
+            "dedup": args.dedup,
         },
         "baseline_results": baseline_results,
         "ace_results": ace_results,
@@ -410,6 +622,25 @@ def run_comparison_mode(
             "ace_test_summary": ace_summary,
             "ace_train_summary": ace_results.get("train_summary", {}),
             "overfitting_gap": ace_results.get("overfitting_gap", {}),
+        },
+        "performance": {
+            "baseline_elapsed_seconds": baseline_elapsed,
+            "ace_elapsed_seconds": ace_elapsed,
+            "time_ratio": (
+                round(ace_elapsed / baseline_elapsed, 2) if baseline_elapsed > 0 else 0
+            ),
+            "baseline_tokens": baseline_tokens,
+            "ace_tokens": ace_tokens,
+            "token_ratio": (
+                round(ace_tokens["total_tokens"] / baseline_tokens["total_tokens"], 2)
+                if baseline_tokens["total_tokens"] > 0
+                else 0
+            ),
+            "cost_ratio": (
+                round(ace_tokens["total_cost"] / baseline_tokens["total_cost"], 2)
+                if baseline_tokens["total_cost"] > 0
+                else 0
+            ),
         },
     }
 
@@ -420,8 +651,20 @@ def run_comparison_mode(
     print(f"✅ Comparison completed successfully!")
 
 
-def create_ace_components(client: LiteLLMClient, prompt_version: str):
-    """Create ACE components with specified prompt version."""
+def create_ace_components(
+    client: LiteLLMClient,
+    prompt_version: str,
+    reflector_client: Optional[LiteLLMClient] = None,
+):
+    """Create ACE components with specified prompt version.
+
+    Args:
+        client: LLM client for Agent and SkillManager
+        prompt_version: Prompt version to use (v1 or v2)
+        reflector_client: Optional separate LLM client for Reflector (defaults to client)
+    """
+    reflector_llm = reflector_client or client
+
     if prompt_version == "v2":
         try:
             from ace.prompts_v2 import PromptManager
@@ -429,7 +672,7 @@ def create_ace_components(client: LiteLLMClient, prompt_version: str):
             manager = PromptManager()
             agent = Agent(client, prompt_template=manager.get_agent_prompt())
             reflector = Reflector(
-                client, prompt_template=manager.get_reflector_prompt()
+                reflector_llm, prompt_template=manager.get_reflector_prompt()
             )
             skill_manager = SkillManager(
                 client, prompt_template=manager.get_skill_manager_prompt()
@@ -437,19 +680,33 @@ def create_ace_components(client: LiteLLMClient, prompt_version: str):
         except ImportError:
             print("Warning: v2 prompts not available, falling back to v1")
             agent = Agent(client)
-            reflector = Reflector(client)
+            reflector = Reflector(reflector_llm)
             skill_manager = SkillManager(client)
     else:
         # Use default v1 prompts
         agent = Agent(client)
-        reflector = Reflector(client)
+        reflector = Reflector(reflector_llm)
         skill_manager = SkillManager(client)
 
     return agent, reflector, skill_manager
 
 
-def split_samples(samples: List[Sample], split_ratio: float):
-    """Split samples into train and test sets."""
+def split_samples(
+    samples: List[Sample], split_ratio: float
+) -> Tuple[List[Sample], List[Sample]]:
+    """Split samples into train and test sets.
+
+    Args:
+        samples: List of samples to split.
+        split_ratio: Fraction of samples for training (0.0-1.0).
+
+    Returns:
+        Tuple of (train_samples, test_samples).
+
+    Example:
+        >>> train, test = split_samples(samples, 0.8)
+        >>> len(train) / len(samples)  # ~0.8
+    """
     if split_ratio >= 1.0:
         return samples, []  # All training, no test
 
@@ -458,6 +715,103 @@ def split_samples(samples: List[Sample], split_ratio: float):
     test_samples = samples[split_idx:]
 
     return train_samples, test_samples
+
+
+def run_iterative_evaluation(
+    args: argparse.Namespace,
+    task_data: List[Dict[str, Any]],
+    manager: BenchmarkTaskManager,
+) -> Dict[str, Any]:
+    """
+    Run iterative benchmark evaluation (AppWorld, agentic tasks).
+
+    This function handles benchmarks that require multi-step agent execution
+    with an iterative code generation loop.
+
+    Note: ACE learning for iterative benchmarks works differently from standard
+    Q&A benchmarks - the runner handles the full execution loop and returns
+    results that can be used for learning.
+
+    For AppWorld and similar benchmarks, HAL harness is required.
+    See agents/README.md for setup instructions.
+    """
+    config = manager.get_config(args.benchmark)
+
+    # Check if HAL is available for iterative benchmarks
+    runner = get_runner(config.execution_mode, args.benchmark)
+    if hasattr(runner, "_check_hal_available") and not runner._check_hal_available():
+        print("\n" + "=" * 60)
+        print("❌ HAL harness not available")
+        print("=" * 60)
+        print(f"\nIterative benchmarks like '{args.benchmark}' require HAL harness.")
+        print("\nTo install HAL:")
+        print(
+            "  git clone --recursive https://github.com/princeton-pli/hal-harness.git"
+        )
+        print("  cd hal-harness && pip install -e .")
+        print("\nThen copy the ACE agent:")
+        print("  cp -r benchmarks/agents/ace_agent hal-harness/agents/")
+        print("\nRun with HAL directly:")
+        hal_benchmark = (
+            config.metadata.get("hal_benchmark", "appworld_test_normal")
+            if config.metadata
+            else "appworld_test_normal"
+        )
+        print(f"  hal-eval --benchmark {hal_benchmark} \\")
+        print("    --agent_dir agents/ace_agent --agent_function main.run")
+        print("\nSee agents/README.md for detailed instructions.")
+        print("=" * 60 + "\n")
+        sys.exit(1)
+
+    if not args.quiet:
+        print(f"🔄 Running ITERATIVE evaluation for {args.benchmark}")
+
+    config = manager.get_config(args.benchmark)
+    runner = get_runner(config.execution_mode)
+
+    # Create LLM client and agent
+    client = create_llm_client(args)
+    agent, _, _ = create_ace_components(client, args.prompt_version)
+
+    results = []
+    skillbook = Skillbook()
+
+    # For iterative benchmarks, each task is a full execution
+    for i, task in enumerate(task_data):
+        if not args.quiet and i % 5 == 0:
+            print(f"Progress: {i}/{len(task_data)} tasks processed")
+
+        task_id = task.get("task_id", f"task_{i}")
+
+        # Run the iterative task
+        env_result = runner.run_task(
+            task_data=task,
+            agent=agent,
+            skillbook=skillbook,
+            config=config,
+        )
+
+        results.append(
+            {
+                "sample_id": f"{args.benchmark}_{task_id}",
+                "task_id": task_id,
+                "metrics": env_result.metrics,
+                "feedback": env_result.feedback,
+                "split": "iterative",
+            }
+        )
+
+    return {
+        "benchmark": args.benchmark,
+        "model": args.model,
+        "prompt_version": args.prompt_version,
+        "evaluation_mode": "iterative",
+        "execution_mode": config.execution_mode,
+        "samples_evaluated": len(results),
+        "results": results,
+        "summary": compute_summary_metrics(results),
+        "skillbook": skillbook,
+    }
 
 
 def run_evaluation(
@@ -471,7 +825,19 @@ def run_evaluation(
 
     # Create LLM client and ACE components with appropriate prompts
     client = create_llm_client(args)
-    agent, reflector, skill_manager = create_ace_components(client, args.prompt_version)
+
+    # Create separate reflector client if specified
+    reflector_client = None
+    if getattr(args, "reflector_model", None):
+        reflector_args = argparse.Namespace(**vars(args))
+        reflector_args.model = args.reflector_model
+        reflector_client = create_llm_client(reflector_args)
+        if not args.quiet:
+            print(f"Using {args.reflector_model} for Reflector")
+
+    agent, reflector, skill_manager = create_ace_components(
+        client, args.prompt_version, reflector_client
+    )
     environment = manager.get_benchmark(args.benchmark)
 
     results = []
@@ -568,12 +934,15 @@ def run_evaluation(
                 "samples_evaluated": len(results),
                 "results": results,
                 "summary": compute_summary_metrics(results),
+                "skillbook": adapter.skillbook,  # Include learned skillbook for export
             }
 
         else:
             # Offline learning with proper train/test split
             if not args.quiet:
                 print(f"🧠 Running OFFLINE LEARNING evaluation ({args.epochs} epochs)")
+
+            dedup_config = DeduplicationConfig() if args.dedup else None
 
             adapter = OfflineACE(
                 skillbook=Skillbook(),
@@ -582,6 +951,8 @@ def run_evaluation(
                 skill_manager=skill_manager,
                 max_refinement_rounds=args.max_refinement_rounds,
                 enable_observability=True,
+                async_learning=args.async_learning,
+                dedup_config=dedup_config,
             )
 
             # Train on training samples
@@ -665,6 +1036,7 @@ def run_evaluation(
                 "test_summary": test_summary,
                 "overfitting_gap": overfitting_gap,
                 "summary": test_summary,  # Overall summary uses test performance (TRUE performance)
+                "skillbook": adapter.skillbook,  # Include learned skillbook for export
             }
 
         # Export observability data if available
@@ -679,7 +1051,21 @@ def run_evaluation(
 
 
 def compute_summary_metrics(results: List[Dict[str, Any]]) -> Dict[str, float]:
-    """Compute summary metrics across all results."""
+    """Compute aggregate statistics across evaluation results.
+
+    Args:
+        results: List of per-sample result dictionaries, each containing
+            a "metrics" dict with metric name -> value mappings.
+
+    Returns:
+        Dictionary with {metric_name}_{mean|min|max} keys for each metric
+        found in the results.
+
+    Example:
+        >>> results = [{"metrics": {"accuracy": 0.8}}, {"metrics": {"accuracy": 1.0}}]
+        >>> summary = compute_summary_metrics(results)
+        >>> summary["accuracy_mean"]  # 0.9
+    """
     if not results:
         return {}
 
@@ -777,7 +1163,7 @@ def save_results(args: argparse.Namespace, evaluation_results: Dict[str, Any]) -
             for metric, gap in evaluation_results["overfitting_gap"].items():
                 if metric.endswith("_mean"):
                     base_metric = metric[:-5]
-                    if gap > 0.05:  # Significant overfitting
+                    if gap > OverfittingThreshold.SIGNIFICANT:
                         print(
                             f"  {base_metric.replace('_', ' ').title()} Gap: {gap:.2%} ⚠️  (overfitting)"
                         )
@@ -804,8 +1190,17 @@ def save_results(args: argparse.Namespace, evaluation_results: Dict[str, Any]) -
                 print(f"{base_metric.replace('_', ' ').title()}: {value:.2%}")
 
 
+def setup_platform() -> None:
+    """Configure platform-specific settings."""
+    if sys.platform == "win32":
+        # Fix Windows console encoding for Unicode output
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
+
 def main() -> None:
     """Main entry point."""
+    setup_platform()
     args = parse_args()
 
     # Handle special commands
@@ -838,19 +1233,75 @@ def main() -> None:
             print(f"  - {error}")
         sys.exit(1)
 
-    # Load benchmark data
-    samples = load_benchmark_data(args, manager)
+    # Check Docker if required
+    check_docker_if_required(manager, args.benchmark)
 
-    # Check if running in comparison mode
-    if args.compare:
-        # Run comparison mode (baseline vs ACE)
-        run_comparison_mode(args, samples, manager)
+    # Check execution mode for routing
+    is_iterative = is_iterative_benchmark(manager, args.benchmark)
+
+    if is_iterative:
+        # Iterative benchmarks (AppWorld, agentic tasks)
+        config = manager.get_config(args.benchmark)
+        if not args.quiet:
+            print(f"Detected iterative benchmark (mode: {config.execution_mode})")
+
+        # Load raw task data for iterative benchmarks
+        task_data = load_benchmark_data_raw(args, manager)
+
+        if args.compare:
+            # For iterative benchmarks, comparison mode runs baseline vs ACE
+            print("⚠️  Comparison mode for iterative benchmarks is experimental")
+            # Run baseline (skip adaptation)
+            baseline_args = argparse.Namespace(**vars(args))
+            baseline_args.skip_adaptation = True
+            baseline_results = run_iterative_evaluation(
+                baseline_args, task_data, manager
+            )
+
+            # Run ACE
+            ace_args = argparse.Namespace(**vars(args))
+            ace_args.skip_adaptation = False
+            ace_results = run_iterative_evaluation(ace_args, task_data, manager)
+
+            # Display comparison
+            print("\n" + "=" * 60)
+            print("📊 ITERATIVE BENCHMARK COMPARISON")
+            print("=" * 60)
+            print(f"\nBaseline: {baseline_results['summary']}")
+            print(f"ACE: {ace_results['summary']}")
+
+            evaluation_results = {
+                "benchmark": args.benchmark,
+                "evaluation_mode": "iterative_comparison",
+                "baseline": baseline_results,
+                "ace": ace_results,
+            }
+        else:
+            evaluation_results = run_iterative_evaluation(args, task_data, manager)
     else:
-        # Run normal evaluation
-        evaluation_results = run_evaluation(args, samples, manager)
+        # Standard Q&A benchmarks
+        samples = load_benchmark_data(args, manager)
 
-        # Save and display results
-        save_results(args, evaluation_results)
+        if args.compare:
+            # Run comparison mode (baseline vs ACE)
+            run_comparison_mode(args, samples, manager)
+            return  # comparison mode handles its own output
+        else:
+            evaluation_results = run_evaluation(args, samples, manager)
+
+    # Save skillbook if requested
+    if args.save_skillbook and "skillbook" in evaluation_results:
+        skillbook = evaluation_results["skillbook"]
+        skillbook_path = Path(args.save_skillbook)
+        skillbook_path.parent.mkdir(parents=True, exist_ok=True)
+        skillbook.save_to_file(str(skillbook_path))
+        print(f"📚 Skillbook saved to: {skillbook_path}")
+
+    # Remove skillbook from results (not JSON serializable)
+    evaluation_results.pop("skillbook", None)
+
+    # Save and display results
+    save_results(args, evaluation_results)
 
     if not args.quiet:
         print(f"\nEvaluation completed successfully!")

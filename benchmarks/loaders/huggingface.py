@@ -7,12 +7,15 @@ to avoid downloading large datasets while supporting caching for repeated access
 
 from __future__ import annotations
 
+import logging
 import os
 from functools import lru_cache
 from typing import Dict, Iterator, List, Optional, Any
 
 from ..base import DataLoader, get_cache_dir
 from ..processors import get_processor
+
+logger = logging.getLogger(__name__)
 
 
 class HuggingFaceLoader(DataLoader):
@@ -142,6 +145,19 @@ class HuggingFaceLoader(DataLoader):
                     "ground_truth": processed_sample.ground_truth,
                     "context": getattr(processed_sample, "context", ""),
                 }
+
+        # Handle processors with process_samples method
+        elif processor and hasattr(processor, "process_samples"):
+            sample_iter = dataset if streaming else iter(dataset)
+
+            for processed_sample in processor.process_samples(sample_iter):
+                yield {
+                    "question": processed_sample.question,
+                    "ground_truth": processed_sample.ground_truth,
+                    "context": getattr(processed_sample, "context", ""),
+                    "metadata": getattr(processed_sample, "metadata", {}),
+                }
+
         else:
             # Standard processing for other datasets
             sample_iter = dataset if streaming else iter(dataset)
