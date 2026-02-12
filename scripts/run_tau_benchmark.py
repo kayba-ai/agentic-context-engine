@@ -52,7 +52,7 @@ litellm.suppress_debug_info = True
 
 # TAU2 imports
 from tau2.agent.llm_agent import LLMAgent
-from tau2.data_model.message import AssistantMessage, UserMessage, ToolMessage
+from tau2.data_model.message import AssistantMessage, ToolMessage
 from tau2.data_model.simulation import SimulationRun
 from tau2.metrics.agent_metrics import pass_hat_k
 from tau2.registry import registry
@@ -412,6 +412,11 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Comma-separated task IDs to run (e.g. '35,37,44,45,48'). Filters loaded tasks.",
     )
+    parser.add_argument(
+        "--include-assertions",
+        action="store_true",
+        help="Include failed assertions/action checks in training traces (causes data leakage, off by default)",
+    )
 
     args = parser.parse_args()
 
@@ -526,17 +531,19 @@ def load_tau_tasks(
     return all_tasks
 
 
-def extract_conversation_trace(simulation: SimulationRun) -> str:
-    """Extract meso-level trace from tau2 simulation for Reflector.
+def extract_conversation_trace(
+    simulation: SimulationRun, include_assertions: bool = False
+) -> str:
+    """Extract agent-only trace from tau2 simulation for Reflector.
 
-    This provides the Reflector with full conversation context including:
-    - All agent/user messages
-    - Tool calls and their results
-    - Failed assertions with justifications
-    - Error details
+    Only keeps AssistantMessage (agent actions) and ToolMessage (environment
+    responses). UserMessage turns are excluded because they encode
+    task-specific knowledge from the user simulator's scenario prompt —
+    the reflector should learn from the agent's behavior, not the task setup.
 
-    This enables meso-level learning from execution patterns,
-    not just micro-level outcome-based feedback.
+    When include_assertions=True (NOT recommended), also includes failed
+    nl_assertions and action checks. This causes data leakage because
+    assertion text encodes expected correct behavior (effectively ground truth).
     """
     lines = ["## Conversation Trace\n"]
 
@@ -544,41 +551,39 @@ def extract_conversation_trace(simulation: SimulationRun) -> str:
         if isinstance(msg, AssistantMessage):
             if msg.tool_calls:
                 for tool in msg.tool_calls:
-                    # Truncate long arguments
                     args_str = str(tool.arguments)
-                    if len(args_str) > 200:
-                        args_str = args_str[:200] + "..."
+                    if len(args_str) > 500:
+                        args_str = args_str[:500] + "..."
                     lines.append(f"Agent: [TOOL] {tool.name}({args_str})")
             elif msg.content:
-                content = msg.content[:300] if len(msg.content) > 300 else msg.content
+                content = msg.content[:1000] if len(msg.content) > 1000 else msg.content
                 lines.append(f"Agent: {content}")
         elif isinstance(msg, ToolMessage):
             status = "[ERROR]" if msg.error else "[OK]"
-            content = msg.content[:200] if len(msg.content) > 200 else msg.content
+            content = msg.content[:1000] if len(msg.content) > 1000 else msg.content
             lines.append(f"Tool {status}: {content}")
-        elif isinstance(msg, UserMessage):
-            content = msg.content[:200] if len(msg.content) > 200 else msg.content
-            lines.append(f"User: {content}")
 
-    # Add failed assertions for learning
-    if simulation.reward_info and simulation.reward_info.nl_assertions:
-        failed = [a for a in simulation.reward_info.nl_assertions if not a.met]
-        if failed:
-            lines.append("\n## Failed Assertions")
-            for a in failed:
-                lines.append(f"- {a.nl_assertion}")
-                if a.justification:
-                    lines.append(f"  Reason: {a.justification}")
+    if include_assertions:
+        # WARNING: Including assertions causes data leakage - assertion text
+        # encodes expected correct behavior (effectively ground truth).
+        # Use --include-assertions flag only for A/B leakage comparison.
+        if simulation.reward_info and simulation.reward_info.nl_assertions:
+            failed = [a for a in simulation.reward_info.nl_assertions if not a.met]
+            if failed:
+                lines.append("\n## Failed Assertions")
+                for a in failed:
+                    lines.append(f"- {a.nl_assertion}")
+                    if a.justification:
+                        lines.append(f"  Reason: {a.justification}")
 
-    # Add action check failures
-    if simulation.reward_info and simulation.reward_info.action_checks:
-        failed_actions = [
-            a for a in simulation.reward_info.action_checks if not a.action_match
-        ]
-        if failed_actions:
-            lines.append("\n## Failed Action Checks")
-            for a in failed_actions:
-                lines.append(f"- Action: {a.action}")
+        if simulation.reward_info and simulation.reward_info.action_checks:
+            failed_actions = [
+                a for a in simulation.reward_info.action_checks if not a.action_match
+            ]
+            if failed_actions:
+                lines.append("\n## Failed Action Checks")
+                for a in failed_actions:
+                    lines.append(f"- Action: {a.action}")
 
     # Add termination reason if abnormal
     if (
@@ -775,6 +780,10 @@ def run_ace_training(
     )
     skillbook = Skillbook()
 
+    # Fetch domain policy so the reflector can learn policy-aware strategies
+    env_constructor = registry.get_env_constructor(args.domain)
+    domain_policy = env_constructor().get_policy()
+
     # Run adaptation with meso-level learning (full conversation trace)
     for epoch in range(1, args.epochs + 1):
         if not quiet:
@@ -792,16 +801,19 @@ def run_ace_training(
                     experiment_name=experiment_name,
                 )
 
-                # Extract full conversation trace for meso-level learning
+                # Extract agent-only conversation trace for meso-level learning
                 if simulation:
-                    trace = extract_conversation_trace(simulation)
+                    trace = extract_conversation_trace(
+                        simulation,
+                        include_assertions=getattr(args, "include_assertions", False),
+                    )
                     outcome = "SUCCEEDED" if result["success"] else "FAILED"
-                    feedback = f"Task {outcome}. Reward: {result['reward']:.2f}, Steps: {result['steps']}\n\n{trace}"
+                    feedback = f"Task {outcome}. Reward: {result['reward']:.2f}, Steps: {result['steps']}\n\n## Agent Domain Policy\n{domain_policy}"
                 else:
                     trace = "No trace available"
                     feedback = f"Task FAILED. Error: {result.get('error', 'Unknown')}"
 
-                # Create agent output with trace context for meso-level learning
+                # Trace goes in reasoning (Model Reasoning), outcome+policy in feedback (Environment Feedback)
                 agent_output = AgentOutput(
                     final_answer=f"reward={result['reward']:.2f}",
                     reasoning=trace,
@@ -877,6 +889,10 @@ def run_ace_batch_training(
     )
     skillbook = Skillbook()
 
+    # Fetch domain policy so the reflector can learn policy-aware strategies
+    env_constructor = registry.get_env_constructor(args.domain)
+    domain_policy = env_constructor().get_policy()
+
     # Phase 1: Execute all tasks and collect traces
     traces: List[Tuple[Dict[str, Any], Dict[str, Any], str, str]] = []
     success_count = 0
@@ -894,7 +910,10 @@ def run_ace_batch_training(
 
             # Extract trace for batch learning
             if simulation:
-                trace = extract_conversation_trace(simulation)
+                trace = extract_conversation_trace(
+                    simulation,
+                    include_assertions=getattr(args, "include_assertions", False),
+                )
                 # Truncate trace if needed (configurable via --trace-limit)
                 trace_lines = trace.split("\n")
                 if len(trace_lines) > args.trace_limit // 10:  # ~10 chars per line
@@ -946,7 +965,9 @@ def run_ace_batch_training(
         combined_feedback.append(f"Task {i + 1} ({task['task_id']}): {feedback}")
 
     mega_trace = "\n\n---\n\n".join(combined_reasoning)
-    mega_feedback = "\n".join(combined_feedback)
+    mega_feedback = f"## Agent Domain Policy\n{domain_policy}\n\n" + "\n".join(
+        combined_feedback
+    )
 
     # Phase 3: Single reflection on all traces
     agent_output = AgentOutput(
