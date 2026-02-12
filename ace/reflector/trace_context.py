@@ -493,3 +493,84 @@ class TraceContext:
                         raw_parts.append(f"[{role}] {block.get('text', '')[:500]}")
 
         return cls(steps=steps, raw_reasoning="\n\n".join(raw_parts))
+
+    @classmethod
+    def from_tau_simulation(cls, messages: list) -> "TraceContext":
+        """Create TraceContext from TAU-bench SimulationRun messages.
+
+        Builds structured steps directly from TAU message objects using
+        duck-typing (no TAU imports required). Handles AssistantMessage
+        (with tool_calls or content) and ToolMessage objects.
+
+        Args:
+            messages: List of TAU-bench message objects with .tool_calls,
+                      .content, and .error attributes.
+
+        Returns:
+            A TraceContext with structured tool-call steps.
+        """
+        steps: List[TraceStep] = []
+        raw_parts: List[str] = []
+        step_idx = 0
+
+        for msg in messages:
+            tool_calls = getattr(msg, "tool_calls", None)
+            content = getattr(msg, "content", None)
+            error = getattr(msg, "error", None)
+
+            if tool_calls:
+                # AssistantMessage with tool calls
+                for tc in tool_calls:
+                    name = getattr(tc, "name", "unknown_tool")
+                    args = str(getattr(tc, "arguments", {}))
+                    if len(args) > 500:
+                        args = args[:500] + "..."
+                    steps.append(
+                        TraceStep(
+                            index=step_idx,
+                            action=f"tool_call:{name}",
+                            thought=args,
+                            observation="",
+                        )
+                    )
+                    raw_parts.append(f"Agent: [TOOL] {name}({args})")
+                    step_idx += 1
+            elif content and not hasattr(msg, "tool_call_id"):
+                # AssistantMessage with text content (not a ToolMessage)
+                text = content[:1000] if len(content) > 1000 else content
+                steps.append(
+                    TraceStep(
+                        index=step_idx,
+                        action="agent_response",
+                        thought=text,
+                        observation="",
+                    )
+                )
+                raw_parts.append(f"Agent: {text}")
+                step_idx += 1
+            elif content is not None:
+                # ToolMessage — attach as observation to previous step
+                text = content[:1000] if len(content) > 1000 else content
+                status = "[ERROR]" if error else "[OK]"
+                obs = f"{status} {text}"
+                if steps:
+                    prev = steps[-1]
+                    steps[-1] = TraceStep(
+                        index=prev.index,
+                        action=prev.action,
+                        thought=prev.thought,
+                        observation=obs,
+                    )
+                else:
+                    steps.append(
+                        TraceStep(
+                            index=step_idx,
+                            action="tool_result",
+                            thought="",
+                            observation=obs,
+                        )
+                    )
+                    step_idx += 1
+                raw_parts.append(f"Tool {status}: {text}")
+
+        return cls(steps=steps, raw_reasoning="\n".join(raw_parts))

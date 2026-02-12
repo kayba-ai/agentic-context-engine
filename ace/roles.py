@@ -135,6 +135,11 @@ class AgentOutput(BaseModel):
     raw: Dict[str, Any] = Field(
         default_factory=dict, description="Raw LLM response data"
     )
+    trace_context: Optional[Any] = Field(
+        default=None,
+        exclude=True,
+        description="Pre-built TraceContext from integration (bypasses auto-detection)",
+    )
 
 
 class Agent:

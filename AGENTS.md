@@ -216,7 +216,20 @@ uv run python scripts/run_tau_benchmark.py \
 uv run python scripts/run_tau_benchmark.py \
   --domain airline \
   --compare
+
+# ACE with feedback level control
+uv run python scripts/run_tau_benchmark.py \
+  --domain airline \
+  --compare \
+  --feedback-level trace    # conversation only (no reward)
+  # --feedback-level outcome # + reward/steps (default)
+  # --feedback-level full    # + assertions (data leakage!)
 ```
+
+**Feedback levels** control what the Reflector sees during training:
+- `trace`: conversation only — no reward signal, no assertions
+- `outcome` (default): conversation + reward/steps — no ground truth leakage
+- `full`: conversation + failed assertions + action checks — causes data leakage
 
 **Key configuration details (now defaults):**
 | Setting | Official Value | Notes |

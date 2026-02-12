@@ -124,8 +124,10 @@ class RecursiveReflector:
         Returns:
             ReflectorOutput with analysis and skill classifications
         """
-        # Build trace context from agent output
-        trace = TraceContext.from_agent_output(agent_output)
+        # Build trace context from agent output (use pre-built trace if provided)
+        trace = agent_output.trace_context or TraceContext.from_agent_output(
+            agent_output
+        )
 
         # Create shared call budget
         budget = CallBudget(self.config.max_llm_calls)

@@ -44,6 +44,7 @@ from ace import (
     AgentOutput,
 )
 from ace.llm_providers import LiteLLMClient
+from ace.reflector.trace_context import TraceContext
 
 # Suppress LiteLLM debug messages
 import litellm
@@ -413,9 +414,10 @@ def parse_args() -> argparse.Namespace:
         help="Comma-separated task IDs to run (e.g. '35,37,44,45,48'). Filters loaded tasks.",
     )
     parser.add_argument(
-        "--include-assertions",
-        action="store_true",
-        help="Include failed assertions/action checks in training traces (causes data leakage, off by default)",
+        "--feedback-level",
+        choices=["trace", "outcome", "full"],
+        default=None,
+        help="What Reflector sees: trace=conversation only, outcome=+reward (default), full=+assertions",
     )
 
     args = parser.parse_args()
@@ -436,6 +438,7 @@ def parse_args() -> argparse.Namespace:
         "batch_reflect": "batch_reflect",
         "trace_limit": "trace_limit",
         "max_refinement_rounds": "max_refinement_rounds",
+        "feedback_level": "feedback_level",
     }
 
     for cfg_key, value in flat.items():
@@ -462,6 +465,7 @@ def parse_args() -> argparse.Namespace:
         "max_refinement_rounds": 3,
         "batch_reflect": False,
         "trace_limit": 500,
+        "feedback_level": "outcome",
         "model": "gpt-4.1-mini-2025-04-14",
         "user_llm": "gpt-4.1-2025-04-14",
         "temperature": 0.0,
@@ -532,7 +536,7 @@ def load_tau_tasks(
 
 
 def extract_conversation_trace(
-    simulation: SimulationRun, include_assertions: bool = False
+    simulation: SimulationRun, feedback_level: str = "outcome"
 ) -> str:
     """Extract agent-only trace from tau2 simulation for Reflector.
 
@@ -541,9 +545,10 @@ def extract_conversation_trace(
     task-specific knowledge from the user simulator's scenario prompt —
     the reflector should learn from the agent's behavior, not the task setup.
 
-    When include_assertions=True (NOT recommended), also includes failed
-    nl_assertions and action checks. This causes data leakage because
-    assertion text encodes expected correct behavior (effectively ground truth).
+    Feedback levels control data leakage:
+    - trace: conversation only (no reward, no assertions)
+    - outcome: conversation + reward/steps (default, no ground truth leakage)
+    - full: conversation + failed assertions + action checks (data leakage!)
     """
     lines = ["## Conversation Trace\n"]
 
@@ -563,10 +568,10 @@ def extract_conversation_trace(
             content = msg.content[:1000] if len(msg.content) > 1000 else msg.content
             lines.append(f"Tool {status}: {content}")
 
-    if include_assertions:
+    if feedback_level == "full":
         # WARNING: Including assertions causes data leakage - assertion text
         # encodes expected correct behavior (effectively ground truth).
-        # Use --include-assertions flag only for A/B leakage comparison.
+        # Use --feedback-level full only for A/B leakage comparison.
         if simulation.reward_info and simulation.reward_info.nl_assertions:
             failed = [a for a in simulation.reward_info.nl_assertions if not a.met]
             if failed:
@@ -585,12 +590,12 @@ def extract_conversation_trace(
                 for a in failed_actions:
                     lines.append(f"- Action: {a.action}")
 
-    # Add termination reason if abnormal
-    if (
-        simulation.termination_reason
-        and simulation.termination_reason.value != "success"
-    ):
-        lines.append(f"\n## Termination: {simulation.termination_reason.value}")
+        # Add termination reason if abnormal (only for full level)
+        if (
+            simulation.termination_reason
+            and simulation.termination_reason.value != "success"
+        ):
+            lines.append(f"\n## Termination: {simulation.termination_reason.value}")
 
     return "\n".join(lines)
 
@@ -802,22 +807,33 @@ def run_ace_training(
                 )
 
                 # Extract agent-only conversation trace for meso-level learning
+                feedback_level = getattr(args, "feedback_level", "outcome")
                 if simulation:
-                    trace = extract_conversation_trace(
+                    trace_str = extract_conversation_trace(
                         simulation,
-                        include_assertions=getattr(args, "include_assertions", False),
+                        feedback_level=feedback_level,
                     )
+                    trace_ctx = TraceContext.from_tau_simulation(simulation.messages)
+                else:
+                    trace_str = "No trace available"
+                    trace_ctx = None
+
+                if feedback_level == "trace":
+                    feedback = f"## Agent Domain Policy\n{domain_policy}"
+                else:
                     outcome = "SUCCEEDED" if result["success"] else "FAILED"
                     feedback = f"Task {outcome}. Reward: {result['reward']:.2f}, Steps: {result['steps']}\n\n## Agent Domain Policy\n{domain_policy}"
-                else:
-                    trace = "No trace available"
-                    feedback = f"Task FAILED. Error: {result.get('error', 'Unknown')}"
 
                 # Trace goes in reasoning (Model Reasoning), outcome+policy in feedback (Environment Feedback)
                 agent_output = AgentOutput(
-                    final_answer=f"reward={result['reward']:.2f}",
-                    reasoning=trace,
+                    final_answer=(
+                        "task completed"
+                        if feedback_level == "trace"
+                        else f"reward={result['reward']:.2f}"
+                    ),
+                    reasoning=trace_str,
                     skill_ids=[],
+                    trace_context=trace_ctx,
                 )
 
                 # Learn from result with full conversation context
@@ -909,10 +925,11 @@ def run_ace_batch_training(
             )
 
             # Extract trace for batch learning
+            feedback_level = getattr(args, "feedback_level", "outcome")
             if simulation:
                 trace = extract_conversation_trace(
                     simulation,
-                    include_assertions=getattr(args, "include_assertions", False),
+                    feedback_level=feedback_level,
                 )
                 # Truncate trace if needed (configurable via --trace-limit)
                 trace_lines = trace.split("\n")
@@ -924,8 +941,11 @@ def run_ace_batch_training(
             else:
                 trace = f"Error: {result.get('error', 'Unknown')}"
 
-            outcome = "SUCCEEDED" if result["success"] else "FAILED"
-            feedback = f"Task {outcome}. Reward: {result['reward']:.2f}, Steps: {result['steps']}"
+            if feedback_level == "trace":
+                feedback = "Task completed"
+            else:
+                outcome = "SUCCEEDED" if result["success"] else "FAILED"
+                feedback = f"Task {outcome}. Reward: {result['reward']:.2f}, Steps: {result['steps']}"
 
             traces.append((task, result, trace, feedback))
 
