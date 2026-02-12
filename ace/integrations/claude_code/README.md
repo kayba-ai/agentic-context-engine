@@ -11,29 +11,54 @@ This integration enables ACE (Agentic Context Engineering) to learn from your Cl
 - Writes learned strategies into `CLAUDE.md` (auto-loaded by Claude Code)
 - Persists a full skillbook to `.ace/skillbook.json`
 - Uses the Claude Code CLI subscription (no API keys)
-- Auto-patches Claude Code's `cli.js` system prompt for reliable, low-token `--print` learning runs
+- Safe, non-destructive: never modifies your Claude Code installation
 
 ## Quick Start
 
+### Step 1: Install
+
 ```bash
-# Install
 pip install ace-framework
-
-# After a Claude Code session, learn from it
-ace-learn
-
-# Check prerequisites
-ace-learn doctor
 ```
 
-ACE provides slash commands for use within Claude Code sessions.
+### Step 2: Set up slash commands (one-time)
 
-Run once after installing ACE:
 ```bash
 ace-learn setup
 ```
 
-This installs the following slash commands to `~/.claude/commands/`:
+This installs `/ace-learn`, `/ace-insights`, and other slash commands into `~/.claude/commands/`.
+
+### Step 3: Do some work in Claude Code
+
+Use Claude Code on your project as usual — write code, fix bugs, refactor. ACE learns from these sessions.
+
+### Step 4: Learn from the session
+
+```bash
+ace-learn
+```
+
+Expected output:
+```
+Reading transcript... ~/.claude/projects/.../abc123.jsonl (142 entries)
+Reflecting on session...
+Updating skillbook...
+✓ Learned 2 new strategies
+✓ Updated CLAUDE.md with learned strategies
+✓ Saved skillbook to .ace/skillbook.json
+```
+
+Your next Claude Code session will automatically use the learned strategies (they're in `CLAUDE.md`, which Claude Code reads on startup).
+
+To see what was learned:
+```bash
+ace-learn insights
+```
+
+### Slash commands
+
+After running `ace-learn setup`, these slash commands are available inside Claude Code sessions:
 
 | Slash Command | Description |
 |---------------|-------------|
@@ -83,25 +108,7 @@ CLAUDE.md updated with learned strategies
 |------|---------|
 | `CLAUDE.md` | Learned strategies (auto-read by Claude Code) |
 | `.ace/skillbook.json` | Persistent skillbook (JSON) |
-| `~/.ace/claude-learner/cli.js` | Patched Claude Code CLI (internal; created automatically when possible) |
-
-## Claude CLI System Prompt Patching
-
-For learning runs, ACE prefers a patched copy of Claude Code's `cli.js` with a minimal ACE-focused system prompt.
-This avoids Claude Code's large default system prompt in `--print` mode and prevents tool-use attempts during learning.
-
-- Written to: `~/.ace/claude-learner/cli.js` (does not modify your original installation)
-- Auto-created on demand by `CLIClient` (no setup command)
-- Falls back to the system `claude` binary if patching is unavailable
-
-### Verification
-
-Check if commands are installed:
-```bash
-ace-learn doctor
-```
-
-Look for the "Slash commands" section in the output.
+| `~/.ace/claude-learner/cli.js` | Internal: optimized CLI for learning runs (see [Internals](#internals)) |
 
 ## Project Root Detection
 
@@ -145,6 +152,18 @@ ace/integrations/claude_code/
 └── .ace/
     └── skillbook.json   # Persistent skillbook
 ```
+
+## Internals
+
+### CLI System Prompt Optimization
+
+For learning runs, ACE creates a separate copy of Claude Code's `cli.js` with a minimal ACE-focused system prompt. This reduces token usage in `--print` mode and prevents tool-use attempts during learning.
+
+- **Safe**: written to `~/.ace/claude-learner/cli.js` — does not modify your Claude Code installation
+- Auto-created on demand by `CLIClient` (no setup needed)
+- Falls back to the system `claude` binary if unavailable
+
+Verify with `ace-learn doctor` — look for the "Patched CLI" line in the output.
 
 ## Troubleshooting
 

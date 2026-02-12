@@ -159,12 +159,48 @@ await agent.run(task="New task")  # Starts smart!
 </details>
 <br>
 
-### 4. **ACEClaudeCode** - Claude Code CLI 💻
+### 4. **Claude Code** - Learn While You Code 💻
 
-Self-improving coding agent using [Claude Code](https://claude.ai/code):
+ACE integrates with [Claude Code](https://claude.ai/code) in three ways. Pick the one that fits your workflow:
 
-**Features:** Claude Code CLI wrapper, automatic learning, task execution traces
-**[→ Claude Code Loop Example](examples/claude-code-loop/)**
+| Approach | When to use |
+|----------|-------------|
+| `ace-learn` CLI | You already use Claude Code interactively and want to learn after sessions |
+| [Claude Code Loop](examples/claude-code-loop/) | You want fully autonomous coding (walk away, come back to finished work) |
+| `ACEClaudeCode` Python API | You're building a custom pipeline that orchestrates Claude Code |
+
+#### `ace-learn` CLI (interactive users)
+
+No API keys required — uses your existing Claude Code subscription.
+
+```bash
+pip install ace-framework
+
+# One-time: install /ace-learn slash commands into Claude Code
+ace-learn setup
+
+# After a coding session, learn from it
+ace-learn
+
+# Check prerequisites
+ace-learn doctor
+```
+
+**CLI Commands:**
+```bash
+ace-learn             # Learn from latest transcript, update CLAUDE.md
+ace-learn --lines 500 # Learn from last N transcript lines only
+ace-learn doctor      # Verify prerequisites and configuration
+ace-learn insights    # Show learned strategies
+ace-learn remove <id> # Remove insight by ID
+ace-learn clear --confirm # Reset skillbook
+```
+
+**How it works:** `ace-learn` reads the latest Claude Code transcript and writes learned strategies into your project's `CLAUDE.md` (plus a persistent `.ace/skillbook.json`).
+
+**[→ Full integration docs](ace/integrations/claude_code/README.md)**
+
+#### `ACEClaudeCode` Python API (programmatic usage)
 
 <details>
 <summary>Click to view code example</summary>
@@ -174,7 +210,7 @@ from ace import ACEClaudeCode
 
 agent = ACEClaudeCode(
     working_dir="./my_project",
-    ace_model="gpt-4o-mini"
+    ace_model="claude-sonnet-4-5-20250929"  # Any LiteLLM-supported model works
 )
 
 # Execute coding tasks - agent learns from each
@@ -187,42 +223,7 @@ agent = ACEClaudeCode(working_dir="./project", skillbook_path="coding_expert.jso
 
 </details>
 
-### **Claude Code Integration** - Learn While You Code 💻
-
-ACE integrates directly with [Claude Code](https://claude.ai/code) to learn from your coding sessions:
-
-```bash
-# Install
-pip install ace-framework
-
-# After a Claude Code session, learn from it
-ace-learn
-
-# Check prerequisites (transcripts, project detection, patched cli.js status)
-ace-learn doctor
-```
-
-No API keys required: `ace-learn` uses your existing Claude Code subscription (via the `claude` CLI) and reads Claude Code transcripts from `~/.claude/projects/`.
-
-**Project root detection:**
-- ACE writes to your project root (`<project>/CLAUDE.md` and `<project>/.ace/skillbook.json`).
-- In monorepos, create a `.ace-root` file at the repo root (or use `ACE_PROJECT_DIR` / `ace-learn --project`).
-
-**Slash Commands:**
-- Optional: create `~/.claude/commands/ace-learn.md` to use `/ace-learn` inside Claude Code (Claude slash commands are just Markdown files).
-- Other useful commands mirror the CLI: `/ace-insights`, `/ace-remove`, `/ace-clear` (if you create matching files in `~/.claude/commands/`).
-
-**CLI Commands:**
-```bash
-ace-learn             # Learn from latest transcript, update CLAUDE.md
-ace-learn --lines 500 # Learn from last N transcript lines only
-ace-learn doctor      # Verify prerequisites and configuration
-ace-learn insights    # Show learned strategies
-ace-learn remove <id> # Remove insight by ID
-ace-learn clear --confirm # Reset skillbook
-```
-
-**How it works:** You trigger learning manually by running `ace-learn`, which reads the latest Claude Code transcript and writes learned strategies into your project's `CLAUDE.md` (plus a persistent `.ace/skillbook.json`).
+**[→ Claude Code Loop Example](examples/claude-code-loop/)**
 
 ---
 

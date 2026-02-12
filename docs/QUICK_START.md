@@ -92,7 +92,7 @@ from ace import ACEClaudeCode
 
 agent = ACEClaudeCode(
     working_dir="./my_project",
-    ace_model="gpt-4o-mini"
+    ace_model="claude-sonnet-4-5-20250929"  # Any LiteLLM-supported model works
 )
 
 # Execute coding tasks - agent learns from each
