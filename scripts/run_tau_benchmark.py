@@ -222,7 +222,8 @@ def load_config(name_or_path: str) -> Dict[str, Any]:
         Merged config dict (parent values overridden by child values).
     """
     path = Path(name_or_path)
-    if not path.suffix:
+    if not path.exists():
+        # Try as a config name in the config directory
         path = CONFIG_DIR / f"{name_or_path}.yaml"
 
     if not path.exists():
@@ -400,6 +401,12 @@ def parse_args() -> argparse.Namespace:
         help="Save detailed per-task results",
     )
     parser.add_argument(
+        "--label",
+        type=str,
+        default=None,
+        help="Custom label for output filenames (overrides config name in file paths)",
+    )
+    parser.add_argument(
         "--quiet",
         action="store_true",
         help="Suppress progress output",
@@ -422,6 +429,31 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="What Reflector sees: trace=conversation only, outcome=+reward (default), full=+assertions",
     )
+    parser.add_argument(
+        "--reflector-prompts",
+        choices=["base", "v1", "v2", "v3", "v4", "v5"],
+        default=None,
+        help="Recursive reflector prompt version (default: base)",
+    )
+    parser.add_argument(
+        "--sweep-prompts",
+        action="store_true",
+        help="Sweep all prompt versions: train + evaluate each, compare against shared baseline",
+    )
+    parser.add_argument(
+        "--capture-reflector-inputs",
+        type=str,
+        default=None,
+        metavar="DIR",
+        help="Run train tasks and save reflector inputs per task to DIR (no reflection/learning)",
+    )
+    parser.add_argument(
+        "--replay-reflector-inputs",
+        type=str,
+        default=None,
+        metavar="DIR",
+        help="Replay captured reflector inputs from DIR through all prompt versions to train skillbooks",
+    )
 
     args = parser.parse_args()
 
@@ -442,6 +474,7 @@ def parse_args() -> argparse.Namespace:
         "trace_limit": "trace_limit",
         "max_refinement_rounds": "max_refinement_rounds",
         "feedback_level": "feedback_level",
+        "reflector_prompts": "reflector_prompts",
     }
 
     for cfg_key, value in flat.items():
@@ -453,7 +486,7 @@ def parse_args() -> argparse.Namespace:
             setattr(args, attr, value)
 
     # Store config metadata for banner
-    args._config_name = args.config
+    args._config_name = args.label or args.config
     args._config_file = cfg.get("_config_file", "")
 
     # Final fallback defaults for anything still None
@@ -773,7 +806,18 @@ def run_ace_training(
     # Use reflector-model for Reflector/SkillManager if specified
     reflector_model = getattr(args, "reflector_model", None) or args.model
     reflector_client = create_llm_client(args, model=reflector_model)
-    reflector = Reflector(reflector_client, mode=ReflectorMode.RECURSIVE)
+
+    # Resolve recursive reflector prompt template
+    reflector_kwargs: Dict[str, Any] = dict(mode=ReflectorMode.RECURSIVE)
+    prompt_version = getattr(args, "reflector_prompts", None)
+    if prompt_version:
+        from ace.reflector.prompt_registry import get_prompt_template
+
+        reflector_kwargs["recursive_prompt_template"] = get_prompt_template(
+            prompt_version
+        )
+
+    reflector = Reflector(reflector_client, **reflector_kwargs)
     skill_manager = SkillManager(
         reflector_client, prompt_template=pm.get_skill_manager_prompt(version="3.0")
     )
@@ -895,7 +939,18 @@ def run_ace_batch_training(
     # Use reflector-model for Reflector/SkillManager if specified
     reflector_model = getattr(args, "reflector_model", None) or args.model
     reflector_client = create_llm_client(args, model=reflector_model)
-    reflector = Reflector(reflector_client, mode=ReflectorMode.RECURSIVE)
+
+    # Resolve recursive reflector prompt template
+    reflector_kwargs: Dict[str, Any] = dict(mode=ReflectorMode.RECURSIVE)
+    prompt_version = getattr(args, "reflector_prompts", None)
+    if prompt_version:
+        from ace.reflector.prompt_registry import get_prompt_template
+
+        reflector_kwargs["recursive_prompt_template"] = get_prompt_template(
+            prompt_version
+        )
+
+    reflector = Reflector(reflector_client, **reflector_kwargs)
     skill_manager = SkillManager(
         reflector_client, prompt_template=pm.get_skill_manager_prompt(version="3.0")
     )
@@ -1033,6 +1088,224 @@ def run_ace_batch_training(
     return skillbook
 
 
+def capture_reflector_inputs(args: argparse.Namespace) -> None:
+    """Run train tasks and save reflector inputs per task to disk.
+
+    Executes each task with an empty skillbook (no ACE injection), then
+    builds the exact same AgentOutput/feedback/question that run_ace_training()
+    would build — but serializes them to JSON instead of calling reflector.reflect().
+    """
+    output_dir = Path(args.capture_reflector_inputs)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Default to train split unless explicitly overridden
+    split = args.task_split if args.task_split != "test" else "train"
+    tasks = load_tau_tasks(args, split=split)
+
+    # Filter by --task-ids if set
+    if getattr(args, "task_ids", None):
+        ids = set(args.task_ids.split(","))
+        tasks = [t for t in tasks if str(t["task_id"]) in ids]
+
+    if not tasks:
+        print("Error: No tasks loaded")
+        sys.exit(1)
+
+    if not args.quiet:
+        print(f"📸 Capturing reflector inputs for {len(tasks)} tasks (split: {split})")
+
+    skillbook = Skillbook()  # Empty — no ACE injection
+    feedback_level = getattr(args, "feedback_level", "outcome")
+    saved = 0
+
+    for i, task in enumerate(tasks):
+        task_id = task["task_id"]
+        if not args.quiet:
+            print(f"  [{i + 1}/{len(tasks)}] Task {task_id}", end=" ", flush=True)
+
+        try:
+            result, simulation = run_single_task_traced(
+                task, skillbook, args, phase="capture", trial=0,
+            )
+
+            # Build trace — identical to run_ace_training() lines 822–857
+            if simulation:
+                trace_ctx = TraceContext.from_tau_simulation(
+                    simulation.messages,
+                    system_prompt=ACELLMAgent._last_system_prompt or "",
+                )
+                trace_str = trace_ctx.to_markdown()
+                trace_str = _enrich_trace_with_feedback(
+                    trace_str, simulation, feedback_level
+                )
+            else:
+                trace_str = "No trace available"
+                trace_ctx = None
+
+            if feedback_level == "trace":
+                feedback = "Task completed"
+            else:
+                outcome = "SUCCEEDED" if result["success"] else "FAILED"
+                feedback = f"Task {outcome}. Reward: {result['reward']:.2f}, Steps: {result['steps']}"
+
+            last_msg = (
+                _extract_last_agent_message(simulation)
+                if simulation
+                else "No agent response"
+            )
+            agent_output = AgentOutput(
+                final_answer=last_msg,
+                reasoning=trace_str,
+                skill_ids=[],
+                trace_context=trace_ctx,
+            )
+
+            # Serialize per-task JSON — exactly what reflector.reflect() receives
+            record = {
+                "question": "customer service task",
+                "ground_truth": None,
+                "feedback": feedback,
+                "agent_output": {
+                    "final_answer": agent_output.final_answer,
+                    "reasoning": agent_output.reasoning,
+                    "skill_ids": agent_output.skill_ids,
+                },
+                "skillbook": "(empty skillbook)",
+            }
+
+            task_file = output_dir / f"task_{task_id}.json"
+            with open(task_file, "w") as f:
+                json.dump(record, f, indent=2, default=str)
+
+            saved += 1
+            if not args.quiet:
+                status = "✓" if result["success"] else "✗"
+                print(f"{status} (reward={result['reward']:.2f})")
+
+        except Exception as e:
+            if not args.quiet:
+                print(f"ERROR: {e}")
+
+    if not args.quiet:
+        print(f"\n✅ Saved {saved}/{len(tasks)} reflector input files to {output_dir}")
+
+
+def replay_reflector_inputs(args: argparse.Namespace) -> None:
+    """Replay captured reflector inputs through all prompt versions to train skillbooks.
+
+    Loads task_*.json files from the given directory, then for each prompt version:
+    creates a fresh Skillbook, Reflector (recursive mode), and SkillManager, iterates
+    through all inputs (reflect -> update_skills -> apply_update), and saves the
+    trained skillbook.
+    """
+    from ace.prompt_manager import PromptManager
+    from ace.reflector.prompt_registry import ALL_PROMPT_VERSION_NAMES, get_prompt_template
+
+    input_dir = Path(args.replay_reflector_inputs)
+    if not input_dir.exists():
+        print(f"Error: Directory not found: {input_dir}")
+        sys.exit(1)
+
+    # Load all task files, sorted by task ID for deterministic order
+    task_files = sorted(
+        input_dir.glob("task_*.json"),
+        key=lambda p: int(p.stem.split("_")[1]),
+    )
+    if not task_files:
+        print(f"Error: No task_*.json files found in {input_dir}")
+        sys.exit(1)
+
+    # Load all inputs
+    inputs = []
+    for tf in task_files:
+        with open(tf) as f:
+            inputs.append(json.load(f))
+
+    print(f"\n🔄 Replaying {len(inputs)} reflector inputs through {len(ALL_PROMPT_VERSION_NAMES)} prompt versions")
+
+    reflector_model = getattr(args, "reflector_model", None) or args.model
+    reflector_client = create_llm_client(args, model=reflector_model)
+    pm = PromptManager()
+
+    output_base = input_dir / "training_recursive_sequential"
+    output_base.mkdir(parents=True, exist_ok=True)
+
+    summary_table: Dict[str, int] = {}
+
+    for version in ALL_PROMPT_VERSION_NAMES:
+        print(f"\n{'=' * 60}")
+        print(f"  Prompt version: {version}")
+        print(f"{'=' * 60}")
+
+        skillbook = Skillbook()
+        reflector = Reflector(
+            reflector_client,
+            mode=ReflectorMode.RECURSIVE,
+            recursive_prompt_template=get_prompt_template(version),
+        )
+        skill_manager = SkillManager(
+            reflector_client,
+            prompt_template=pm.get_skill_manager_prompt(version="3.0"),
+        )
+
+        for i, record in enumerate(inputs):
+            task_file = task_files[i]
+            task_id = task_file.stem  # e.g. "task_0"
+
+            try:
+                # Reconstruct AgentOutput from JSON (no trace_context — auto-built from reasoning)
+                ao_data = record["agent_output"]
+                agent_output = AgentOutput(
+                    final_answer=ao_data["final_answer"],
+                    reasoning=ao_data["reasoning"],
+                    skill_ids=ao_data.get("skill_ids", []),
+                )
+
+                reflection = reflector.reflect(
+                    question=record["question"],
+                    agent_output=agent_output,
+                    skillbook=skillbook,
+                    ground_truth=record.get("ground_truth"),
+                    feedback=record["feedback"],
+                )
+
+                skill_manager_output = skill_manager.update_skills(
+                    reflection=reflection,
+                    skillbook=skillbook,
+                    question_context=record["question"],
+                    progress=f"{version} · {i + 1}/{len(inputs)}",
+                )
+
+                skillbook.apply_update(skill_manager_output.update)
+
+                print(f"    [{i + 1}/{len(inputs)}] {task_id} ✓ ({len(skillbook.skills())} skills)")
+
+            except Exception as e:
+                print(f"    [{i + 1}/{len(inputs)}] {task_id} ERROR: {e}")
+                continue
+
+        # Save trained skillbook
+        version_dir = output_base / version
+        version_dir.mkdir(parents=True, exist_ok=True)
+        skillbook_path = version_dir / "skillbook.json"
+        skillbook.save_to_file(str(skillbook_path))
+
+        n_skills = len(skillbook.skills())
+        summary_table[version] = n_skills
+        print(f"  Saved {n_skills} skills to {skillbook_path}")
+
+    # Print summary table
+    print(f"\n{'=' * 40}")
+    print("  REPLAY SUMMARY")
+    print(f"{'=' * 40}")
+    print(f"  {'Version':<10} {'Skills':>8}")
+    print(f"  {'-' * 20}")
+    for version in ALL_PROMPT_VERSION_NAMES:
+        print(f"  {version:<10} {summary_table[version]:>8}")
+    print(f"{'=' * 40}")
+    print(f"\n✅ All skillbooks saved to {output_base}/")
+
+
 def run_evaluation(
     args: argparse.Namespace,
     tasks: List[Dict[str, Any]],
@@ -1136,6 +1409,7 @@ def save_results(
             "trace_limit": getattr(args, "trace_limit", 500),
             "skillbook_path": getattr(args, "skillbook", None),
             "reflector_model": getattr(args, "reflector_model", None),
+            "reflector_prompts": getattr(args, "reflector_prompts", None),
             "feedback_level": getattr(args, "feedback_level", "outcome"),
         },
         "results": {
@@ -1170,9 +1444,203 @@ def save_results(
             print(f"   Skillbook: {skillbook_file}")
 
 
+def _run_prompt_sweep(args: argparse.Namespace) -> None:
+    """Sweep all prompt versions: shared baseline, then train+evaluate each.
+
+    1. Run baseline evaluation (no ACE) once.
+    2. For each prompt version (base, v2, v3, v4, v5):
+       - Train skillbook using that prompt version's reflector
+       - Evaluate on test split with the trained skillbook
+    3. Print comparison table and save combined results.
+    """
+    from ace.reflector.prompt_registry import ALL_PROMPT_VERSION_NAMES
+    import copy
+
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    experiment_name = f"tau_{args.domain}_{args.model}_sweep_{timestamp}"
+
+    # Load tasks
+    train_tasks = load_tau_tasks(args, split="train")
+    test_tasks = load_tau_tasks(args, split="test")
+
+    # Filter by --task-ids if set
+    if getattr(args, "task_ids", None):
+        ids = set(args.task_ids.split(","))
+        test_tasks = [t for t in test_tasks if str(t["task_id"]) in ids]
+
+    if not train_tasks or not test_tasks:
+        print("Error: No tasks loaded")
+        sys.exit(1)
+
+    print(f"\n📊 Loaded {len(train_tasks)} train + {len(test_tasks)} test tasks")
+    print(f"\n{'=' * 60}")
+    print("  PROMPT SWEEP: base, v2, v3, v4, v5")
+    print(f"{'=' * 60}")
+
+    output_dir = Path(args.output)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # --- Phase 1: Shared baseline ---
+    print("\n" + "=" * 60)
+    print("  BASELINE (no ACE)")
+    print("=" * 60)
+    baseline_skillbook = Skillbook()
+    baseline_results = run_evaluation(
+        args,
+        test_tasks,
+        baseline_skillbook,
+        "Baseline",
+        experiment_name=experiment_name,
+    )
+    print_results(baseline_results, "BASELINE Results", args)
+    save_results(args, baseline_results, baseline_skillbook, "baseline")
+
+    # --- Phase 2: Train + evaluate each prompt version ---
+    sweep_results: Dict[str, Dict[str, Any]] = {"baseline": baseline_results}
+    sweep_skillbooks: Dict[str, Skillbook] = {}
+    original_config_name = getattr(args, "_config_name", args.config)
+
+    for version in ALL_PROMPT_VERSION_NAMES:
+        print(f"\n{'=' * 60}")
+        print(f"  PROMPT VERSION: {version}")
+        print(f"{'=' * 60}")
+
+        # Set prompt version for training
+        args.reflector_prompts = version
+        args._config_name = f"{original_config_name}_rr-{version}"
+
+        # Train
+        if getattr(args, "batch_reflect", False):
+            ace_skillbook = run_ace_batch_training(
+                train_tasks,
+                args,
+                args.quiet,
+                experiment_name=f"{experiment_name}_{version}",
+            )
+        else:
+            ace_skillbook = run_ace_training(
+                train_tasks,
+                args,
+                args.quiet,
+                experiment_name=f"{experiment_name}_{version}",
+            )
+
+        sweep_skillbooks[version] = ace_skillbook
+
+        # Evaluate with the trained skillbook (frozen)
+        version_results = run_evaluation(
+            args,
+            test_tasks,
+            ace_skillbook,
+            f"ACE ({version})",
+            experiment_name=f"{experiment_name}_{version}",
+        )
+        sweep_results[version] = version_results
+        print_results(version_results, f"ACE Results (rr-{version})", args)
+        save_results(args, version_results, ace_skillbook, f"ace_rr-{version}")
+
+    # --- Phase 3: Comparison table ---
+    args._config_name = original_config_name
+    k = args.k
+
+    print(f"\n{'=' * 70}")
+    print("  SWEEP COMPARISON")
+    print(f"{'=' * 70}")
+
+    # Header
+    header = f"  {'Metric':<10}"
+    header += f"{'baseline':>10}"
+    for v in ALL_PROMPT_VERSION_NAMES:
+        header += f"{'rr-' + v:>10}"
+    print(header)
+    print("  " + "-" * (10 + 10 * (1 + len(ALL_PROMPT_VERSION_NAMES))))
+
+    # Rows for each pass^j
+    for j in range(1, k + 1):
+        row = f"  {'pass^' + str(j):<10}"
+        b = baseline_results["metrics"][f"pass_{j}"]
+        row += f"{b:>9.1%} "
+        for v in ALL_PROMPT_VERSION_NAMES:
+            val = sweep_results[v]["metrics"][f"pass_{j}"]
+            diff = val - b
+            sign = "+" if diff > 0 else ""
+            row += f"{val:>6.1%}({sign}{diff:.1%})"
+        print(row)
+
+    # Skillbook sizes
+    row = f"  {'skills':<10}"
+    row += f"{'0':>10}"
+    for v in ALL_PROMPT_VERSION_NAMES:
+        n = len(sweep_skillbooks[v].skills())
+        row += f"{n:>10}"
+    print(row)
+    print(f"{'=' * 70}")
+
+    # Save combined sweep results
+    sweep_summary = {
+        "benchmark": "tau_bench",
+        "sweep_type": "reflector_prompts",
+        "domain": args.domain,
+        "model": args.model,
+        "reflector_model": getattr(args, "reflector_model", None) or args.model,
+        "timestamp": timestamp,
+        "config_profile": original_config_name,
+        "k": k,
+        "train_tasks": len(train_tasks),
+        "test_tasks": len(test_tasks),
+        "versions": {},
+    }
+    for label, results in sweep_results.items():
+        sweep_summary["versions"][label] = {
+            "metrics": results["metrics"],
+            "tasks_evaluated": results["tasks_evaluated"],
+        }
+    sweep_file = output_dir / f"tau_{args.domain}_{original_config_name}_sweep_{timestamp}.json"
+    with open(sweep_file, "w") as f:
+        json.dump(sweep_summary, f, indent=2)
+    print(f"\n💾 Sweep results saved to: {sweep_file}")
+
+
 def main() -> None:
     """Main entry point."""
     args = parse_args()
+
+    # Capture mode: save reflector inputs and exit
+    if getattr(args, "capture_reflector_inputs", None):
+        setup_opik_tracing(
+            args.domain, args.model, getattr(args, "opik_project", None)
+        )
+        capture_reflector_inputs(args)
+        return
+
+    # Replay mode: replay captured inputs through all prompt versions and exit
+    if getattr(args, "replay_reflector_inputs", None):
+        replay_reflector_inputs(args)
+        return
+
+    # Sweep mode: run all prompt versions and compare
+    if getattr(args, "sweep_prompts", False):
+        # Set up Opik tracing before sweep
+        opik_integration = setup_opik_tracing(
+            args.domain, args.model, getattr(args, "opik_project", None)
+        )
+        if not args.quiet:
+            config_label = getattr(args, "_config_name", "default")
+            config_file = getattr(args, "_config_file", "")
+            reflector_model = getattr(args, "reflector_model", None) or args.model
+            print("🚀 TAU-bench Prompt Sweep")
+            print(f"   Config: {config_label} ({config_file})")
+            print(f"   Domain: {args.domain}")
+            print(f"   Agent Model: {args.model}")
+            if reflector_model != args.model:
+                print(f"   Reflector Model: {reflector_model}")
+            print(f"   User LLM: {args.user_llm}")
+            print(f"   K: {args.k}, Max steps: {args.max_steps}, Seed: {args.seed}")
+            print(f"   ACE epochs: {args.epochs}")
+        _run_prompt_sweep(args)
+        if not args.quiet:
+            print("\n✅ Prompt sweep completed successfully!")
+        return
 
     # Validate --skillbook flag
     if args.skillbook:
@@ -1226,6 +1694,11 @@ def main() -> None:
             print(f"   ACE epochs: {args.epochs}")
             if args.batch_reflect:
                 print("   Learning mode: BATCH (deferred reflection)")
+            rp = getattr(args, "reflector_prompts", None)
+            if rp:
+                print(f"   Reflector prompts: {rp}")
+            if getattr(args, "sweep_prompts", False):
+                print("   Sweep mode: ALL prompt versions")
 
     def _filter_task_ids(tasks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Filter tasks to only specified IDs if --task-ids is set."""
