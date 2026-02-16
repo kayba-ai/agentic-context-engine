@@ -95,6 +95,7 @@ evaluation_results/*.json
 # Benchmark data and cache
 benchmark_results/
 benchmark_cache/
+tau_benchmark_results/
 appworld_data/
 *.arrow
 *.parquet

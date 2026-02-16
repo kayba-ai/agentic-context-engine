@@ -22,6 +22,7 @@ from .sandbox import TraceSandbox, ExecutionResult, ExecutionTimeoutError
 from .trace_context import TraceContext, TraceStep
 from .recursive import RecursiveReflector
 from .prompts import REFLECTOR_RECURSIVE_PROMPT, REFLECTOR_RECURSIVE_SYSTEM
+from .prompts_rr_v3 import REFLECTOR_RECURSIVE_V3_PROMPT, REFLECTOR_RECURSIVE_V3_SYSTEM
 from .subagent import SubAgentConfig, SubAgentLLM, create_ask_llm_function
 
 __all__ = [
@@ -40,7 +41,10 @@ __all__ = [
     "SubAgentConfig",
     "SubAgentLLM",
     "create_ask_llm_function",
-    # Prompts
+    # Prompts (v2 kept for backward compat)
     "REFLECTOR_RECURSIVE_PROMPT",
     "REFLECTOR_RECURSIVE_SYSTEM",
+    # Prompts v3 (default)
+    "REFLECTOR_RECURSIVE_V3_PROMPT",
+    "REFLECTOR_RECURSIVE_V3_SYSTEM",
 ]

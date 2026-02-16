@@ -420,28 +420,34 @@ class TestPromptDoesNotContainFullData(unittest.TestCase):
         self.assertIn("chars", initial_content.lower())
 
     def test_prompt_contains_preview_and_metadata_placeholders(self):
-        """Test that the prompt contains preview and size metadata placeholders."""
+        """Test that both v2 and v3 prompts contain preview and size metadata placeholders."""
         from ace.reflector.prompts import REFLECTOR_RECURSIVE_PROMPT
-
-        # The prompt template should have placeholders for metadata
-        self.assertIn("{reasoning_length}", REFLECTOR_RECURSIVE_PROMPT)
-        self.assertIn("{answer_length}", REFLECTOR_RECURSIVE_PROMPT)
-        self.assertIn("{step_count}", REFLECTOR_RECURSIVE_PROMPT)
-
-        # The prompt should have preview placeholders
-        self.assertIn("{question_preview}", REFLECTOR_RECURSIVE_PROMPT)
-        self.assertIn("{reasoning_preview}", REFLECTOR_RECURSIVE_PROMPT)
-        self.assertIn("{answer_preview}", REFLECTOR_RECURSIVE_PROMPT)
-        self.assertIn("{ground_truth_preview}", REFLECTOR_RECURSIVE_PROMPT)
-        self.assertIn("{feedback_preview}", REFLECTOR_RECURSIVE_PROMPT)
+        from ace.reflector.prompts_rr_v3 import REFLECTOR_RECURSIVE_V3_PROMPT
 
         import re
 
-        # Raw {reasoning}, {feedback}, etc. should NOT appear (only _length/_preview variants)
-        self.assertIsNone(re.search(r"\{reasoning\}", REFLECTOR_RECURSIVE_PROMPT))
-        self.assertIsNone(re.search(r"\{feedback\}", REFLECTOR_RECURSIVE_PROMPT))
-        self.assertIsNone(re.search(r"\{skillbook\}", REFLECTOR_RECURSIVE_PROMPT))
-        self.assertIsNone(re.search(r"\{question\}", REFLECTOR_RECURSIVE_PROMPT))
+        for label, prompt in [
+            ("v2", REFLECTOR_RECURSIVE_PROMPT),
+            ("v3", REFLECTOR_RECURSIVE_V3_PROMPT),
+        ]:
+            with self.subTest(prompt_version=label):
+                # The prompt template should have placeholders for metadata
+                self.assertIn("{reasoning_length}", prompt)
+                self.assertIn("{answer_length}", prompt)
+                self.assertIn("{step_count}", prompt)
+
+                # The prompt should have preview placeholders
+                self.assertIn("{question_preview}", prompt)
+                self.assertIn("{reasoning_preview}", prompt)
+                self.assertIn("{answer_preview}", prompt)
+                self.assertIn("{ground_truth_preview}", prompt)
+                self.assertIn("{feedback_preview}", prompt)
+
+                # Raw {reasoning}, {feedback}, etc. should NOT appear
+                self.assertIsNone(re.search(r"\{reasoning\}", prompt))
+                self.assertIsNone(re.search(r"\{feedback\}", prompt))
+                self.assertIsNone(re.search(r"\{skillbook\}", prompt))
+                self.assertIsNone(re.search(r"\{question\}", prompt))
 
 
 @pytest.mark.unit

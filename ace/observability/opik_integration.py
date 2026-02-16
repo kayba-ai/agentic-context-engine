@@ -98,10 +98,14 @@ class OpikIntegration:
                 # Set environment variables to prevent prompts
                 use_local = not os.environ.get("OPIK_API_KEY")
                 if use_local:
-                    os.environ.setdefault("OPIK_URL_OVERRIDE", "http://localhost:5173/api")
+                    os.environ.setdefault(
+                        "OPIK_URL_OVERRIDE", "http://localhost:5173/api"
+                    )
                     os.environ.setdefault("OPIK_WORKSPACE", "default")
                 opik.configure(use_local=use_local, automatic_approvals=True)
-                logger.info(f"Opik configured ({'local' if use_local else 'cloud'}) for project: {project_name}")
+                logger.info(
+                    f"Opik configured ({'local' if use_local else 'cloud'}) for project: {project_name}"
+                )
             except Exception as e:
                 logger.debug(f"Opik configuration skipped: {e}")
                 self.enabled = False

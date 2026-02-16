@@ -7,7 +7,7 @@ import re
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from .config import RecursiveConfig
-from .prompts import REFLECTOR_RECURSIVE_PROMPT
+from .prompts_rr_v3 import REFLECTOR_RECURSIVE_V3_PROMPT
 from .sandbox import TraceSandbox
 from .subagent import CallBudget, SubAgentConfig, create_ask_llm_function
 from .trace_context import TraceContext
@@ -83,7 +83,7 @@ class RecursiveReflector:
         self,
         llm: "LLMClient",
         config: Optional[RecursiveConfig] = None,
-        prompt_template: str = REFLECTOR_RECURSIVE_PROMPT,
+        prompt_template: str = REFLECTOR_RECURSIVE_V3_PROMPT,
         subagent_llm: Optional["LLMClient"] = None,
     ) -> None:
         """Initialize the RecursiveReflector.
