@@ -67,184 +67,14 @@ print(answer)  # "ACE allows AI agents to remember and learn from experience!"
 
 ## Use Cases
 
-### Enhance Existing Agents
-Wrap your existing agent (browser-use, LangChain, custom) with ACE learning. Your agent executes tasks normally while ACE analyzes results and builds a skillbook of effective strategies.
+### Claude Code with Learning [→ Quick Start](ace/integrations/claude_code)
+Run coding tasks with Claude Code while ACE learns patterns from each execution, building expertise over time for your specific codebase and workflows.
 
 ### Automated System Prompting
 The Skillbook acts as an evolving system prompt that automatically improves based on execution feedback—no manual prompt engineering required.
 
-### Claude Code with Learning
-Run coding tasks with Claude Code while ACE learns patterns from each execution, building expertise over time for your specific codebase and workflows.
-
-Create your self-improving agent:
-
-<details>
-<summary>Click to view code example</summary>
-
-```python
-from ace import ACELiteLLM
-
-# Create self-improving agent
-agent = ACELiteLLM(model="gpt-4o-mini")
-
-# Ask related questions - agent learns patterns
-answer1 = agent.ask("If all cats are animals, is Felix (a cat) an animal?")
-answer2 = agent.ask("If all birds fly, can penguins (birds) fly?")  # Learns to check assumptions!
-answer3 = agent.ask("If all metals conduct electricity, does copper conduct electricity?")
-
-# View learned strategies
-print(f"✅ Learned {len(agent.skillbook.skills())} reasoning skills")
-
-# Save for reuse
-agent.save_skillbook("my_agent.json")
-
-# Load and continue
-agent2 = ACELiteLLM.from_skillbook("my_agent.json", model="gpt-4o-mini")
-```
-
-</details>
-<br>
-
-### 2. **ACELangChain** - Wrap ACE Around Your Existing Agent ⛓️
-
-Wrap any LangChain chain/agent with learning:
-
-**Best for:** Multi-step workflows, tool-using agents
-
-<details>
-<summary>Click to view code example</summary>
-
-```python
-from ace import ACELangChain
-
-ace_chain = ACELangChain(runnable=your_langchain_chain)
-result = ace_chain.invoke({"question": "Your task"})  # Learns automatically
-```
-
-</details>
-<br>
-
-### 3. **ACEAgent** - Enhance Browser-Use Agent with Self-Optimizing 🌐
-
-Self-improving browser agents with [browser-use](https://github.com/browser-use/browser-use):
-
-**Features:** Drop-in replacement for `browser_use.Agent`, automatic learning, reusable skillbooks
-**[→ Browser Use Guide](examples/browser-use/README.md)**
-
-<details>
-<summary>Click to view code example</summary>
-
-```bash
-pip install ace-framework[browser-use]
-```
-
-```python
-from ace import ACEAgent
-from browser_use import ChatBrowserUse
-
-# Two LLMs: ChatBrowserUse for browser, gpt-4o-mini for ACE learning
-agent = ACEAgent(
-    llm=ChatBrowserUse(),      # Browser execution
-    ace_model="gpt-4o-mini"    # ACE learning
-)
-
-await agent.run(task="Find top Hacker News post")
-agent.save_skillbook("hn_expert.json")
-
-# Reuse learned knowledge
-agent = ACEAgent(llm=ChatBrowserUse(), skillbook_path="hn_expert.json")
-await agent.run(task="New task")  # Starts smart!
-```
-
-</details>
-<br>
-
-### 4. **Claude Code** - Learn While You Code 💻
-
-ACE integrates with [Claude Code](https://claude.ai/code) in three ways. Pick the one that fits your workflow:
-
-| Approach | When to use |
-|----------|-------------|
-| `ace-learn` CLI | You already use Claude Code interactively and want to learn after sessions |
-| [Claude Code Loop](examples/claude-code-loop/) | You want fully autonomous coding (walk away, come back to finished work) |
-| `ACEClaudeCode` Python API | You're building a custom pipeline that orchestrates Claude Code |
-
-#### `ace-learn` CLI (interactive users)
-
-No API keys required — uses your existing Claude Code subscription.
-
-```bash
-pip install ace-framework
-
-# One-time: install /ace-learn slash commands into Claude Code
-ace-learn setup
-
-# After a coding session, learn from it
-ace-learn
-
-# Check prerequisites
-ace-learn doctor
-```
-
-**CLI Commands:**
-```bash
-ace-learn             # Learn from latest transcript, update CLAUDE.md
-ace-learn --lines 500 # Learn from last N transcript lines only
-ace-learn doctor      # Verify prerequisites and configuration
-ace-learn insights    # Show learned strategies
-ace-learn remove <id> # Remove insight by ID
-ace-learn clear --confirm # Reset skillbook
-```
-
-**How it works:** `ace-learn` reads the latest Claude Code transcript and writes learned strategies into your project's `CLAUDE.md` (plus a persistent `.ace/skillbook.json`).
-
-**[→ Full integration docs](ace/integrations/claude_code/README.md)**
-
-#### `ACEClaudeCode` Python API (programmatic usage)
-
-<details>
-<summary>Click to view code example</summary>
-
-```python
-from ace import ACEClaudeCode
-
-agent = ACEClaudeCode(
-    working_dir="./my_project",
-    ace_model="claude-sonnet-4-5-20250929"  # Any LiteLLM-supported model works
-)
-
-# Execute coding tasks - agent learns from each
-result = agent.run(task="Add unit tests for utils.py")
-agent.save_skillbook("coding_expert.json")
-
-# Reuse learned knowledge
-agent = ACEClaudeCode(working_dir="./project", skillbook_path="coding_expert.json")
-```
-
-</details>
-
-**[→ Claude Code Loop Example](examples/claude-code-loop/)**
-
----
-
-## Why Agentic Context Engine (ACE)?
-
-AI agents make the same mistakes repeatedly.
-
-ACE enables agents to learn from execution feedback: what works, what doesn't, and continuously improve. <br> No training data, no fine-tuning, just automatic improvement.
-
-### Clear Benefits
-- 🧠 **Self-Improving**: Agents autonomously get smarter with each task
-- 📈 **20-35% Better Performance**: Proven improvements on complex tasks
-- 📉 **Reduce Token Usage**: Demonstrated 49% reduction in browser-use example
-
-### Features
-- 🔄 **No Context Collapse**: Preserves valuable knowledge over time
-- ⚡ **Async Learning**: Agent responds instantly while learning happens in background
-- 🚀 **100+ LLM Providers**: Works with OpenAI, Anthropic, Google, and more
-- 📊 **Production Observability**: Built-in Opik integration for enterprise monitoring
-- 🔍 **Recursive Reflection**: Code-based trace analysis with sandboxed REPL for deep pattern extraction
-- 🔄 **Smart Deduplication**: Automatically consolidates similar skills
+### Enhance Existing Agents
+Wrap your existing agent (browser-use, LangChain, custom) with ACE learning. Your agent executes tasks normally while ACE analyzes results and builds a skillbook of effective strategies.
 
 ### Build Self-Improving Agents
 Create new agents with built-in learning for customer support, data extraction, code generation, research, content creation, and task automation.
@@ -265,6 +95,16 @@ In this example:
 3. On the second attempt, the agent correctly realizes there is no seahorse emoji
 
 [→ Try it yourself](examples/litellm/seahorse_emoji_ace.py)
+
+### Tau2 Benchmark
+
+Evaluated on the airline domain of [τ2-bench](https://github.com/sierra-research/tau2-bench) (Sierra Research) — a benchmark for multi-step agentic tasks requiring tool use and policy adherence. Agent: Claude Haiku 4.5. Strategies learned on the train split with no reward signals; all results on the held-out test split.
+
+*pass^k = probability that all k independent attempts succeed. Higher k is a stricter test of agent consistency.*
+
+<img src="benchmarks/tasks/tau_bench/Tau2Benchmark Result Haiku4.5.png" alt="Tau2 Benchmark Results - Haiku 4.5" width="35%"/>
+
+ACE doubles agent consistency at pass^4 using only 15 learned strategies — gains compound as the bar gets higher.
 
 ### Browser Automation
 
@@ -315,41 +155,25 @@ ACE integrates with popular agent frameworks:
 
 ## How Does ACE Work?
 
-*Inspired by the [ACE research paper](https://arxiv.org/abs/2510.04618), extended by [Kayba](https://kayba.ai) with recursive reflection, async learning, and production integrations.*
+*Inspired by the [ACE research framework](https://arxiv.org/abs/2510.04618) from Stanford & SambaNova.*
 
-ACE uses three specialized roles that work together:
-1. **Agent** - Creates a plan using learned skills and executes the task
-2. **Reflector** - Analyzes what worked and what didn't — supports simple (single-pass) and recursive (code-based REPL) modes
-3. **SkillManager** - Updates the skillbook with new strategies based on reflection
+ACE enables agents to learn from execution feedback — what works, what doesn't — and continuously improve. No fine-tuning, no training data, just automatic in-context learning. Three specialized roles work together:
 
-**Important:** The three ACE roles are different specialized prompts using the same language model, not separate models.
+1. **Agent** — Your agent, enhanced with strategies from the Skillbook
+2. **Reflector** — Analyzes execution traces to extract learnings. In recursive mode, the Reflector writes and runs Python code in a sandboxed REPL to programmatically query traces — finding patterns, errors, and insights that single-pass analysis misses
+3. **SkillManager** — Curates the Skillbook: adds new strategies, refines existing ones, and removes outdated patterns based on the Reflector's analysis
 
-ACE teaches your agent and internalizes:
-- **Successes** → Extract patterns that work
-- **Failures** → Learn what to avoid
-- **Tool usage** → Discover which tools work best for which tasks
-- **Edge cases** → Remember rare scenarios and how to handle them
-
-The magic happens in the **Skillbook**—a living document of skills that evolves with experience.
-**Key innovation:** All learning happens **in context** through incremental updates—no fine-tuning, no training data, and complete transparency into what your agent learned.
+The key innovation is the **Recursive Reflector** — instead of summarizing traces in a single pass, it writes and executes Python code in a sandboxed environment to programmatically explore agent execution traces. It can search for patterns, isolate errors, query sub-agents for deeper analysis, and iterate until it finds actionable insights. These insights flow into the **Skillbook** — a living collection of strategies that evolves with every task.
 
 ```mermaid
----
-config:
-  look: neo
-  theme: neutral
----
 flowchart LR
-    Skillbook[("`**Skillbook**<br>(Evolving Context)<br><br>•Strategy Skills<br> Helpful skills <br> Harmful patterns <br> Neutral observations`")]
-    Start(["**Query** <br>User prompt or question"]) --> Agent["**Agent** <br>Executes task using skillbook"]
-    Agent --> Reflector
-    Skillbook -. Provides Context .-> Agent
-    Environment["**Task Environment**<br>Evaluates answer<br>Provides feedback"] -- Feedback+ <br>Optional Ground Truth --> Reflector
-    Reflector["**Reflector**<br>Analyzes and provides feedback what was helpful/harmful"]
-    Reflector --> SkillManager["**SkillManager**<br>Produces improvement updates"]
-    SkillManager --> UpdateOps["**Merger** <br>Updates the skillbook with updates"]
-    UpdateOps -- Incremental<br>Updates --> Skillbook
-    Agent <--> Environment
+    Skillbook[(Skillbook<br>Learned Strategies)]
+    Start([Query]) --> Agent[Agent<br>Enhanced with Skillbook]
+    Agent <--> Environment[Task Environment<br>Evaluates & provides feedback]
+    Environment -- Feedback --> Reflector[Reflector<br>Analyzes traces via<br>sandboxed code execution]
+    Reflector --> SkillManager[SkillManager<br>Curates strategies]
+    SkillManager -- Updates --> Skillbook
+    Skillbook -. Injects context .-> Agent
 ```
 
 ---
@@ -364,7 +188,6 @@ flowchart LR
 - [Prompt Engineering](docs/PROMPT_ENGINEERING.md) - Advanced prompt techniques
 - [Agentic System Prompting](examples/agentic-system-prompting/README.md) - Automatically generate prompt improvements from past traces
 - [Examples](examples/) - Ready-to-run code examples
-- [Recursive Reflector](ace/reflector/) - Code-based trace analysis with sandboxed REPL
 - [Benchmarks](benchmarks/README.md) - Evaluate ACE performance
 - [Changelog](CHANGELOG.md) - Recent changes
 
@@ -378,7 +201,7 @@ We love contributions! Check out our [Contributing Guide](CONTRIBUTING.md) to ge
 
 ## Acknowledgment
 
-Inspired by the [ACE paper](https://arxiv.org/abs/2510.04618), [Dynamic Cheatsheet](https://arxiv.org/abs/2504.07952), and [Recursive Language Models](https://arxiv.org/abs/2512.24601). This implementation extends the original research with recursive reflection, async learning, production integrations, and skill deduplication.
+Inspired by the [ACE paper](https://arxiv.org/abs/2510.04618) and [Dynamic Cheatsheet](https://arxiv.org/abs/2504.07952).
 
 If you use ACE in your research, please cite:
 ```bibtex
