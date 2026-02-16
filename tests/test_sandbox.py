@@ -362,9 +362,9 @@ class TestExecutionResult(unittest.TestCase):
         self.assertTrue(result.success)
 
     def test_success_with_error_in_stderr(self):
-        """Test success property with error in stderr."""
+        """Test that 'Error' in stderr does NOT make success=False (only exception does)."""
         result = ExecutionResult(stdout="", stderr="Error: something", exception=None)
-        self.assertFalse(result.success)
+        self.assertTrue(result.success)
 
     def test_success_with_exception(self):
         """Test success property with exception."""
