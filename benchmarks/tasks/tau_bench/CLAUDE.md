@@ -44,6 +44,59 @@ CLI args override config values: `--config sonnet --domain retail --k 2`
 - ACE trains on `train` split, evaluates on `test` split (automatic with `--compare`).
 - Use `--skillbook path/to/skillbook.json` to evaluate a pre-trained skillbook without re-training.
 - `--batch-reflect` defers learning until all training tasks complete.
+- `--capture-reflector-inputs DIR` runs train tasks with an empty skillbook and saves the exact reflector inputs per task as JSON to DIR (no reflection/learning happens). Useful for offline analysis or replaying with different reflector versions.
+- `--replay-reflector-inputs DIR` replays captured inputs through all prompt versions (base, v2–v5) to train one skillbook per version. No agent re-execution needed.
+
+## Capturing Reflector Inputs
+
+Save the inputs that *would* be passed to `reflector.reflect()` without actually calling it:
+
+```bash
+# Capture inputs for all train tasks
+uv run python scripts/run_tau_benchmark.py --config fast \
+  --capture-reflector-inputs tau_benchmark_results/reflector_inputs
+
+# Capture specific tasks only
+uv run python scripts/run_tau_benchmark.py --config fast \
+  --capture-reflector-inputs tau_benchmark_results/reflector_inputs \
+  --task-ids 0,1,2
+```
+
+Each task produces a `task_{id}.json` that is exactly what `reflector.reflect()` receives:
+```json
+{
+  "question": "customer service task",
+  "ground_truth": null,
+  "feedback": "Task SUCCEEDED. Reward: 1.00, Steps: 12",
+  "agent_output": { "final_answer": "...", "reasoning": "...", "skill_ids": [] },
+  "skillbook": "(empty skillbook)"
+}
+```
+
+All existing flags (`--feedback-level`, `--config`, `--domain`, `--limit`, `--task-ids`, `--max-steps`, `--seed`) work naturally with `--capture-reflector-inputs`. Uses the train split by default (override with `--task-split`).
+
+## Replaying Reflector Inputs
+
+Replay captured inputs through all prompt versions (base, v2, v3, v4, v5) to train one skillbook per version — no agent re-execution needed:
+
+```bash
+# Replay all captured inputs through all prompt versions
+uv run python scripts/run_tau_benchmark.py \
+  --replay-reflector-inputs tau_benchmark_results/reflector_inputs_airline_train \
+  --model "bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0"
+```
+
+For each version, creates a fresh Skillbook + Reflector (recursive mode) + SkillManager, iterates all task files sequentially (reflect → update_skills → apply_update), and saves the trained skillbook:
+
+```
+{input_dir}/training_recursive_sequential/base/skillbook.json
+{input_dir}/training_recursive_sequential/v2/skillbook.json
+{input_dir}/training_recursive_sequential/v3/skillbook.json
+{input_dir}/training_recursive_sequential/v4/skillbook.json
+{input_dir}/training_recursive_sequential/v5/skillbook.json
+```
+
+Use `--reflector-model` to override the model used for reflection (defaults to `--model`).
 
 ## Presenting Results
 
