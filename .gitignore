@@ -69,6 +69,7 @@ venv.bak/
 
 # Project specific
 *.pdf
+*.png
 ACE_IMPROVEMENTS.md
 ACE_ROADMAP.md
 DEMO_TODO.md
