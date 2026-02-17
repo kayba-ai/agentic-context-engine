@@ -1145,8 +1145,6 @@ wheels = [
 ]
 
 [[package]]
-<<<<<<< Updated upstream
-=======
 name = "jmespath"
 version = "1.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1165,7 +1163,6 @@ wheels = [
 ]
 
 [[package]]
->>>>>>> Stashed changes
 name = "jsonpatch"
 version = "1.33"
 source = { registry = "https://pypi.org/simple" }
@@ -4875,8 +4872,6 @@ wheels = [
 ]
 
 [[package]]
-<<<<<<< Updated upstream
-=======
 name = "ruff"
 version = "0.15.0"
 source = { registry = "https://pypi.org/simple" }
@@ -4914,7 +4909,6 @@ wheels = [
 ]
 
 [[package]]
->>>>>>> Stashed changes
 name = "safetensors"
 version = "0.7.0"
 source = { registry = "https://pypi.org/simple" }
