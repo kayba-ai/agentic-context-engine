@@ -7,7 +7,7 @@ name = "ace-framework"
 version = "0.8.0"
 description = "Build self-improving AI agents that learn from experience"
 readme = "README.md"
-requires-python = "==3.12.*"
+requires-python = ">=3.12"
 license = {text = "MIT"}
 authors = [
     {name = "Kayba.ai", email = "hello@kayba.ai"},
