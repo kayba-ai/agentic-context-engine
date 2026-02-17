@@ -1427,19 +1427,6 @@ class TestWindowsTimeout(unittest.TestCase):
         self.assertTrue(sandbox.final_called)
         self.assertEqual(sandbox.final_value, {"key": "value"})
 
-    def test_get_serializable_namespace(self):
-        """Test namespace serialization for subprocess."""
-        sandbox = TraceSandbox(trace=None)
-        sandbox.inject("question", "test")
-        sandbox.inject("reasoning", "some reasoning")
-        sandbox.inject("complex_obj", lambda x: x)  # Not serializable
-
-        serializable = sandbox._get_serializable_namespace()
-
-        self.assertEqual(serializable["question"], "test")
-        self.assertEqual(serializable["reasoning"], "some reasoning")
-        self.assertNotIn("complex_obj", serializable)
-
 
 @pytest.mark.unit
 class TestExtractFinalCall(unittest.TestCase):

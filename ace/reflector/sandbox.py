@@ -6,9 +6,7 @@ import collections
 import io
 import json
 import logging
-import multiprocessing
 import platform
-import queue
 import re
 import math
 import signal
@@ -20,108 +18,6 @@ from typing import Any, Callable, Dict, Optional
 from .trace_context import TraceContext
 
 logger = logging.getLogger(__name__)
-
-
-def _execute_in_process(
-    code: str,
-    namespace: Dict[str, Any],
-    result_queue: "multiprocessing.Queue[Dict[str, Any]]",
-) -> None:
-    """Execute code in a subprocess and put result in queue.
-
-    This function is the target for multiprocessing.Process.
-    It creates a minimal sandbox environment and executes the code.
-
-    Args:
-        code: Python code to execute
-        namespace: Serializable namespace variables
-        result_queue: Queue to put the result dict
-    """
-    stdout_buf = io.StringIO()
-    stderr_buf = io.StringIO()
-
-    # Track FINAL() call
-    final_value = None
-    final_called = False
-
-    def _final(value: Any) -> None:
-        nonlocal final_value, final_called
-        final_value = value
-        final_called = True
-        raise StopIteration("FINAL called")
-
-    # Build execution namespace
-    exec_namespace: Dict[str, Any] = {
-        "__builtins__": TraceSandbox.SAFE_BUILTINS.copy(),
-        "FINAL": _final,
-        "json": json,
-        "re": re,
-        "collections": collections,
-        "datetime": datetime,
-        "timedelta": timedelta,
-        "date": date,
-        "time": time,
-        "timezone": timezone,
-    }
-
-    # Add serialized variables
-    exec_namespace.update(namespace)
-
-    # Stub functions for non-serializable features
-    exec_namespace["trace"] = None
-    exec_namespace["ask_llm"] = lambda q, c="": "(ask_llm unavailable in subprocess)"
-    exec_namespace["llm_query"] = lambda p: "(llm_query unavailable in subprocess)"
-    exec_namespace["FINAL_VAR"] = lambda name: _final(exec_namespace.get(name))
-    exec_namespace["SHOW_VARS"] = lambda: print(
-        f"Available: {[k for k in exec_namespace if not k.startswith('_')]}"
-    )
-
-    result: Dict[str, Any] = {
-        "stdout": "",
-        "stderr": "",
-        "final_value": None,
-        "final_called": False,
-        "exception_type": None,
-        "exception_msg": None,
-    }
-
-    try:
-        with redirect_stdout(stdout_buf), redirect_stderr(stderr_buf):
-            exec(code, exec_namespace, exec_namespace)
-    except StopIteration:
-        # FINAL() was called - expected
-        pass
-    except Exception as e:
-        result["exception_type"] = type(e).__name__
-        result["exception_msg"] = str(e)
-        stderr_buf.write(f"\n{type(e).__name__}: {e}")
-
-    result["stdout"] = stdout_buf.getvalue()
-    result["stderr"] = stderr_buf.getvalue()
-    result["final_value"] = final_value
-    result["final_called"] = final_called
-
-    # Try to put result in queue
-    try:
-        result_queue.put(result)
-    except Exception:
-        # If we can't pickle the result (e.g., final_value has unpicklable objects),
-        # send a simplified version
-        result["final_value"] = str(final_value) if final_value else None
-        try:
-            result_queue.put(result)
-        except Exception:
-            # Last resort: minimal result
-            result_queue.put(
-                {
-                    "stdout": result["stdout"][:10000],
-                    "stderr": result["stderr"][:10000],
-                    "final_value": None,
-                    "final_called": final_called,
-                    "exception_type": "SerializationError",
-                    "exception_msg": "Could not serialize result",
-                }
-            )
 
 
 class ExecutionTimeoutError(Exception):
@@ -409,9 +305,8 @@ class TraceSandbox:
         Args:
             code: Python code to execute
             timeout: Maximum execution time in seconds (default: 30.0).
-                     Enforced on all platforms:
-                     - Unix: uses signal.SIGALRM (more efficient)
-                     - Windows: uses multiprocessing with timeout
+                     - Unix: uses signal.SIGALRM
+                     - Windows: not enforced (in-process execution)
 
         Returns:
             ExecutionResult with stdout, stderr, final_value, and exception
@@ -481,122 +376,21 @@ class TraceSandbox:
         )
 
     def _execute_windows(self, code: str, timeout: float) -> ExecutionResult:
-        """Execute code using multiprocessing timeout (Windows compatible).
+        """Execute code on Windows without timeout enforcement.
 
-        Uses a separate process that can be forcibly terminated on timeout.
-        Handles namespace serialization limitations gracefully.
+        Windows multiprocessing uses 'spawn' which cannot pass functions,
+        trace objects, or injected variables to subprocesses. Instead,
+        execute in-process for full feature support (no timeout enforcement).
 
         Args:
             code: Python code to execute
-            timeout: Maximum execution time in seconds
+            timeout: Ignored on Windows (logged as warning)
 
         Returns:
             ExecutionResult with stdout, stderr, final_value, and exception
         """
-        # Try multiprocessing-based timeout
-        try:
-            return self._execute_with_multiprocessing(code, timeout)
-        except Exception as e:
-            # Multiprocessing failed (e.g., unpicklable namespace)
-            # Fall back to no-timeout execution with warning
-            logger.warning(
-                f"Multiprocessing timeout failed ({e}), executing without timeout"
-            )
-            return self._execute_no_timeout(code)
-
-    def _execute_with_multiprocessing(
-        self, code: str, timeout: float
-    ) -> ExecutionResult:
-        """Execute code in subprocess with timeout.
-
-        Args:
-            code: Python code to execute
-            timeout: Maximum execution time in seconds
-
-        Returns:
-            ExecutionResult with stdout, stderr, final_value, and exception
-        """
-        # Create a queue for results
-        result_queue: "multiprocessing.Queue[Dict[str, Any]]" = multiprocessing.Queue()
-
-        # Build a serializable subset of namespace
-        # Only include basic types that can be pickled
-        serializable_ns = self._get_serializable_namespace()
-
-        # Start process
-        proc = multiprocessing.Process(
-            target=_execute_in_process,
-            args=(code, serializable_ns, result_queue),
-        )
-        proc.start()
-
-        # Wait for result with timeout
-        try:
-            result_dict = result_queue.get(timeout=timeout)
-        except queue.Empty:
-            # Timeout - terminate process
-            proc.terminate()
-            proc.join(timeout=1.0)
-            if proc.is_alive():
-                proc.kill()
-                proc.join()
-
-            return ExecutionResult(
-                stdout="",
-                stderr=f"ExecutionTimeoutError: Execution exceeded {timeout}s timeout",
-                final_value=None,
-                exception=ExecutionTimeoutError(
-                    f"Execution exceeded {timeout}s timeout"
-                ),
-            )
-
-        proc.join()
-
-        # Reconstruct result
-        exception = None
-        if result_dict.get("exception_type"):
-            # Reconstruct exception (limited - just the message)
-            exc_type = result_dict["exception_type"]
-            exc_msg = result_dict["exception_msg"]
-            exception = Exception(f"{exc_type}: {exc_msg}")
-
-        # Update our state with final value from subprocess
-        if result_dict.get("final_called"):
-            self._final_called = True
-            self._final_value = result_dict.get("final_value")
-
-        return ExecutionResult(
-            stdout=result_dict.get("stdout", ""),
-            stderr=result_dict.get("stderr", ""),
-            final_value=result_dict.get("final_value"),
-            exception=exception,
-        )
-
-    def _get_serializable_namespace(self) -> Dict[str, Any]:
-        """Extract serializable parts of namespace for subprocess.
-
-        Returns:
-            Dict with only picklable values
-        """
-        serializable = {}
-
-        # These keys have simple string/None values
-        simple_keys = [
-            "question",
-            "reasoning",
-            "final_answer",
-            "ground_truth",
-            "feedback",
-            "skillbook",
-        ]
-
-        for key in simple_keys:
-            if key in self.namespace:
-                val = self.namespace[key]
-                if val is None or isinstance(val, (str, int, float, bool, list, dict)):
-                    serializable[key] = val
-
-        return serializable
+        logger.debug("Windows: executing in-process (timeout not enforced)")
+        return self._execute_no_timeout(code)
 
     def _execute_no_timeout(self, code: str) -> ExecutionResult:
         """Execute code without timeout enforcement.
