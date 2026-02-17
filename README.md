@@ -96,6 +96,16 @@ In this example:
 
 [→ Try it yourself](examples/litellm/seahorse_emoji_ace.py)
 
+### Tau2 Benchmark
+
+Evaluated on the airline domain of [τ2-bench](https://github.com/sierra-research/tau2-bench) (Sierra Research) — a benchmark for multi-step agentic tasks requiring tool use and policy adherence. Agent: Claude Haiku 4.5. Strategies learned on the train split with no reward signals; all results on the held-out test split.
+
+*pass^k = probability that all k independent attempts succeed. Higher k is a stricter test of agent consistency.*
+
+<img src="benchmarks/tasks/tau_bench/Tau2Benchmark Result Haiku4.5.png" alt="Tau2 Benchmark Results - Haiku 4.5" width="35%"/>
+
+ACE doubles agent consistency at pass^4 using only 15 learned strategies — gains compound as the bar gets higher.
+
 ### Browser Automation
 
 **Online Shopping Demo**: ACE vs baseline agent shopping for 5 grocery items.
@@ -137,6 +147,7 @@ ACE integrates with popular agent frameworks:
 | LangChain | `ACELangChain` | Wrap LangChain chains/agents |
 | browser-use | `ACEAgent` | Browser automation |
 | Claude Code | `ACEClaudeCode` | Claude Code CLI |
+| ace-learn CLI | `ACEClaudeCode` | Learn from Claude Code sessions |
 | Opik | `OpikIntegration` | Production monitoring and cost tracking |
 
 [→ Integration Guide](docs/INTEGRATION_GUIDE.md) | [→ Examples](examples/)
@@ -145,41 +156,25 @@ ACE integrates with popular agent frameworks:
 
 ## How Does ACE Work?
 
-*Based on the [ACE research framework](https://arxiv.org/abs/2510.04618) from Stanford & SambaNova.*
+*Inspired by the [ACE research framework](https://arxiv.org/abs/2510.04618) from Stanford & SambaNova.*
 
-ACE uses three specialized roles that work together:
-1. **Agent** - Creates a plan using learned skills and executes the task
-2. **Reflector** - Analyzes what worked and what didn't after execution
-3. **SkillManager** - Updates the skillbook with new strategies based on reflection
+ACE enables agents to learn from execution feedback — what works, what doesn't — and continuously improve. No fine-tuning, no training data, just automatic in-context learning. Three specialized roles work together:
 
-**Important:** The three ACE roles are different specialized prompts using the same language model, not separate models.
+1. **Agent** — Your agent, enhanced with strategies from the Skillbook
+2. **Reflector** — Analyzes execution traces to extract learnings. In recursive mode, the Reflector writes and runs Python code in a sandboxed REPL to programmatically query traces — finding patterns, errors, and insights that single-pass analysis misses
+3. **SkillManager** — Curates the Skillbook: adds new strategies, refines existing ones, and removes outdated patterns based on the Reflector's analysis
 
-ACE teaches your agent and internalizes:
-- **Successes** → Extract patterns that work
-- **Failures** → Learn what to avoid
-- **Tool usage** → Discover which tools work best for which tasks
-- **Edge cases** → Remember rare scenarios and how to handle them
-
-The magic happens in the **Skillbook**—a living document of skills that evolves with experience.
-**Key innovation:** All learning happens **in context** through incremental updates—no fine-tuning, no training data, and complete transparency into what your agent learned.
+The key innovation is the **Recursive Reflector** — instead of summarizing traces in a single pass, it writes and executes Python code in a sandboxed environment to programmatically explore agent execution traces. It can search for patterns, isolate errors, query sub-agents for deeper analysis, and iterate until it finds actionable insights. These insights flow into the **Skillbook** — a living collection of strategies that evolves with every task.
 
 ```mermaid
----
-config:
-  look: neo
-  theme: neutral
----
 flowchart LR
-    Skillbook[("`**Skillbook**<br>(Evolving Context)<br><br>•Strategy Skills<br> Helpful skills <br> Harmful patterns <br> Neutral observations`")]
-    Start(["**Query** <br>User prompt or question"]) --> Agent["**Agent** <br>Executes task using skillbook"]
-    Agent --> Reflector
-    Skillbook -. Provides Context .-> Agent
-    Environment["**Task Environment**<br>Evaluates answer<br>Provides feedback"] -- Feedback+ <br>Optional Ground Truth --> Reflector
-    Reflector["**Reflector**<br>Analyzes and provides feedback what was helpful/harmful"]
-    Reflector --> SkillManager["**SkillManager**<br>Produces improvement updates"]
-    SkillManager --> UpdateOps["**Merger** <br>Updates the skillbook with updates"]
-    UpdateOps -- Incremental<br>Updates --> Skillbook
-    Agent <--> Environment
+    Skillbook[(Skillbook<br>Learned Strategies)]
+    Start([Query]) --> Agent[Agent<br>Enhanced with Skillbook]
+    Agent <--> Environment[Task Environment<br>Evaluates & provides feedback]
+    Environment -- Feedback --> Reflector[Reflector<br>Analyzes traces via<br>sandboxed code execution]
+    Reflector --> SkillManager[SkillManager<br>Curates strategies]
+    SkillManager -- Updates --> Skillbook
+    Skillbook -. Injects context .-> Agent
 ```
 
 ---
@@ -207,12 +202,7 @@ We love contributions! Check out our [Contributing Guide](CONTRIBUTING.md) to ge
 
 ## Acknowledgment
 
-Based on the [ACE paper](https://arxiv.org/abs/2510.04618) and inspired by [Dynamic Cheatsheet](https://arxiv.org/abs/2504.07952).
-
-If you use ACE in your research, please cite:
-```bibtex
-@article{zhang2024ace,title={Agentic Context Engineering},author={Zhang et al.},journal={arXiv:2510.04618},year={2024}}
-```
+Inspired by the [ACE paper](https://arxiv.org/abs/2510.04618) and [Dynamic Cheatsheet](https://arxiv.org/abs/2504.07952).
 
 ---
 
