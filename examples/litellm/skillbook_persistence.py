@@ -4,7 +4,7 @@ import os
 import time
 
 from ace import Skillbook, Sample, OfflineACE, Agent, Reflector, SkillManager
-from ace.adaptation import TaskEnvironment, EnvironmentResult
+from ace.environments import TaskEnvironment, EnvironmentResult
 from ace.llm_providers import LiteLLMClient
 
 

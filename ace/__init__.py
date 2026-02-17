@@ -13,15 +13,17 @@ from .roles import (
     ReflectorOutput,
     SkillManagerOutput,
 )
-from .adaptation import (
-    OfflineACE,
-    OnlineACE,
-    ACEBase,
+from .environments import (
     Sample,
     TaskEnvironment,
     SimpleEnvironment,
     EnvironmentResult,
     ACEStepResult,
+)
+from .pipeline import (
+    OfflineACE,
+    OnlineACE,
+    ACEBase,
 )
 from .async_learning import (
     LearningTask,

@@ -27,7 +27,7 @@ if str(ROOT) not in sys.path:
 # from ace.explainability import (
 #     EvolutionTracker, AttributionAnalyzer, InteractionTracer, ExplainabilityVisualizer
 # )
-from ace.adaptation import AdapterStepResult, Sample
+from ace.environments import ACEStepResult, Sample
 from ace.roles import AgentOutput, ReflectorOutput, SkillManagerOutput
 from ace.skillbook import Skillbook
 
@@ -111,8 +111,8 @@ def load_ace_results(file_path: str) -> List[Dict[str, Any]]:
 
 def reconstruct_step_results(
     results_data: List[Dict[str, Any]]
-) -> List[AdapterStepResult]:
-    """Reconstruct AdapterStepResult objects from JSON data."""
+) -> List[ACEStepResult]:
+    """Reconstruct ACEStepResult objects from JSON data."""
     step_results = []
 
     for result in results_data:

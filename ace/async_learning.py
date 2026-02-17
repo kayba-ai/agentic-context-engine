@@ -22,7 +22,7 @@ from queue import Empty, Full, Queue
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 if TYPE_CHECKING:
-    from .adaptation import EnvironmentResult, Sample
+    from .environments import EnvironmentResult, Sample
     from .skillbook import Skillbook
     from .roles import SkillManager, AgentOutput, Reflector, ReflectorOutput
 
