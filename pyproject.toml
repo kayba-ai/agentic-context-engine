@@ -46,6 +46,7 @@ dependencies = [
     "tenacity>=8.0.0",
     "instructor>=1.0.0",
     "browser-use>=0.9.1",
+    "boto3>=1.34.0",
 ]
 
 [project.optional-dependencies]
