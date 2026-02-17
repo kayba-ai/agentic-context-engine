@@ -204,11 +204,6 @@ We love contributions! Check out our [Contributing Guide](CONTRIBUTING.md) to ge
 
 Inspired by the [ACE paper](https://arxiv.org/abs/2510.04618) and [Dynamic Cheatsheet](https://arxiv.org/abs/2504.07952).
 
-If you use ACE in your research, please cite:
-```bibtex
-@article{zhang2024ace,title={Agentic Context Engineering},author={Zhang et al.},journal={arXiv:2510.04618},year={2024}}
-```
-
 ---
 
 <div align="center">

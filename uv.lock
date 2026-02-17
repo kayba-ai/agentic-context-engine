@@ -25,7 +25,6 @@ name = "ace-framework"
 version = "0.8.0"
 source = { editable = "." }
 dependencies = [
-    { name = "browser-use" },
     { name = "instructor" },
     { name = "litellm" },
     { name = "pydantic" },
@@ -58,9 +57,6 @@ langchain = [
 observability = [
     { name = "opik" },
 ]
-tau-bench = [
-    { name = "tau2" },
-]
 transformers = [
     { name = "accelerate" },
     { name = "torch" },
@@ -86,12 +82,14 @@ dev = [
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
 ]
+tau-bench = [
+    { name = "tau2" },
+]
 
 [package.metadata]
 requires-dist = [
     { name = "accelerate", marker = "extra == 'all'", specifier = ">=0.20.0" },
     { name = "accelerate", marker = "extra == 'transformers'", specifier = ">=0.20.0" },
-    { name = "browser-use", specifier = ">=0.9.1" },
     { name = "browser-use", marker = "extra == 'all'", specifier = ">=0.9.0" },
     { name = "browser-use", marker = "extra == 'browser-use'", specifier = ">=0.9.0" },
     { name = "instructor", specifier = ">=1.0.0" },
@@ -109,14 +107,13 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.0.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "python-toon", specifier = ">=0.1.0" },
-    { name = "tau2", marker = "extra == 'tau-bench'", git = "https://github.com/sierra-research/tau2-bench.git" },
     { name = "tenacity", specifier = ">=8.0.0" },
     { name = "torch", marker = "extra == 'all'", specifier = ">=2.0.0" },
     { name = "torch", marker = "extra == 'transformers'", specifier = ">=2.0.0" },
     { name = "transformers", marker = "extra == 'all'", specifier = ">=4.30.0" },
     { name = "transformers", marker = "extra == 'transformers'", specifier = ">=4.30.0" },
 ]
-provides-extras = ["browser-use", "observability", "langchain", "transformers", "tau-bench", "all"]
+provides-extras = ["browser-use", "observability", "langchain", "transformers", "all"]
 
 [package.metadata.requires-dev]
 demos = [
@@ -137,6 +134,7 @@ dev = [
     { name = "pytest-asyncio", specifier = ">=0.21.0" },
     { name = "pytest-cov", specifier = ">=4.0.0" },
 ]
+tau-bench = [{ name = "tau2", git = "https://github.com/sierra-research/tau2-bench.git" }]
 
 [[package]]
 name = "addict"

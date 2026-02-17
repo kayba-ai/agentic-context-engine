@@ -12,6 +12,13 @@ from pydantic import BaseModel
 from ace import Skillbook, Sample, LLMClient
 from ace.llm import LLMResponse
 
+
+@pytest.fixture(autouse=True)
+def _suppress_opik(monkeypatch):
+    """Disable Opik connections during tests to avoid connection noise."""
+    monkeypatch.setenv("OPIK_DISABLED", "true")
+
+
 T = TypeVar("T", bound=BaseModel)
 
 

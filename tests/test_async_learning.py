@@ -319,6 +319,12 @@ class TestAsyncLearningPipeline(unittest.TestCase):
 
             pipeline.wait_for_completion(timeout=10.0)
 
+            # Poll briefly for callback to fire (may lag behind completion)
+            for _ in range(50):
+                if len(completions) >= 1:
+                    break
+                time.sleep(0.1)
+
             # Completion callback should be invoked
             self.assertEqual(len(completions), 1)
             self.assertEqual(completions[0][0], task)
