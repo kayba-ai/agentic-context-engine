@@ -188,9 +188,6 @@ class LiteLLMClient(LLMClient):
 
         super().__init__(model=model)
 
-        # Set up API keys from environment if not provided
-        self._setup_api_keys()
-
         # Configure LiteLLM settings
         if self.config.verbose:
             litellm.set_verbose = True
@@ -202,23 +199,6 @@ class LiteLLMClient(LLMClient):
 
         # Set up Opik integration for automatic token tracking
         self._setup_opik_integration()
-
-    def _setup_api_keys(self) -> None:
-        """Set up API keys from config or environment variables."""
-        if not self.config.api_key:
-            model_lower = self.config.model.lower()
-            # Bedrock / SageMaker use AWS credentials, not provider API keys
-            if model_lower.startswith(("bedrock/", "sagemaker/")):
-                return
-            # Try to get API key from environment based on model provider
-            if "gpt" in model_lower or "openai" in model_lower:
-                self.config.api_key = os.getenv("OPENAI_API_KEY")
-            elif "claude" in model_lower or "anthropic" in model_lower:
-                self.config.api_key = os.getenv("ANTHROPIC_API_KEY")
-            elif "cohere" in model_lower:
-                self.config.api_key = os.getenv("COHERE_API_KEY")
-            elif "gemini" in model_lower:
-                self.config.api_key = os.getenv("GOOGLE_API_KEY")
 
     def _setup_router(self) -> None:
         """Set up router for load balancing and fallbacks."""

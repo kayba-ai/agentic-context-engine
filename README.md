@@ -147,6 +147,7 @@ ACE integrates with popular agent frameworks:
 | LangChain | `ACELangChain` | Wrap LangChain chains/agents |
 | browser-use | `ACEAgent` | Browser automation |
 | Claude Code | `ACEClaudeCode` | Claude Code CLI |
+| ace-learn CLI | `ACEClaudeCode` | Learn from Claude Code sessions |
 | Opik | `OpikIntegration` | Production monitoring and cost tracking |
 
 [→ Integration Guide](docs/INTEGRATION_GUIDE.md) | [→ Examples](examples/)
