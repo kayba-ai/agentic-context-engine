@@ -6,6 +6,12 @@ on:
       - main
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to deploy (e.g. 0.8)"
+        required: true
+        default: "dev"
 
 permissions:
   contents: write
@@ -41,3 +47,9 @@ jobs:
       - name: Deploy dev docs (on main push)
         if: github.ref == 'refs/heads/main'
         run: mike deploy --push dev
+
+      - name: Deploy manually triggered version
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          mike deploy --push --update-aliases ${{ github.event.inputs.version }} latest
+          mike set-default --push latest
