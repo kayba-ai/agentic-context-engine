@@ -35,6 +35,32 @@ Rules:
 - Must declare `requires` and `provides` — the pipeline validates ordering at construction time
 - Steps declare their own parallelism constraints (see below)
 
+### StepContext — immutability contract
+
+`StepContext` is a frozen dataclass. Steps never mutate the incoming context — they return a new one via `.replace()`:
+
+```python
+@dataclass(frozen=True)
+class StepContext:
+    sample: Any
+    agent_output: str | None = None
+    reflection: str | None = None
+    metadata: dict = field(default_factory=dict)
+
+    def replace(self, **changes) -> "StepContext":
+        return dataclasses.replace(self, **changes)
+```
+
+Steps follow this pattern:
+
+```python
+def __call__(self, ctx: StepContext) -> StepContext:
+    result = self.agent.run(ctx.sample)
+    return ctx.replace(agent_output=result)
+```
+
+`frozen=True` makes mutation a hard error at runtime rather than a subtle bug. It also makes `Branch` safe by default — since `StepContext` is immutable, all branches can receive the same object without risk; no deep copy is needed.
+
 ---
 
 ## Pipeline
@@ -67,6 +93,33 @@ pipe = (
 ```python
 pipe.run(samples, workers=4)   # same pipeline, N samples in parallel
 ```
+
+### requires/provides for nested pipelines
+
+When a `Pipeline` is used as a `Step` inside another pipeline, its `requires` and `provides` are computed automatically at construction time from its inner steps — no manual annotation needed.
+
+```python
+class Pipeline:
+    def __init__(self, steps):
+        self.steps = steps
+        self.requires, self.provides = self._infer_contracts(steps)
+
+    @staticmethod
+    def _infer_contracts(steps):
+        provided_so_far = set()
+        external_requires = set()
+        all_provides = set()
+        for step in steps:
+            external_requires |= step.requires - provided_so_far
+            provided_so_far |= step.provides
+            all_provides |= step.provides
+        return frozenset(external_requires), frozenset(all_provides)
+```
+
+- `requires` = everything the pipeline needs from the outside (what its first steps need that no earlier inner step provides)
+- `provides` = union of everything any inner step writes
+
+The outer pipeline validates against these aggregated values at construction time, so nesting never breaks the contract.
 
 ---
 
@@ -189,6 +242,11 @@ This type is about **throughput**. Multiple samples are in-flight simultaneously
 
 Note: `max_workers` controls how many background instances of a step run concurrently. Steps that write shared state (like `UpdateStep`) must use `max_workers = 1` to avoid races.
 
+**Boundary rules:**
+- The **first** step with `async_boundary = True` is the handoff point. Only one boundary per pipeline.
+- If multiple steps declare `async_boundary = True`, only the first takes effect — subsequent ones are a no-op and raise a warning at construction time.
+- `async_boundary` inside a `Branch` child pipeline is **ignored**. Branch children always block until joined; detaching mid-branch is incoherent.
+
 ---
 
 ### 3. Branch parallelism — concurrent work on the same sample
@@ -260,6 +318,42 @@ sample 2:  [AgentStep] [EvaluateStep] ──► ...             (background)
 ```
 
 This replaces the hardcoded `steps[:2]` / `steps[2:]` split that existed in the old `AsyncLearningPipeline`.
+
+### workers vs max_workers — independent pools
+
+These two knobs control different thread pools and do not interact:
+
+| Knob | Pool | Controls |
+|---|---|---|
+| `pipe.run(samples, workers=N)` | foreground pool | how many samples run through pre-boundary steps simultaneously |
+| `step.max_workers = K` | background pool per step class | how many instances of that step run in the background simultaneously |
+
+A sample leaves the foreground pool when it crosses the `async_boundary` and enters the background step's pool. With `workers=4` and `ReflectStep.max_workers=3`, you can have 4 samples in Agent/Evaluate and 3 reflections running concurrently — two separate pools, no multiplication.
+
+Mental model: `workers` controls throughput *into* the pipeline; `max_workers` controls throughput *through* each slow background step.
+
+---
+
+## Error Handling
+
+Failure semantics differ depending on which side of the `async_boundary` a step is on.
+
+**Foreground steps** (before the boundary): raise normally. The exception propagates to the caller, the sample is marked failed, and the pipeline moves to the next sample.
+
+**Background steps** (after the boundary): the caller has already moved on, so exceptions cannot propagate. Instead, every sample produces a `SampleResult`. Background failures are captured and attached to it — nothing is dropped silently.
+
+```python
+@dataclass
+class SampleResult:
+    sample: Any
+    output: StepContext | None     # None if a step failed
+    error: Exception | None        # set if any step failed
+    failed_at: str | None          # name of the step class that failed
+```
+
+Every sample produces a result — either successful with `output` set, or failed with `error` and `failed_at` set. After `run()` completes (or after `wait_for_learning()`), callers can inspect results for failures.
+
+Retry logic is the responsibility of individual steps, not the pipeline.
 
 ---
 
@@ -337,3 +431,21 @@ Having an `AsyncPipeline` type was considered. Rejected — it mixes sequential 
 
 **Full DAG executor (auto-inferred parallelism):**
 The `requires`/`provides` graph already contains enough information to infer which steps can run in parallel. Deferred — `Branch` covers the explicit fork/join case; automatic DAG inference can be added later if needed.
+
+---
+
+## External Libraries Considered
+
+This pattern is known as **Pipes and Filters**. Several open source libraries implement variants of it. None were adopted — reasons below.
+
+**[Kedro](https://kedro.org/)** — closest to the `requires`/`provides` model. Nodes declare explicit named inputs and outputs; pipelines are composable. The gap: requires a "data catalog" abstraction for named datasets, has no `async_boundary` concept, and is oriented toward ML/ETL rather than agentic loops. Fighting the data catalog to pass a `StepContext` would cost more than writing the primitives cleanly.
+
+**[Hamilton](https://github.com/dagworks-inc/hamilton)** — lightest-weight equivalent. Functions declare inputs as parameters and outputs as return types; the framework infers the DAG. No server, no UI. The gap: no built-in async boundary, no fork/join `Branch`, no per-step `max_workers`. Gets contract validation for free but requires building all concurrency from scratch anyway.
+
+**[Pypeln](https://github.com/cgarciae/pypeln)** — designed for exactly the "process N samples through concurrent stages" problem. Has sync, thread, and async modes. The gap: no typed contracts, no `Branch`, no nested pipelines. Gets the `async_boundary`-style throughput but not the structural guarantees.
+
+**[Dagster](https://dagster.io/)** — closest overall feature set. Ops (≈ Steps) with typed inputs/outputs, jobs (≈ Pipelines), graph-based branching. The gap: it is a platform, not a library. Brings a scheduler, UI, asset catalog, and significant operational overhead. Too heavy to embed inside ACE.
+
+**Conclusion:** The specific combination of `async_boundary`, per-step `max_workers`, `Pipeline`-as-`Step` nesting, and `SampleResult` error wrapping is not provided by any of the above out of the box. Adapting any of them would cost as much as writing the ~300-line core cleanly.
+
+**What is borrowed rather than written:** `concurrent.futures.ThreadPoolExecutor` for the background step pools, and `asyncio.gather` (or `anyio` task groups) for `Branch` internals. These are well-tested primitives that are not reinvented.
