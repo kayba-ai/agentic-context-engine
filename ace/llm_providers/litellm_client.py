@@ -389,32 +389,24 @@ class LiteLLMClient(LLMClient):
 
         return resolved
 
-    def complete(
-        self, prompt: str, system: Optional[str] = None, **kwargs: Any
-    ) -> LLMResponse:
-        """
-        Generate completion for the given prompt.
+    def _build_call_params(
+        self, messages: List[Dict[str, str]], **kwargs: Any
+    ) -> Dict[str, Any]:
+        """Build the parameter dict for a litellm.completion() call.
+
+        Shared by :meth:`complete` and :meth:`complete_messages` so the
+        config-merging, sampling-resolution, credential and Opik logic
+        lives in one place.
 
         Args:
-            prompt: Input prompt text
-            system: Optional system message to prepend to the conversation
-            **kwargs: Additional parameters to pass to the model
+            messages: Chat messages to send to the model.
+            **kwargs: Runtime overrides (temperature, top_p, etc.).
 
         Returns:
-            LLMResponse containing the generated text and metadata
+            Dict ready to be unpacked into ``completion(**params)``.
         """
-        # Prepare messages in chat format (most models now use this)
-        messages = []
-
-        # Add system message if provided
-        if system:
-            messages.append({"role": "system", "content": system})
-
-        # Add user message
-        messages.append({"role": "user", "content": prompt})
-
         # Merge config with runtime kwargs
-        merged_params = {
+        merged_params: Dict[str, Any] = {
             "model": self.config.model,
             "messages": messages,
             "temperature": kwargs.get("temperature", self.config.temperature),
@@ -452,7 +444,6 @@ class LiteLLMClient(LLMClient):
             try:
                 current_span_data = get_current_span_data()
                 if current_span_data:
-                    # Add metadata to associate this LLM call with the current Opik span
                     if "metadata" not in call_params:
                         call_params["metadata"] = {}
                     if "opik" not in call_params["metadata"]:
@@ -464,7 +455,6 @@ class LiteLLMClient(LLMClient):
                         f"Associated LLM call with Opik span: {current_span_data.get('name', 'unknown')}"
                     )
             except Exception as e:
-                # Non-critical: continue without span association
                 logger.debug(f"Failed to associate LLM call with Opik span: {e}")
 
         # Add extra_params from config (reasoning_effort, budget_tokens, etc.)
@@ -495,32 +485,86 @@ class LiteLLMClient(LLMClient):
             }
         )
 
+        return call_params
+
+    def _call_completion(self, call_params: Dict[str, Any]) -> LLMResponse:
+        """Execute litellm.completion() and wrap the result.
+
+        Args:
+            call_params: Params built by :meth:`_build_call_params`.
+
+        Returns:
+            LLMResponse with text and metadata.
+        """
+        if self.router:
+            response = self.router.completion(**call_params)
+        else:
+            response = completion(**call_params)
+
+        text = response.choices[0].message.content or ""
+
+        metadata = {
+            "model": response.model,
+            "usage": response.usage.model_dump() if response.usage else None,
+            "cost": (
+                response._hidden_params.get("response_cost", None)
+                if hasattr(response, "_hidden_params")
+                else None
+            ),
+            "provider": self._get_provider_from_model(response.model),
+        }
+
+        return LLMResponse(text=text, raw=metadata)
+
+    def complete(
+        self, prompt: str, system: Optional[str] = None, **kwargs: Any
+    ) -> LLMResponse:
+        """
+        Generate completion for the given prompt.
+
+        Args:
+            prompt: Input prompt text
+            system: Optional system message to prepend to the conversation
+            **kwargs: Additional parameters to pass to the model
+
+        Returns:
+            LLMResponse containing the generated text and metadata
+        """
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+
+        call_params = self._build_call_params(messages, **kwargs)
+
         try:
-            # Use router if available, otherwise direct completion
-            if self.router:
-                response = self.router.completion(**call_params)
-            else:
-                response = completion(**call_params)
-
-            # Extract text from response
-            text = response.choices[0].message.content
-
-            # Build metadata
-            metadata = {
-                "model": response.model,
-                "usage": response.usage.model_dump() if response.usage else None,
-                "cost": (
-                    response._hidden_params.get("response_cost", None)
-                    if hasattr(response, "_hidden_params")
-                    else None
-                ),
-                "provider": self._get_provider_from_model(response.model),
-            }
-
-            return LLMResponse(text=text, raw=metadata)
-
+            return self._call_completion(call_params)
         except Exception as e:
             logger.error(f"Error in LiteLLM completion: {e}")
+            raise
+
+    def complete_messages(
+        self, messages: List[Dict[str, str]], **kwargs: Any
+    ) -> LLMResponse:
+        """Multi-turn completion that passes messages directly to LiteLLM.
+
+        Unlike the base-class default (which flattens messages into a single
+        string), this sends the structured message list to litellm.completion()
+        so multi-turn context is preserved correctly.
+
+        Args:
+            messages: List of ``{"role": ..., "content": ...}`` dicts.
+            **kwargs: Additional parameters forwarded to the model.
+
+        Returns:
+            LLMResponse containing the generated text and metadata.
+        """
+        call_params = self._build_call_params(messages, **kwargs)
+
+        try:
+            return self._call_completion(call_params)
+        except Exception as e:
+            logger.error(f"Error in LiteLLM multi-turn completion: {e}")
             raise
 
     async def acomplete(
@@ -537,109 +581,21 @@ class LiteLLMClient(LLMClient):
         Returns:
             LLMResponse containing the generated text and metadata
         """
-        # Prepare messages in chat format
         messages = []
-
-        # Add system message if provided
         if system:
             messages.append({"role": "system", "content": system})
-
-        # Add user message
         messages.append({"role": "user", "content": prompt})
 
-        # Merge config with runtime kwargs
-        merged_params = {
-            "model": self.config.model,
-            "messages": messages,
-            "temperature": kwargs.get("temperature", self.config.temperature),
-            "max_tokens": kwargs.get("max_tokens", self.config.max_tokens),
-            "timeout": kwargs.get("timeout", self.config.timeout),
-            "num_retries": kwargs.get("num_retries", self.config.max_retries),
-            "drop_params": True,  # Automatically drop unsupported parameters
-        }
-
-        # Add optional sampling parameters if provided
-        if kwargs.get("top_p") is not None or self.config.top_p is not None:
-            merged_params["top_p"] = kwargs.get("top_p", self.config.top_p)
-        if kwargs.get("top_k") is not None:
-            merged_params["top_k"] = kwargs.get("top_k")
-
-        # Apply single-point parameter resolution for Claude models
-        call_params = self._resolve_sampling_params(
-            merged_params, self.config.model, self.config.sampling_priority
-        )
-
-        # Add API credentials
-        if self.config.api_key:
-            call_params["api_key"] = self.config.api_key
-        if self.config.api_base:
-            call_params["api_base"] = self.config.api_base
-
-        # Add HTTP/SSL settings
-        if self.config.extra_headers:
-            call_params["extra_headers"] = self.config.extra_headers
-        if self.config.ssl_verify is not None:
-            call_params["ssl_verify"] = self.config.ssl_verify
-
-        # Add Opik span association for role-level token aggregation
-        if OPIK_SPAN_AVAILABLE and get_current_span_data:
-            try:
-                current_span_data = get_current_span_data()
-                if current_span_data:
-                    # Add metadata to associate this LLM call with the current Opik span
-                    if "metadata" not in call_params:
-                        call_params["metadata"] = {}
-                    if "opik" not in call_params["metadata"]:
-                        call_params["metadata"]["opik"] = {}
-                    call_params["metadata"]["opik"][
-                        "current_span_data"
-                    ] = current_span_data
-                    logger.debug(
-                        f"Associated LLM call with Opik span: {current_span_data.get('name', 'unknown')}"
-                    )
-            except Exception as e:
-                # Non-critical: continue without span association
-                logger.debug(f"Failed to associate LLM call with Opik span: {e}")
-
-        # Add extra_params from config (reasoning_effort, budget_tokens, etc.)
-        if self.config.extra_params:
-            call_params.update(self.config.extra_params)
-
-        # Add remaining kwargs (excluding ACE-specific and already-handled parameters)
-        ace_specific_params = {
-            "refinement_round",
-            "max_refinement_rounds",
-            "stream_thinking",
-        }
-        handled_params = {
-            "temperature",
-            "top_p",
-            "top_k",
-            "max_tokens",
-            "timeout",
-            "num_retries",
-        }
-        call_params.update(
-            {
-                k: v
-                for k, v in kwargs.items()
-                if k not in call_params
-                and k not in ace_specific_params
-                and k not in handled_params
-            }
-        )
+        call_params = self._build_call_params(messages, **kwargs)
 
         try:
-            # Use router if available, otherwise direct completion
             if self.router:
                 response = await self.router.acompletion(**call_params)
             else:
                 response = await acompletion(**call_params)
 
-            # Extract text from response
-            text = response.choices[0].message.content
+            text = response.choices[0].message.content or ""
 
-            # Build metadata
             metadata = {
                 "model": response.model,
                 "usage": response.usage.model_dump() if response.usage else None,

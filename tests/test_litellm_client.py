@@ -451,5 +451,78 @@ class TestLiteLLMClientDirectConfig(unittest.TestCase):
         self.assertEqual(client.config.extra_params, {"reasoning_effort": "medium"})
 
 
+@pytest.mark.unit
+class TestCompleteMessages(unittest.TestCase):
+    """Test LiteLLMClient.complete_messages() passes messages directly."""
+
+    def _mock_response(self, content="Test response"):
+        mock = MagicMock()
+        mock.choices = [MagicMock(message=MagicMock(content=content))]
+        mock.usage = None
+        mock.model = "gpt-4"
+        return mock
+
+    @patch("ace.llm_providers.litellm_client.completion")
+    def test_messages_passed_directly(self, mock_completion):
+        """Test that complete_messages passes the message list to litellm."""
+        mock_completion.return_value = self._mock_response()
+
+        from ace.llm_providers import LiteLLMClient
+
+        client = LiteLLMClient(model="gpt-4")
+        messages = [
+            {"role": "user", "content": "Hello"},
+            {"role": "assistant", "content": "Hi"},
+            {"role": "user", "content": "How are you?"},
+        ]
+        response = client.complete_messages(messages)
+
+        call_kwargs = mock_completion.call_args[1]
+        self.assertEqual(call_kwargs["messages"], messages)
+        self.assertEqual(response.text, "Test response")
+
+    @patch("ace.llm_providers.litellm_client.completion")
+    def test_none_content_returns_empty_string(self, mock_completion):
+        """Test that None content from API returns '' not None."""
+        mock_completion.return_value = self._mock_response(content=None)
+
+        from ace.llm_providers import LiteLLMClient
+
+        client = LiteLLMClient(model="gpt-4")
+        response = client.complete_messages([{"role": "user", "content": "Hi"}])
+
+        self.assertEqual(response.text, "")
+
+    @patch("ace.llm_providers.litellm_client.completion")
+    def test_complete_also_guards_none(self, mock_completion):
+        """Test that complete() also returns '' for None content."""
+        mock_completion.return_value = self._mock_response(content=None)
+
+        from ace.llm_providers import LiteLLMClient
+
+        client = LiteLLMClient(model="gpt-4")
+        response = client.complete("Hi")
+
+        self.assertEqual(response.text, "")
+
+    @patch("ace.llm_providers.litellm_client.completion")
+    def test_complete_messages_uses_same_config(self, mock_completion):
+        """Test that complete_messages applies the same config as complete."""
+        mock_completion.return_value = self._mock_response()
+
+        from ace.llm_providers import LiteLLMClient
+
+        client = LiteLLMClient(
+            model="gpt-4",
+            api_key="test-key",
+            extra_headers={"X-Custom": "val"},
+        )
+        client.complete_messages([{"role": "user", "content": "Hi"}])
+
+        call_kwargs = mock_completion.call_args[1]
+        self.assertEqual(call_kwargs["api_key"], "test-key")
+        self.assertEqual(call_kwargs["extra_headers"], {"X-Custom": "val"})
+
+
 if __name__ == "__main__":
     unittest.main()
