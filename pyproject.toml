@@ -89,6 +89,10 @@ Repository = "https://github.com/Kayba-ai/agentic-context-engine"
 Issues = "https://github.com/Kayba-ai/agentic-context-engine/issues"
 
 [dependency-groups]
+docs = [
+    "mkdocs-material>=9.5.0",
+    "mike>=2.1.0",
+]
 dev = [
     "pytest>=7.0.0",
     "pytest-asyncio>=0.21.0",
