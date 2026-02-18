@@ -1,0 +1,55 @@
+name: Docs
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to deploy (e.g. 0.8)"
+        required: true
+        default: "dev"
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Required for mike versioning
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install docs dependencies
+        run: pip install mkdocs-material mike
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Deploy versioned docs (on tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          mike deploy --push --update-aliases $VERSION latest
+          mike set-default --push latest
+
+      - name: Deploy dev docs (on main push)
+        if: github.ref == 'refs/heads/main'
+        run: mike deploy --push dev
+
+      - name: Deploy manually triggered version
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          mike deploy --push --update-aliases ${{ github.event.inputs.version }} latest
+          mike set-default --push latest
