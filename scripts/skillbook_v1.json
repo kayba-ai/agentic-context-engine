@@ -1,0 +1,85 @@
+{
+  "skills": {
+    "reasoning_patterns-00001": {
+      "id": "reasoning_patterns-00001",
+      "section": "reasoning_patterns",
+      "content": "Distinguish logical consistency from empirical reality in answers",
+      "justification": "Agent acknowledged distinction but answered based on logical deduction from false premise rather than empirical fact. This is a reusable pattern for handling questions with false premises.",
+      "evidence": "Question 'can penguins fly?' - agent deduced 'Yes' from premise 'all birds fly' despite knowing penguins are flightless birds in reality",
+      "helpful": 2,
+      "harmful": 0,
+      "neutral": 1,
+      "created_at": "2026-02-18T10:30:21.484030+00:00",
+      "updated_at": "2026-02-18T10:31:10.202746+00:00",
+      "embedding": null,
+      "status": "active"
+    },
+    "reasoning_patterns-00002": {
+      "id": "reasoning_patterns-00002",
+      "section": "reasoning_patterns",
+      "content": "Answer factual questions with empirical facts, not false premise deductions",
+      "justification": "Generalizable pattern for handling questions with false premises. Factual questions require factual answers regardless of logical chain from false premises.",
+      "evidence": "Premise 'all birds fly' is factually false; penguins are flightless birds; question asks 'can penguins fly' requiring factual answer 'No'",
+      "helpful": 2,
+      "harmful": 0,
+      "neutral": 1,
+      "created_at": "2026-02-18T10:30:21.484062+00:00",
+      "updated_at": "2026-02-18T10:31:10.202753+00:00",
+      "embedding": null,
+      "status": "active"
+    },
+    "reasoning_patterns-00003": {
+      "id": "reasoning_patterns-00003",
+      "section": "reasoning_patterns",
+      "content": "Apply recognized distinctions consistently through entire reasoning chain",
+      "justification": "Pattern of incomplete application - recognizing a principle is insufficient; must be applied to reach correct conclusion. Prevents acknowledgment without implementation.",
+      "evidence": "Agent explicitly stated 'difference between logical validity and empirical truth' but answered based on logical validity, not empirical truth",
+      "helpful": 2,
+      "harmful": 0,
+      "neutral": 1,
+      "created_at": "2026-02-18T10:30:21.484077+00:00",
+      "updated_at": "2026-02-18T10:31:10.202757+00:00",
+      "embedding": null,
+      "status": "active"
+    },
+    "reasoning_patterns-00004": {
+      "id": "reasoning_patterns-00004",
+      "section": "reasoning_patterns",
+      "content": "Distill comprehensive frameworks to atomic core principles for strategy requests",
+      "justification": "Addresses identified execution gap where agent over-elaborated with 7-step framework when ground truth expected single principle. This is a specific, actionable correction to strategy formulation approach.",
+      "evidence": "Ground truth feedback: expected 'Question each premise explicitly' but received comprehensive 7-step strategy. Atomicity score 0.88 indicates this is sufficiently atomic.",
+      "helpful": 1,
+      "harmful": 0,
+      "neutral": 0,
+      "created_at": "2026-02-18T10:31:10.202705+00:00",
+      "updated_at": "2026-02-18T10:31:10.202716+00:00",
+      "embedding": null,
+      "status": "active"
+    },
+    "reasoning_patterns-00005": {
+      "id": "reasoning_patterns-00005",
+      "section": "reasoning_patterns",
+      "content": "Verify answer scope expectations before formulating strategy responses",
+      "justification": "Extracted learning showing agent should recognize whether requests expect minimal principles or comprehensive frameworks. Prevents scope mismatch errors.",
+      "evidence": "Reflection shows ground truth preference for atomic principle over elaborated methodology. This represents a specific execution pattern in strategy formulation.",
+      "helpful": 1,
+      "harmful": 0,
+      "neutral": 0,
+      "created_at": "2026-02-18T10:31:10.202733+00:00",
+      "updated_at": "2026-02-18T10:31:10.202736+00:00",
+      "embedding": null,
+      "status": "active"
+    }
+  },
+  "sections": {
+    "reasoning_patterns": [
+      "reasoning_patterns-00001",
+      "reasoning_patterns-00002",
+      "reasoning_patterns-00003",
+      "reasoning_patterns-00004",
+      "reasoning_patterns-00005"
+    ]
+  },
+  "next_id": 5,
+  "similarity_decisions": {}
+}

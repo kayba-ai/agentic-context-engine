@@ -29,11 +29,8 @@ name = "ace-framework"
 version = "0.8.0"
 source = { editable = "." }
 dependencies = [
-<<<<<<< HEAD
     { name = "boto3" },
     { name = "browser-use" },
-=======
->>>>>>> main
     { name = "instructor" },
     { name = "litellm" },
     { name = "pydantic" },
@@ -99,11 +96,8 @@ tau-bench = [
 requires-dist = [
     { name = "accelerate", marker = "extra == 'all'", specifier = ">=0.20.0" },
     { name = "accelerate", marker = "extra == 'transformers'", specifier = ">=0.20.0" },
-<<<<<<< HEAD
     { name = "boto3", specifier = ">=1.34.0" },
     { name = "browser-use", specifier = ">=0.9.1" },
-=======
->>>>>>> main
     { name = "browser-use", marker = "extra == 'all'", specifier = ">=0.9.0" },
     { name = "browser-use", marker = "extra == 'browser-use'", specifier = ">=0.9.0" },
     { name = "instructor", specifier = ">=1.0.0" },
@@ -1700,7 +1694,6 @@ wheels = [
 ]
 
 [[package]]
-<<<<<<< HEAD
 name = "jmespath"
 version = "1.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1710,8 +1703,6 @@ wheels = [
 ]
 
 [[package]]
-=======
->>>>>>> main
 name = "joblib"
 version = "1.5.3"
 source = { registry = "https://pypi.org/simple" }
@@ -6850,7 +6841,6 @@ wheels = [
 ]
 
 [[package]]
-<<<<<<< HEAD
 name = "s3transfer"
 version = "0.16.0"
 source = { registry = "https://pypi.org/simple" }
@@ -6863,8 +6853,6 @@ wheels = [
 ]
 
 [[package]]
-=======
->>>>>>> main
 name = "safetensors"
 version = "0.7.0"
 source = { registry = "https://pypi.org/simple" }
