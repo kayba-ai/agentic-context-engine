@@ -23,7 +23,7 @@ Adding a new pipeline mode
 
 """
 
-from .base import ACEBase, ACEPipeline, Step, StepContext
+from .base import ACEBase, ACEPipeline, PipelineOrderError, Step, StepContext
 from .steps import AgentStep, EvaluateStep, ReflectStep, UpdateStep
 from .offline import OfflineACE
 from .online import OnlineACE
@@ -31,6 +31,7 @@ from .online import OnlineACE
 __all__ = [
     # Interfaces
     "ACEPipeline",
+    "PipelineOrderError",
     "Step",
     "StepContext",
     # Built-in steps

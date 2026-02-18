@@ -23,6 +23,7 @@ from .environments import (
 from .pipeline import (
     ACEPipeline,
     ACEBase,
+    PipelineOrderError,
     Step,
     StepContext,
     AgentStep,
@@ -151,6 +152,7 @@ __all__ = [
     "SkillManagerOutput",
     "ACEPipeline",
     "ACEBase",
+    "PipelineOrderError",
     "Step",
     "StepContext",
     "AgentStep",

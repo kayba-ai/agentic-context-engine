@@ -43,6 +43,19 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
+# Exceptions
+# ---------------------------------------------------------------------------
+
+
+class PipelineOrderError(Exception):
+    """Raised at pipeline construction when step ordering is invalid.
+
+    A step declared that it requires a field that no earlier step provides.
+    Check the order of steps passed to the pipeline.
+    """
+
+
+# ---------------------------------------------------------------------------
 # Step context — state flowing through the pipeline
 # ---------------------------------------------------------------------------
 
@@ -100,14 +113,40 @@ class Step(Protocol):
     they can be inserted, replaced, or reordered in a pipeline's
     :attr:`ACEPipeline.steps` list.
 
-    Example::
+    **Mandatory dependency declaration**
+
+    Every step **must** declare ``requires`` and ``provides`` as class-level
+    ``frozenset[str]`` attributes naming the :class:`StepContext` fields it
+    reads and writes.  The pipeline validates the full chain at construction
+    time and raises :class:`PipelineOrderError` if any step's requirements
+    aren't satisfied by earlier steps, or if a step omits the declaration.
+
+    Use ``frozenset()`` when a step has no dependencies or produces nothing.
+
+    Example — step that reads and writes context fields::
+
+        class MyStep:
+            requires = frozenset({"agent_output", "environment_result"})
+            provides = frozenset({"metadata"})   # written into ctx.metadata
+
+            def __call__(self, ctx: StepContext) -> StepContext:
+                ctx.metadata["score"] = score(ctx.agent_output)
+                return ctx
+
+    Example — utility step with no dependencies::
 
         class LoggingStep:
+            requires = frozenset()
+            provides = frozenset()
+
             def __call__(self, ctx: StepContext) -> StepContext:
                 print(f"Processing sample {ctx.step_index}/{ctx.total_steps}")
                 return ctx
 
     """
+
+    requires: frozenset
+    provides: frozenset
 
     def __call__(self, ctx: StepContext) -> StepContext: ...
 
@@ -172,6 +211,7 @@ class ACEPipeline(ABC):
         # Step chain — built after all attrs are set so _default_steps can
         # reference self.agent, self.reflector, etc.
         self.steps: List[Step] = steps if steps is not None else self._default_steps()
+        self._validate_steps(self.steps)
 
         # Async learning
         self._async_learning = async_learning
@@ -226,6 +266,51 @@ class ACEPipeline(ABC):
         should always override this.
         """
         return []
+
+    def _validate_steps(self, steps: List[Step]) -> None:
+        """Validate step ordering at construction time.
+
+        Checks that every step's ``requires`` set is satisfied by fields
+        available from the :class:`StepContext` constructor or provided by
+        an earlier step.  Steps that do not declare ``requires``/``provides``
+        are skipped (they opt out of validation).
+
+        Raises:
+            PipelineOrderError: If a step requires a field that no earlier
+                step provides.
+        """
+        # Fields populated at StepContext construction — always available
+        available: set[str] = {
+            "sample", "skillbook", "environment",
+            "epoch", "total_epochs", "step_index", "total_steps",
+            "recent_reflections", "metadata",
+        }
+        for step in steps:
+            requires = getattr(step, "requires", None)
+            provides = getattr(step, "provides", None)
+
+            if requires is None:
+                raise PipelineOrderError(
+                    f"{type(step).__name__} does not declare 'requires'.\n"
+                    f"All steps must declare their dependencies explicitly.\n"
+                    f"Set requires = frozenset() if the step has no dependencies."
+                )
+            if provides is None:
+                raise PipelineOrderError(
+                    f"{type(step).__name__} does not declare 'provides'.\n"
+                    f"All steps must declare what they write to the context.\n"
+                    f"Set provides = frozenset() if the step writes nothing."
+                )
+
+            missing = requires - available
+            if missing:
+                raise PipelineOrderError(
+                    f"{type(step).__name__} requires {sorted(missing)} "
+                    f"but no earlier step provides them.\n"
+                    f"Fields available at this point: {sorted(available)}\n"
+                    f"Check the order of steps passed to the pipeline."
+                )
+            available |= provides
 
     # ------------------------------------------------------------------
     # Core sample processing

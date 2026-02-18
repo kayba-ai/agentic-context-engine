@@ -19,6 +19,9 @@ load_dotenv()
 
 class LogStep:
     """Prints a one-liner after evaluation, before reflection."""
+    requires = frozenset({"environment_result"})
+    provides = frozenset()
+
     def __call__(self, ctx: StepContext) -> StepContext:
         feedback = ctx.environment_result.feedback[:70] if ctx.environment_result else "—"
         print(f"  [{ctx.step_index}/{ctx.total_steps}] {feedback}")

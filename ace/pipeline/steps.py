@@ -33,6 +33,9 @@ class AgentStep:
     **Writes:** ``ctx.agent_output``
     """
 
+    requires = frozenset({"sample", "skillbook", "recent_reflections"})
+    provides = frozenset({"agent_output"})
+
     def __init__(self, agent: "Agent") -> None:
         self.agent = agent
 
@@ -55,6 +58,9 @@ class EvaluateStep:
     **Writes:** ``ctx.environment_result``
     """
 
+    requires = frozenset({"sample", "agent_output", "environment"})
+    provides = frozenset({"environment_result"})
+
     def __call__(self, ctx: StepContext) -> StepContext:
         ctx.environment_result = ctx.environment.evaluate(
             ctx.sample, ctx.agent_output
@@ -74,6 +80,9 @@ class ReflectStep:
     **Writes:** ``ctx.reflection``, ``ctx.recent_reflections``,
     ``ctx.skillbook`` (tags only)
     """
+
+    requires = frozenset({"sample", "agent_output", "environment_result", "skillbook"})
+    provides = frozenset({"reflection"})
 
     def __init__(
         self,
@@ -121,6 +130,9 @@ class UpdateStep:
     **Writes:** ``ctx.skill_manager_output``, ``ctx.skillbook``
     (via ``apply_update``)
     """
+
+    requires = frozenset({"reflection", "skillbook", "sample", "environment_result"})
+    provides = frozenset({"skill_manager_output"})
 
     def __init__(self, skill_manager: "SkillManager") -> None:
         self.skill_manager = skill_manager
