@@ -149,6 +149,85 @@ class TestUpdateOperation(unittest.TestCase):
         self.assertEqual(original.skill_id, restored.skill_id)
         self.assertEqual(original.metadata, restored.metadata)
 
+    def test_insight_source_roundtrip(self):
+        """Test operation with insight_source roundtrips through to_json/from_json."""
+        source = {
+            "sample_question": "What is 2+2?",
+            "epoch": 1,
+            "step": 3,
+            "error_type": "CALCULATION_ERROR",
+            "created_from": "skill_manager",
+        }
+        original = UpdateOperation(
+            type="ADD",
+            section="math",
+            content="Verify calculations",
+            insight_source=source,
+        )
+        json_data = original.to_json()
+        self.assertIn("insight_source", json_data)
+        self.assertEqual(json_data["insight_source"]["epoch"], 1)
+
+        restored = UpdateOperation.from_json(json_data)
+        self.assertIsNotNone(restored.insight_source)
+        self.assertEqual(restored.insight_source["sample_question"], "What is 2+2?")
+        self.assertEqual(restored.insight_source["error_type"], "CALCULATION_ERROR")
+
+    def test_insight_source_none_omitted(self):
+        """Test that None insight_source is omitted from serialization."""
+        op = UpdateOperation(type="ADD", section="math", content="Test")
+        json_data = op.to_json()
+        self.assertNotIn("insight_source", json_data)
+        self.assertIsNone(op.insight_source)
+
+    def test_old_operation_without_insight_source(self):
+        """Test that old payloads without insight_source still parse."""
+        payload = {"type": "ADD", "section": "math", "content": "Old strategy"}
+        op = UpdateOperation.from_json(payload)
+        self.assertIsNone(op.insight_source)
+        self.assertEqual(op.content, "Old strategy")
+
+    def test_learning_index_from_json(self):
+        """Test that from_json parses learning_index."""
+        payload = {
+            "type": "ADD",
+            "section": "math",
+            "content": "Test",
+            "learning_index": 2,
+        }
+        op = UpdateOperation.from_json(payload)
+        self.assertEqual(op.learning_index, 2)
+
+    def test_learning_index_to_json(self):
+        """Test that to_json serializes learning_index."""
+        op = UpdateOperation(
+            type="ADD", section="math", content="Test", learning_index=1
+        )
+        json_data = op.to_json()
+        self.assertEqual(json_data["learning_index"], 1)
+
+    def test_learning_index_none_omitted(self):
+        """Test that None learning_index is omitted from serialization."""
+        op = UpdateOperation(type="ADD", section="math", content="Test")
+        json_data = op.to_json()
+        self.assertNotIn("learning_index", json_data)
+        self.assertIsNone(op.learning_index)
+
+    def test_learning_index_roundtrip(self):
+        """Test learning_index survives JSON round-trip."""
+        original = UpdateOperation(
+            type="ADD", section="math", content="Test", learning_index=3
+        )
+        json_data = original.to_json()
+        restored = UpdateOperation.from_json(json_data)
+        self.assertEqual(restored.learning_index, 3)
+
+    def test_old_payload_without_learning_index(self):
+        """Test that old payloads without learning_index still parse."""
+        payload = {"type": "ADD", "section": "math", "content": "Old"}
+        op = UpdateOperation.from_json(payload)
+        self.assertIsNone(op.learning_index)
+
 
 @pytest.mark.unit
 class TestUpdateBatch(unittest.TestCase):

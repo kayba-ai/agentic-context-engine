@@ -95,6 +95,7 @@ dev = [
     "mypy>=1.0.0",
     "pre-commit>=3.0.0",
     "git-changelog>=2.5.0",
+    "boto3>=1.42.50",
 ]
 tau-bench = [
     "tau2 @ git+https://github.com/sierra-research/tau2-bench.git",

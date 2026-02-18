@@ -412,5 +412,259 @@ class TestSkillbook(unittest.TestCase):
         self.assertEqual(skill.embedding, [0.1, 0.2, 0.3])
 
 
+@pytest.mark.unit
+class TestSkillbookInsightSources(unittest.TestCase):
+    """Test insight source tracing in Skillbook."""
+
+    def setUp(self):
+        self.skillbook = Skillbook()
+        self.sample_source = {
+            "sample_question": "What is 2+2?",
+            "epoch": 1,
+            "step": 3,
+            "learning_text": "Double-check arithmetic",
+        }
+
+    def test_add_skill_with_insight_source(self):
+        """Test that add_skill stores insight_source."""
+        skill = self.skillbook.add_skill(
+            section="math",
+            content="Verify calculations",
+            insight_source=self.sample_source,
+        )
+        self.assertEqual(len(skill.sources), 1)
+        self.assertEqual(skill.sources[0]["sample_question"], "What is 2+2?")
+
+    def test_add_skill_without_insight_source(self):
+        """Test that add_skill without insight_source has empty sources."""
+        skill = self.skillbook.add_skill(section="math", content="Test")
+        self.assertEqual(skill.sources, [])
+
+    def test_update_skill_appends_source(self):
+        """Test that update_skill appends to sources list."""
+        skill = self.skillbook.add_skill(
+            section="math",
+            content="Original",
+            insight_source=self.sample_source,
+        )
+        second_source = {
+            "sample_question": "What is 3+3?",
+            "epoch": 2,
+            "step": 1,
+        }
+        self.skillbook.update_skill(
+            skill.id, content="Updated", insight_source=second_source
+        )
+        updated = self.skillbook.get_skill(skill.id)
+        self.assertEqual(len(updated.sources), 2)
+        self.assertEqual(updated.sources[0]["epoch"], 1)
+        self.assertEqual(updated.sources[1]["epoch"], 2)
+
+    def test_skill_serializes_with_sources(self):
+        """Test that skills with sources survive serialization roundtrip."""
+        self.skillbook.add_skill(
+            section="math",
+            content="Verify",
+            insight_source=self.sample_source,
+        )
+        json_str = self.skillbook.dumps()
+        loaded = Skillbook.loads(json_str)
+        skill = loaded.skills()[0]
+        self.assertEqual(len(skill.sources), 1)
+        self.assertEqual(skill.sources[0]["sample_question"], "What is 2+2?")
+
+    def test_backward_compat_no_sources_field(self):
+        """Test loading old skillbooks without sources field."""
+        payload = {
+            "skills": {
+                "old-001": {
+                    "id": "old-001",
+                    "section": "general",
+                    "content": "Old skill",
+                    "helpful": 3,
+                    "harmful": 0,
+                    "neutral": 0,
+                    "created_at": "2025-01-01T00:00:00Z",
+                    "updated_at": "2025-01-01T00:00:00Z",
+                }
+            },
+            "sections": {"general": ["old-001"]},
+            "next_id": 1,
+        }
+        loaded = Skillbook.from_dict(payload)
+        skill = loaded.get_skill("old-001")
+        self.assertIsNotNone(skill)
+        self.assertEqual(skill.sources, [])
+
+    def test_to_llm_dict_excludes_sources(self):
+        """Test that to_llm_dict does not include sources."""
+        skill = self.skillbook.add_skill(
+            section="math",
+            content="Strategy",
+            insight_source=self.sample_source,
+        )
+        llm_dict = skill.to_llm_dict()
+        self.assertNotIn("sources", llm_dict)
+        self.assertEqual(len(llm_dict), 6)
+
+    def test_source_map(self):
+        """Test source_map returns correct structure."""
+        self.skillbook.add_skill(
+            section="math",
+            content="A",
+            insight_source=self.sample_source,
+        )
+        self.skillbook.add_skill(section="general", content="B")  # no source
+
+        sm = self.skillbook.source_map()
+        self.assertEqual(len(sm), 1)
+        skill_id = list(sm.keys())[0]
+        self.assertEqual(len(sm[skill_id]), 1)
+        self.assertEqual(sm[skill_id][0]["sample_question"], "What is 2+2?")
+
+    def test_source_summary(self):
+        """Test source_summary aggregates correctly."""
+        self.skillbook.add_skill(
+            section="math",
+            content="A",
+            insight_source=self.sample_source,
+        )
+        success_source = {
+            "sample_question": "Q2",
+            "epoch": 2,
+            "step": 1,
+        }
+        self.skillbook.add_skill(
+            section="general",
+            content="B",
+            insight_source=success_source,
+        )
+
+        summary = self.skillbook.source_summary()
+        self.assertEqual(summary["total_sources"], 2)
+        self.assertEqual(summary["epochs"][1], 1)
+        self.assertEqual(summary["epochs"][2], 1)
+
+    def test_source_summary_includes_sample_questions(self):
+        """Test that source_summary includes sample_questions distribution."""
+        self.skillbook.add_skill(
+            section="math",
+            content="A",
+            insight_source=self.sample_source,
+        )
+        self.skillbook.add_skill(
+            section="general",
+            content="B",
+            insight_source={
+                "sample_question": "What is 2+2?",
+                "epoch": 1,
+                "step": 5,
+            },
+        )
+        summary = self.skillbook.source_summary()
+        self.assertIn("sample_questions", summary)
+        self.assertEqual(summary["sample_questions"]["What is 2+2?"], 2)
+
+    def test_source_summary_empty(self):
+        """Test source_summary on empty skillbook."""
+        summary = self.skillbook.source_summary()
+        self.assertEqual(summary["total_sources"], 0)
+        self.assertEqual(summary["epochs"], {})
+        self.assertEqual(summary["sample_questions"], {})
+
+    def test_source_filter_by_epoch(self):
+        """Test source_filter with epoch criterion."""
+        self.skillbook.add_skill(
+            section="math",
+            content="A",
+            insight_source=self.sample_source,  # epoch=1
+        )
+        self.skillbook.add_skill(
+            section="general",
+            content="B",
+            insight_source={
+                "sample_question": "Q2",
+                "epoch": 2,
+                "step": 1,
+            },
+        )
+        filtered = self.skillbook.source_filter(epoch=2)
+        self.assertEqual(len(filtered), 1)
+        values = list(filtered.values())
+        self.assertEqual(values[0][0]["epoch"], 2)
+
+    def test_source_filter_by_sample_question(self):
+        """Test source_filter with sample_question substring match."""
+        self.skillbook.add_skill(
+            section="math",
+            content="A",
+            insight_source=self.sample_source,  # "What is 2+2?"
+        )
+        self.skillbook.add_skill(
+            section="general",
+            content="B",
+            insight_source={
+                "sample_question": "Capital of France?",
+                "epoch": 1,
+                "step": 2,
+            },
+        )
+        filtered = self.skillbook.source_filter(sample_question="2+2")
+        self.assertEqual(len(filtered), 1)
+        values = list(filtered.values())
+        self.assertIn("2+2", values[0][0]["sample_question"])
+
+    def test_source_filter_combined_criteria(self):
+        """Test source_filter with multiple criteria combined."""
+        self.skillbook.add_skill(
+            section="math",
+            content="A",
+            insight_source=self.sample_source,  # epoch=1, "What is 2+2?"
+        )
+        self.skillbook.add_skill(
+            section="general",
+            content="B",
+            insight_source={
+                "sample_question": "Q2",
+                "epoch": 1,
+                "step": 2,
+            },
+        )
+        # Filter by epoch=1 AND sample_question="Q2"
+        filtered = self.skillbook.source_filter(epoch=1, sample_question="Q2")
+        self.assertEqual(len(filtered), 1)
+        values = list(filtered.values())
+        self.assertEqual(values[0][0]["sample_question"], "Q2")
+
+    def test_source_filter_no_match(self):
+        """Test source_filter returns empty when no match."""
+        self.skillbook.add_skill(
+            section="math",
+            content="A",
+            insight_source=self.sample_source,
+        )
+        filtered = self.skillbook.source_filter(epoch=999)
+        self.assertEqual(filtered, {})
+
+    def test_apply_operation_passes_insight_source(self):
+        """Test that _apply_operation passes insight_source to add/update."""
+        update = UpdateBatch(
+            reasoning="Test",
+            operations=[
+                UpdateOperation(
+                    type="ADD",
+                    section="test",
+                    content="New strategy",
+                    insight_source=self.sample_source,
+                ),
+            ],
+        )
+        self.skillbook.apply_update(update)
+        skills = self.skillbook.skills()
+        self.assertEqual(len(skills), 1)
+        self.assertEqual(len(skills[0].sources), 1)
+        self.assertEqual(skills[0].sources[0]["sample_question"], "What is 2+2?")
+
+
 if __name__ == "__main__":
     unittest.main()

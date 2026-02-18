@@ -187,6 +187,7 @@ flowchart LR
 - [API Reference](docs/API_REFERENCE.md) - Complete API documentation
 - [Complete Guide to ACE](docs/COMPLETE_GUIDE_TO_ACE.md) - Deep dive into concepts
 - [Prompt Engineering](docs/PROMPT_ENGINEERING.md) - Advanced prompt techniques
+- [Insight Source Tracing](docs/INSIGHT_SOURCES.md) - Track skill provenance and query origins
 - [Agentic System Prompting](examples/agentic-system-prompting/README.md) - Automatically generate prompt improvements from past traces
 - [Examples](examples/) - Ready-to-run code examples
 - [Benchmarks](benchmarks/README.md) - Evaluate ACE performance

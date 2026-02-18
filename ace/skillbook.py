@@ -42,6 +42,8 @@ class Skill:
     # Deduplication fields
     embedding: Optional[List[float]] = None
     status: Literal["active", "invalid"] = "active"
+    # Insight source tracing
+    sources: List[Dict[str, Any]] = field(default_factory=list)
 
     def apply_metadata(self, metadata: Dict[str, int]) -> None:
         for key, value in metadata.items():
@@ -111,6 +113,7 @@ class Skillbook:
         metadata: Optional[Dict[str, int]] = None,
         justification: Optional[str] = None,
         evidence: Optional[str] = None,
+        insight_source: Optional[Dict[str, Any]] = None,
     ) -> Skill:
         skill_id = skill_id or self._generate_id(section)
         metadata = metadata or {}
@@ -120,6 +123,7 @@ class Skillbook:
             content=content,
             justification=justification,
             evidence=evidence,
+            sources=[insight_source] if insight_source else [],
         )
         skill.apply_metadata(metadata)
         self._skills[skill_id] = skill
@@ -134,6 +138,7 @@ class Skillbook:
         metadata: Optional[Dict[str, int]] = None,
         justification: Optional[str] = None,
         evidence: Optional[str] = None,
+        insight_source: Optional[Dict[str, Any]] = None,
     ) -> Optional[Skill]:
         skill = self._skills.get(skill_id)
         if skill is None:
@@ -146,6 +151,8 @@ class Skillbook:
             skill.evidence = evidence
         if metadata:
             skill.apply_metadata(metadata)
+        if insight_source is not None:
+            skill.sources.append(insight_source)
         skill.updated_at = datetime.now(timezone.utc).isoformat()
         return skill
 
@@ -266,6 +273,8 @@ class Skillbook:
                         skill_data["justification"] = None
                     if "evidence" not in skill_data:
                         skill_data["evidence"] = None
+                    if "sources" not in skill_data:
+                        skill_data["sources"] = []
                     valid_fields = {f.name for f in dataclass_fields(Skill)}
                     skill_data = {
                         k: v for k, v in skill_data.items() if k in valid_fields
@@ -372,6 +381,7 @@ class Skillbook:
                 metadata=operation.metadata,
                 justification=operation.justification,
                 evidence=operation.evidence,
+                insight_source=operation.insight_source,
             )
         elif op_type == "UPDATE":
             if operation.skill_id is None:
@@ -382,6 +392,7 @@ class Skillbook:
                 metadata=operation.metadata,
                 justification=operation.justification,
                 evidence=operation.evidence,
+                insight_source=operation.insight_source,
             )
         elif op_type == "TAG":
             if operation.skill_id is None:
@@ -455,6 +466,66 @@ class Skillbook:
                 "neutral": sum(s.neutral for s in self._skills.values()),
             },
         }
+
+    # ------------------------------------------------------------------ #
+    # Insight source analysis
+    # ------------------------------------------------------------------ #
+    def source_map(self) -> Dict[str, List[Dict[str, Any]]]:
+        """Map skill_id to list of InsightSource dicts (only skills with sources)."""
+        result: Dict[str, List[Dict[str, Any]]] = {}
+        for skill_id, skill in self._skills.items():
+            if skill.sources:
+                result[skill_id] = list(skill.sources)
+        return result
+
+    def source_summary(self) -> Dict[str, Any]:
+        """Aggregated stats: epoch and sample_question distributions."""
+        epochs: Dict[int, int] = {}
+        sample_questions: Dict[str, int] = {}
+        total = 0
+        for skill in self._skills.values():
+            for src in skill.sources:
+                total += 1
+                ep = src.get("epoch", 0)
+                epochs[ep] = epochs.get(ep, 0) + 1
+                sq = src.get("sample_question", "")
+                if sq:
+                    sample_questions[sq] = sample_questions.get(sq, 0) + 1
+        return {
+            "total_sources": total,
+            "epochs": epochs,
+            "sample_questions": sample_questions,
+        }
+
+    def source_filter(
+        self,
+        *,
+        epoch: Optional[int] = None,
+        sample_question: Optional[str] = None,
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        """Filter source_map() by criteria.
+
+        Args:
+            epoch: Match sources from this epoch.
+            sample_question: Match sources whose sample_question contains this substring.
+
+        Returns:
+            Dict mapping skill_id to list of matching InsightSource dicts.
+        """
+        result: Dict[str, List[Dict[str, Any]]] = {}
+        for skill_id, skill in self._skills.items():
+            matches = []
+            for src in skill.sources:
+                if epoch is not None and src.get("epoch") != epoch:
+                    continue
+                if sample_question is not None:
+                    sq = src.get("sample_question", "")
+                    if sample_question.lower() not in sq.lower():
+                        continue
+                matches.append(src)
+            if matches:
+                result[skill_id] = matches
+        return result
 
     # ------------------------------------------------------------------ #
     # Internal helpers
