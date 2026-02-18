@@ -5,6 +5,17 @@ All notable changes to ACE Framework will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.1] - 2026-02-18
+
+### Added
+- **Insight source tracing** — `InsightSource` dataclass tracks skill provenance (epoch, sample, trace refs, error identification, learning text)
+- **Sample.id** promoted to first-class field with UUID auto-generation
+- **Skillbook query API** — `source_map()`, `source_summary()`, `source_filter()` for skill lineage
+- Insight sources wired through `OfflineACE`, `OnlineACE`, and async learning pipelines
+- `UpdateOperation.learning_index` for linking operations to reflector learnings
+- Bedrock e2e example (`examples/litellm/bedrock_insight_source_test.py`)
+- `docs/INSIGHT_SOURCES.md` guide
+
 ## [0.8.0] - 2026-02-17
 
 ### Added
