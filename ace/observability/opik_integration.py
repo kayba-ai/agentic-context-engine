@@ -317,6 +317,21 @@ class OpikIntegration:
         if not self.enabled or not LITELLM_OPIK_AVAILABLE or OpikLogger is None:
             return False
 
+        # OpikLogger uses asyncio.create_task() for periodic flushing, which
+        # requires a running event loop.  In synchronous scripts there is none,
+        # so we skip the LiteLLM callback and rely on the @opik.track decorators
+        # already applied to each role method.
+        import asyncio
+
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            logger.debug(
+                "LiteLLM Opik token-tracking callback skipped: no running event loop "
+                "(sync context). Role-level traces via @opik.track are still active."
+            )
+            return False
+
         try:
             import litellm
 

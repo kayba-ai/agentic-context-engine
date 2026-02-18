@@ -1,4 +1,16 @@
-"""ACE pipeline base — core interfaces and shared orchestration logic."""
+"""ACE pipeline base — core interfaces and shared orchestration logic.
+
+Class hierarchy
+---------------
+BasePipeline   — fully generic composable step pipeline (no ACE concepts)
+  └── ACEPipeline  — adds Agent/Reflector/SkillManager, async, dedup,
+                     observability; still abstract (no iteration strategy)
+        ├── OfflineACE  — multi-epoch training over a fixed sample set
+        └── OnlineACE   — continuous learning from a stream of samples
+
+To add an alternative learning technique, subclass BasePipeline or
+ACEPipeline depending on how much of the ACE machinery you need.
+"""
 
 from __future__ import annotations
 
@@ -152,15 +164,134 @@ class Step(Protocol):
 
 
 # ---------------------------------------------------------------------------
-# ACEPipeline ABC — shared orchestration and extension point
+# BasePipeline ABC — generic composable step pipeline
 # ---------------------------------------------------------------------------
 
 
-class ACEPipeline(ABC):
-    """Abstract base class for ACE orchestration pipelines.
+class BasePipeline(ABC):
+    """Fully abstract composable step pipeline.
+
+    Contains no assumptions about agents, skillbooks, or any specific
+    learning technique.  It is the root of the pipeline hierarchy and
+    provides only:
+
+    - Step chain management (``steps`` list, construction-time validation).
+    - An abstract :meth:`run` entry point for subclasses to implement.
+    - The :meth:`_default_steps` override point.
+    - The :meth:`_initial_context_fields` hook so subclasses can declare
+      which fields exist in the context *before* any step runs.
+
+    To implement a novel learning technique, subclass this directly and
+    bring your own context, iteration strategy, and step definitions.
+
+    To use the ACE Agent/Reflector/SkillManager triplet, subclass
+    :class:`ACEPipeline` instead.
+
+    Args:
+        steps: Custom step list.  When *None*, :meth:`_default_steps` is
+               called to populate the chain.
+
+    Note:
+        Subclasses that reference instance attributes (e.g. ``self.agent``)
+        inside :meth:`_default_steps` **must** set those attributes before
+        calling ``super().__init__`` so that the step-chain construction
+        can resolve them.
+    """
+
+    def __init__(self, *, steps: Optional[List[Step]] = None) -> None:
+        # Step chain — built after all attrs are set so _default_steps can
+        # reference subclass attributes (e.g. self.agent).
+        self.steps: List[Step] = steps if steps is not None else self._default_steps()
+        self._validate_steps(self.steps)
+
+    # ------------------------------------------------------------------
+    # Extension points
+    # ------------------------------------------------------------------
+
+    @abstractmethod
+    def run(self, *args: Any, **kwargs: Any) -> Any:
+        """Execute the pipeline over a collection of inputs.
+
+        Subclasses define the iteration strategy (epochs, streaming, etc.)
+        and the return type.
+        """
+        ...
+
+    def _default_steps(self) -> List[Step]:
+        """Return the default step chain for this pipeline.
+
+        Override in subclasses to define the default composition.
+        The base implementation returns an empty list.
+        """
+        return []
+
+    def _initial_context_fields(self) -> frozenset:
+        """Fields that exist in the context before any step runs.
+
+        Used to seed the dependency-validation pass in
+        :meth:`_validate_steps`.  Override in subclasses to declare the
+        fields populated by your context constructor.
+
+        Returns:
+            A ``frozenset`` of field-name strings.
+        """
+        return frozenset()
+
+    def _validate_steps(self, steps: List[Step]) -> None:
+        """Validate step ordering at construction time.
+
+        Checks that every step's ``requires`` set is satisfied by the
+        initial context fields (from :meth:`_initial_context_fields`) or
+        by an earlier step's ``provides`` set.
+
+        Raises:
+            PipelineOrderError: If any step is missing ``requires`` or
+                ``provides``, or if it requires a field that no earlier
+                step (or the initial context) provides.
+        """
+        available: set[str] = set(self._initial_context_fields())
+
+        for step in steps:
+            requires = getattr(step, "requires", None)
+            provides = getattr(step, "provides", None)
+
+            if requires is None:
+                raise PipelineOrderError(
+                    f"{type(step).__name__} does not declare 'requires'.\n"
+                    f"All steps must declare their dependencies explicitly.\n"
+                    f"Set requires = frozenset() if the step has no dependencies."
+                )
+            if provides is None:
+                raise PipelineOrderError(
+                    f"{type(step).__name__} does not declare 'provides'.\n"
+                    f"All steps must declare what they write to the context.\n"
+                    f"Set provides = frozenset() if the step writes nothing."
+                )
+
+            missing = requires - available
+            if missing:
+                raise PipelineOrderError(
+                    f"{type(step).__name__} requires {sorted(missing)} "
+                    f"but no earlier step provides them.\n"
+                    f"Fields available at this point: {sorted(available)}\n"
+                    f"Check the order of steps passed to the pipeline."
+                )
+            available |= provides
+
+
+# ---------------------------------------------------------------------------
+# ACEPipeline ABC — ACE-specific orchestration on top of BasePipeline
+# ---------------------------------------------------------------------------
+
+
+class ACEPipeline(BasePipeline):
+    """ACE orchestration pipeline — Agent / Reflector / SkillManager triplet.
+
+    Extends :class:`BasePipeline` with the ACE-specific roles, skillbook
+    management, async learning, observability, and deduplication.
 
     Subclasses implement :meth:`run` to define the iteration strategy
-    (e.g. multi-epoch offline training vs. online streaming), and override
+    (multi-epoch offline training vs. online streaming) and override
     :meth:`_default_steps` to define the default step chain.
 
     The step chain is fully composable: pass a custom ``steps`` list to
@@ -183,6 +314,13 @@ class ACEPipeline(ABC):
         steps: Custom step list — overrides :meth:`_default_steps` when provided.
     """
 
+    # Fields available in StepContext before any step runs.
+    _ACE_CONTEXT_FIELDS: frozenset = frozenset({
+        "sample", "skillbook", "environment",
+        "epoch", "total_epochs", "step_index", "total_steps",
+        "recent_reflections", "metadata",
+    })
+
     def __init__(
         self,
         *,
@@ -200,6 +338,8 @@ class ACEPipeline(ABC):
         dedup_config: Optional["DeduplicationConfig"] = None,
         steps: Optional[List[Step]] = None,
     ) -> None:
+        # Set all ACE-specific attrs BEFORE calling super().__init__() so that
+        # _default_steps() (called by super) can reference self.agent etc.
         self.skillbook = skillbook or Skillbook()
         self.agent = agent
         self.reflector = reflector
@@ -207,11 +347,6 @@ class ACEPipeline(ABC):
         self.max_refinement_rounds = max_refinement_rounds
         self.reflection_window = reflection_window
         self._recent_reflections: List[str] = []
-
-        # Step chain — built after all attrs are set so _default_steps can
-        # reference self.agent, self.reflector, etc.
-        self.steps: List[Step] = steps if steps is not None else self._default_steps()
-        self._validate_steps(self.steps)
 
         # Async learning
         self._async_learning = async_learning
@@ -241,9 +376,16 @@ class ACEPipeline(ABC):
                 self.opik_integration = None
                 self.enable_observability = False
 
+        # Delegate step-chain construction + validation to BasePipeline.
+        super().__init__(steps=steps)
+
     # ------------------------------------------------------------------
     # Extension points
     # ------------------------------------------------------------------
+
+    def _initial_context_fields(self) -> frozenset:
+        """Seed the validation pass with ACE StepContext fields."""
+        return self._ACE_CONTEXT_FIELDS
 
     @abstractmethod
     def run(
@@ -257,60 +399,6 @@ class ACEPipeline(ABC):
         Subclasses define the iteration strategy (epochs, streaming, etc.).
         """
         ...
-
-    def _default_steps(self) -> List[Step]:
-        """Return the default step chain for this pipeline.
-
-        Override in subclasses to customise the default composition.
-        The base implementation returns an empty list — concrete pipelines
-        should always override this.
-        """
-        return []
-
-    def _validate_steps(self, steps: List[Step]) -> None:
-        """Validate step ordering at construction time.
-
-        Checks that every step's ``requires`` set is satisfied by fields
-        available from the :class:`StepContext` constructor or provided by
-        an earlier step.  Steps that do not declare ``requires``/``provides``
-        are skipped (they opt out of validation).
-
-        Raises:
-            PipelineOrderError: If a step requires a field that no earlier
-                step provides.
-        """
-        # Fields populated at StepContext construction — always available
-        available: set[str] = {
-            "sample", "skillbook", "environment",
-            "epoch", "total_epochs", "step_index", "total_steps",
-            "recent_reflections", "metadata",
-        }
-        for step in steps:
-            requires = getattr(step, "requires", None)
-            provides = getattr(step, "provides", None)
-
-            if requires is None:
-                raise PipelineOrderError(
-                    f"{type(step).__name__} does not declare 'requires'.\n"
-                    f"All steps must declare their dependencies explicitly.\n"
-                    f"Set requires = frozenset() if the step has no dependencies."
-                )
-            if provides is None:
-                raise PipelineOrderError(
-                    f"{type(step).__name__} does not declare 'provides'.\n"
-                    f"All steps must declare what they write to the context.\n"
-                    f"Set provides = frozenset() if the step writes nothing."
-                )
-
-            missing = requires - available
-            if missing:
-                raise PipelineOrderError(
-                    f"{type(step).__name__} requires {sorted(missing)} "
-                    f"but no earlier step provides them.\n"
-                    f"Fields available at this point: {sorted(available)}\n"
-                    f"Check the order of steps passed to the pipeline."
-                )
-            available |= provides
 
     # ------------------------------------------------------------------
     # Core sample processing
