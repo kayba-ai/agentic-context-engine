@@ -1,4 +1,4 @@
-"""SkillManager role — transforms reflections into actionable skillbook updates."""
+"""SkillManager role — transforms reflections into actionable skillbook updates. This is the Curator rol in ACE"""
 
 from __future__ import annotations
 

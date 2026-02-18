@@ -8,6 +8,7 @@ from .roles import (
     Agent,
     ReplayAgent,
     Reflector,
+    ReflectorMode,
     SkillManager,
     AgentOutput,
     ReflectorOutput,
@@ -113,6 +114,14 @@ from .deduplication import (
     DeduplicationManager,
 )
 
+# Import recursive reflector module
+from .reflector import (
+    RecursiveConfig,
+    RecursiveReflector,
+    TraceSandbox,
+    TraceContext,
+)
+
 # Import unified PromptManager
 from .prompt_manager import PromptManager
 
@@ -130,6 +139,7 @@ __all__ = [
     "Agent",
     "ReplayAgent",
     "Reflector",
+    "ReflectorMode",
     "SkillManager",
     "AgentOutput",
     "ReflectorOutput",
@@ -145,6 +155,11 @@ __all__ = [
     # Deduplication
     "DeduplicationConfig",
     "DeduplicationManager",
+    # Recursive reflector
+    "RecursiveConfig",
+    "RecursiveReflector",
+    "TraceSandbox",
+    "TraceContext",
     # Out-of-box integrations
     "ACELiteLLM",  # LiteLLM integration (quick start)
     "ACEAgent",  # Browser-use integration

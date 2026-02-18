@@ -1,12 +1,13 @@
-"""Data loaders for different benchmark sources."""
+"""Data loaders for benchmark sources."""
 
 from ..base import DataLoader
-from .huggingface import HuggingFaceLoader
 
-# AppWorld loader is imported conditionally since appworld might not be installed
+__all__ = ["DataLoader"]
+
+# Tau2 loader is imported conditionally since tau2-bench might not be installed
 try:
-    from .appworld import AppWorldLoader
+    from .tau2 import Tau2Loader
 
-    __all__ = ["DataLoader", "HuggingFaceLoader", "AppWorldLoader"]
+    __all__.append("Tau2Loader")
 except ImportError:
-    __all__ = ["DataLoader", "HuggingFaceLoader"]
+    pass

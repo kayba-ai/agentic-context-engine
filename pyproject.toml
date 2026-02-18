@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ace-framework"
-version = "0.7.3"
+version = "0.8.0"
 description = "Build self-improving AI agents that learn from experience"
 readme = "README.md"
-requires-python = "==3.12.*"
+requires-python = ">=3.12"
 license = {text = "MIT"}
 authors = [
     {name = "Kayba.ai", email = "hello@kayba.ai"},
@@ -45,8 +45,11 @@ dependencies = [
     "python-toon>=0.1.0",
     "tenacity>=8.0.0",
     "instructor>=1.0.0",
+<<<<<<< HEAD
     "browser-use>=0.9.1",
     "boto3>=1.34.0",
+=======
+>>>>>>> main
 ]
 
 [project.optional-dependencies]
@@ -97,6 +100,9 @@ dev = [
     "mypy>=1.0.0",
     "pre-commit>=3.0.0",
     "git-changelog>=2.5.0",
+]
+tau-bench = [
+    "tau2 @ git+https://github.com/sierra-research/tau2-bench.git",
 ]
 demos = [
     "browser-use>=0.9.0",

@@ -96,10 +96,16 @@ class OpikIntegration:
             try:
                 # Configure Opik for local use without interactive prompts
                 # Set environment variables to prevent prompts
-                os.environ.setdefault("OPIK_URL_OVERRIDE", "http://localhost:5173/api")
-                os.environ.setdefault("OPIK_WORKSPACE", "default")
-                opik.configure(use_local=True)
-                logger.info(f"Opik configured locally for project: {project_name}")
+                use_local = not os.environ.get("OPIK_API_KEY")
+                if use_local:
+                    os.environ.setdefault(
+                        "OPIK_URL_OVERRIDE", "http://localhost:5173/api"
+                    )
+                    os.environ.setdefault("OPIK_WORKSPACE", "default")
+                opik.configure(use_local=use_local, automatic_approvals=True)
+                logger.info(
+                    f"Opik configured ({'local' if use_local else 'cloud'}) for project: {project_name}"
+                )
             except Exception as e:
                 logger.debug(f"Opik configuration skipped: {e}")
                 self.enabled = False
@@ -314,8 +320,8 @@ class OpikIntegration:
         try:
             import litellm
 
-            # Initialize OpikLogger
-            opik_logger = OpikLogger()  # type: ignore[misc]
+            # Initialize OpikLogger with project name
+            opik_logger = OpikLogger(project_name=self.project_name)  # type: ignore[misc]
 
             # Add to LiteLLM callbacks if not already present
             if not hasattr(litellm, "callbacks") or litellm.callbacks is None:

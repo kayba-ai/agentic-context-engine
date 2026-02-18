@@ -69,6 +69,9 @@ venv.bak/
 
 # Project specific
 *.pdf
+*.png
+!benchmarks/tasks/tau_bench/*.png
+!examples/browser-use/**/*.png
 ACE_IMPROVEMENTS.md
 ACE_ROADMAP.md
 DEMO_TODO.md
@@ -95,6 +98,7 @@ evaluation_results/*.json
 # Benchmark data and cache
 benchmark_results/
 benchmark_cache/
+tau_benchmark_results/
 appworld_data/
 *.arrow
 *.parquet
