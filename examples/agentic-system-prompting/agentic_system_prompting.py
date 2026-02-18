@@ -85,6 +85,7 @@ def create_samples(conversations: List[Dict[str, Any]]) -> List[Sample]:
         sample = Sample(
             question="-",
             ground_truth="",
+            id=conv["filename"],
             metadata={"response": conv["content"]},
         )
         samples.append(sample)

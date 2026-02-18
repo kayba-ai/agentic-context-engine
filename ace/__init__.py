@@ -120,6 +120,9 @@ from .reflector import (
     TraceContext,
 )
 
+# Import insight source tracing
+from .insight_source import InsightSource, TraceReference
+
 # Import unified PromptManager
 from .prompt_manager import PromptManager
 
@@ -178,6 +181,9 @@ __all__ = [
     "BROWSER_USE_AVAILABLE",
     "LANGCHAIN_AVAILABLE",
     "CLAUDE_CODE_AVAILABLE",
+    # Insight source tracing
+    "InsightSource",
+    "TraceReference",
     # Prompt management
     "PromptManager",
 ]

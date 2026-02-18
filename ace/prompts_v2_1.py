@@ -733,6 +733,7 @@ CRITICAL: Return ONLY valid JSON:
       "atomicity_score": 0.95,
       "skill_id": "<for UPDATE/TAG/REMOVE>",
       "metadata": {{"helpful": 1, "harmful": 0}},
+      "learning_index": "<int, 0-based index into extracted_learnings; for ADD/UPDATE only>",
       "justification": "<why this improves skillbook>",
       "evidence": "<specific execution detail>",
       "pre_add_check": {{
@@ -749,6 +750,8 @@ CRITICAL: Return ONLY valid JSON:
   }}
 }}
 
+For ADD/UPDATE operations, set `learning_index` to the 0-based index of the extracted_learning this operation implements. Omit for TAG/REMOVE.
+
 ## ✅ HIGH-QUALITY Operation Example
 
 {{
@@ -761,6 +764,7 @@ CRITICAL: Return ONLY valid JSON:
       "atomicity_score": 0.98,
       "skill_id": "",
       "metadata": {{"helpful": 1, "harmful": 0}},
+      "learning_index": 0,
       "justification": "3x performance improvement observed",
       "evidence": "Benchmark: 1.2s vs 3.6s for 10MB file",
       "pre_add_check": {{

@@ -43,6 +43,7 @@ class Sample:
     context: str = ""
     ground_truth: Optional[str] = None
     metadata: Dict[str, object] = field(default_factory=dict)
+    id: Optional[str] = None
 
 
 @dataclass
@@ -235,7 +236,7 @@ class ACEBase:
         if not self.enable_observability or not self.opik_integration:
             return
 
-        sample_id = sample.metadata.get("sample_id", f"sample_{step}")
+        sample_id = sample.id or f"sample_{step}"
 
         # Calculate performance score from success/quality metrics only
         performance_score = 0.0
@@ -463,6 +464,20 @@ class ACEBase:
                 epoch,
                 step_index,
             )
+
+        # Attach insight source metadata to ADD/UPDATE operations
+        from .insight_source import build_insight_source
+
+        build_insight_source(
+            sample_question=sample.question,
+            epoch=epoch,
+            step=step_index,
+            error_identification=reflection.error_identification,
+            agent_output=agent_output,
+            reflection=reflection,
+            operations=skill_manager_output.update.operations,
+            sample_id=sample.id,
+        )
 
         self.skillbook.apply_update(skill_manager_output.update)
 
