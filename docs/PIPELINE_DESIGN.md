@@ -22,8 +22,8 @@ A `Step` is the smallest unit of work. It receives a `StepContext`, does one foc
 
 ```python
 class MyStep:
-    requires = frozenset({"agent_output"})   # fields it reads
-    provides = frozenset({"reflection"})     # fields it writes
+    requires = {"agent_output"}   # fields it reads
+    provides = {"reflection"}     # fields it writes
 
     def __call__(self, ctx: StepContext) -> StepContext:
         ...
@@ -40,17 +40,18 @@ Rules:
 For static type checking, the framework exposes a `typing.Protocol`:
 
 ```python
+from collections.abc import Set as AbstractSet
 from typing import Protocol, runtime_checkable
 
 @runtime_checkable
 class StepProtocol(Protocol):
-    requires: frozenset[str]
-    provides: frozenset[str]
+    requires: AbstractSet[str]
+    provides: AbstractSet[str]
 
     def __call__(self, ctx: StepContext) -> StepContext: ...
 ```
 
-`Pipeline` and `Branch` both satisfy this protocol, so they can be nested wherever a `Step` is expected without extra annotation. `@runtime_checkable` lets the pipeline validator use `isinstance(step, StepProtocol)` at construction time to give a clear error if a step is missing required attributes, rather than failing at call time.
+`AbstractSet[str]` accepts both `set` and `frozenset` — steps declare plain set literals; the pipeline normalizes them to `frozenset` at construction time before doing any contract validation. `Pipeline` and `Branch` both satisfy this protocol, so they can be nested wherever a `Step` is expected without extra annotation. `@runtime_checkable` lets the pipeline validator use `isinstance(step, StepProtocol)` at construction time to give a clear error if a step is missing required attributes, rather than failing at call time.
 
 ### StepContext — immutability contract
 
@@ -519,6 +520,16 @@ Having an `AsyncPipeline` type was considered. Rejected — it mixes sequential 
 
 **Full DAG executor (auto-inferred parallelism):**
 The `requires`/`provides` graph already contains enough information to infer which steps can run in parallel. Deferred — `Branch` covers the explicit fork/join case; automatic DAG inference can be added later if needed.
+
+**Alternative `requires`/`provides` declaration styles:**
+Four alternatives to plain set class attributes were considered:
+
+- `__init_subclass__` keyword args (`class MyStep(Step, requires={"agent_output"})`): moves the declaration to the class header but requires inheriting from a base `Step` class, eliminating the structural Protocol advantage — any object with the right attributes is a step without needing to inherit anything.
+- `ClassVar` annotations (`requires: ClassVar[frozenset[str]] = ...`): more type-checker friendly but adds verbosity with no semantic change.
+- Function decorator wrapping `__call__`: removes class boilerplate for stateless steps but introduces two styles (decorated functions vs classes with collaborators like `self.reflector`), inconsistency not worth the reduction.
+- Decomposed signature / Hamilton-style (steps receive named fields as parameters instead of `StepContext`): elegant zero-annotation contracts — `requires` and `provides` are inferred from function signature at zero cost. Rejected because it loses explicit ordering control (order is inferred from data dependencies, not declared; independent steps have undefined order), collapses the two-tier `StepContext`/`metadata` structure into a flat dict (integration-specific data collides with shared fields), and makes side-effect steps with no consumed output impossible to anchor in the sequence.
+
+Plain set class attributes with pipeline normalization to `frozenset` at construction time is the right balance: explicit, readable, no inheritance required, and the ordering and context model stay intact.
 
 ---
 
