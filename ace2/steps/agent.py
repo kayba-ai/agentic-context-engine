@@ -21,7 +21,7 @@ class AgentStep:
     calls ``agent.generate()``, and writes ``agent_output`` back.
     """
 
-    requires = frozenset({"sample", "skillbook", "recent_reflections"})
+    requires = frozenset({"sample", "skillbook"})
     provides = frozenset({"agent_output"})
 
     def __init__(self, agent: "Agent") -> None:

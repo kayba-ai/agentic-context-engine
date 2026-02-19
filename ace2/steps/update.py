@@ -17,7 +17,8 @@ logger = logging.getLogger(__name__)
 class UpdateStep:
     """Pipeline step that wraps the ACE SkillManager role.
 
-    Calls ``skill_manager.update_skills()`` with the reflection output, then
+    Calls ``skill_manager.update_skills()`` with the reflection output,
+    attaches insight-source provenance metadata to each operation, then
     applies the resulting update batch to the skillbook in-place.
 
     ``max_workers = 1`` ensures only one SkillManager mutates the skillbook
@@ -25,7 +26,7 @@ class UpdateStep:
     parallel upstream.
     """
 
-    requires = frozenset({"reflection", "skillbook", "sample", "environment_result"})
+    requires = frozenset({"reflection", "skillbook", "sample", "environment_result", "agent_output"})
     provides = frozenset({"skill_manager_output"})
 
     max_workers = 1
@@ -54,6 +55,20 @@ class UpdateStep:
             skillbook=ctx.skillbook,
             question_context=question_context,
             progress=progress,
+        )
+
+        # Attach insight-source provenance before applying
+        from ace.insight_source import build_insight_source
+
+        build_insight_source(
+            sample_question=ctx.sample.question,
+            epoch=ctx.epoch,
+            step=ctx.step_index,
+            error_identification=ctx.reflection.error_identification,
+            agent_output=ctx.agent_output,
+            reflection=ctx.reflection,
+            operations=skill_manager_output.update.operations,
+            sample_id=getattr(ctx.sample, "id", None),
         )
 
         # Apply updates to the shared skillbook (in-place mutation)

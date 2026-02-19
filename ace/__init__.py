@@ -20,20 +20,35 @@ from .environments import (
     EnvironmentResult,
     ACEStepResult,
 )
-from .pipeline import (
-    BasePipeline,
-    ACEPipeline,
-    ACEBase,
-    PipelineOrderError,
-    Step,
-    StepContext,
-    AgentStep,
-    EvaluateStep,
-    ReflectStep,
-    UpdateStep,
-    OfflineACE,
-    OnlineACE,
-)
+# ace.pipeline is not yet available — will be wired during cut-over (Part 5)
+try:
+    from .pipeline import (
+        BasePipeline,
+        ACEPipeline,
+        ACEBase,
+        PipelineOrderError,
+        Step,
+        StepContext,
+        AgentStep,
+        EvaluateStep,
+        ReflectStep,
+        UpdateStep,
+        OfflineACE,
+        OnlineACE,
+    )
+except ImportError:
+    BasePipeline = None  # type: ignore[assignment,misc]
+    ACEPipeline = None  # type: ignore[assignment,misc]
+    ACEBase = None  # type: ignore[assignment,misc]
+    PipelineOrderError = None  # type: ignore[assignment,misc]
+    Step = None  # type: ignore[assignment,misc]
+    StepContext = None  # type: ignore[assignment,misc]
+    AgentStep = None  # type: ignore[assignment,misc]
+    EvaluateStep = None  # type: ignore[assignment,misc]
+    ReflectStep = None  # type: ignore[assignment,misc]
+    UpdateStep = None  # type: ignore[assignment,misc]
+    OfflineACE = None  # type: ignore[assignment,misc]
+    OnlineACE = None  # type: ignore[assignment,misc]
 from .async_learning import (
     LearningTask,
     ReflectionResult,

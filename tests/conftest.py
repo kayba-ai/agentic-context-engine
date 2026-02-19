@@ -9,8 +9,9 @@ from typing import Any, Dict, Type, TypeVar
 import pytest
 from pydantic import BaseModel
 
-from ace import Skillbook, Sample, LLMClient
-from ace.llm import LLMResponse
+from ace.skillbook import Skillbook
+from ace.adaptation import Sample
+from ace.llm import LLMClient, LLMResponse
 
 
 @pytest.fixture(autouse=True)
