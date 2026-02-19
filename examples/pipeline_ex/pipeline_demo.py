@@ -11,11 +11,30 @@
 # ## Setup & Imports
 
 # %%
-import sys, os, time
+import sys, time
 from types import MappingProxyType
+from pathlib import Path
 
-# ensure the project root is on the path (needed when running from examples/)
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..") if "__file__" in dir() else "..")
+# Jupyter already runs an asyncio event loop.  Pipeline.run() calls
+# asyncio.run() internally, which would fail.  nest_asyncio patches the
+# loop to allow nested calls.
+import nest_asyncio
+nest_asyncio.apply()
+
+# Walk up from the script/notebook directory until we find the project root
+# (identified by containing a `pipeline/` package directory).  This works
+# regardless of where the file lives under examples/.
+_here = Path(__file__).resolve().parent if "__file__" in dir() else Path.cwd()
+_root = _here
+for _p in [_here] + list(_here.parents):
+    if (_p / "pipeline" / "__init__.py").exists():
+        _root = _p
+        break
+sys.path.insert(0, str(_root))
+
+# Clear any stale import (ace/pipeline can shadow the top-level pipeline/).
+if "pipeline" in sys.modules:
+    del sys.modules["pipeline"]
 
 from pipeline import (
     Pipeline,
