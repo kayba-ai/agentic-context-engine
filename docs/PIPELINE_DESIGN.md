@@ -35,20 +35,50 @@ Rules:
 - Must declare `requires` and `provides` — the pipeline validates ordering at construction time
 - Steps declare their own parallelism constraints (see below)
 
+### Step protocol
+
+For static type checking, the framework exposes a `typing.Protocol`:
+
+```python
+from typing import Protocol, runtime_checkable
+
+@runtime_checkable
+class StepProtocol(Protocol):
+    requires: frozenset[str]
+    provides: frozenset[str]
+
+    def __call__(self, ctx: StepContext) -> StepContext: ...
+```
+
+`Pipeline` and `Branch` both satisfy this protocol, so they can be nested wherever a `Step` is expected without extra annotation. `@runtime_checkable` lets the pipeline validator use `isinstance(step, StepProtocol)` at construction time to give a clear error if a step is missing required attributes, rather than failing at call time.
+
 ### StepContext — immutability contract
 
 `StepContext` is a frozen dataclass. Steps never mutate the incoming context — they return a new one via `.replace()`:
 
 ```python
+from types import MappingProxyType
+
 @dataclass(frozen=True)
 class StepContext:
     sample: Any
     agent_output: str | None = None
     reflection: str | None = None
-    metadata: dict = field(default_factory=dict)
+    metadata: MappingProxyType = field(default_factory=lambda: MappingProxyType({}))
+
+    def __post_init__(self):
+        # Ensures mutation is a hard runtime error even if caller passes a plain dict
+        if not isinstance(self.metadata, MappingProxyType):
+            object.__setattr__(self, "metadata", MappingProxyType(self.metadata))
 
     def replace(self, **changes) -> "StepContext":
         return dataclasses.replace(self, **changes)
+```
+
+Updating metadata follows the same immutable pattern as any other field:
+
+```python
+return ctx.replace(metadata=MappingProxyType({**ctx.metadata, "key": value}))
 ```
 
 Steps follow this pattern:
@@ -60,6 +90,8 @@ def __call__(self, ctx: StepContext) -> StepContext:
 ```
 
 `frozen=True` makes mutation a hard error at runtime rather than a subtle bug. It also makes `Branch` safe by default — since `StepContext` is immutable, all branches can receive the same object without risk; no deep copy is needed.
+
+**Field naming rule:** Named fields (`agent_output`, `reflection`) are reserved for concepts shared across all ACE pipelines. Integration-specific data always goes in `metadata`. This prevents the base class from accumulating fields over time as integrations are added.
 
 ---
 
@@ -94,6 +126,22 @@ pipe = (
 pipe.run(samples, workers=4)   # same pipeline, N samples in parallel
 ```
 
+### Inner pipeline as a fan-out step
+
+A `Pipeline`-as-`Step` receives one context and must return one context — but nothing prevents it from internally expanding to multiple sub-inputs. This is the **map-reduce step** pattern:
+
+```python
+class MultiSearchStep:
+    """Generates N queries from one context, runs them in parallel, merges."""
+    def __call__(self, ctx: StepContext) -> StepContext:
+        queries = generate_queries(ctx.sample)           # 1 → N sub-inputs
+        sub_pipe = Pipeline().then(FetchStep())
+        results = sub_pipe.run(queries, workers=len(queries))  # parallel
+        return ctx.replace(agent_output=merge(results))  # N → 1
+```
+
+`sub_pipe.run()` is a top-level runner call, so `async_boundary` and `workers` on its inner steps fire normally. From the outer pipeline's perspective, `MultiSearchStep` is a black box that takes one context and returns one context — the fan-out is an internal implementation detail.
+
 ### requires/provides for nested pipelines
 
 When a `Pipeline` is used as a `Step` inside another pipeline, its `requires` and `provides` are computed automatically at construction time from its inner steps — no manual annotation needed.
@@ -108,18 +156,18 @@ class Pipeline:
     def _infer_contracts(steps):
         provided_so_far = set()
         external_requires = set()
-        all_provides = set()
         for step in steps:
             external_requires |= step.requires - provided_so_far
             provided_so_far |= step.provides
-            all_provides |= step.provides
-        return frozenset(external_requires), frozenset(all_provides)
+        return frozenset(external_requires), frozenset(provided_so_far)
 ```
 
 - `requires` = everything the pipeline needs from the outside (what its first steps need that no earlier inner step provides)
 - `provides` = union of everything any inner step writes
 
 The outer pipeline validates against these aggregated values at construction time, so nesting never breaks the contract.
+
+**Deliberate constraint:** `_infer_contracts` assumes all `Branch` children always run. It has no concept of conditional branches where only some children execute. If one branch provided a field that a later step required but other branches did not, static validation would pass while the pipeline could fail at runtime. Conditional branching — where a branch may or may not run depending on context — is out of scope; all branches in a `Branch` are always executed.
 
 ---
 
@@ -144,7 +192,7 @@ pipe = (
 
 ### Context merging
 
-Each branch receives a deep copy of the context at the fork point. When all branches complete, their output contexts are merged back into one before the next step runs.
+Each branch receives the same context reference. Since `StepContext` is frozen, no copy is needed — branches cannot mutate what they receive. When all branches complete, their output contexts are merged back into one before the next step runs.
 
 The merge function receives the list of output contexts and returns a single context:
 
@@ -168,7 +216,14 @@ Branch(
 | `namespaced` | branches write to `ctx.metadata["branch_0"]` etc., no conflict possible |
 | custom `merge=fn` | `fn(ctxs: list[StepContext]) -> StepContext` — full control |
 
-The recommended default is `raise_on_conflict`. In practice, branches that write disjoint fields (e.g. Reflect writes `reflection`, Log writes `metadata["log"]`) never conflict and no merge function is needed.
+The actual default when no `merge=` argument is passed is `raise_on_conflict`. The constructor signature makes this explicit:
+
+```python
+def __init__(self, *pipelines, merge=MergeStrategy.RAISE_ON_CONFLICT):
+    ...
+```
+
+In practice, branches that write disjoint fields (e.g. Reflect writes `reflection`, Log writes `metadata["log"]`) never conflict and the merge is a no-op — `raise_on_conflict` passes through without raising.
 
 ---
 
@@ -242,10 +297,15 @@ This type is about **throughput**. Multiple samples are in-flight simultaneously
 
 Note: `max_workers` controls how many background instances of a step run concurrently. Steps that write shared state (like `UpdateStep`) must use `max_workers = 1` to avoid races.
 
+**Background pool is per step class, shared across pipeline instances.** `ReflectStep.max_workers = 3` means a single pool of 3 threads for all `ReflectStep` instances. This avoids pool proliferation and makes `max_workers` a straightforward capacity knob independent of how many pipelines are running.
+
+**Pool lifecycle:** The `ThreadPoolExecutor` for each step class is created lazily at first use (not at class definition or pipeline construction) and persists for the process lifetime. Callers that need explicit cleanup can call `StepClass._executor.shutdown(wait=True)`. If two users of the same step class need different concurrency limits (e.g. different LLM backends behind the same step type), they should subclass rather than share the class attribute.
+
 **Boundary rules:**
 - The **first** step with `async_boundary = True` is the handoff point. Only one boundary per pipeline.
-- If multiple steps declare `async_boundary = True`, only the first takes effect — subsequent ones are a no-op and raise a warning at construction time.
-- `async_boundary` inside a `Branch` child pipeline is **ignored**. Branch children always block until joined; detaching mid-branch is incoherent.
+- If multiple steps in the same pipeline declare `async_boundary = True`, the pipeline raises `PipelineConfigError` at construction time. A duplicate boundary is almost always a copy-paste mistake, not a deliberate choice.
+- `async_boundary` inside a `Branch` child pipeline raises `PipelineConfigError` at construction time. Branch children always block until joined; detaching mid-branch is incoherent and there is no valid interpretation.
+- `async_boundary` inside a `Pipeline`-as-`Step` raises a **warning** at construction time (not an error). When a pipeline is used as a step inside another pipeline, there is no "next sample" to move to — the outer pipeline is blocked waiting for the inner one to return a context. The boundary is ignored and the inner pipeline runs fully synchronously. The warning surfaces this declared intent being ignored so callers can investigate. The same pipeline definition works both as a top-level runner (where `async_boundary` fires) and as a nested step (where it warns and is ignored) — no reconfiguration needed.
 
 ---
 
@@ -270,9 +330,17 @@ pipe = (
 ```python
 # Branch internals (async mode)
 async def __call__(self, ctx: StepContext) -> StepContext:
-    results = await asyncio.gather(*[p(ctx) for p in self.pipelines])
+    results = await asyncio.gather(
+        *[p(ctx) for p in self.pipelines],
+        return_exceptions=True,   # all branches run to completion even if one fails
+    )
+    failures = [r for r in results if isinstance(r, BaseException)]
+    if failures:
+        raise BranchError(failures)   # caller sees all branch failures, not just the first
     return self.merge(results)
 ```
+
+`return_exceptions=True` is required for consistent error handling: without it, the first branch failure cancels all remaining branches and the `SampleResult` would silently drop their work. With it, all branches complete and the runner captures the full failure set.
 
 This type is about **latency within a single sample**. Nothing moves to the next sample — the pipeline waits for the join before continuing.
 
@@ -287,7 +355,7 @@ This type is about **latency within a single sample**. Nothing moves to the next
 | Can two steps on the same sample run simultaneously? | `Branch` |
 | Do I want N samples going through the pipeline at the same time? | `workers=N` on `run()` |
 
-Each mechanism is independent. They compose freely — you can have async steps inside branches, behind an async_boundary, run with multiple workers.
+Each mechanism is independent. They compose freely — you can have async steps inside branches, behind an `async_boundary`, run with multiple workers.
 
 ---
 
@@ -305,7 +373,7 @@ class UpdateStep:
 ```
 
 **Fan-out (same step, different samples):**
-Controlled by `max_workers` on the step. The pipeline submits the step to a thread pool with that many workers.
+Controlled by `max_workers` on the step. Each step class has a single shared `ThreadPoolExecutor` — `ReflectStep.max_workers = 3` means one pool of 3 threads regardless of how many pipeline instances are running.
 
 **Pipeline split (pipelining across samples):**
 `async_boundary = True` on a step tells the runner to hand off everything from that step onwards to background threads, freeing the caller to start the next sample immediately.
@@ -328,9 +396,11 @@ These two knobs control different thread pools and do not interact:
 | `pipe.run(samples, workers=N)` | foreground pool | how many samples run through pre-boundary steps simultaneously |
 | `step.max_workers = K` | background pool per step class | how many instances of that step run in the background simultaneously |
 
-A sample leaves the foreground pool when it crosses the `async_boundary` and enters the background step's pool. With `workers=4` and `ReflectStep.max_workers=3`, you can have 4 samples in Agent/Evaluate and 3 reflections running concurrently — two separate pools, no multiplication.
+A sample leaves the foreground pool when it crosses the `async_boundary` point and enters the background step's pool. With `workers=4` and `ReflectStep.max_workers=3`, you can have 4 samples in Agent/Evaluate and 3 reflections running concurrently — two separate pools, no multiplication.
 
 Mental model: `workers` controls throughput *into* the pipeline; `max_workers` controls throughput *through* each slow background step.
+
+**LLM rate limits:** `workers` and `max_workers` are independent pools, but total concurrent outbound LLM calls = foreground calls + background calls. With `workers=4` and `ReflectStep.max_workers=3`, up to 7 LLM requests may be in-flight simultaneously. Account for this when configuring per-provider rate limits.
 
 ---
 
@@ -338,9 +408,22 @@ Mental model: `workers` controls throughput *into* the pipeline; `max_workers` c
 
 Failure semantics differ depending on which side of the `async_boundary` a step is on.
 
-**Foreground steps** (before the boundary): raise normally. The exception propagates to the caller, the sample is marked failed, and the pipeline moves to the next sample.
+**Foreground steps** (before the boundary): the runner catches exceptions per sample and records them in a `SampleResult`. The pipeline then moves to the next sample.
 
-**Background steps** (after the boundary): the caller has already moved on, so exceptions cannot propagate. Instead, every sample produces a `SampleResult`. Background failures are captured and attached to it — nothing is dropped silently.
+```python
+# Pipeline runner (foreground loop)
+for sample in samples:
+    try:
+        ctx = initial_context(sample)
+        for step in self.foreground_steps:
+            ctx = step(ctx)
+        self._submit_to_background(ctx)
+        results.append(SampleResult(sample=sample, output=ctx, error=None, failed_at=None))
+    except Exception as e:
+        results.append(SampleResult(sample=sample, output=None, error=e, failed_at=type(step).__name__))
+```
+
+**Background steps** (after the boundary): the caller has already moved on, so exceptions cannot propagate. Background failures are captured and attached to the `SampleResult` — nothing is dropped silently.
 
 ```python
 @dataclass
@@ -349,11 +432,16 @@ class SampleResult:
     output: StepContext | None     # None if a step failed
     error: Exception | None        # set if any step failed
     failed_at: str | None          # name of the step class that failed
+    cause: Exception | None = None # for BranchError: the inner step exception
 ```
 
 Every sample produces a result — either successful with `output` set, or failed with `error` and `failed_at` set. After `run()` completes (or after `wait_for_learning()`), callers can inspect results for failures.
 
+When a `Branch` step fails, `failed_at` is `"Branch"` and `error` is a `BranchError`. `cause` carries the inner exception from the failing branch so callers can see which inner step actually failed, not just the outer wrapper.
+
 Retry logic is the responsibility of individual steps, not the pipeline.
+
+**Shutdown:** `wait_for_learning(timeout=N)` raises `TimeoutError` if background steps have not drained within `N` seconds. Individual step implementations are responsible for their own per-call timeouts (e.g. LLM API call timeouts).
 
 ---
 
