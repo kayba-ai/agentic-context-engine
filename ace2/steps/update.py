@@ -1,0 +1,62 @@
+"""UpdateStep — applies skillbook mutations from the SkillManager."""
+
+from __future__ import annotations
+
+import json
+import logging
+from typing import TYPE_CHECKING
+
+from pipeline import StepContext
+
+if TYPE_CHECKING:
+    from ace.roles import SkillManager
+
+logger = logging.getLogger(__name__)
+
+
+class UpdateStep:
+    """Pipeline step that wraps the ACE SkillManager role.
+
+    Calls ``skill_manager.update_skills()`` with the reflection output, then
+    applies the resulting update batch to the skillbook in-place.
+
+    ``max_workers = 1`` ensures only one SkillManager mutates the skillbook
+    at a time (serialised writes), even when multiple ReflectSteps run in
+    parallel upstream.
+    """
+
+    requires = frozenset({"reflection", "skillbook", "sample", "environment_result"})
+    provides = frozenset({"skill_manager_output"})
+
+    max_workers = 1
+
+    def __init__(self, skill_manager: "SkillManager") -> None:
+        self.skill_manager = skill_manager
+
+    def __call__(self, ctx: StepContext) -> StepContext:
+        # Build question context string (mirrors ACEBase._question_context)
+        question_context = "\n".join([
+            f"question: {ctx.sample.question}",
+            f"context: {ctx.sample.context}",
+            f"metadata: {json.dumps(ctx.sample.metadata)}",
+            f"feedback: {ctx.environment_result.feedback}",
+            f"ground_truth: {ctx.environment_result.ground_truth}",
+        ])
+
+        # Build progress string from context counters
+        progress = (
+            f"epoch {ctx.epoch}/{ctx.total_epochs} "
+            f"· sample {ctx.step_index}/{ctx.total_steps}"
+        )
+
+        skill_manager_output = self.skill_manager.update_skills(
+            reflection=ctx.reflection,
+            skillbook=ctx.skillbook,
+            question_context=question_context,
+            progress=progress,
+        )
+
+        # Apply updates to the shared skillbook (in-place mutation)
+        ctx.skillbook.apply_update(skill_manager_output.update)
+
+        return ctx.replace(skill_manager_output=skill_manager_output)
