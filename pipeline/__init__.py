@@ -1,4 +1,4 @@
-"""Generic pipeline engine — no ACE concepts, zero upward dependencies.
+"""Generic pipeline engine, create and Compose pipelines, control execution mode.
 
 Public surface::
 
