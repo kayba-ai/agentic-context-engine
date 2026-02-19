@@ -12,10 +12,16 @@ Run this command after making code changes to complete the development cycle. It
 2. **Update CLAUDE.md**
    - Run `/init` to update the project's CLAUDE.md file with current codebase context
 
-3. **Run tests**
+3. **Review test coverage**
+   - Check if the changes have adequate test coverage
+   - Look at which lines/branches are untested for the modified files
+   - If coverage gaps exist for the changed code, add targeted tests before proceeding
+   - Focus on: new functions, error paths, edge cases, and branches introduced by this changeset
+
+4. **Run tests**
    - Run `uv run pytest`
 
-4. **Test-fix loop (max 3 retries)**
+5. **Test-fix loop (max 3 retries)**
    - If tests pass, continue to step 5
    - If tests fail:
      - Analyze the failure output
@@ -25,34 +31,34 @@ Run this command after making code changes to complete the development cycle. It
      - Re-run tests: `uv run pytest`
      - If tests still fail after 3 total attempts, **stop entirely** and report the failures. Never commit broken code.
 
-5. **Review changes**
+6. **Review changes**
    - Run `git diff` to review all changes
    - Run `git status` to see untracked/modified files
    - Determine which files to stage
 
-6. **Stage files selectively**
+7. **Stage files selectively**
    - Use explicit `git add <file>` for each file. **Never use `git add -A` or `git add .`**
    - **Never stage:** `.env`, credentials, secrets, `__pycache__/`, `*.pyc`, large binaries, `.DS_Store`
    - **Only stage `uv.lock`** if dependency changes in `pyproject.toml` were intentional
    - If unsure about a file, ask the user
 
-7. **Compose commit message**
+8. **Compose commit message**
    - If $ARGUMENTS was provided, use it as the commit message
    - Otherwise, compose a Conventional Commit message: `<type>(<scope>): <short description>`
    - Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `perf`, `style`
    - Derive scope from the primary changed file path (e.g., `ace/skillbook.py` -> `skillbook`, `ace/integrations/litellm.py` -> `integrations`, `tests/test_foo.py` -> `tests`)
    - Keep messages short and imperative
 
-8. **Check branch safety**
+9. **Check branch safety**
    - Run `git branch --show-current` to get the current branch
    - If on `main` or `master`, **warn the user** and ask for explicit confirmation before committing
    - If denied, stop without committing
 
-9. **Commit and push**
+10. **Commit and push**
    - Commit with the composed message
    - Push to remote: `git push` (or `git push -u origin <branch>` if no upstream is set)
 
-10. **Report summary**
+11. **Report summary**
    - Commit hash (short)
    - Branch name
    - Files changed count

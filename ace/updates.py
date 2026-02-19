@@ -20,6 +20,8 @@ class UpdateOperation:
     metadata: Dict[str, int] = field(default_factory=dict)
     justification: Optional[str] = None
     evidence: Optional[str] = None
+    insight_source: Optional[Dict[str, Any]] = None
+    learning_index: Optional[int] = None
 
     @classmethod
     def from_json(cls, payload: Dict[str, object]) -> "UpdateOperation":
@@ -37,6 +39,19 @@ class UpdateOperation:
         op_type = str(payload["type"]).upper()
         if op_type not in ("ADD", "UPDATE", "TAG", "REMOVE"):
             raise ValueError(f"Invalid operation type: {op_type}")
+
+        raw_source = payload.get("insight_source")
+        insight_source = (
+            cast(Dict[str, Any], raw_source) if isinstance(raw_source, dict) else None
+        )
+
+        raw_learning_index = payload.get("learning_index")
+        learning_index: Optional[int] = None
+        if raw_learning_index is not None:
+            try:
+                learning_index = int(cast(int, raw_learning_index))
+            except (TypeError, ValueError):
+                pass
 
         return cls(
             type=cast(OperationType, op_type),
@@ -60,6 +75,8 @@ class UpdateOperation:
                 if payload.get("evidence") is not None
                 else None
             ),
+            insight_source=insight_source,
+            learning_index=learning_index,
         )
 
     def to_json(self) -> Dict[str, object]:
@@ -74,6 +91,10 @@ class UpdateOperation:
             data["justification"] = self.justification
         if self.evidence is not None:
             data["evidence"] = self.evidence
+        if self.insight_source is not None:
+            data["insight_source"] = self.insight_source
+        if self.learning_index is not None:
+            data["learning_index"] = self.learning_index
         return data
 
 

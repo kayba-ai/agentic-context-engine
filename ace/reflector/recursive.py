@@ -260,6 +260,18 @@ class RecursiveReflector:
         response = self.llm.complete_messages(trimmed, **kwargs)
         response_text = response.text
 
+        # Guard against None/empty response (e.g. Gemini returning None for oversized prompts)
+        if not response_text:
+            logger.warning(f"LLM returned empty response on iteration {iteration + 1}")
+            messages.append({"role": "assistant", "content": ""})
+            messages.append(
+                {
+                    "role": "user",
+                    "content": "Your previous response was empty. Please write Python code to analyze the trace.",
+                }
+            )
+            return None
+
         # Extract code blocks
         code = self._extract_code(response_text)
 

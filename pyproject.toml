@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ace-framework"
-version = "0.8.0"
+version = "0.8.2"
 description = "Build self-improving AI agents that learn from experience"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -101,6 +101,7 @@ dev = [
     "mypy>=1.0.0",
     "pre-commit>=3.0.0",
     "git-changelog>=2.5.0",
+    "boto3>=1.42.50",
 ]
 tau-bench = [
     "tau2 @ git+https://github.com/sierra-research/tau2-bench.git",

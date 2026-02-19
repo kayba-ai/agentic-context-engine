@@ -5,6 +5,23 @@ All notable changes to ACE Framework will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.2] - 2026-02-18
+
+### Added
+- **RecursiveReflector None-response guard** — gracefully handles empty/None LLM responses (e.g. from Gemini) with retry prompt instead of crashing
+- **`LiteLLMClient.complete_messages()`** — native multi-turn completion that preserves structured message lists
+
+## [0.8.1] - 2026-02-18
+
+### Added
+- **Insight source tracing** — `InsightSource` dataclass tracks skill provenance (epoch, sample, trace refs, error identification, learning text)
+- **Sample.id** promoted to first-class field with UUID auto-generation
+- **Skillbook query API** — `source_map()`, `source_summary()`, `source_filter()` for skill lineage
+- Insight sources wired through `OfflineACE`, `OnlineACE`, and async learning pipelines
+- `UpdateOperation.learning_index` for linking operations to reflector learnings
+- Bedrock e2e example (`examples/litellm/bedrock_insight_source_test.py`)
+- `docs/INSIGHT_SOURCES.md` guide
+
 ## [0.8.0] - 2026-02-17
 
 ### Added
@@ -217,6 +234,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Type hints and modern Python practices
 - MIT licensed for open source use
 
+[0.8.2]: https://github.com/Kayba-ai/agentic-context-engine/compare/v0.8.1...v0.8.2
+[0.8.1]: https://github.com/Kayba-ai/agentic-context-engine/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/Kayba-ai/agentic-context-engine/compare/v0.7.3...v0.8.0
 [0.7.3]: https://github.com/Kayba-ai/agentic-context-engine/compare/v0.7.0...v0.7.3
 [0.7.0]: https://github.com/Kayba-ai/agentic-context-engine/compare/v0.6.0...v0.7.0

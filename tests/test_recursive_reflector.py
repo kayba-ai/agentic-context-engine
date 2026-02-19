@@ -1539,6 +1539,111 @@ class TestSuccessHeuristic(unittest.TestCase):
 
 
 @pytest.mark.unit
+class TestEmptyLLMResponse(unittest.TestCase):
+    """Test that empty/None LLM response is handled gracefully."""
+
+    def setUp(self):
+        self.skillbook = Skillbook()
+        self.agent_output = AgentOutput(
+            reasoning="I calculated 2+2 step by step",
+            final_answer="4",
+            skill_ids=[],
+        )
+
+    def test_none_response_continues_iteration(self):
+        """Test that None/empty LLM response does not crash and iteration continues."""
+        call_count = [0]
+
+        class NoneFirstLLMClient(MockLLMClient):
+            def complete_messages(
+                self, messages: List[Dict[str, str]], **kwargs: Any
+            ) -> LLMResponse:
+                call_count[0] += 1
+                if call_count[0] == 1:
+                    # First call: return empty text (simulates Gemini None)
+                    return LLMResponse(text="")
+                elif call_count[0] == 2:
+                    # Second call: explore
+                    return LLMResponse(text="```python\nprint(question[:50])\n```")
+                else:
+                    # Third call: FINAL
+                    return LLMResponse(
+                        text="""```python
+FINAL({
+    "reasoning": "Recovered from empty response.",
+    "error_identification": "none",
+    "root_cause_analysis": "N/A",
+    "correct_approach": "N/A",
+    "key_insight": "Recovery successful",
+    "extracted_learnings": [],
+    "skill_tags": []
+})
+```"""
+                    )
+
+        llm = NoneFirstLLMClient()
+        reflector = RecursiveReflector(llm, config=RecursiveConfig(max_iterations=5))
+
+        result = reflector.reflect(
+            question="What is 2+2?",
+            agent_output=self.agent_output,
+            skillbook=self.skillbook,
+            ground_truth="4",
+            feedback="Correct!",
+        )
+
+        self.assertIsInstance(result, ReflectorOutput)
+        self.assertIn("recovered", result.reasoning.lower())
+        # Should have needed 3 calls: empty, explore, FINAL
+        self.assertEqual(call_count[0], 3)
+
+    def test_none_response_adds_retry_prompt(self):
+        """Test that empty response appends a retry prompt to messages."""
+        captured_messages = []
+
+        class CapturingEmptyLLMClient(MockLLMClient):
+            call_count = 0
+
+            def complete_messages(
+                self, messages: List[Dict[str, str]], **kwargs: Any
+            ) -> LLMResponse:
+                self.call_count += 1
+                captured_messages.append(list(messages))
+                if self.call_count == 1:
+                    return LLMResponse(text=None)
+                return LLMResponse(
+                    text=json.dumps(
+                        {
+                            "reasoning": "Done.",
+                            "error_identification": "none",
+                            "root_cause_analysis": "N/A",
+                            "correct_approach": "N/A",
+                            "key_insight": "Test",
+                            "extracted_learnings": [],
+                            "skill_tags": [],
+                        }
+                    )
+                )
+
+        llm = CapturingEmptyLLMClient()
+        reflector = RecursiveReflector(llm, config=RecursiveConfig(max_iterations=3))
+
+        reflector.reflect(
+            question="Test",
+            agent_output=self.agent_output,
+            skillbook=self.skillbook,
+            ground_truth="4",
+            feedback="OK",
+        )
+
+        # Second call should see the retry prompt from the first empty response
+        self.assertGreater(len(captured_messages), 1)
+        second_call = captured_messages[1]
+        last_msg = second_call[-1]["content"]
+        self.assertIn("empty", last_msg.lower())
+
+
+@pytest.mark.unit
 class TestSignalAlarmCeiling(unittest.TestCase):
     """Test that signal.alarm uses math.ceil for sub-second timeouts."""
 

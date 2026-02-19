@@ -141,10 +141,12 @@ Respond with JSON:
       "section": "<section name>",
       "content": "<skill text>",
       "skill_id": "<optional existing id>",
-      "metadata": {{"helpful": 1, "harmful": 0}}
+      "metadata": {{"helpful": 1, "harmful": 0}},
+      "learning_index": "<int, 0-based index of the extracted_learning this operation implements; omit for TAG/REMOVE>"
     }}
   ]
 }}
+For ADD/UPDATE operations, set `learning_index` to the 0-based index of the extracted_learning this operation implements. Omit for TAG/REMOVE.
 If no updates are required, return an empty list for "operations".
 """
 

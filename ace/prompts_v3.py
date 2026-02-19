@@ -249,11 +249,14 @@ Return ONLY valid JSON:
       "content": "<strategy text, imperative>",
       "skill_id": "<required for UPDATE/TAG/REMOVE>",
       "metadata": {{"helpful": 1, "harmful": 0}},
+      "learning_index": "<int, 0-based index into extracted_learnings; for ADD/UPDATE only>",
       "justification": "<why this improves skillbook>",
       "evidence": "<specific detail from reflection>"
     }}
   ]
 }}
+
+For ADD/UPDATE operations, set `learning_index` to the 0-based index of the extracted_learning this operation implements. Omit for TAG/REMOVE.
 
 CRITICAL: Begin response with `{{` and end with `}}`
 </output_format>
@@ -272,6 +275,7 @@ Existing skill: "Use pandas for data processing"
       "section": "data_loading",
       "content": "Use pandas.read_csv() for CSV files",
       "metadata": {{"helpful": 1, "harmful": 0}},
+      "learning_index": 0,
       "justification": "3x faster than manual parsing",
       "evidence": "Benchmark: 1.2s vs 3.6s for 10MB file"
     }}
@@ -312,6 +316,7 @@ Existing skill: "Round results appropriately"
       "skill_id": "math-00015",
       "content": "Round financial calculations to 4 decimal places",
       "metadata": {{"helpful": 1, "harmful": 0}},
+      "learning_index": 0,
       "justification": "Adds specific precision requirement",
       "evidence": "2 decimal places caused incorrect result"
     }}

@@ -519,6 +519,20 @@ class AsyncLearningPipeline:
             progress=progress,
         )
 
+        # Attach insight source metadata to ADD/UPDATE operations
+        from .insight_source import build_insight_source
+
+        build_insight_source(
+            sample_question=task.sample.question,
+            epoch=task.epoch,
+            step=task.step_index,
+            error_identification=reflection.error_identification,
+            agent_output=task.agent_output,
+            reflection=reflection,
+            operations=skill_manager_output.update.operations,
+            sample_id=task.sample.id,
+        )
+
         # Apply update (thread-safe)
         self._skillbook.apply_update(skill_manager_output.update)
 
