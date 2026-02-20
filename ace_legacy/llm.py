@@ -1,0 +1,244 @@
+"""LLM client abstractions used by ACE components."""
+
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+import json
+from collections import deque
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Deque, Dict, List, Optional, Type, TypeVar, Union
+
+from pydantic import BaseModel
+
+if TYPE_CHECKING:
+    import torch
+
+T = TypeVar("T", bound=BaseModel)
+
+
+@dataclass
+class LLMResponse:
+    """Container for LLM outputs."""
+
+    text: str
+    raw: Optional[Dict[str, Any]] = None
+
+
+class LLMClient(ABC):
+    """Abstract interface so ACE can plug into any chat/completions API."""
+
+    def __init__(self, model: Optional[str] = None) -> None:
+        self.model = model
+
+    @abstractmethod
+    def complete(self, prompt: str, **kwargs: Any) -> LLMResponse:
+        """Return the model text for a given prompt."""
+
+    def complete_messages(
+        self, messages: List[Dict[str, str]], **kwargs: Any
+    ) -> LLMResponse:
+        """Multi-turn completion. Default: flatten and call complete()."""
+        parts = []
+        for msg in messages:
+            if msg["role"] == "user":
+                parts.append(msg["content"])
+            elif msg["role"] == "assistant":
+                parts.append(f"[Assistant]\n{msg['content']}")
+        return self.complete("\n\n".join(parts), **kwargs)
+
+    def complete_structured(
+        self,
+        prompt: str,
+        response_model: Type[T],
+        **kwargs: Any,
+    ) -> T:
+        """Parse LLM response as JSON and validate against a Pydantic model.
+
+        Subclasses may override for provider-specific structured output support.
+        """
+        response = self.complete(prompt, **kwargs)
+        text = response.text.strip()
+
+        # Strip markdown code blocks if present
+        if text.startswith("```json"):
+            text = text[7:].strip()
+        elif text.startswith("```"):
+            text = text[3:].strip()
+        if text.endswith("```"):
+            text = text[:-3].strip()
+
+        data = json.loads(text)
+        return response_model.model_validate(data)
+
+
+class DummyLLMClient(LLMClient):
+    """Deterministic LLM stub for testing and dry runs.
+
+    Includes complete_structured() to prevent auto-wrapping with Instructor.
+    """
+
+    def __init__(self, responses: Optional[Deque[str]] = None) -> None:
+        super().__init__(model="dummy")
+        self._responses: Deque[str] = responses or deque()
+
+    def queue(self, text: str) -> None:
+        """Enqueue a response to be used on the next completion call."""
+        self._responses.append(text)
+
+    def complete(self, prompt: str, **kwargs: Any) -> LLMResponse:
+        if not self._responses:
+            raise RuntimeError("DummyLLMClient ran out of queued responses.")
+        return LLMResponse(text=self._responses.popleft())
+
+    def complete_messages(
+        self, messages: List[Dict[str, str]], **kwargs: Any
+    ) -> LLMResponse:
+        """Multi-turn completion for testing - pops next queued response."""
+        if not self._responses:
+            raise RuntimeError("DummyLLMClient ran out of queued responses.")
+        return LLMResponse(text=self._responses.popleft())
+
+    def complete_structured(
+        self,
+        prompt: str,
+        response_model: Type[T],
+        **kwargs: Any,
+    ) -> T:
+        """Mock structured output - parses JSON and validates with Pydantic.
+
+        This prevents roles from auto-wrapping with real Instructor.
+        """
+        if not self._responses:
+            raise RuntimeError("DummyLLMClient ran out of queued responses.")
+
+        response = self._responses.popleft()
+
+        # Parse JSON and validate with Pydantic model
+        data = json.loads(response)
+        return response_model.model_validate(data)
+
+
+class TransformersLLMClient(LLMClient):
+    """LLM client powered by `transformers` pipelines for chat-style models."""
+
+    def __init__(
+        self,
+        model_path: str,
+        *,
+        max_new_tokens: int = 512,
+        temperature: float = 0.0,
+        top_p: float = 0.9,
+        device_map: Union[str, Dict[str, int]] = "auto",
+        torch_dtype: Union[str, "torch.dtype"] = "auto",
+        trust_remote_code: bool = True,
+        system_prompt: Optional[str] = None,
+        generation_kwargs: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        super().__init__(model=model_path)
+
+        # Import transformers lazily to avoid mandatory dependency for all users.
+        from transformers import AutoTokenizer, pipeline  # type: ignore[import-untyped]
+
+        self._tokenizer = AutoTokenizer.from_pretrained(
+            model_path, trust_remote_code=trust_remote_code
+        )
+        self._pipeline = pipeline(
+            "text-generation",
+            model=model_path,
+            tokenizer=self._tokenizer,
+            torch_dtype=torch_dtype,
+            device_map=device_map,
+            trust_remote_code=trust_remote_code,
+        )
+        self._system_prompt = system_prompt or (
+            "You are a JSON-only assistant that MUST reply with a single valid JSON object without extra text.\n"
+            "Reasoning: low\n"
+            "Do not expose analysis or chain-of-thought. Respond using the final JSON only."
+        )
+        self._defaults: Dict[str, Any] = {
+            "max_new_tokens": max_new_tokens,
+            "temperature": temperature,
+            "top_p": top_p,
+            "do_sample": temperature > 0.0,
+            "return_full_text": False,
+        }
+        if generation_kwargs:
+            self._defaults.update(generation_kwargs)
+
+    def complete(self, prompt: str, **kwargs: Any) -> LLMResponse:
+        call_kwargs = dict(self._defaults)
+        kwargs = dict(kwargs)
+        kwargs.pop("refinement_round", None)
+        call_kwargs.update(kwargs)
+
+        # Build chat-formatted messages to leverage harmony template.
+        messages = [
+            {"role": "system", "content": self._system_prompt},
+            {"role": "user", "content": prompt},
+        ]
+
+        outputs = self._pipeline(messages, **call_kwargs)
+        text = self._postprocess_text(self._extract_text(outputs))
+        return LLMResponse(text=text, raw={"outputs": outputs})
+
+    def _extract_text(self, outputs: Any) -> str:
+        """Normalize pipeline outputs into a single string response."""
+        if not outputs:
+            return ""
+        candidate = outputs[0]
+
+        # Newer transformers versions return {"generated_text": [{"role": ..., "content": ...}, ...]}
+        if isinstance(candidate, dict) and "generated_text" in candidate:
+            generated = candidate["generated_text"]
+            if isinstance(generated, list):
+                # Grab the assistant role content if present.
+                for message in generated:
+                    if isinstance(message, dict) and message.get("role") == "assistant":
+                        content = message.get("content")
+                        if isinstance(content, str):
+                            return content.strip()
+                # Fallback to last item's content/text.
+                last = generated[-1]
+                if isinstance(last, dict):
+                    return str(last.get("content") or last.get("text") or "")
+                return str(last)
+            if isinstance(generated, dict):
+                return str(generated.get("content") or generated.get("text") or "")
+            return str(generated)
+
+        # Older versions might return {"generated_text": "..."}
+        if isinstance(candidate, dict) and isinstance(
+            candidate.get("generated_text"), str
+        ):
+            return candidate["generated_text"].strip()
+
+        # Ultimate fallback: string representation.
+        return str(candidate).strip()
+
+    def _postprocess_text(self, text: str) -> str:
+        """Trim analyzer prefixes and isolate JSON payloads when present."""
+        trimmed = text.strip()
+        if not trimmed:
+            return trimmed
+
+        marker = "assistantfinal"
+        if marker in trimmed:
+            trimmed = trimmed.split(marker, 1)[1].strip()
+
+        if trimmed.startswith(marker):
+            trimmed = trimmed[len(marker) :].strip()
+
+        # Attempt to extract the first JSON object substring.
+        if trimmed and trimmed[0] != "{":
+            start = trimmed.find("{")
+            end = trimmed.rfind("}")
+            if start != -1 and end != -1 and end > start:
+                candidate = trimmed[start : end + 1].strip()
+                candidate_clean = candidate.replace("\r", " ").replace("\n", " ")
+                try:
+                    json.loads(candidate_clean)
+                    return candidate_clean
+                except json.JSONDecodeError:
+                    pass
+
+        return trimmed.replace("\r", " ").replace("\n", " ")
