@@ -13,7 +13,6 @@ from .agent import AgentOutput
 from ._helpers import (
     _format_optional,
     _make_skillbook_excerpt,
-    maybe_track,
 )
 
 # Default prompt (v2.1 with {current_date} filled in)
@@ -123,11 +122,6 @@ class Reflector:
         self.prompt_template = prompt_template
         self.max_retries = max_retries
 
-    @maybe_track(
-        name="reflector_reflect",
-        tags=["ace-framework", "role", "reflector"],
-        project_name="ace-roles",
-    )
     def reflect(
         self,
         *,

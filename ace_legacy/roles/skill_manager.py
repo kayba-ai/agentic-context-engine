@@ -6,14 +6,13 @@ import json
 import logging
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ..llm import LLMClient
 from ..skillbook import Skillbook
 from ..updates import UpdateBatch
 from ..prompt_manager import PromptManager
 from .reflector import ReflectorOutput
-from ._helpers import maybe_track
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +36,14 @@ class SkillManagerOutput(BaseModel):
     raw: Dict[str, Any] = Field(
         default_factory=dict, description="Raw LLM response data"
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_flat_response(cls, data: Any) -> Any:
+        """Accept both nested {"update": {...}} and flat {"reasoning": ..., "operations": [...]}."""
+        if isinstance(data, dict) and "update" not in data and "operations" in data:
+            data = {"update": data}
+        return data
 
 
 # ---------------------------------------------------------------------------
@@ -74,11 +81,6 @@ class SkillManager:
         self.prompt_template = prompt_template
         self.max_retries = max_retries
 
-    @maybe_track(
-        name="skill_manager_update_skills",
-        tags=["ace-framework", "role", "skill-manager"],
-        project_name="ace-roles",
-    )
     def update_skills(
         self,
         *,
@@ -141,8 +143,6 @@ class SkillManager:
         # Filter out non-LLM kwargs (like 'sample' used for ReplayAgent)
         llm_kwargs = {k: v for k, v in kwargs.items() if k != "sample"}
 
-        output = self.llm.complete_structured(
+        return self.llm.complete_structured(
             base_prompt, SkillManagerOutput, **llm_kwargs
         )
-
-        return output

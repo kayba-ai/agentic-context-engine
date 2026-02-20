@@ -12,7 +12,6 @@ from ..prompt_manager import PromptManager
 from ._helpers import (
     _format_optional,
     extract_cited_skill_ids,
-    maybe_track,
 )
 
 # Default prompt (v2.1 with {current_date} filled in)
@@ -91,11 +90,6 @@ class Agent:
         self.prompt_template = prompt_template
         self.max_retries = max_retries
 
-    @maybe_track(
-        name="agent_generate",
-        tags=["ace-framework", "role", "agent"],
-        project_name="ace-roles",
-    )
     def generate(
         self,
         *,
@@ -155,7 +149,7 @@ class Agent:
 # ReplayAgent
 # ---------------------------------------------------------------------------
 
-class ReplayAgent:
+class ReplayAgent(Agent):
     """
     Replays pre-recorded responses instead of calling an LLM.
 
@@ -203,6 +197,10 @@ class ReplayAgent:
     def __init__(
         self, responses: Optional[Dict[str, str]] = None, default_response: str = ""
     ) -> None:
+        # No LLM needed — skip Agent.__init__
+        self.llm = None  # type: ignore[assignment]
+        self.prompt_template = ""
+        self.max_retries = 0
         self.responses = responses if responses is not None else {}
         self.default_response = default_response
 
@@ -239,11 +237,6 @@ class ReplayAgent:
 
         return None, None
 
-    @maybe_track(
-        name="replay_agent_generate",
-        tags=["ace-framework", "role", "replay-agent"],
-        project_name="ace-roles",
-    )
     def generate(
         self,
         *,

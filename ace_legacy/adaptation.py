@@ -1,9 +1,10 @@
-"""Adaptation loops for offline and online ACE training."""
+"""ACE adaptation loop — processes samples through the Agent→Reflector→SkillManager pipeline."""
 
 from __future__ import annotations
 
 import json
 import logging
+from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence
 
 from .skillbook import Skillbook
@@ -25,8 +26,16 @@ from .environments import (
 logger = logging.getLogger(__name__)
 
 
-class ACEBase:
-    """Shared orchestration logic for offline and online ACE adaptation."""
+class ACE:
+    """
+    Core ACE adaptation loop.
+
+    Processes samples through the pipeline:
+        Agent → Environment → Reflector → SkillManager → Skillbook
+
+    Works for both offline (ReplayAgent + traces) and online (Agent + live generation).
+    The distinction is just which agent you pass in.
+    """
 
     def __init__(
         self,
@@ -45,6 +54,81 @@ class ACEBase:
         self.max_refinement_rounds = max_refinement_rounds
         self.reflection_window = reflection_window
         self._recent_reflections: List[str] = []
+
+    def run(
+        self,
+        samples: Iterable[Sample],
+        environment: TaskEnvironment,
+        epochs: int = 1,
+        checkpoint_interval: Optional[int] = None,
+        checkpoint_dir: Optional[str] = None,
+    ) -> List[ACEStepResult]:
+        """
+        Run the ACE loop over samples.
+
+        Args:
+            samples: Samples to process (list for multi-epoch, any iterable for streaming)
+            environment: Environment for evaluating agent outputs
+            epochs: Number of passes over samples (default: 1)
+            checkpoint_interval: Save skillbook every N successful samples (optional)
+            checkpoint_dir: Directory to save checkpoints (required if checkpoint_interval set)
+
+        Returns:
+            List of ACEStepResult for each processed sample
+        """
+        if checkpoint_interval is not None and checkpoint_dir is None:
+            raise ValueError(
+                "checkpoint_dir must be provided when checkpoint_interval is set"
+            )
+
+        # Materialise once so we can iterate multiple epochs
+        sample_list = list(samples)
+        total_steps = len(sample_list)
+
+        results: List[ACEStepResult] = []
+        failed_samples: List[tuple] = []
+
+        for epoch_idx in range(1, epochs + 1):
+            for step_idx, sample in enumerate(sample_list, start=1):
+                try:
+                    result = self._process_sample(
+                        sample,
+                        environment,
+                        epoch=epoch_idx,
+                        total_epochs=epochs,
+                        step_index=step_idx,
+                        total_steps=total_steps,
+                    )
+                    results.append(result)
+
+                    if (
+                        checkpoint_interval
+                        and checkpoint_dir
+                        and len(results) % checkpoint_interval == 0
+                    ):
+                        cp = Path(checkpoint_dir)
+                        cp.mkdir(parents=True, exist_ok=True)
+                        self.skillbook.save_to_file(str(cp / f"ace_checkpoint_{len(results)}.json"))
+                        self.skillbook.save_to_file(str(cp / "ace_latest.json"))
+                        logger.info(f"Checkpoint saved: {len(results)} samples")
+
+                except Exception as e:
+                    logger.warning(
+                        f"Failed sample {step_idx}/{total_steps} "
+                        f"epoch {epoch_idx}/{epochs}: {type(e).__name__}: {str(e)[:200]}"
+                    )
+                    failed_samples.append((epoch_idx, step_idx, str(e)[:100]))
+                    continue
+
+        if failed_samples:
+            logger.info(
+                f"Completed with {len(failed_samples)} failed samples "
+                f"out of {total_steps * epochs} total"
+            )
+
+        return results
+
+    # ── internals ───────────────────────────────────────────────────────
 
     def _reflection_context(self) -> str:
         return "\n---\n".join(self._recent_reflections)
@@ -132,127 +216,7 @@ class ACEBase:
         )
 
 
-class OfflineACE(ACEBase):
-    """
-    Orchestrates offline ACE adaptation over multiple training epochs.
-
-    Processes a fixed training set multiple times, allowing the skillbook
-    to evolve through repeated exposure to the same examples.
-    """
-
-    def run(
-        self,
-        samples: Sequence[Sample],
-        environment: TaskEnvironment,
-        epochs: int = 1,
-        checkpoint_interval: Optional[int] = None,
-        checkpoint_dir: Optional[str] = None,
-    ) -> List[ACEStepResult]:
-        """
-        Run offline adaptation over training samples.
-
-        Args:
-            samples: Training samples to process
-            environment: Environment for evaluating agent outputs
-            epochs: Number of times to iterate over samples (default: 1)
-            checkpoint_interval: Save skillbook every N successful samples (optional)
-            checkpoint_dir: Directory to save checkpoints (required if checkpoint_interval set)
-
-        Returns:
-            List of ACEStepResult for each processed sample
-        """
-        from pathlib import Path
-
-        results: List[ACEStepResult] = []
-        failed_samples: List[tuple] = []
-        total_steps = len(samples)
-
-        if checkpoint_interval is not None and checkpoint_dir is None:
-            raise ValueError(
-                "checkpoint_dir must be provided when checkpoint_interval is set"
-            )
-
-        for epoch_idx in range(1, epochs + 1):
-            for step_idx, sample in enumerate(samples, start=1):
-                try:
-                    result = self._process_sample(
-                        sample,
-                        environment,
-                        epoch=epoch_idx,
-                        total_epochs=epochs,
-                        step_index=step_idx,
-                        total_steps=total_steps,
-                    )
-                    results.append(result)
-
-                    # Save checkpoint if interval reached
-                    if (
-                        checkpoint_interval
-                        and checkpoint_dir
-                        and len(results) % checkpoint_interval == 0
-                    ):
-                        checkpoint_path = Path(checkpoint_dir)
-                        numbered_checkpoint = (
-                            checkpoint_path / f"ace_checkpoint_{len(results)}.json"
-                        )
-                        latest_checkpoint = checkpoint_path / "ace_latest.json"
-
-                        self.skillbook.save_to_file(str(numbered_checkpoint))
-                        self.skillbook.save_to_file(str(latest_checkpoint))
-                        logger.info(
-                            f"Checkpoint saved: {len(results)} samples → {numbered_checkpoint.name}"
-                        )
-
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to process sample {step_idx}/{total_steps} "
-                        f"in epoch {epoch_idx}/{epochs}: {type(e).__name__}: {str(e)[:200]}"
-                    )
-                    failed_samples.append((epoch_idx, step_idx, str(e)[:100]))
-                    continue
-
-        if failed_samples:
-            logger.info(
-                f"Training completed with {len(failed_samples)} failed samples "
-                f"out of {len(samples) * epochs} total attempts"
-            )
-            logger.debug(f"Failed samples: {failed_samples}")
-
-        return results
-
-
-class OnlineACE(ACEBase):
-    """
-    Orchestrates online ACE adaptation for continuous learning.
-
-    Processes samples sequentially as they arrive, updating the
-    skillbook after each one for continuous improvement.
-    """
-
-    def run(
-        self,
-        samples: Iterable[Sample],
-        environment: TaskEnvironment,
-    ) -> List[ACEStepResult]:
-        """
-        Run online adaptation over a stream of samples.
-
-        Args:
-            samples: Iterable of samples (can be infinite stream)
-            environment: Environment for evaluating agent outputs
-
-        Returns:
-            List of ACEStepResult for each processed sample
-        """
-        results: List[ACEStepResult] = []
-        for step_idx, sample in enumerate(samples, start=1):
-            result = self._process_sample(
-                sample,
-                environment,
-                epoch=1,
-                total_epochs=1,
-                step_index=step_idx,
-                total_steps=step_idx,
-            )
-            results.append(result)
-        return results
+# Backwards-compat aliases
+OfflineACE = ACE
+OnlineACE = ACE
+ACEBase = ACE

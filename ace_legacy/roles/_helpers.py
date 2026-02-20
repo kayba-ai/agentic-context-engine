@@ -6,9 +6,8 @@ import json
 import logging
 import re
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Sequence, TypeVar
+from typing import Any, Dict, List, Optional, Sequence
 
-from ..llm import LLMClient
 from ..skillbook import Skillbook
 
 logger = logging.getLogger(__name__)

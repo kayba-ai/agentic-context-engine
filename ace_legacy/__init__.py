@@ -19,7 +19,7 @@ from .environments import (
     EnvironmentResult,
     ACEStepResult,
 )
-from .adaptation import OfflineACE, OnlineACE, ACEBase
+from .adaptation import ACE, OfflineACE, OnlineACE, ACEBase
 from .features import has_opik, has_litellm
 from .prompt_manager import PromptManager
 
@@ -59,10 +59,11 @@ __all__ = [
     "SimpleEnvironment",
     "EnvironmentResult",
     "ACEStepResult",
-    # Adaptation loops
-    "OfflineACE",
-    "OnlineACE",
-    "ACEBase",
+    # Adaptation
+    "ACE",
+    "OfflineACE",  # alias for ACE
+    "OnlineACE",   # alias for ACE
+    "ACEBase",     # alias for ACE
     # Utilities
     "PromptManager",
     "has_opik",
