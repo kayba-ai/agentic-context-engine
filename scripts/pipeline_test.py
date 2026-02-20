@@ -44,10 +44,6 @@ skill_mgr    = SkillManager(llm,  prompt_template=prompt_mgr.get_skill_manager_p
 # ---------------------------------------------------------------------------
 
 pipeline = OfflineACE(
-    skillbook=skillbook,
-    agent=agent,
-    reflector=reflector,
-    skill_manager=skill_mgr,
     steps=[
         AgentStep(agent),
         EvaluateStep(),
@@ -55,6 +51,7 @@ pipeline = OfflineACE(
         ReflectStep(reflector),
         UpdateStep(skill_mgr),
     ],
+    skillbook=skillbook,
 )
 
 # ---------------------------------------------------------------------------

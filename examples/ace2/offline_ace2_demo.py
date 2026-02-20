@@ -107,8 +107,8 @@ skillbook = Skillbook()
 
 ace = OfflineACE.from_client(client, skillbook=skillbook)
 
-print(f"OfflineACE ready  |  pipeline steps: {len(ace.pipeline._steps)}")
-print(f"Pipeline provides: {ace.pipeline.provides}")
+print(f"OfflineACE ready  |  pipeline steps: {len(ace._steps)}")
+print(f"Pipeline provides: {ace.provides}")
 
 # %% [markdown]
 # ## 5. Run — Single Epoch

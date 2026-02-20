@@ -17,19 +17,27 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class OfflineACE:
-    """Multi-epoch ACE runner.
+class OfflineACE(Pipeline):
+    """Multi-epoch ACE pipeline.
 
-    Thin wrapper that loops over samples/epochs, builds a
-    :class:`StepContext` for each, and delegates to the pipeline.
+    Inherits from :class:`Pipeline` so it can be nested as a step
+    inside another pipeline, while providing a multi-epoch ``run()``
+    with checkpoint support.
+
+    Prefer the factory methods :meth:`from_client` or :meth:`from_roles`
+    for convenient construction.  Pass *steps* directly when you need a
+    custom step chain (e.g. inserting a logging step between Evaluate
+    and Reflect).
 
     Args:
-        pipeline: A wired Pipeline (use :func:`ace_pipeline` to build one).
+        steps: Pre-built step list (or use factory methods instead).
         skillbook: The shared Skillbook that steps read and mutate.
     """
 
-    def __init__(self, pipeline: Pipeline, skillbook: "Skillbook") -> None:
-        self.pipeline = pipeline
+    def __init__(
+        self, steps: list | None = None, *, skillbook: "Skillbook"
+    ) -> None:
+        super().__init__(steps=steps)
         self.skillbook = skillbook
 
     @classmethod
@@ -82,6 +90,8 @@ class OfflineACE:
         """
         from ace.skillbook import Skillbook as SB
 
+        from ace2.steps import AgentStep, EvaluateStep, ReflectStep, UpdateStep
+
         if skillbook is None:
             skillbook = SB()
 
@@ -91,18 +101,56 @@ class OfflineACE:
 
             skill_manager.dedup_manager = DeduplicationManager(dedup_config)
 
-        from ace2.pipelines import ace_pipeline
+        steps = [
+            AgentStep(agent),
+            EvaluateStep(),
+            ReflectStep(
+                reflector,
+                max_refinement_rounds=max_refinement_rounds,
+                reflection_window=reflection_window,
+            ),
+            UpdateStep(skill_manager),
+        ]
+        return cls(steps=steps, skillbook=skillbook)
 
-        pipe = ace_pipeline(
-            agent,
-            reflector,
-            skill_manager,
-            max_refinement_rounds=max_refinement_rounds,
-            reflection_window=reflection_window,
+    # ------------------------------------------------------------------
+    # Per-sample processing
+    # ------------------------------------------------------------------
+
+    def _process_one(self, ctx: StepContext) -> SampleResult:
+        """Run the full step chain on *ctx*, capturing errors."""
+        result = SampleResult(
+            sample=ctx.sample, output=None, error=None, failed_at=None
         )
-        return cls(pipe, skillbook)
+        try:
+            result.output = self(ctx)
+        except Exception as exc:
+            result.error = exc
+            result.failed_at = type(exc).__name__
+            logger.warning(
+                "Failed sample %d/%d epoch %d/%d: %s",
+                ctx.step_index, ctx.total_steps, ctx.epoch, ctx.total_epochs, exc,
+            )
+        return result
 
-    def run(
+    def _checkpoint(
+        self, results: list[SampleResult], interval: int | None, directory: str | None
+    ) -> None:
+        """Save skillbook if the checkpoint interval has been reached."""
+        if not interval or not directory or results[-1].error is not None:
+            return
+        if len(results) % interval != 0:
+            return
+        cp = Path(directory)
+        cp.mkdir(parents=True, exist_ok=True)
+        self.skillbook.save_to_file(str(cp / f"ace_checkpoint_{len(results)}.json"))
+        self.skillbook.save_to_file(str(cp / "ace_latest.json"))
+
+    # ------------------------------------------------------------------
+    # Multi-epoch runner
+    # ------------------------------------------------------------------
+
+    def run(  # type: ignore[override]
         self,
         samples: Sequence[Any],
         environment: Any,
@@ -117,53 +165,28 @@ class OfflineACE:
             )
 
         results: list[SampleResult] = []
-        total_steps = len(samples)
         recent_reflections: tuple[str, ...] = ()
+        total = len(samples)
 
-        for epoch_idx in range(1, epochs + 1):
-            for step_idx, sample in enumerate(samples, start=1):
+        for epoch in range(1, epochs + 1):
+            for idx, sample in enumerate(samples, start=1):
                 ctx = StepContext(
                     sample=sample,
                     skillbook=self.skillbook,
                     environment=environment,
-                    epoch=epoch_idx,
+                    epoch=epoch,
                     total_epochs=epochs,
-                    step_index=step_idx,
-                    total_steps=total_steps,
+                    step_index=idx,
+                    total_steps=total,
                     recent_reflections=recent_reflections,
                 )
-
-                result = SampleResult(
-                    sample=sample, output=None, error=None, failed_at=None
-                )
-
-                try:
-                    out_ctx = self.pipeline(ctx)
-                    result.output = out_ctx
-                    recent_reflections = out_ctx.recent_reflections
-                except Exception as exc:
-                    result.error = exc
-                    result.failed_at = type(exc).__name__
-                    logger.warning(
-                        "Failed sample %d/%d epoch %d/%d: %s",
-                        step_idx, total_steps, epoch_idx, epochs, exc,
-                    )
-
+                result = self._process_one(ctx)
+                if result.output is not None:
+                    recent_reflections = result.output.recent_reflections
                 results.append(result)
-
-                # Checkpoint
-                if (
-                    checkpoint_interval
-                    and checkpoint_dir
-                    and result.error is None
-                    and len(results) % checkpoint_interval == 0
-                ):
-                    cp = Path(checkpoint_dir)
-                    cp.mkdir(parents=True, exist_ok=True)
-                    self.skillbook.save_to_file(str(cp / f"ace_checkpoint_{len(results)}.json"))
-                    self.skillbook.save_to_file(str(cp / "ace_latest.json"))
+                self._checkpoint(results, checkpoint_interval, checkpoint_dir)
 
         if wait_for_background:
-            self.pipeline.wait_for_background()
+            self.wait_for_background()
 
         return results
