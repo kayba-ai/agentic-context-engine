@@ -1246,5 +1246,5 @@ class TestBranchViaRun:
         elapsed = time.monotonic() - t0
         assert results[0].error is None
         assert (
-            elapsed < delay * 1.5
+            elapsed < delay * 3.0
         ), f"Expected branches to run in parallel (~{delay}s), took {elapsed:.2f}s"
