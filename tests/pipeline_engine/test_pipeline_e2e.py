@@ -27,41 +27,54 @@ from pipeline import (
 # Domain-agnostic dummy steps (ACE-shaped but no ACE imports)
 # ---------------------------------------------------------------------------
 
+
 class AgentStep:
     """Reads ctx.sample (a named field, not metadata), writes agent_output."""
+
     requires = frozenset()
     provides = frozenset({"agent_output"})
+
     def __call__(self, ctx: StepContext) -> StepContext:
         return ctx.replace(agent_output=f"answer_for_{ctx.sample}")
 
 
 class EvaluateStep:
     """Reads agent_output + environment from metadata, writes environment_result."""
+
     requires = frozenset({"agent_output"})
     provides = frozenset({"environment_result"})
+
     def __call__(self, ctx: StepContext) -> StepContext:
         correct = ctx.agent_output == ctx.metadata.get("expected")
         return ctx.replace(
-            environment_result={"correct": correct, "feedback": "ok" if correct else "wrong"}
+            environment_result={
+                "correct": correct,
+                "feedback": "ok" if correct else "wrong",
+            }
         )
 
 
 class ReflectStep:
     """Background step: reads agent_output + environment_result, writes reflection."""
+
     requires = frozenset({"agent_output", "environment_result"})
     provides = frozenset({"reflection"})
     async_boundary = True
     max_workers = 3
 
     def __call__(self, ctx: StepContext) -> StepContext:
-        time.sleep(0.01)   # simulate LLM latency
+        time.sleep(0.01)  # simulate LLM latency
         return ctx.replace(
-            reflection={"insight": "reflected", "correct": ctx.environment_result["correct"]}
+            reflection={
+                "insight": "reflected",
+                "correct": ctx.environment_result["correct"],
+            }
         )
 
 
 class UpdateStep:
     """Background step: reads reflection, writes skill_manager_output. Serialized."""
+
     requires = frozenset({"reflection"})
     provides = frozenset({"skill_manager_output"})
     max_workers = 1
@@ -77,11 +90,14 @@ class UpdateStep:
 
 class LogStep:
     """Side-effect step that records sample name (for Branch tests)."""
+
     requires = frozenset()
     provides = frozenset()
+
     def __init__(self):
         self.log: list[str] = []
         self._lock = threading.Lock()
+
     def __call__(self, ctx: StepContext) -> StepContext:
         with self._lock:
             self.log.append(ctx.sample)
@@ -90,8 +106,10 @@ class LogStep:
 
 class MetricStep:
     """Writes a metric to metadata (for Branch tests alongside ReflectStep)."""
+
     requires = frozenset()
     provides = frozenset()
+
     def __call__(self, ctx: StepContext) -> StepContext:
         return ctx.replace(
             metadata=MappingProxyType({**ctx.metadata, "metric": len(str(ctx.sample))})
@@ -102,14 +120,11 @@ class MetricStep:
 # E2E: full 4-step pipeline (no async_boundary first)
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.integration
 class TestFullPipelineChain:
     def _pipe(self) -> Pipeline:
-        return (
-            Pipeline()
-            .then(AgentStep())
-            .then(EvaluateStep())
-        )
+        return Pipeline().then(AgentStep()).then(EvaluateStep())
 
     def test_single_sample_correct_answer(self):
         sample_ctx_kwargs = {"metadata": {"expected": "answer_for_q1"}}
@@ -139,6 +154,7 @@ class TestFullPipelineChain:
 # E2E: async_boundary — fire-and-forget pipeline
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.integration
 @pytest.mark.slow
 class TestAsyncBoundaryPipeline:
@@ -148,7 +164,7 @@ class TestAsyncBoundaryPipeline:
             Pipeline()
             .then(AgentStep())
             .then(EvaluateStep())
-            .then(ReflectStep())   # async_boundary = True
+            .then(ReflectStep())  # async_boundary = True
             .then(UpdateStep())
         )
 
@@ -183,7 +199,9 @@ class TestAsyncBoundaryPipeline:
         class FailEval:
             requires = frozenset({"agent_output"})
             provides = frozenset({"environment_result"})
-            def __call__(self, ctx): raise RuntimeError("eval failed")
+
+            def __call__(self, ctx):
+                raise RuntimeError("eval failed")
 
         UpdateStep._updates.clear()
         pipe = (
@@ -204,6 +222,7 @@ class TestAsyncBoundaryPipeline:
 # ---------------------------------------------------------------------------
 # E2E: Branch inside a pipeline
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.integration
 class TestBranchInPipeline:
@@ -230,6 +249,7 @@ class TestBranchInPipeline:
         class Summarize:
             requires = frozenset()
             provides = frozenset({"summary"})
+
             def __call__(self, ctx):
                 return ctx.replace(
                     metadata=MappingProxyType({**ctx.metadata, "summary": "done"})
@@ -251,7 +271,9 @@ class TestBranchInPipeline:
         class BranchBoom:
             requires = frozenset()
             provides = frozenset()
-            def __call__(self, ctx): raise RuntimeError("branch_fail")
+
+            def __call__(self, ctx):
+                raise RuntimeError("branch_fail")
 
         pipe = (
             Pipeline()
@@ -269,6 +291,7 @@ class TestBranchInPipeline:
 # ---------------------------------------------------------------------------
 # E2E: nested pipeline reuse
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.integration
 class TestNestedPipelineReuse:
@@ -300,6 +323,7 @@ class TestNestedPipelineReuse:
 # E2E: multiple run() calls on same instance
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.integration
 class TestMultipleRunCalls:
     def test_two_run_calls_accumulate_background_work(self):
@@ -328,12 +352,14 @@ class TestMultipleRunCalls:
 # E2E: async steps inside pipeline
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.integration
 class TestAsyncStepsInPipeline:
     def test_async_step_runs_via_run(self):
         class AsyncAgent:
             requires = frozenset()
             provides = frozenset({"agent_output"})
+
             async def __call__(self, ctx: StepContext) -> StepContext:
                 await asyncio.sleep(0)
                 return ctx.replace(agent_output="async_answer")
@@ -345,6 +371,7 @@ class TestAsyncStepsInPipeline:
         class AsyncAgent:
             requires = frozenset()
             provides = frozenset({"agent_output"})
+
             async def __call__(self, ctx: StepContext) -> StepContext:
                 await asyncio.sleep(0)
                 return ctx.replace(agent_output="async")
@@ -352,15 +379,11 @@ class TestAsyncStepsInPipeline:
         class SyncEval:
             requires = frozenset({"agent_output"})
             provides = frozenset({"environment_result"})
+
             def __call__(self, ctx: StepContext) -> StepContext:
                 return ctx.replace(environment_result={"score": 1.0})
 
-        results = (
-            Pipeline()
-            .then(AsyncAgent())
-            .then(SyncEval())
-            .run(["s"])
-        )
+        results = Pipeline().then(AsyncAgent()).then(SyncEval()).run(["s"])
         assert results[0].output.agent_output == "async"
         assert results[0].output.environment_result["score"] == 1.0
 
@@ -376,16 +399,18 @@ class TestAsyncStepsInPipeline:
 # E2E: background executor shared across pipeline instances
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.integration
 @pytest.mark.slow
 class TestSharedBackgroundExecutor:
     def test_same_step_class_uses_same_executor(self):
         """Two Pipeline instances sharing the same step class share the executor."""
+
         class SharedBg:
             requires = frozenset()
             provides = frozenset({"done"})
             async_boundary = True
-            max_workers = 1   # single-threaded shared pool
+            max_workers = 1  # single-threaded shared pool
             call_count = 0
             _lock = threading.Lock()
 
