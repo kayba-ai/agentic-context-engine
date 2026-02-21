@@ -159,7 +159,7 @@ def _run(
     return results
 ```
 
-The runner builds `StepContext` objects and hands them to `Pipeline.run()`, which handles iteration, error isolation, foreground/background split, and concurrent workers. The runner only owns the epoch loop.
+The runner builds fully-initialized `StepContext` objects (skillbook, environment, epoch counters, etc.) and hands them to `Pipeline.run(contexts)`. Construction IS initialization — from that point on contexts are frozen and the pipeline processes what it receives without wrapping or guessing. `Pipeline.run()` handles iteration, error isolation, foreground/background split, and concurrent workers. The runner only owns the epoch loop.
 
 ---
 
@@ -853,38 +853,6 @@ The legacy `ACEBase._track_observability_data()` mixes observability concerns wi
 - Independently testable
 - Optional (omit it if Opik is not installed)
 - Composable (add it to any pipeline)
-
----
-
-## Pipeline Engine Change
-
-One change to `Pipeline.run()` / `run_async()` is needed: accept pre-built `StepContext` objects, not only raw samples.
-
-### Current behaviour
-
-```python
-# pipeline/pipeline.py — run_async, line 336
-ctx = StepContext(sample=sample)   # always creates a bare context
-```
-
-This means the runner cannot set `skillbook`, `environment`, `epoch`, etc. before the pipeline starts processing.
-
-### Required behaviour
-
-If an item is already a `StepContext`, use it directly. Otherwise wrap it as before:
-
-```python
-async def process_one(item: Any) -> SampleResult:
-    async with sem:
-        ctx = item if isinstance(item, StepContext) else StepContext(sample=item)
-        ...
-```
-
-This is the **only** change to the pipeline engine. Everything else — epoch loop, Iterable validation, context building — stays in the runner.
-
-### Why not a `context_factory` callback?
-
-A factory callback was considered but is unnecessary complexity. The runner already knows how to build contexts (`_build_context()`). It just needs the pipeline to pass them through unchanged. An `isinstance` check is simpler, has no new API surface, and is backwards-compatible — existing code that passes raw samples still works.
 
 ---
 
