@@ -434,6 +434,17 @@ class ACEBase:
             sample=sample,  # Pass sample for ReplayAgent support
         )
         env_result = environment.evaluate(sample, agent_output)
+
+        # Build traces for RecursiveReflector sandbox exploration
+        traces = sample.metadata.get("traces") or [
+            {
+                "role": "agent",
+                "reasoning": agent_output.reasoning,
+                "answer": agent_output.final_answer,
+                "skill_ids": agent_output.skill_ids,
+            }
+        ]
+
         reflection = self.reflector.reflect(
             question=sample.question,
             agent_output=agent_output,
@@ -441,6 +452,7 @@ class ACEBase:
             ground_truth=env_result.ground_truth,
             feedback=env_result.feedback,
             max_refinement_rounds=self.max_refinement_rounds,
+            traces=traces,
         )
         self._apply_skill_tags(reflection)
         self._update_recent_reflections(reflection)
@@ -520,6 +532,16 @@ class ACEBase:
         # Evaluate (sync - usually fast)
         env_result = environment.evaluate(sample, agent_output)
 
+        # Build traces for RecursiveReflector sandbox exploration
+        traces = sample.metadata.get("traces") or [
+            {
+                "role": "agent",
+                "reasoning": agent_output.reasoning,
+                "answer": agent_output.final_answer,
+                "skill_ids": agent_output.skill_ids,
+            }
+        ]
+
         # Submit to async pipeline (Reflector runs in thread pool)
         if self._async_pipeline:
             task = LearningTask(
@@ -530,6 +552,7 @@ class ACEBase:
                 step_index=step_index,
                 total_epochs=total_epochs,
                 total_steps=total_steps,
+                metadata={"traces": traces},
             )
             self._async_pipeline.submit(task)
 
