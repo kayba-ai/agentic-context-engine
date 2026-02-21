@@ -1,7 +1,6 @@
 # Pipeline Architecture Design
 
-Design decisions for the generalized pipeline system.
-
+Design decisions for the generalized pipeline system. Trying to keep is as generic as possible.
 ---
 
 ## Core Primitives
@@ -55,7 +54,9 @@ class StepProtocol(Protocol):
 
 ### StepContext — immutability contract
 
-`StepContext` is a frozen dataclass. Steps never mutate the incoming context — they return a new one via `.replace()`:
+`StepContext` is a frozen dataclass. Steps never mutate the incoming context — they return a new one via `.replace()`.
+
+The pipeline engine defines a minimal base with only two fields:
 
 ```python
 from types import MappingProxyType
@@ -63,8 +64,6 @@ from types import MappingProxyType
 @dataclass(frozen=True)
 class StepContext:
     sample: Any
-    agent_output: str | None = None
-    reflection: str | None = None
     metadata: MappingProxyType = field(default_factory=lambda: MappingProxyType({}))
 
     def __post_init__(self):
@@ -76,6 +75,38 @@ class StepContext:
         return dataclasses.replace(self, **changes)
 ```
 
+The engine never reads anything beyond `sample` and `metadata`. All domain-specific fields are added by subclassing.
+
+#### Subclassing for domain fields
+
+Consuming applications subclass `StepContext` to add named fields for concepts shared across their pipelines:
+
+```python
+@dataclass(frozen=True)
+class ACEContext(StepContext):
+    # Shared across all ACE pipelines
+    skillbook: Skillbook | None = None
+    environment: TaskEnvironment | None = None
+
+    # Produced by steps (None until the providing step runs)
+    agent_output: AgentOutput | None = None
+    environment_result: EnvironmentResult | None = None
+    reflection: ReflectorOutput | None = None
+    skill_manager_output: UpdateBatch | None = None
+
+    # Runner bookkeeping
+    epoch: int = 1
+    total_epochs: int = 1
+    step_index: int = 0
+    total_steps: int = 0
+```
+
+The `requires`/`provides` validation works on attribute names (strings) — it checks that the field exists on the context object at runtime, so it is subclass-agnostic. A step that declares `requires = {"skillbook"}` works whether the context is `ACEContext` or any other subclass that has a `skillbook` attribute.
+
+Data that is specific to a single integration or step goes in `metadata` to prevent field accumulation on the subclass. For example, `metadata["browser_history"]` for browser-use or `metadata["transcript_path"]` for Claude Code.
+
+#### Immutable update patterns
+
 Updating metadata follows the same immutable pattern as any other field:
 
 ```python
@@ -86,13 +117,11 @@ Steps follow this pattern:
 
 ```python
 def __call__(self, ctx: StepContext) -> StepContext:
-    result = self.agent.run(ctx.sample)
-    return ctx.replace(agent_output=result)
+    result = do_work(ctx.sample)
+    return ctx.replace(result=result)
 ```
 
 `frozen=True` makes mutation a hard error at runtime rather than a subtle bug. It also makes `Branch` safe by default — since `StepContext` is immutable, all branches can receive the same object without risk; no deep copy is needed.
-
-**Field naming rule:** Named fields (`agent_output`, `reflection`) are reserved for concepts shared across all ACE pipelines. Integration-specific data always goes in `metadata`. This prevents the base class from accumulating fields over time as integrations are added.
 
 ---
 
@@ -442,60 +471,7 @@ When a `Branch` step fails, `failed_at` is `"Branch"` and `error` is a `BranchEr
 
 Retry logic is the responsibility of individual steps, not the pipeline.
 
-**Shutdown:** `wait_for_learning(timeout=N)` raises `TimeoutError` if background steps have not drained within `N` seconds. Individual step implementations are responsible for their own per-call timeouts (e.g. LLM API call timeouts).
-
----
-
-## Integrations as Pipelines
-
-Each external framework integration (browser-use, LangChain, Claude Code) is its own `Pipeline` subclass with integration-specific steps. It is **not** embedded as a step inside `ACEPipeline`.
-
-```
-ace/integrations/
-  browser_use/
-    pipeline.py          ← BrowserPipeline
-    steps/
-      execute.py         ← BrowserExecuteStep
-  langchain/
-    pipeline.py          ← LangChainPipeline
-    steps/
-      execute.py         ← LangChainExecuteStep
-  claude_code/
-    pipeline.py          ← ClaudeCodePipeline
-    steps/
-      execute.py         ← ClaudeCodeExecuteStep
-      persist.py         ← PersistStep
-```
-
-Each integration pipeline replaces `AgentStep + EvaluateStep` with its own execute step, then reuses the shared `ReflectStep` and `UpdateStep`:
-
-```python
-BrowserPipeline:
-  [BrowserExecuteStep, ReflectStep, UpdateStep]
-
-LangChainPipeline:
-  [LangChainExecuteStep, ReflectStep, UpdateStep]
-
-ClaudeCodePipeline:
-  [ClaudeCodeExecuteStep, ReflectStep, UpdateStep, PersistStep]
-```
-
----
-
-## Generic Steps Folder
-
-`ace/pipeline/steps/` contains only steps that are reusable across any pipeline — one file per class:
-
-```
-ace/pipeline/steps/
-  __init__.py
-  agent.py         ← AgentStep
-  evaluate.py      ← EvaluateStep
-  reflect.py       ← ReflectStep
-  update.py        ← UpdateStep
-```
-
-Integration-specific steps live next to their pipeline, not here.
+**Shutdown:** `wait_for_background(timeout=N)` raises `TimeoutError` if background steps have not drained within `N` seconds. Individual step implementations are responsible for their own per-call timeouts (e.g. LLM API call timeouts).
 
 ---
 
