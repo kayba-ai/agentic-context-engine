@@ -1099,7 +1099,7 @@ class TestBranchViaRun:
             Pipeline().then(WriteX()),
             Pipeline().then(WriteY()),
         )
-        results = pipe.run(["s"])
+        results = pipe.run([StepContext(sample="s")])
         out = results[0].output
         assert out.metadata["x"] == "from_x"
         assert out.metadata["y"] == "from_y"
@@ -1109,7 +1109,7 @@ class TestBranchViaRun:
             Pipeline().then(WriteX()),
             Pipeline().then(Explode()),
         )
-        results = pipe.run(["s"])
+        results = pipe.run([StepContext(sample="s")])
         assert results[0].error is not None
         assert results[0].failed_at == "Branch"
 
@@ -1118,7 +1118,7 @@ class TestBranchViaRun:
             Pipeline().then(Explode("e1")),
             Pipeline().then(Explode("e2")),
         )
-        results = pipe.run(["s"])
+        results = pipe.run([StepContext(sample="s")])
         assert isinstance(results[0].error, BranchError)
         assert len(results[0].error.failures) == 2
 
@@ -1154,7 +1154,7 @@ class TestBranchViaRun:
                 merge=MergeStrategy.LAST_WRITE_WINS,
             )
         )
-        results = pipe.run(["s"])
+        results = pipe.run([StepContext(sample="s")])
         out = results[0].output
         assert out.metadata.get("read") == 42
         assert out.metadata.get("y") == "from_y"
@@ -1174,7 +1174,7 @@ class TestBranchViaRun:
             .branch(Pipeline().then(WriteX()), Pipeline().then(WriteY()))
             .then(After())
         )
-        results = pipe.run(["s"])
+        results = pipe.run([StepContext(sample="s")])
         out = results[0].output
         assert out.metadata["x"] == "from_x"
         assert out.metadata["y"] == "from_y"
@@ -1185,7 +1185,7 @@ class TestBranchViaRun:
             Pipeline().then(WriteX()),
             Pipeline().then(WriteY()),
         )
-        results = pipe.run(["s1", "s2", "s3"])
+        results = pipe.run([StepContext(sample=s) for s in ("s1", "s2", "s3")])
         assert len(results) == 3
         assert all(r.error is None for r in results)
         assert all(r.output.metadata.get("x") == "from_x" for r in results)
@@ -1196,7 +1196,7 @@ class TestBranchViaRun:
             Pipeline().then(WriteAgent("second")),
             merge=MergeStrategy.LAST_WRITE_WINS,
         )
-        results = pipe.run(["s"])
+        results = pipe.run([StepContext(sample="s")])
         assert results[0].output.agent_output == "second"
 
     def test_namespaced_through_run(self):
@@ -1205,7 +1205,7 @@ class TestBranchViaRun:
             Pipeline().then(WriteY()),
             merge=MergeStrategy.NAMESPACED,
         )
-        results = pipe.run(["s"])
+        results = pipe.run([StepContext(sample="s")])
         out = results[0].output
         assert "branch_0" in out.metadata
         assert "branch_1" in out.metadata
@@ -1217,7 +1217,7 @@ class TestBranchViaRun:
             Pipeline().then(WriteY()),
         )
         outer = Pipeline().then(inner).then(WriteZ())
-        results = outer.run(["s"])
+        results = outer.run([StepContext(sample="s")])
         out = results[0].output
         assert out.metadata["x"] == "from_x"
         assert out.metadata["y"] == "from_y"
@@ -1228,7 +1228,7 @@ class TestBranchViaRun:
             Pipeline().then(WriteX()),
             Pipeline().then(WriteY()),
         )
-        results = asyncio.run(pipe.run_async(["s1", "s2"]))
+        results = asyncio.run(pipe.run_async([StepContext(sample="s1"), StepContext(sample="s2")]))
         assert len(results) == 2
         assert all(r.error is None for r in results)
 
@@ -1241,7 +1241,7 @@ class TestBranchViaRun:
             Pipeline().then(SlowPass(delay)),
         )
         t0 = time.monotonic()
-        results = pipe.run(["s"])
+        results = pipe.run([StepContext(sample="s")])
         elapsed = time.monotonic() - t0
         assert results[0].error is None
         assert (

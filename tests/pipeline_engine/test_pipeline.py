@@ -204,48 +204,48 @@ class TestPipelineCall:
 @pytest.mark.unit
 class TestPipelineRun:
     def test_single_step_single_sample(self):
-        results = Pipeline().then(SetA()).run(["s"])
+        results = Pipeline().then(SetA()).run([StepContext(sample="s")])
         assert len(results) == 1
         assert results[0].output.metadata["a"] == 1
         assert results[0].error is None
 
     def test_multi_step_chain(self):
-        results = Pipeline().then(SetA()).then(SetB()).then(SetC()).run(["s"])
+        results = Pipeline().then(SetA()).then(SetB()).then(SetC()).run([StepContext(sample="s")])
         out = results[0].output
         assert out.metadata["a"] == 1
         assert out.metadata["b"] == 2
         assert out.metadata["c"] == 4
 
     def test_multiple_samples(self):
-        results = Pipeline().then(SetA()).run(["s1", "s2", "s3"])
+        results = Pipeline().then(SetA()).run([StepContext(sample=s) for s in ("s1", "s2", "s3")])
         assert len(results) == 3
         assert all(r.output.metadata["a"] == 1 for r in results)
 
     def test_sample_value_in_result(self):
-        results = Pipeline().then(Noop()).run(["hello"])
+        results = Pipeline().then(Noop()).run([StepContext(sample="hello")])
         assert results[0].sample == "hello"
 
     def test_empty_pipeline_passes_context_through(self):
-        results = Pipeline().run(["s"])
+        results = Pipeline().run([StepContext(sample="s")])
         assert results[0].output is not None
         assert results[0].output.sample == "s"
 
     def test_run_returns_sample_result_list(self):
-        results = Pipeline().then(Noop()).run(["a", "b"])
+        results = Pipeline().then(Noop()).run([StepContext(sample="a"), StepContext(sample="b")])
         assert all(isinstance(r, SampleResult) for r in results)
 
     @pytest.mark.slow
     def test_workers_N_runs_faster_than_sequential(self):
         delay = 0.05
-        samples = list(range(4))
+        contexts = [StepContext(sample=i) for i in range(4)]
         pipe = Pipeline().then(Slow(delay))
 
         t0 = time.monotonic()
-        pipe.run(samples, workers=1)
+        pipe.run(contexts, workers=1)
         seq_time = time.monotonic() - t0
 
         t0 = time.monotonic()
-        pipe.run(samples, workers=4)
+        pipe.run(contexts, workers=4)
         par_time = time.monotonic() - t0
 
         # Parallel should be at least 2× faster
@@ -262,16 +262,16 @@ class TestPipelineRun:
 @pytest.mark.unit
 class TestPipelineRunErrors:
     def test_step_failure_sets_error(self):
-        results = Pipeline().then(Boom()).run(["s"])
+        results = Pipeline().then(Boom()).run([StepContext(sample="s")])
         assert results[0].error is not None
         assert isinstance(results[0].error, RuntimeError)
 
     def test_step_failure_sets_failed_at_name(self):
-        results = Pipeline().then(Boom()).run(["s"])
+        results = Pipeline().then(Boom()).run([StepContext(sample="s")])
         assert results[0].failed_at == "Boom"
 
     def test_step_failure_output_is_none(self):
-        results = Pipeline().then(Boom()).run(["s"])
+        results = Pipeline().then(Boom()).run([StepContext(sample="s")])
         assert results[0].output is None
 
     def test_other_samples_continue_after_one_failure(self):
@@ -289,7 +289,9 @@ class TestPipelineRunErrors:
                 return ctx
 
         FailFirst.call_count = 0
-        results = Pipeline().then(FailFirst()).run(["ok1", "bad", "ok2"])
+        results = Pipeline().then(FailFirst()).run(
+            [StepContext(sample=s) for s in ("ok1", "bad", "ok2")]
+        )
         assert len(results) == 3
         errors = [r for r in results if r.error is not None]
         successes = [r for r in results if r.error is None]
@@ -312,7 +314,7 @@ class TestPipelineRunErrors:
             def __call__(self, ctx):
                 raise ValueError("fail")
 
-        results = Pipeline().then(FirstStep()).then(FailingStep()).run(["s"])
+        results = Pipeline().then(FirstStep()).then(FailingStep()).run([StepContext(sample="s")])
         assert results[0].failed_at == "FailingStep"
 
 
@@ -349,7 +351,7 @@ class TestPipelineAsyncBoundary:
                 )
 
         pipe = Pipeline().then(SlowBg())
-        results = pipe.run(["s"])
+        results = pipe.run([StepContext(sample="s")])
 
         # run() returned — background must NOT have finished yet
         assert (
@@ -362,7 +364,7 @@ class TestPipelineAsyncBoundary:
 
     def test_wait_for_background_completes_output(self):
         pipe = Pipeline().then(SetA()).then(BoundaryStep())
-        results = pipe.run(["s"])
+        results = pipe.run([StepContext(sample="s")])
         pipe.wait_for_background(timeout=5.0)
         assert results[0].output is not None
         assert results[0].output.metadata.get("bg_result") is True
@@ -379,7 +381,7 @@ class TestPipelineAsyncBoundary:
                 raise RuntimeError("bg_boom")
 
         pipe = Pipeline().then(BGBoom())
-        results = pipe.run(["s"])
+        results = pipe.run([StepContext(sample="s")])
         pipe.wait_for_background(timeout=5.0)
         assert results[0].error is not None
         assert results[0].failed_at == "BGBoom"
@@ -388,18 +390,18 @@ class TestPipelineAsyncBoundary:
     def test_wait_for_background_no_threads_is_noop(self):
         """wait_for_background() on a pipeline with no async_boundary must not raise."""
         pipe = Pipeline().then(SetA())  # no boundary → no background threads
-        pipe.run(["s"])
+        pipe.run([StepContext(sample="s")])
         pipe.wait_for_background(timeout=1.0)  # must be a silent no-op
 
     def test_wait_for_background_timeout_raises(self):
         pipe = Pipeline().then(SlowBoundaryStep())
-        pipe.run(["s"])
+        pipe.run([StepContext(sample="s")])
         with pytest.raises(TimeoutError):
             pipe.wait_for_background(timeout=0.05)
 
     def test_multiple_samples_all_get_background_result(self):
         pipe = Pipeline().then(BoundaryStep())
-        results = pipe.run(["a", "b", "c"])
+        results = pipe.run([StepContext(sample=s) for s in ("a", "b", "c")])
         pipe.wait_for_background(timeout=5.0)
         assert all(r.output is not None for r in results)
         assert all(r.output.metadata.get("bg_result") is True for r in results)
@@ -424,7 +426,7 @@ class TestPipelineAsyncBoundary:
 
         # SerialStep has max_workers=1; two samples must not interleave
         pipe = Pipeline().then(TriggerBoundary()).then(SerialStep())
-        results = pipe.run(["x", "y"], workers=2)
+        results = pipe.run([StepContext(sample="x"), StepContext(sample="y")], workers=2)
         pipe.wait_for_background(timeout=5.0)
 
         log = SerialStep._log
@@ -444,23 +446,25 @@ class TestPipelineAsyncBoundary:
 class TestPipelineRunAsync:
     def test_run_async_same_results_as_run(self):
         pipe = Pipeline().then(SetA()).then(SetB())
-        sync_results = pipe.run(["s1", "s2"])
-        async_results = asyncio.run(pipe.run_async(["s1", "s2"]))
+        contexts = [StepContext(sample="s1"), StepContext(sample="s2")]
+        sync_results = pipe.run(contexts)
+        async_results = asyncio.run(pipe.run_async(contexts))
         assert len(async_results) == 2
         for s, a in zip(sync_results, async_results):
             assert s.output == a.output
 
     def test_run_async_handles_step_failure(self):
         pipe = Pipeline().then(Boom())
-        results = asyncio.run(pipe.run_async(["s"]))
+        results = asyncio.run(pipe.run_async([StepContext(sample="s")]))
         assert results[0].error is not None
 
     def test_run_async_workers_respected(self):
         """Multiple samples run concurrently with workers>1."""
         delay = 0.05
         pipe = Pipeline().then(Slow(delay))
+        contexts = [StepContext(sample=i) for i in range(4)]
         t0 = time.monotonic()
-        asyncio.run(pipe.run_async(list(range(4)), workers=4))
+        asyncio.run(pipe.run_async(contexts, workers=4))
         elapsed = time.monotonic() - t0
         assert elapsed < delay * 2, f"Expected concurrency, took {elapsed:.2f}s"
 
@@ -475,7 +479,7 @@ class TestPipelineNesting:
     def test_inner_pipeline_used_as_step(self):
         inner = Pipeline().then(SetA()).then(SetB())
         outer = Pipeline().then(inner).then(SetC())
-        results = outer.run(["s"])
+        results = outer.run([StepContext(sample="s")])
         out = results[0].output
         assert out.metadata["a"] == 1
         assert out.metadata["b"] == 2

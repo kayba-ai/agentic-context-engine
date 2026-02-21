@@ -121,10 +121,10 @@ pipe = (
 )
 ```
 
-**Fan-out across samples:**
+**Fan-out across contexts:**
 
 ```python
-pipe.run(samples, workers=4)   # same pipeline, N samples in parallel
+pipe.run(contexts, workers=4)   # same pipeline, N contexts in parallel
 ```
 
 ### Inner pipeline as a fan-out step
@@ -135,10 +135,11 @@ A `Pipeline`-as-`Step` receives one context and must return one context — but 
 class MultiSearchStep:
     """Generates N queries from one context, runs them in parallel, merges."""
     def __call__(self, ctx: StepContext) -> StepContext:
-        queries = generate_queries(ctx.sample)           # 1 → N sub-inputs
+        queries = generate_queries(ctx.sample)                          # 1 → N
+        sub_ctxs = [StepContext(sample=q) for q in queries]
         sub_pipe = Pipeline().then(FetchStep())
-        results = sub_pipe.run(queries, workers=len(queries))  # parallel
-        return ctx.replace(agent_output=merge(results))  # N → 1
+        results = sub_pipe.run(sub_ctxs, workers=len(queries))         # parallel
+        return ctx.replace(agent_output=merge(results))                 # N → 1
 ```
 
 `sub_pipe.run()` is a top-level runner call, so `async_boundary` and `workers` on its inner steps fire normally. From the outer pipeline's perspective, `MultiSearchStep` is a black box that takes one context and returns one context — the fan-out is an internal implementation detail.
@@ -265,7 +266,7 @@ for step in self.steps:
         ctx = await asyncio.to_thread(step, ctx)
 ```
 
-Pipeline entry points: `pipe.run(samples)` for sync contexts, `await pipe.run_async(samples)` for async contexts (e.g. inside browser-use).
+Pipeline entry points: `pipe.run(contexts)` for sync callers, `await pipe.run_async(contexts)` for async callers (e.g. inside browser-use).
 
 This type is about **not blocking**. Nothing runs in parallel — the pipeline is still sequential, it just yields the thread during waits.
 
@@ -394,7 +395,7 @@ These two knobs control different thread pools and do not interact:
 
 | Knob | Pool | Controls |
 |---|---|---|
-| `pipe.run(samples, workers=N)` | foreground pool | how many samples run through pre-boundary steps simultaneously |
+| `pipe.run(contexts, workers=N)` | foreground pool | how many contexts run through pre-boundary steps simultaneously |
 | `step.max_workers = K` | background pool per step class | how many instances of that step run in the background simultaneously |
 
 A sample leaves the foreground pool when it crosses the `async_boundary` point and enters the background step's pool. With `workers=4` and `ReflectStep.max_workers=3`, you can have 4 samples in Agent/Evaluate and 3 reflections running concurrently — two separate pools, no multiplication.
@@ -413,15 +414,14 @@ Failure semantics differ depending on which side of the `async_boundary` a step 
 
 ```python
 # Pipeline runner (foreground loop)
-for sample in samples:
+for ctx in contexts:
     try:
-        ctx = initial_context(sample)
         for step in self.foreground_steps:
             ctx = step(ctx)
         self._submit_to_background(ctx)
-        results.append(SampleResult(sample=sample, output=ctx, error=None, failed_at=None))
+        results.append(SampleResult(sample=ctx.sample, output=ctx, error=None, failed_at=None))
     except Exception as e:
-        results.append(SampleResult(sample=sample, output=None, error=e, failed_at=type(step).__name__))
+        results.append(SampleResult(sample=ctx.sample, output=None, error=e, failed_at=type(step).__name__))
 ```
 
 **Background steps** (after the boundary): the caller has already moved on, so exceptions cannot propagate. Background failures are captured and attached to the `SampleResult` — nothing is dropped silently.

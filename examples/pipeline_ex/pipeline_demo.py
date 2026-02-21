@@ -169,7 +169,7 @@ print(f"  requires = {pipe.requires}   ← external inputs the caller must provi
 print(f"  provides = {pipe.provides}   ← everything the pipeline writes")
 print()
 
-results = pipe.run(["hello world", "pipeline engine demo"])
+results = pipe.run([StepContext(sample="hello world"), StepContext(sample="pipeline engine demo")])
 show(results)
 
 # %% [markdown]
@@ -222,7 +222,7 @@ pipe = (
 print(f"requires = {pipe.requires}")
 print(f"provides = {pipe.provides}\n")
 
-results = pipe.run(["fork join"])
+results = pipe.run([StepContext(sample="fork join")])
 show(results)
 
 # %% [markdown]
@@ -301,7 +301,7 @@ print(f"   branch_1.agent_output = {out.metadata['branch_1'].agent_output!r}")
 
 # %%
 print("All samples fail:\n")
-results = Pipeline().then(Tokenize()).then(Boom()).run(["good luck"])
+results = Pipeline().then(Tokenize()).then(Boom()).run([StepContext(sample="good luck")])
 show(results)
 
 # %%
@@ -318,7 +318,9 @@ class MaybeBoom:
         return ctx
 
 
-results = Pipeline().then(Tokenize()).then(MaybeBoom()).run(["ok", "bad input", "fine"])
+results = Pipeline().then(Tokenize()).then(MaybeBoom()).run(
+    [StepContext(sample=s) for s in ("ok", "bad input", "fine")]
+)
 show(results)
 
 # %% [markdown]
@@ -359,7 +361,7 @@ class SlowScore:
 pipe = Pipeline().then(Tokenize()).then(SlowScore())
 
 t0 = time.monotonic()
-results = pipe.run(["fast return", "also fast"], workers=2)
+results = pipe.run([StepContext(sample="fast return"), StepContext(sample="also fast")], workers=2)
 elapsed = time.monotonic() - t0
 
 print(f"\nrun() returned in {elapsed:.3f}s — background still scoring\n")
@@ -386,7 +388,7 @@ outer = Pipeline().then(inner).then(Reverse())
 print(f"Inner: requires={inner.requires}, provides={inner.provides}")
 print(f"Outer: requires={outer.requires}, provides={outer.provides}\n")
 
-results = outer.run(["nested demo"])
+results = outer.run([StepContext(sample="nested demo")])
 show(results)
 
 # %% [markdown]
@@ -408,7 +410,7 @@ class SlowStep:
         return ctx.replace(metadata=MappingProxyType({**ctx.metadata, "done": True}))
 
 
-samples = [f"s{i}" for i in range(6)]
+samples = [StepContext(sample=f"s{i}") for i in range(6)]
 pipe = Pipeline().then(SlowStep())
 
 t0 = time.monotonic()
@@ -437,7 +439,7 @@ print(f"  speedup   : {seq / par:.1f}x")
 # | Background execution | `async_boundary = True` on a step class |
 # | Background join | `pipe.wait_for_background(timeout=...)` |
 # | Nesting | Use a `Pipeline` as a step inside another `Pipeline` |
-# | Sample concurrency | `pipe.run(samples, workers=N)` |
+# | Sample concurrency | `pipe.run(contexts, workers=N)` |
 #
 # The pipeline engine is **domain-agnostic** — it knows nothing about ACE.
 # The `ace2/` package will add domain-specific steps (Agent, Evaluate,

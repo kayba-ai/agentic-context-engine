@@ -135,13 +135,13 @@ class TestFullPipelineChain:
 
     def test_multiple_samples_run(self):
         # Samples without expected = all "wrong"
-        results = self._pipe().run(["q1", "q2", "q3"])
+        results = self._pipe().run([StepContext(sample=s) for s in ("q1", "q2", "q3")])
         assert len(results) == 3
         assert all(r.error is None for r in results)
         assert all(r.output.agent_output.startswith("answer_for_") for r in results)
 
     def test_data_flows_correctly_through_chain(self):
-        results = self._pipe().run(["hello"])
+        results = self._pipe().run([StepContext(sample="hello")])
         out = results[0].output
         assert out.sample == "hello"
         assert out.agent_output == "answer_for_hello"
@@ -170,7 +170,7 @@ class TestAsyncBoundaryPipeline:
     def test_run_returns_before_background_finishes(self):
         pipe = self._pipe()
         t0 = time.monotonic()
-        results = pipe.run(["q1"], workers=1)
+        results = pipe.run([StepContext(sample="q1")], workers=1)
         foreground_time = time.monotonic() - t0
         # Should return quickly (foreground only: agent + evaluate)
         # Background runs Reflect (0.01s) + Update (0.005s) asynchronously
@@ -179,7 +179,7 @@ class TestAsyncBoundaryPipeline:
 
     def test_all_steps_complete_after_wait(self):
         pipe = self._pipe()
-        results = pipe.run(["q1", "q2"])
+        results = pipe.run([StepContext(sample="q1"), StepContext(sample="q2")])
         pipe.wait_for_background(timeout=5.0)
         assert all(r.output is not None for r in results)
         assert all(r.output.skill_manager_output == {"updated": True} for r in results)
@@ -188,8 +188,8 @@ class TestAsyncBoundaryPipeline:
         """UpdateStep.max_workers=1 — updates must not interleave."""
         UpdateStep._updates.clear()
         pipe = self._pipe()
-        samples = [f"s{i}" for i in range(5)]
-        pipe.run(samples, workers=3)
+        contexts = [StepContext(sample=f"s{i}") for i in range(5)]
+        pipe.run(contexts, workers=3)
         pipe.wait_for_background(timeout=10.0)
         # All 5 samples must have triggered an update
         assert len(UpdateStep._updates) == 5
@@ -210,7 +210,7 @@ class TestAsyncBoundaryPipeline:
             .then(ReflectStep())
             .then(UpdateStep())
         )
-        results = pipe.run(["q1"])
+        results = pipe.run([StepContext(sample="q1")])
         pipe.wait_for_background(timeout=2.0)
         # Error in foreground → no background submission
         assert results[0].error is not None
@@ -237,7 +237,7 @@ class TestBranchInPipeline:
                 merge=MergeStrategy.RAISE_ON_CONFLICT,
             )
         )
-        results = pipe.run(["hello", "world"])
+        results = pipe.run([StepContext(sample="hello"), StepContext(sample="world")])
         assert len(results) == 2
         assert all(r.error is None for r in results)
         # Both branches ran
@@ -263,7 +263,7 @@ class TestBranchInPipeline:
             )
             .then(Summarize())
         )
-        results = pipe.run(["test"])
+        results = pipe.run([StepContext(sample="test")])
         assert results[0].output.metadata.get("summary") == "done"
 
     def test_branch_failure_captured_in_sample_result(self):
@@ -282,7 +282,7 @@ class TestBranchInPipeline:
                 Pipeline().then(BranchBoom()),
             )
         )
-        results = pipe.run(["s"])
+        results = pipe.run([StepContext(sample="s")])
         assert results[0].error is not None
         assert results[0].failed_at == "Branch"
 
@@ -300,8 +300,8 @@ class TestNestedPipelineReuse:
         outer_a = Pipeline().then(inner)
         outer_b = Pipeline().then(inner).then(MetricStep())
 
-        r_a = outer_a.run(["q1"])
-        r_b = outer_b.run(["q1"])
+        r_a = outer_a.run([StepContext(sample="q1")])
+        r_b = outer_b.run([StepContext(sample="q1")])
 
         assert r_a[0].output.agent_output == "answer_for_q1"
         assert r_b[0].output.metadata.get("metric") is not None
@@ -311,7 +311,7 @@ class TestNestedPipelineReuse:
         level2 = Pipeline().then(level1).then(EvaluateStep())
         level3 = Pipeline().then(level2).then(MetricStep())
 
-        results = level3.run(["deep"])
+        results = level3.run([StepContext(sample="deep")])
         out = results[0].output
         assert out.agent_output == "answer_for_deep"
         assert out.environment_result is not None
@@ -334,15 +334,15 @@ class TestMultipleRunCalls:
             .then(ReflectStep())
             .then(UpdateStep())
         )
-        pipe.run(["a", "b"])
-        pipe.run(["c", "d"])
+        pipe.run([StepContext(sample="a"), StepContext(sample="b")])
+        pipe.run([StepContext(sample="c"), StepContext(sample="d")])
         pipe.wait_for_background(timeout=10.0)
         assert len(UpdateStep._updates) == 4
 
     def test_pipeline_state_not_contaminated_between_runs(self):
         pipe = Pipeline().then(AgentStep()).then(EvaluateStep())
-        r1 = pipe.run(["sample_x"])
-        r2 = pipe.run(["sample_y"])
+        r1 = pipe.run([StepContext(sample="sample_x")])
+        r2 = pipe.run([StepContext(sample="sample_y")])
         assert r1[0].output.sample == "sample_x"
         assert r2[0].output.sample == "sample_y"
 
@@ -363,7 +363,7 @@ class TestAsyncStepsInPipeline:
                 await asyncio.sleep(0)
                 return ctx.replace(agent_output="async_answer")
 
-        results = Pipeline().then(AsyncAgent()).run(["s"])
+        results = Pipeline().then(AsyncAgent()).run([StepContext(sample="s")])
         assert results[0].output.agent_output == "async_answer"
 
     def test_mixed_sync_async_steps(self):
@@ -382,13 +382,14 @@ class TestAsyncStepsInPipeline:
             def __call__(self, ctx: StepContext) -> StepContext:
                 return ctx.replace(environment_result={"score": 1.0})
 
-        results = Pipeline().then(AsyncAgent()).then(SyncEval()).run(["s"])
+        results = Pipeline().then(AsyncAgent()).then(SyncEval()).run([StepContext(sample="s")])
         assert results[0].output.agent_output == "async"
         assert results[0].output.environment_result["score"] == 1.0
 
     def test_run_async_entry_point(self):
+        contexts = [StepContext(sample="q1"), StepContext(sample="q2")]
         results = asyncio.run(
-            Pipeline().then(AgentStep()).then(EvaluateStep()).run_async(["q1", "q2"])
+            Pipeline().then(AgentStep()).then(EvaluateStep()).run_async(contexts)
         )
         assert len(results) == 2
         assert all(r.error is None for r in results)
@@ -430,8 +431,8 @@ class TestSharedBackgroundExecutor:
         pipe_a = Pipeline().then(SharedBg())
         pipe_b = Pipeline().then(SharedBg())
 
-        results_a = pipe_a.run(["a1", "a2"])
-        results_b = pipe_b.run(["b1", "b2"])
+        results_a = pipe_a.run([StepContext(sample="a1"), StepContext(sample="a2")])
+        results_b = pipe_b.run([StepContext(sample="b1"), StepContext(sample="b2")])
 
         pipe_a.wait_for_background(timeout=5.0)
         pipe_b.wait_for_background(timeout=5.0)
