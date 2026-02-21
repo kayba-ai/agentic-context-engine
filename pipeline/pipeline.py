@@ -292,6 +292,18 @@ class Pipeline:
         with self._bg_lock:
             self._bg_threads = [t for t in self._bg_threads if t.is_alive()]
 
+    def background_stats(self) -> dict[str, int]:
+        """Return a snapshot of background task progress.
+
+        Returns a dict with ``active`` and ``completed`` counts.  Safe to
+        call from any thread while the pipeline is running.
+        """
+        with self._bg_lock:
+            threads = list(self._bg_threads)
+        active = sum(1 for t in threads if t.is_alive())
+        completed = len(threads) - active
+        return {"active": active, "completed": completed}
+
     # ------------------------------------------------------------------
     # run() — sync entry point
     # ------------------------------------------------------------------

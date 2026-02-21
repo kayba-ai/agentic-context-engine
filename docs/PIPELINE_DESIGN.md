@@ -473,6 +473,8 @@ Retry logic is the responsibility of individual steps, not the pipeline.
 
 **Shutdown:** `wait_for_background(timeout=N)` raises `TimeoutError` if background steps have not drained within `N` seconds. Individual step implementations are responsible for their own per-call timeouts (e.g. LLM API call timeouts).
 
+**Monitoring:** `background_stats()` returns a `dict` with `active` and `completed` counts for background threads. Thread-safe — can be called from any thread while the pipeline is running. This is the public API for monitoring background progress; callers should not access `_bg_lock` or `_bg_threads` directly.
+
 ---
 
 ## Summary Table
