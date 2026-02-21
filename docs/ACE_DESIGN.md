@@ -235,12 +235,10 @@ class ACERunner:
         """Return background learning progress.
 
         Useful after run(wait=False) to monitor learning without blocking.
+        Delegates to Pipeline.background_stats() to avoid reaching into
+        pipeline internals.
         """
-        with self.pipeline._bg_lock:
-            threads = list(self.pipeline._bg_threads)
-        active = sum(1 for t in threads if t.is_alive())
-        completed = len(threads) - active
-        return {"active": active, "completed": completed}
+        return self.pipeline.background_stats()
 ```
 
 ### Responsibilities
@@ -257,6 +255,8 @@ class ACERunner:
 | Skillbook I/O | `save(path)` on the runner (delegates to `skillbook.save_to_file()`) |
 
 Each sample is independent — no state persists across samples. The skillbook is the only cross-sample coupling: read-only steps see it via `ctx.skillbook` (a `SkillbookView`), write steps mutate it via `self.skillbook` (the real `Skillbook`, injected at construction).
+
+**Eventual consistency:** `SkillbookView` is a thin delegation wrapper, not a snapshot — it reads from the live `Skillbook` at call time. When background learning is active (`async_boundary` on `ReflectStep`), concurrent samples may observe partially-updated skillbook state. For example, Sample 2's `ReflectStep` might read the skillbook mid-mutation by Sample 1's `ApplyStep`. This is by design: steps see a best-effort view of the current skillbook rather than a point-in-time snapshot. The trade-off is acceptable because (1) the Reflector and SkillManager use the skillbook as LLM prompt context, where a few missing or extra skills have negligible impact on output quality, (2) serialising all skillbook reads would eliminate the concurrency benefit of `max_workers > 1` on `ReflectStep`, and (3) write steps (`TagStep`, `ApplyStep`) already run with `max_workers = 1`, so writes are serialised — only reads interleave with writes. If stricter isolation is ever needed, `SkillbookView` can be changed to snapshot on construction (deep copy) without altering step code.
 
 ### Generic run loop
 
@@ -505,6 +505,7 @@ ace = ACE.from_roles(
 | `skillbook` | `Skillbook()` | Starting skillbook (empty if not provided) |
 | `max_refinement_rounds` | `1` | Reflector iteration depth |
 | `dedup_config` | `None` | Appends a `DeduplicateStep` to the pipeline |
+| `dedup_interval` | `10` | Deduplication frequency (samples between runs) |
 | `checkpoint_dir` | `None` | Appends a `CheckpointStep` to the pipeline |
 | `checkpoint_interval` | `10` | Checkpoint frequency (samples between saves) |
 
@@ -513,7 +514,8 @@ Checkpoint and deduplication are configured at construction time. The factory co
 ```python
 @classmethod
 def from_roles(cls, *, reflector, skill_manager, skillbook=None,
-               dedup_config=None, checkpoint_dir=None, checkpoint_interval=10, **kwargs):
+               dedup_config=None, dedup_interval=10,
+               checkpoint_dir=None, checkpoint_interval=10, **kwargs):
     skillbook = skillbook or Skillbook()
     steps = [
         ReflectStep(reflector, **kwargs),          # reads ctx.skillbook (view)
@@ -522,7 +524,7 @@ def from_roles(cls, *, reflector, skill_manager, skillbook=None,
         ApplyStep(skillbook),                      # writes self.skillbook (real)
     ]
     if dedup_config:
-        steps.append(DeduplicateStep(dedup_config, skillbook))   # writes (real)
+        steps.append(DeduplicateStep(dedup_config, skillbook, interval=dedup_interval))  # writes (real)
     if checkpoint_dir:
         steps.append(CheckpointStep(checkpoint_dir, skillbook, interval=checkpoint_interval))
     return cls(pipeline=Pipeline(steps), skillbook=skillbook)
@@ -634,11 +636,11 @@ class TagStep:
             try:
                 self.skillbook.tag_skill(tag.id, tag.tag)
             except ValueError:
-                continue
+                logger.warning("TagStep: skill_id %r not found, skipping tag %r", tag.id, tag.tag)
         return ctx
 ```
 
-Side-effect step — tags skills on `self.skillbook` (the real `Skillbook`, injected via constructor — not the `SkillbookView` on the context). `max_workers = 1` serialises skillbook writes.
+Side-effect step — tags skills on `self.skillbook` (the real `Skillbook`, injected via constructor — not the `SkillbookView` on the context). `max_workers = 1` serialises skillbook writes. Hallucinated skill IDs from the Reflector are logged at `WARNING` level rather than silently swallowed — this provides a diagnostic signal without aborting the pipeline.
 
 Separated from ReflectStep so that:
 - ReflectStep is a pure function (LLM call → reflection object) and can be tested without a skillbook.
@@ -699,16 +701,21 @@ class DeduplicateStep:
 
     max_workers = 1
 
-    def __init__(self, config: DeduplicationConfig, skillbook: Skillbook) -> None:
+    def __init__(self, config: DeduplicationConfig, skillbook: Skillbook, *, interval: int = 10) -> None:
         self.manager = DeduplicationManager(config)
         self.skillbook = skillbook
+        self.interval = interval
+        self._counter = 0
 
     def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
+        self._counter += 1
+        if self._counter % self.interval != 0:
+            return ctx
         self.manager.deduplicate(self.skillbook)
         return ctx
 ```
 
-Optional side-effect step — consolidates similar skills in `self.skillbook` (injected). Appended to the pipeline by factory methods when `dedup_config` is provided. `requires` is empty — it only needs the skillbook, which is injected.
+Optional side-effect step — consolidates similar skills in `self.skillbook` (injected). Appended to the pipeline by factory methods when `dedup_config` is provided. `requires` is empty — it only needs the skillbook, which is injected. Uses an internal counter with a configurable `interval` (default 10) to skip most invocations — deduplication involves O(n²) similarity comparisons across all skills, so running it on every sample would be expensive as the skillbook grows. Unlike `CheckpointStep` (which derives its interval from context fields and is stateless), `DeduplicateStep` uses an internal counter because the dedup interval is independent of epoch boundaries and sample numbering.
 
 ### CheckpointStep
 
@@ -1231,6 +1238,9 @@ Issues acknowledged but deferred from this version of the spec.
 
 **Streaming / lazy iteration:**
 `_run()` eagerly materializes the full iterable into a list of `ACEStepContext` objects before passing them to `Pipeline.run()`. For a large generator with `epochs=1`, the entire input gets buffered into memory. True streaming would require the pipeline to accept an iterator and process items one-at-a-time (e.g., `for ctx in contexts: pipeline.run_one(ctx)`), or an async iterator pattern with `asyncio.as_completed`. This is a deliberate simplification — batch materialization keeps the epoch loop and error handling straightforward. Revisit if memory pressure from large single-pass runs becomes a real problem.
+
+**Skillbook rollback and versioning:**
+Currently the skillbook is mutated in place with no way to undo a bad update. If the LLM hallucinates a harmful skill or a batch degrades overall quality, the only recovery is restoring from a checkpoint file. A lightweight versioning mechanism — e.g., snapshotting skillbook state at epoch boundaries or before each `ApplyStep`, with a `rollback(to_version)` method — would enable automatic revert when a validation metric degrades, A/B comparison between skillbook versions, and safer experimentation with aggressive learning rates. This could live as a `VersionedSkillbook` wrapper or as an optional `SnapshotStep` inserted before `ApplyStep`. Deferred because the current checkpoint-to-disk approach covers the most common recovery scenario (resume after crash), and in-memory versioning adds memory overhead proportional to skillbook size times number of snapshots.
 
 ---
 
