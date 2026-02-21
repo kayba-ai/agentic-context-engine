@@ -495,3 +495,102 @@ class TestPipelineNesting:
     def test_nested_pipeline_satisfies_step_protocol(self):
         inner = Pipeline().then(SetA())
         assert isinstance(inner, StepProtocol)
+
+
+# ---------------------------------------------------------------------------
+# Contract validation with subclass fields
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestPipelineContractWithSubclass:
+    """Validate that requires/provides work correctly with subclass named fields."""
+
+    def test_order_error_when_subclass_field_required_before_provided(self):
+        """Step B requires a subclass field that Step A provides, but B comes first."""
+        from dataclasses import dataclass
+        from typing import Any
+
+        @dataclass(frozen=True)
+        class SubCtx(StepContext):
+            agent_output: Any = None
+
+        class WriteOutput:
+            requires = frozenset()
+            provides = frozenset({"agent_output"})
+
+            def __call__(self, ctx):
+                return ctx.replace(agent_output="answer")
+
+        class ReadOutput:
+            requires = frozenset({"agent_output"})
+            provides = frozenset({"result"})
+
+            def __call__(self, ctx):
+                return ctx.replace(
+                    metadata=MappingProxyType({**ctx.metadata, "result": ctx.agent_output})
+                )
+
+        # Correct order works
+        p = Pipeline().then(WriteOutput()).then(ReadOutput())
+        assert "agent_output" not in p.requires  # internally satisfied
+
+        # Wrong order raises
+        with pytest.raises(PipelineOrderError, match="agent_output"):
+            Pipeline().then(ReadOutput()).then(WriteOutput())
+
+    def test_subclass_field_as_external_input(self):
+        """A step requires a subclass field not provided by any step → external input."""
+
+        class NeedsOutput:
+            requires = frozenset({"agent_output"})
+            provides = frozenset({"score"})
+
+            def __call__(self, ctx):
+                return ctx.replace(
+                    metadata=MappingProxyType({**ctx.metadata, "score": 1.0})
+                )
+
+        p = Pipeline().then(NeedsOutput())
+        assert "agent_output" in p.requires  # external — caller must provide
+
+    def test_subclass_context_flows_through_pipeline_run(self):
+        """Pipeline.run() with subclass contexts preserves subclass type."""
+        from dataclasses import dataclass
+        from typing import Any
+
+        @dataclass(frozen=True)
+        class RunCtx(StepContext):
+            answer: Any = None
+
+        class SetAnswer:
+            requires = frozenset()
+            provides = frozenset({"answer"})
+
+            def __call__(self, ctx):
+                return ctx.replace(answer=f"solved_{ctx.sample}")
+
+        results = Pipeline().then(SetAnswer()).run([RunCtx(sample="q1")])
+        out = results[0].output
+        assert isinstance(out, RunCtx)
+        assert out.answer == "solved_q1"
+
+    def test_subclass_context_with_call_mode(self):
+        """Pipeline.__call__ with subclass context preserves subclass type."""
+        from dataclasses import dataclass
+        from typing import Any
+
+        @dataclass(frozen=True)
+        class CallCtx(StepContext):
+            tag: str = ""
+
+        class SetTag:
+            requires = frozenset()
+            provides = frozenset({"tag"})
+
+            def __call__(self, ctx):
+                return ctx.replace(tag="tagged")
+
+        out = Pipeline().then(SetTag())(CallCtx(sample="s"))
+        assert isinstance(out, CallCtx)
+        assert out.tag == "tagged"

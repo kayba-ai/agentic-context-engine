@@ -30,12 +30,14 @@ def _merge_raise_on_conflict(ctxs: list[StepContext]) -> StepContext:
 
     Metadata is always merged (union across all branches; last writer wins
     within metadata — there is no named-field semantic there).
+
+    Uses ``type(ctxs[0])`` so subclass fields are included in the comparison.
     """
     if len(ctxs) == 1:
         return ctxs[0]
 
     conflicts: set[str] = set()
-    for f in dataclasses.fields(StepContext):
+    for f in dataclasses.fields(type(ctxs[0])):
         if f.name == "metadata":
             continue
         first_val = getattr(ctxs[0], f.name)
@@ -56,15 +58,19 @@ def _merge_raise_on_conflict(ctxs: list[StepContext]) -> StepContext:
 
 
 def _merge_last_write_wins(ctxs: list[StepContext]) -> StepContext:
-    """Last branch's value wins for every conflicting field."""
+    """Last branch's value wins for every conflicting field.
+
+    Uses ``type(ctxs[0])`` so subclass fields are included in the comparison.
+    """
     if len(ctxs) == 1:
         return ctxs[0]
 
     # Start from first context, overlay with each subsequent one
     result = ctxs[0]
+    ctx_type = type(ctxs[0])
     for ctx in ctxs[1:]:
         changes: dict = {}
-        for f in dataclasses.fields(StepContext):
+        for f in dataclasses.fields(ctx_type):
             if f.name == "metadata":
                 continue
             val = getattr(ctx, f.name)

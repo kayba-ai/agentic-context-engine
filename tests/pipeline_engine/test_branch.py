@@ -19,7 +19,9 @@ from __future__ import annotations
 import asyncio
 import threading
 import time
+from dataclasses import dataclass
 from types import MappingProxyType
+from typing import Any
 
 import pytest
 
@@ -29,6 +31,19 @@ from pipeline.branch import (
     _merge_namespaced,
     _merge_raise_on_conflict,
 )
+
+# ---------------------------------------------------------------------------
+# Test-local subclass with named fields for merge/conflict tests
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class TestContext(StepContext):
+    """Subclass with domain fields used by branch merge tests."""
+
+    agent_output: Any = None
+    reflection: Any = None
+
 
 # ---------------------------------------------------------------------------
 # Shared helpers
@@ -281,8 +296,8 @@ class TestBranchConstruction:
 @pytest.mark.unit
 class TestBranchSyncRaiseOnConflict:
 
-    def _ctx(self) -> StepContext:
-        return StepContext(sample="s")
+    def _ctx(self) -> TestContext:
+        return TestContext(sample="s")
 
     def test_disjoint_metadata_merged(self):
         b = Branch(Pipeline().then(WriteX()), Pipeline().then(WriteY()))
@@ -389,14 +404,8 @@ class TestBranchSyncRaiseOnConflict:
 
     def test_preserves_sample_field(self):
         b = Branch(Pipeline().then(WriteX()), Pipeline().then(WriteY()))
-        out = b(StepContext(sample="hello"))
+        out = b(TestContext(sample="hello"))
         assert out.sample == "hello"
-
-    def test_preserves_epoch_field(self):
-        ctx = StepContext(sample="s", epoch=5)
-        b = Branch(Pipeline(), Pipeline())
-        out = b(ctx)
-        assert out.epoch == 5
 
 
 # ---------------------------------------------------------------------------
@@ -407,8 +416,8 @@ class TestBranchSyncRaiseOnConflict:
 @pytest.mark.unit
 class TestBranchSyncLastWriteWins:
 
-    def _ctx(self) -> StepContext:
-        return StepContext(sample="s")
+    def _ctx(self) -> TestContext:
+        return TestContext(sample="s")
 
     def test_second_branch_wins_on_named_field(self):
         b = Branch(
@@ -473,7 +482,7 @@ class TestBranchSyncLastWriteWins:
             Pipeline().then(WriteAgent("v")),
             merge=MergeStrategy.LAST_WRITE_WINS,
         )
-        out = b(StepContext(sample="test"))
+        out = b(TestContext(sample="test"))
         assert out.sample == "test"
 
 
@@ -485,8 +494,8 @@ class TestBranchSyncLastWriteWins:
 @pytest.mark.unit
 class TestBranchSyncNamespaced:
 
-    def _ctx(self) -> StepContext:
-        return StepContext(sample="s")
+    def _ctx(self) -> TestContext:
+        return TestContext(sample="s")
 
     def test_two_branches_keyed_branch_0_and_1(self):
         b = Branch(
@@ -550,14 +559,14 @@ class TestBranchSyncNamespaced:
 
     def test_base_metadata_preserved(self):
         """Existing metadata on the input context is preserved in the output."""
-        ctx = StepContext(sample="s", metadata={"existing": 99})
+        ctx = TestContext(sample="s", metadata={"existing": 99})
         b = Branch(Pipeline().then(WriteX()), merge=MergeStrategy.NAMESPACED)
         out = b(ctx)
         assert out.metadata["existing"] == 99
 
     def test_preserves_sample_field(self):
         b = Branch(Pipeline().then(WriteX()), merge=MergeStrategy.NAMESPACED)
-        out = b(StepContext(sample="orig"))
+        out = b(TestContext(sample="orig"))
         assert out.sample == "orig"
 
 
@@ -569,8 +578,8 @@ class TestBranchSyncNamespaced:
 @pytest.mark.unit
 class TestBranchSyncCustomMerge:
 
-    def _ctx(self) -> StepContext:
-        return StepContext(sample="s")
+    def _ctx(self) -> TestContext:
+        return TestContext(sample="s")
 
     def test_fn_receives_all_outputs(self):
         received: list = []
@@ -615,6 +624,37 @@ class TestBranchSyncCustomMerge:
         assert "y" in out.metadata
         assert "x" not in out.metadata
 
+    def test_fn_accesses_subclass_named_fields(self):
+        """Custom merge function that reads subclass fields to pick a winner."""
+
+        def pick_best(ctxs):
+            # Select the branch whose agent_output is longest
+            return max(ctxs, key=lambda c: len(str(c.agent_output or "")))
+
+        b = Branch(
+            Pipeline().then(WriteAgent("short")),
+            Pipeline().then(WriteAgent("much_longer_answer")),
+            merge=pick_best,
+        )
+        out = b(self._ctx())
+        assert out.agent_output == "much_longer_answer"
+
+    def test_fn_combines_subclass_fields_from_branches(self):
+        """Custom merge that combines named fields from different branches."""
+
+        def combine(ctxs):
+            # Take agent_output from first, reflection from second
+            return ctxs[0].replace(reflection=ctxs[1].reflection)
+
+        b = Branch(
+            Pipeline().then(WriteAgent("answer")),
+            Pipeline().then(WriteReflection("insight")),
+            merge=combine,
+        )
+        out = b(self._ctx())
+        assert out.agent_output == "answer"
+        assert out.reflection == "insight"
+
     def test_fn_exception_propagates_directly(self):
         def bad_merge(ctxs):
             raise ValueError("merge exploded")
@@ -634,8 +674,8 @@ class TestBranchSyncCustomMerge:
 @pytest.mark.unit
 class TestBranchSyncFailures:
 
-    def _ctx(self) -> StepContext:
-        return StepContext(sample="s")
+    def _ctx(self) -> TestContext:
+        return TestContext(sample="s")
 
     def test_single_failure_raises_branch_error(self):
         b = Branch(Pipeline().then(Explode("err1")))
@@ -729,8 +769,8 @@ class TestBranchSyncFailures:
 @pytest.mark.unit
 class TestBranchSyncImmutability:
 
-    def _ctx(self) -> StepContext:
-        return StepContext(sample="s")
+    def _ctx(self) -> TestContext:
+        return TestContext(sample="s")
 
     def test_all_branches_receive_the_same_frozen_context(self):
         """All branches get the identical input object — frozen so sharing is safe."""
@@ -782,7 +822,7 @@ class TestBranchSyncImmutability:
         assert out.metadata["branch_1"].metadata["x"] == "branch_b"
 
     def test_original_context_unchanged_after_branch(self):
-        orig = StepContext(sample="frozen", agent_output=None)
+        orig = TestContext(sample="frozen", agent_output=None)
         b = Branch(Pipeline().then(WriteAgent("mutated")))
         b(orig)
         assert orig.agent_output is None  # frozen — input is untouched
@@ -799,8 +839,8 @@ class TestBranchSyncImmutability:
 class TestBranchAsyncParity:
     """Mirrors every sync test class for the async path."""
 
-    def _ctx(self) -> StepContext:
-        return StepContext(sample="s")
+    def _ctx(self) -> TestContext:
+        return TestContext(sample="s")
 
     # RAISE_ON_CONFLICT -------------------------------------------------------
 
@@ -1018,7 +1058,7 @@ class TestBranchAsyncParity:
 
     def test_preserves_sample_field(self):
         b = Branch(Pipeline().then(WriteX()), Pipeline().then(WriteY()))
-        out = asyncio.run(b.__call_async__(StepContext(sample="preserved")))
+        out = asyncio.run(b.__call_async__(TestContext(sample="preserved")))
         assert out.sample == "preserved"
 
 
@@ -1031,8 +1071,8 @@ class TestBranchAsyncParity:
 class TestBranchAsyncNativeCoroutines:
     """Branch.__call_async__ detects native coroutine children and awaits directly."""
 
-    def _ctx(self) -> StepContext:
-        return StepContext(sample="s")
+    def _ctx(self) -> TestContext:
+        return TestContext(sample="s")
 
     def test_two_async_children_execute(self):
         b = Branch(Pipeline().then(AsyncWriteX()), Pipeline().then(AsyncWriteY()))
@@ -1099,7 +1139,7 @@ class TestBranchViaRun:
             Pipeline().then(WriteX()),
             Pipeline().then(WriteY()),
         )
-        results = pipe.run([StepContext(sample="s")])
+        results = pipe.run([TestContext(sample="s")])
         out = results[0].output
         assert out.metadata["x"] == "from_x"
         assert out.metadata["y"] == "from_y"
@@ -1109,7 +1149,7 @@ class TestBranchViaRun:
             Pipeline().then(WriteX()),
             Pipeline().then(Explode()),
         )
-        results = pipe.run([StepContext(sample="s")])
+        results = pipe.run([TestContext(sample="s")])
         assert results[0].error is not None
         assert results[0].failed_at == "Branch"
 
@@ -1118,7 +1158,7 @@ class TestBranchViaRun:
             Pipeline().then(Explode("e1")),
             Pipeline().then(Explode("e2")),
         )
-        results = pipe.run([StepContext(sample="s")])
+        results = pipe.run([TestContext(sample="s")])
         assert isinstance(results[0].error, BranchError)
         assert len(results[0].error.failures) == 2
 
@@ -1154,7 +1194,7 @@ class TestBranchViaRun:
                 merge=MergeStrategy.LAST_WRITE_WINS,
             )
         )
-        results = pipe.run([StepContext(sample="s")])
+        results = pipe.run([TestContext(sample="s")])
         out = results[0].output
         assert out.metadata.get("read") == 42
         assert out.metadata.get("y") == "from_y"
@@ -1174,7 +1214,7 @@ class TestBranchViaRun:
             .branch(Pipeline().then(WriteX()), Pipeline().then(WriteY()))
             .then(After())
         )
-        results = pipe.run([StepContext(sample="s")])
+        results = pipe.run([TestContext(sample="s")])
         out = results[0].output
         assert out.metadata["x"] == "from_x"
         assert out.metadata["y"] == "from_y"
@@ -1185,7 +1225,7 @@ class TestBranchViaRun:
             Pipeline().then(WriteX()),
             Pipeline().then(WriteY()),
         )
-        results = pipe.run([StepContext(sample=s) for s in ("s1", "s2", "s3")])
+        results = pipe.run([TestContext(sample=s) for s in ("s1", "s2", "s3")])
         assert len(results) == 3
         assert all(r.error is None for r in results)
         assert all(r.output.metadata.get("x") == "from_x" for r in results)
@@ -1196,7 +1236,7 @@ class TestBranchViaRun:
             Pipeline().then(WriteAgent("second")),
             merge=MergeStrategy.LAST_WRITE_WINS,
         )
-        results = pipe.run([StepContext(sample="s")])
+        results = pipe.run([TestContext(sample="s")])
         assert results[0].output.agent_output == "second"
 
     def test_namespaced_through_run(self):
@@ -1205,7 +1245,7 @@ class TestBranchViaRun:
             Pipeline().then(WriteY()),
             merge=MergeStrategy.NAMESPACED,
         )
-        results = pipe.run([StepContext(sample="s")])
+        results = pipe.run([TestContext(sample="s")])
         out = results[0].output
         assert "branch_0" in out.metadata
         assert "branch_1" in out.metadata
@@ -1217,7 +1257,7 @@ class TestBranchViaRun:
             Pipeline().then(WriteY()),
         )
         outer = Pipeline().then(inner).then(WriteZ())
-        results = outer.run([StepContext(sample="s")])
+        results = outer.run([TestContext(sample="s")])
         out = results[0].output
         assert out.metadata["x"] == "from_x"
         assert out.metadata["y"] == "from_y"
@@ -1228,7 +1268,7 @@ class TestBranchViaRun:
             Pipeline().then(WriteX()),
             Pipeline().then(WriteY()),
         )
-        results = asyncio.run(pipe.run_async([StepContext(sample="s1"), StepContext(sample="s2")]))
+        results = asyncio.run(pipe.run_async([TestContext(sample="s1"), TestContext(sample="s2")]))
         assert len(results) == 2
         assert all(r.error is None for r in results)
 
@@ -1241,7 +1281,7 @@ class TestBranchViaRun:
             Pipeline().then(SlowPass(delay)),
         )
         t0 = time.monotonic()
-        results = pipe.run([StepContext(sample="s")])
+        results = pipe.run([TestContext(sample="s")])
         elapsed = time.monotonic() - t0
         assert results[0].error is None
         assert (

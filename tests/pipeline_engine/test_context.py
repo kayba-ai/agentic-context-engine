@@ -1,52 +1,68 @@
-"""Unit tests for pipeline.StepContext."""
+"""Unit tests for pipeline.StepContext.
+
+Tests cover the generic base class (sample + metadata) and the subclassing
+pattern that consuming applications use to add domain fields.
+"""
 
 from __future__ import annotations
 
 import dataclasses
+from dataclasses import dataclass
 from types import MappingProxyType
+from typing import Any
 
 import pytest
 
 from pipeline import StepContext
 
 
+# ---------------------------------------------------------------------------
+# Test-local subclass — validates the subclassing pattern
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class DomainContext(StepContext):
+    """Minimal subclass used only in these tests."""
+
+    output: Any = None
+    score: float = 0.0
+
+
+# ---------------------------------------------------------------------------
+# Base class defaults
+# ---------------------------------------------------------------------------
+
+
 @pytest.mark.unit
 class TestStepContextDefaults:
-    def test_all_optional_fields_default_to_none(self):
-        ctx = StepContext(sample="s")
-        assert ctx.agent_output is None
-        assert ctx.environment_result is None
-        assert ctx.reflection is None
-        assert ctx.skill_manager_output is None
-        assert ctx.skillbook is None
-        assert ctx.environment is None
-
-    def test_counter_defaults(self):
-        ctx = StepContext(sample="s")
-        assert ctx.epoch == 1
-        assert ctx.total_epochs == 1
-        assert ctx.step_index == 0
-        assert ctx.total_steps == 0
-
-    def test_recent_reflections_defaults_to_empty_tuple(self):
-        ctx = StepContext(sample="s")
-        assert ctx.recent_reflections == ()
-        assert isinstance(ctx.recent_reflections, tuple)
+    def test_sample_defaults_to_none(self):
+        ctx = StepContext()
+        assert ctx.sample is None
 
     def test_metadata_defaults_to_empty_mappingproxy(self):
         ctx = StepContext(sample="s")
         assert ctx.metadata == MappingProxyType({})
         assert isinstance(ctx.metadata, MappingProxyType)
 
+    def test_only_two_fields_on_base_class(self):
+        field_names = {f.name for f in dataclasses.fields(StepContext)}
+        assert field_names == {"sample", "metadata"}
+
+
+# ---------------------------------------------------------------------------
+# Immutability
+# ---------------------------------------------------------------------------
+
 
 @pytest.mark.unit
 class TestStepContextImmutability:
-    def test_setting_named_field_raises(self):
+    def test_setting_sample_raises(self):
         ctx = StepContext(sample="s")
         with pytest.raises(
             (dataclasses.FrozenInstanceError, AttributeError, TypeError)
         ):
-            ctx.agent_output = "oops"  # type: ignore[misc]
+            ctx.sample = "other"  # type: ignore[misc]
 
     def test_setting_metadata_raises(self):
         ctx = StepContext(sample="s")
@@ -55,17 +71,15 @@ class TestStepContextImmutability:
         ):
             ctx.metadata = MappingProxyType({"x": 1})  # type: ignore[misc]
 
-    def test_setting_sample_raises(self):
-        ctx = StepContext(sample="s")
-        with pytest.raises(
-            (dataclasses.FrozenInstanceError, AttributeError, TypeError)
-        ):
-            ctx.sample = "other"  # type: ignore[misc]
-
     def test_metadata_mappingproxy_is_not_mutable(self):
         ctx = StepContext(sample="s", metadata={"k": "v"})
         with pytest.raises(TypeError):
             ctx.metadata["k"] = "overwrite"  # type: ignore[index]
+
+
+# ---------------------------------------------------------------------------
+# Coercion
+# ---------------------------------------------------------------------------
 
 
 @pytest.mark.unit
@@ -80,46 +94,33 @@ class TestStepContextCoercion:
         ctx = StepContext(sample="s", metadata=mp)
         assert ctx.metadata is mp
 
-    def test_list_recent_reflections_coerced_to_tuple(self):
-        ctx = StepContext(sample="s", recent_reflections=["r1", "r2"])
-        assert isinstance(ctx.recent_reflections, tuple)
-        assert ctx.recent_reflections == ("r1", "r2")
 
-    def test_tuple_recent_reflections_unchanged(self):
-        t = ("r1", "r2")
-        ctx = StepContext(sample="s", recent_reflections=t)
-        assert ctx.recent_reflections is t
+# ---------------------------------------------------------------------------
+# replace()
+# ---------------------------------------------------------------------------
 
 
 @pytest.mark.unit
 class TestStepContextReplace:
     def test_replace_returns_new_object(self):
         ctx = StepContext(sample="s")
-        ctx2 = ctx.replace(agent_output="out")
+        ctx2 = ctx.replace(sample="t")
         assert ctx2 is not ctx
 
     def test_replace_does_not_mutate_original(self):
         ctx = StepContext(sample="s")
-        ctx.replace(agent_output="out")
-        assert ctx.agent_output is None
+        ctx.replace(sample="t")
+        assert ctx.sample == "s"
 
     def test_replace_updates_target_field(self):
         ctx = StepContext(sample="s")
-        ctx2 = ctx.replace(agent_output="out")
-        assert ctx2.agent_output == "out"
+        ctx2 = ctx.replace(sample="t")
+        assert ctx2.sample == "t"
 
     def test_replace_preserves_other_fields(self):
-        ctx = StepContext(sample="s", epoch=3)
-        ctx2 = ctx.replace(agent_output="x")
-        assert ctx2.sample == "s"
-        assert ctx2.epoch == 3
-
-    def test_replace_multiple_fields_at_once(self):
-        ctx = StepContext(sample="s")
-        ctx2 = ctx.replace(agent_output="a", reflection="r", epoch=2)
-        assert ctx2.agent_output == "a"
-        assert ctx2.reflection == "r"
-        assert ctx2.epoch == 2
+        ctx = StepContext(sample="s", metadata={"k": 1})
+        ctx2 = ctx.replace(sample="t")
+        assert ctx2.metadata["k"] == 1
 
     def test_replace_metadata_immutable_pattern(self):
         ctx = StepContext(sample="s", metadata={"x": 1})
@@ -128,27 +129,21 @@ class TestStepContextReplace:
         assert ctx2.metadata["y"] == 2
         assert "y" not in ctx.metadata  # original unchanged
 
-    def test_replace_recent_reflections(self):
-        ctx = StepContext(sample="s", recent_reflections=("r1",))
-        ctx2 = ctx.replace(recent_reflections=(*ctx.recent_reflections, "r2"))
-        assert ctx2.recent_reflections == ("r1", "r2")
-        assert ctx.recent_reflections == ("r1",)  # original unchanged
+
+# ---------------------------------------------------------------------------
+# Equality
+# ---------------------------------------------------------------------------
 
 
 @pytest.mark.unit
 class TestStepContextEquality:
     def test_equal_contexts(self):
-        ctx1 = StepContext(sample="s", epoch=2)
-        ctx2 = StepContext(sample="s", epoch=2)
+        ctx1 = StepContext(sample="s")
+        ctx2 = StepContext(sample="s")
         assert ctx1 == ctx2
 
     def test_different_sample_not_equal(self):
         assert StepContext(sample="a") != StepContext(sample="b")
-
-    def test_different_named_field_not_equal(self):
-        assert StepContext(sample="s", agent_output="x") != StepContext(
-            sample="s", agent_output="y"
-        )
 
     def test_context_not_hashable(self):
         """StepContext is frozen but NOT hashable: MappingProxyType wraps a dict,
@@ -156,3 +151,204 @@ class TestStepContextEquality:
         ctx = StepContext(sample="s")
         with pytest.raises(TypeError):
             hash(ctx)
+
+
+# ---------------------------------------------------------------------------
+# Subclassing pattern
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestStepContextSubclassing:
+    def test_subclass_has_base_fields(self):
+        ctx = DomainContext(sample="s")
+        assert ctx.sample == "s"
+        assert ctx.metadata == MappingProxyType({})
+
+    def test_subclass_has_domain_fields(self):
+        ctx = DomainContext(sample="s", output="answer", score=0.95)
+        assert ctx.output == "answer"
+        assert ctx.score == 0.95
+
+    def test_subclass_defaults(self):
+        ctx = DomainContext(sample="s")
+        assert ctx.output is None
+        assert ctx.score == 0.0
+
+    def test_subclass_is_frozen(self):
+        ctx = DomainContext(sample="s", output="x")
+        with pytest.raises(
+            (dataclasses.FrozenInstanceError, AttributeError, TypeError)
+        ):
+            ctx.output = "y"  # type: ignore[misc]
+
+    def test_subclass_replace_returns_same_type(self):
+        ctx = DomainContext(sample="s")
+        ctx2 = ctx.replace(output="answer")
+        assert isinstance(ctx2, DomainContext)
+        assert ctx2.output == "answer"
+
+    def test_subclass_replace_preserves_base_fields(self):
+        ctx = DomainContext(sample="s", metadata={"k": 1})
+        ctx2 = ctx.replace(output="x")
+        assert ctx2.sample == "s"
+        assert ctx2.metadata["k"] == 1
+
+    def test_subclass_replace_preserves_domain_fields(self):
+        ctx = DomainContext(sample="s", output="a", score=0.9)
+        ctx2 = ctx.replace(sample="t")
+        assert ctx2.output == "a"
+        assert ctx2.score == 0.9
+
+    def test_subclass_metadata_coercion(self):
+        ctx = DomainContext(sample="s", metadata={"x": 1})
+        assert isinstance(ctx.metadata, MappingProxyType)
+
+    def test_subclass_isinstance_of_step_context(self):
+        ctx = DomainContext(sample="s")
+        assert isinstance(ctx, StepContext)
+
+    def test_subclass_equality(self):
+        a = DomainContext(sample="s", output="x")
+        b = DomainContext(sample="s", output="x")
+        assert a == b
+
+    def test_subclass_inequality_on_domain_field(self):
+        a = DomainContext(sample="s", output="x")
+        b = DomainContext(sample="s", output="y")
+        assert a != b
+
+
+# ---------------------------------------------------------------------------
+# Multi-level subclassing (SubSubContext)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ExtendedContext(DomainContext):
+    """Two-level subclass: StepContext → DomainContext → ExtendedContext."""
+
+    label: str = ""
+
+
+@pytest.mark.unit
+class TestMultiLevelSubclassing:
+    def test_has_all_ancestor_fields(self):
+        ctx = ExtendedContext(sample="s", output="x", score=0.5, label="L")
+        assert ctx.sample == "s"
+        assert ctx.metadata == MappingProxyType({})
+        assert ctx.output == "x"
+        assert ctx.score == 0.5
+        assert ctx.label == "L"
+
+    def test_defaults_from_all_levels(self):
+        ctx = ExtendedContext(sample="s")
+        assert ctx.output is None  # from DomainContext
+        assert ctx.score == 0.0  # from DomainContext
+        assert ctx.label == ""  # from ExtendedContext
+
+    def test_replace_returns_correct_type(self):
+        ctx = ExtendedContext(sample="s")
+        ctx2 = ctx.replace(label="new")
+        assert isinstance(ctx2, ExtendedContext)
+        assert ctx2.label == "new"
+
+    def test_replace_preserves_all_levels(self):
+        ctx = ExtendedContext(sample="s", output="x", score=0.9, label="L")
+        ctx2 = ctx.replace(sample="t")
+        assert ctx2.output == "x"
+        assert ctx2.score == 0.9
+        assert ctx2.label == "L"
+
+    def test_isinstance_chain(self):
+        ctx = ExtendedContext(sample="s")
+        assert isinstance(ctx, StepContext)
+        assert isinstance(ctx, DomainContext)
+        assert isinstance(ctx, ExtendedContext)
+
+    def test_is_frozen(self):
+        ctx = ExtendedContext(sample="s", label="L")
+        with pytest.raises(
+            (dataclasses.FrozenInstanceError, AttributeError, TypeError)
+        ):
+            ctx.label = "new"  # type: ignore[misc]
+
+    def test_metadata_coercion(self):
+        ctx = ExtendedContext(sample="s", metadata={"k": 1})
+        assert isinstance(ctx.metadata, MappingProxyType)
+
+    def test_field_count(self):
+        field_names = {f.name for f in dataclasses.fields(ExtendedContext)}
+        assert field_names == {"sample", "metadata", "output", "score", "label"}
+
+
+# ---------------------------------------------------------------------------
+# Multi-field replace
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestMultiFieldReplace:
+    def test_replace_multiple_fields_at_once(self):
+        ctx = DomainContext(sample="s", output="a", score=0.1)
+        ctx2 = ctx.replace(sample="t", output="b", score=0.9)
+        assert ctx2.sample == "t"
+        assert ctx2.output == "b"
+        assert ctx2.score == 0.9
+
+    def test_replace_base_and_domain_fields_together(self):
+        ctx = DomainContext(sample="s", metadata={"k": 1}, output="a")
+        ctx2 = ctx.replace(
+            sample="t",
+            metadata=MappingProxyType({"k": 2}),
+            output="b",
+        )
+        assert ctx2.sample == "t"
+        assert ctx2.metadata["k"] == 2
+        assert ctx2.output == "b"
+
+    def test_replace_all_fields_on_multi_level_subclass(self):
+        ctx = ExtendedContext(sample="s", output="a", score=0.1, label="L")
+        ctx2 = ctx.replace(sample="t", output="b", score=0.9, label="M")
+        assert isinstance(ctx2, ExtendedContext)
+        assert ctx2.sample == "t"
+        assert ctx2.output == "b"
+        assert ctx2.score == 0.9
+        assert ctx2.label == "M"
+
+    def test_original_unchanged_after_multi_field_replace(self):
+        ctx = DomainContext(sample="s", output="a", score=0.1)
+        ctx.replace(sample="t", output="b", score=0.9)
+        assert ctx.sample == "s"
+        assert ctx.output == "a"
+        assert ctx.score == 0.1
+
+
+# ---------------------------------------------------------------------------
+# Cross-type equality
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class OtherContext(StepContext):
+    """A different subclass with the same field name as DomainContext."""
+
+    output: Any = None
+
+
+@pytest.mark.unit
+class TestCrossTypeEquality:
+    def test_different_subclass_types_not_equal(self):
+        a = DomainContext(sample="s", output="x")
+        b = OtherContext(sample="s", output="x")
+        assert a != b
+
+    def test_base_not_equal_to_subclass(self):
+        base = StepContext(sample="s")
+        sub = DomainContext(sample="s")
+        assert base != sub
+
+    def test_subclass_not_equal_to_sub_subclass(self):
+        parent = DomainContext(sample="s")
+        child = ExtendedContext(sample="s")
+        assert parent != child

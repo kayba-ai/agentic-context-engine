@@ -50,15 +50,20 @@ from pipeline import (
 
 def show(results: list[SampleResult]) -> None:
     """Pretty-print a list of SampleResult."""
+    import dataclasses as _dc
+
     for r in results:
         tag = "OK" if r.error is None else f"FAIL @ {r.failed_at}"
         print(f"  [{tag}] sample={r.sample!r}")
         if r.output:
-            named = {
-                k: getattr(r.output, k)
-                for k in ("agent_output", "environment_result", "reflection")
-                if getattr(r.output, k) is not None
-            }
+            # Show all non-default named fields (excluding sample and metadata)
+            named = {}
+            for f in _dc.fields(type(r.output)):
+                if f.name in ("sample", "metadata"):
+                    continue
+                val = getattr(r.output, f.name)
+                if val != f.default:
+                    named[f.name] = val
             if named:
                 print(f"         fields:   {named}")
             meta = dict(r.output.metadata)
@@ -129,10 +134,10 @@ class Reverse:
 
 
 class Summarize:
-    """Combine processed metadata into a final agent_output string."""
+    """Combine processed metadata into a final summary string."""
 
     requires = frozenset({"upper_tokens", "reversed_tokens", "word_count"})
-    provides = frozenset({"agent_output"})
+    provides = frozenset({"summary"})
 
     def __call__(self, ctx: StepContext) -> StepContext:
         summary = (
@@ -141,7 +146,9 @@ class Summarize:
             f"rev={ctx.metadata['reversed_tokens']}"
         )
         print(f"    [Summarize] → {summary}")
-        return ctx.replace(agent_output=summary)
+        return ctx.replace(
+            metadata=MappingProxyType({**ctx.metadata, "summary": summary})
+        )
 
 
 class Boom:
@@ -239,6 +246,19 @@ show(results)
 
 
 # %%
+# To demonstrate named-field conflict detection, we define a small subclass
+# with a named field.  This is the same pattern ACE uses (ACEContext with
+# skillbook, agent_output, etc.) — the pipeline engine is subclass-agnostic.
+
+from dataclasses import dataclass
+from typing import Any
+
+
+@dataclass(frozen=True)
+class AnswerContext(StepContext):
+    agent_output: Any = None
+
+
 class WriteAnswer:
     requires = frozenset()
     provides = frozenset({"agent_output"})
@@ -250,7 +270,7 @@ class WriteAnswer:
         return ctx.replace(agent_output=self.val)
 
 
-ctx = StepContext(sample="q")
+ctx = AnswerContext(sample="q")
 
 # %%
 # a) RAISE_ON_CONFLICT — two branches write different values → error

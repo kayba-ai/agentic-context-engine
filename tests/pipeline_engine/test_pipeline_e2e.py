@@ -1,8 +1,8 @@
 """End-to-end tests for the pipeline engine.
 
 These tests exercise realistic multi-step scenarios — no ACE imports.
-Dummy steps simulate the Agent → Evaluate → Reflect → Update pattern and
-integration-style pipelines so the full plumbing is exercised.
+Dummy steps simulate the Agent → Evaluate → Reflect → Update pattern using
+a test-local StepContext subclass, so the full plumbing is exercised.
 """
 
 from __future__ import annotations
@@ -10,7 +10,9 @@ from __future__ import annotations
 import asyncio
 import threading
 import time
+from dataclasses import dataclass
 from types import MappingProxyType
+from typing import Any
 
 import pytest
 
@@ -23,6 +25,21 @@ from pipeline import (
 )
 
 # ---------------------------------------------------------------------------
+# Test-local context subclass (simulates ACE-style domain fields)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class E2EContext(StepContext):
+    """Domain context with named fields for the Agent → Evaluate → Reflect → Update pattern."""
+
+    agent_output: Any = None
+    environment_result: Any = None
+    reflection: Any = None
+    skill_manager_output: Any = None
+
+
+# ---------------------------------------------------------------------------
 # Domain-agnostic dummy steps (ACE-shaped but no ACE imports)
 # ---------------------------------------------------------------------------
 
@@ -33,7 +50,7 @@ class AgentStep:
     requires = frozenset()
     provides = frozenset({"agent_output"})
 
-    def __call__(self, ctx: StepContext) -> StepContext:
+    def __call__(self, ctx: E2EContext) -> E2EContext:
         return ctx.replace(agent_output=f"answer_for_{ctx.sample}")
 
 
@@ -43,7 +60,7 @@ class EvaluateStep:
     requires = frozenset({"agent_output"})
     provides = frozenset({"environment_result"})
 
-    def __call__(self, ctx: StepContext) -> StepContext:
+    def __call__(self, ctx: E2EContext) -> E2EContext:
         correct = ctx.agent_output == ctx.metadata.get("expected")
         return ctx.replace(
             environment_result={
@@ -61,7 +78,7 @@ class ReflectStep:
     async_boundary = True
     max_workers = 3
 
-    def __call__(self, ctx: StepContext) -> StepContext:
+    def __call__(self, ctx: E2EContext) -> E2EContext:
         time.sleep(0.01)  # simulate LLM latency
         return ctx.replace(
             reflection={
@@ -80,7 +97,7 @@ class UpdateStep:
     _updates: list = []
     _lock = threading.Lock()
 
-    def __call__(self, ctx: StepContext) -> StepContext:
+    def __call__(self, ctx: E2EContext) -> E2EContext:
         time.sleep(0.005)
         with self._lock:
             UpdateStep._updates.append(ctx.reflection)
@@ -127,7 +144,7 @@ class TestFullPipelineChain:
 
     def test_single_sample_correct_answer(self):
         sample_ctx_kwargs = {"metadata": {"expected": "answer_for_q1"}}
-        ctx = StepContext(sample="q1", **sample_ctx_kwargs)
+        ctx = E2EContext(sample="q1", **sample_ctx_kwargs)
         # Run via __call__ (nested mode)
         out = self._pipe()(ctx)
         assert out.agent_output == "answer_for_q1"
@@ -135,13 +152,13 @@ class TestFullPipelineChain:
 
     def test_multiple_samples_run(self):
         # Samples without expected = all "wrong"
-        results = self._pipe().run([StepContext(sample=s) for s in ("q1", "q2", "q3")])
+        results = self._pipe().run([E2EContext(sample=s) for s in ("q1", "q2", "q3")])
         assert len(results) == 3
         assert all(r.error is None for r in results)
         assert all(r.output.agent_output.startswith("answer_for_") for r in results)
 
     def test_data_flows_correctly_through_chain(self):
-        results = self._pipe().run([StepContext(sample="hello")])
+        results = self._pipe().run([E2EContext(sample="hello")])
         out = results[0].output
         assert out.sample == "hello"
         assert out.agent_output == "answer_for_hello"
@@ -170,7 +187,7 @@ class TestAsyncBoundaryPipeline:
     def test_run_returns_before_background_finishes(self):
         pipe = self._pipe()
         t0 = time.monotonic()
-        results = pipe.run([StepContext(sample="q1")], workers=1)
+        results = pipe.run([E2EContext(sample="q1")], workers=1)
         foreground_time = time.monotonic() - t0
         # Should return quickly (foreground only: agent + evaluate)
         # Background runs Reflect (0.01s) + Update (0.005s) asynchronously
@@ -179,7 +196,7 @@ class TestAsyncBoundaryPipeline:
 
     def test_all_steps_complete_after_wait(self):
         pipe = self._pipe()
-        results = pipe.run([StepContext(sample="q1"), StepContext(sample="q2")])
+        results = pipe.run([E2EContext(sample="q1"), E2EContext(sample="q2")])
         pipe.wait_for_background(timeout=5.0)
         assert all(r.output is not None for r in results)
         assert all(r.output.skill_manager_output == {"updated": True} for r in results)
@@ -188,7 +205,7 @@ class TestAsyncBoundaryPipeline:
         """UpdateStep.max_workers=1 — updates must not interleave."""
         UpdateStep._updates.clear()
         pipe = self._pipe()
-        contexts = [StepContext(sample=f"s{i}") for i in range(5)]
+        contexts = [E2EContext(sample=f"s{i}") for i in range(5)]
         pipe.run(contexts, workers=3)
         pipe.wait_for_background(timeout=10.0)
         # All 5 samples must have triggered an update
@@ -210,7 +227,7 @@ class TestAsyncBoundaryPipeline:
             .then(ReflectStep())
             .then(UpdateStep())
         )
-        results = pipe.run([StepContext(sample="q1")])
+        results = pipe.run([E2EContext(sample="q1")])
         pipe.wait_for_background(timeout=2.0)
         # Error in foreground → no background submission
         assert results[0].error is not None
@@ -237,7 +254,7 @@ class TestBranchInPipeline:
                 merge=MergeStrategy.RAISE_ON_CONFLICT,
             )
         )
-        results = pipe.run([StepContext(sample="hello"), StepContext(sample="world")])
+        results = pipe.run([E2EContext(sample="hello"), E2EContext(sample="world")])
         assert len(results) == 2
         assert all(r.error is None for r in results)
         # Both branches ran
@@ -263,7 +280,7 @@ class TestBranchInPipeline:
             )
             .then(Summarize())
         )
-        results = pipe.run([StepContext(sample="test")])
+        results = pipe.run([E2EContext(sample="test")])
         assert results[0].output.metadata.get("summary") == "done"
 
     def test_branch_failure_captured_in_sample_result(self):
@@ -282,7 +299,7 @@ class TestBranchInPipeline:
                 Pipeline().then(BranchBoom()),
             )
         )
-        results = pipe.run([StepContext(sample="s")])
+        results = pipe.run([E2EContext(sample="s")])
         assert results[0].error is not None
         assert results[0].failed_at == "Branch"
 
@@ -300,8 +317,8 @@ class TestNestedPipelineReuse:
         outer_a = Pipeline().then(inner)
         outer_b = Pipeline().then(inner).then(MetricStep())
 
-        r_a = outer_a.run([StepContext(sample="q1")])
-        r_b = outer_b.run([StepContext(sample="q1")])
+        r_a = outer_a.run([E2EContext(sample="q1")])
+        r_b = outer_b.run([E2EContext(sample="q1")])
 
         assert r_a[0].output.agent_output == "answer_for_q1"
         assert r_b[0].output.metadata.get("metric") is not None
@@ -311,7 +328,7 @@ class TestNestedPipelineReuse:
         level2 = Pipeline().then(level1).then(EvaluateStep())
         level3 = Pipeline().then(level2).then(MetricStep())
 
-        results = level3.run([StepContext(sample="deep")])
+        results = level3.run([E2EContext(sample="deep")])
         out = results[0].output
         assert out.agent_output == "answer_for_deep"
         assert out.environment_result is not None
@@ -334,15 +351,15 @@ class TestMultipleRunCalls:
             .then(ReflectStep())
             .then(UpdateStep())
         )
-        pipe.run([StepContext(sample="a"), StepContext(sample="b")])
-        pipe.run([StepContext(sample="c"), StepContext(sample="d")])
+        pipe.run([E2EContext(sample="a"), E2EContext(sample="b")])
+        pipe.run([E2EContext(sample="c"), E2EContext(sample="d")])
         pipe.wait_for_background(timeout=10.0)
         assert len(UpdateStep._updates) == 4
 
     def test_pipeline_state_not_contaminated_between_runs(self):
         pipe = Pipeline().then(AgentStep()).then(EvaluateStep())
-        r1 = pipe.run([StepContext(sample="sample_x")])
-        r2 = pipe.run([StepContext(sample="sample_y")])
+        r1 = pipe.run([E2EContext(sample="sample_x")])
+        r2 = pipe.run([E2EContext(sample="sample_y")])
         assert r1[0].output.sample == "sample_x"
         assert r2[0].output.sample == "sample_y"
 
@@ -359,11 +376,11 @@ class TestAsyncStepsInPipeline:
             requires = frozenset()
             provides = frozenset({"agent_output"})
 
-            async def __call__(self, ctx: StepContext) -> StepContext:
+            async def __call__(self, ctx: E2EContext) -> E2EContext:
                 await asyncio.sleep(0)
                 return ctx.replace(agent_output="async_answer")
 
-        results = Pipeline().then(AsyncAgent()).run([StepContext(sample="s")])
+        results = Pipeline().then(AsyncAgent()).run([E2EContext(sample="s")])
         assert results[0].output.agent_output == "async_answer"
 
     def test_mixed_sync_async_steps(self):
@@ -371,7 +388,7 @@ class TestAsyncStepsInPipeline:
             requires = frozenset()
             provides = frozenset({"agent_output"})
 
-            async def __call__(self, ctx: StepContext) -> StepContext:
+            async def __call__(self, ctx: E2EContext) -> E2EContext:
                 await asyncio.sleep(0)
                 return ctx.replace(agent_output="async")
 
@@ -379,15 +396,15 @@ class TestAsyncStepsInPipeline:
             requires = frozenset({"agent_output"})
             provides = frozenset({"environment_result"})
 
-            def __call__(self, ctx: StepContext) -> StepContext:
+            def __call__(self, ctx: E2EContext) -> E2EContext:
                 return ctx.replace(environment_result={"score": 1.0})
 
-        results = Pipeline().then(AsyncAgent()).then(SyncEval()).run([StepContext(sample="s")])
+        results = Pipeline().then(AsyncAgent()).then(SyncEval()).run([E2EContext(sample="s")])
         assert results[0].output.agent_output == "async"
         assert results[0].output.environment_result["score"] == 1.0
 
     def test_run_async_entry_point(self):
-        contexts = [StepContext(sample="q1"), StepContext(sample="q2")]
+        contexts = [E2EContext(sample="q1"), E2EContext(sample="q2")]
         results = asyncio.run(
             Pipeline().then(AgentStep()).then(EvaluateStep()).run_async(contexts)
         )
@@ -431,11 +448,55 @@ class TestSharedBackgroundExecutor:
         pipe_a = Pipeline().then(SharedBg())
         pipe_b = Pipeline().then(SharedBg())
 
-        results_a = pipe_a.run([StepContext(sample="a1"), StepContext(sample="a2")])
-        results_b = pipe_b.run([StepContext(sample="b1"), StepContext(sample="b2")])
+        results_a = pipe_a.run([E2EContext(sample="a1"), E2EContext(sample="a2")])
+        results_b = pipe_b.run([E2EContext(sample="b1"), E2EContext(sample="b2")])
 
         pipe_a.wait_for_background(timeout=5.0)
         pipe_b.wait_for_background(timeout=5.0)
 
         assert SharedBg.call_count == 4
         assert all(r.output.metadata.get("done") for r in results_a + results_b)
+
+
+# ---------------------------------------------------------------------------
+# E2E: iterable (non-list) inputs
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.integration
+class TestIterableInputs:
+    def test_generator_input(self):
+        """Pipeline.run() accepts a generator, not only a list."""
+
+        def gen():
+            for s in ("a", "b", "c"):
+                yield E2EContext(sample=s)
+
+        results = Pipeline().then(AgentStep()).run(gen())
+        assert len(results) == 3
+        assert all(r.error is None for r in results)
+        assert {r.output.agent_output for r in results} == {
+            "answer_for_a",
+            "answer_for_b",
+            "answer_for_c",
+        }
+
+    def test_tuple_input(self):
+        """Pipeline.run() accepts a tuple of contexts."""
+        contexts = tuple(E2EContext(sample=s) for s in ("x", "y"))
+        results = Pipeline().then(AgentStep()).then(EvaluateStep()).run(contexts)
+        assert len(results) == 2
+        assert all(r.error is None for r in results)
+
+    def test_run_async_with_generator(self):
+        """Pipeline.run_async() also accepts a generator."""
+
+        def gen():
+            for s in ("q1", "q2"):
+                yield E2EContext(sample=s)
+
+        results = asyncio.run(
+            Pipeline().then(AgentStep()).then(EvaluateStep()).run_async(gen())
+        )
+        assert len(results) == 2
+        assert all(r.error is None for r in results)
