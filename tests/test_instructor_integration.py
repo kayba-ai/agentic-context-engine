@@ -387,8 +387,8 @@ class TestInstructorDetection(unittest.TestCase):
         # Instructor client should have the method
         self.assertTrue(hasattr(instructor_client, "complete_structured"))
 
-        # Regular LLM client should not
-        self.assertFalse(hasattr(non_instructor_client, "complete_structured"))
+        # Base LLMClient also has complete_structured (default JSON parse impl)
+        self.assertTrue(hasattr(non_instructor_client, "complete_structured"))
 
     def test_pydantic_models_are_serializable(self):
         """Test that output models can be serialized/deserialized."""

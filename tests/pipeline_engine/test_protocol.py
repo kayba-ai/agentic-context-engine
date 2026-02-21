@@ -6,33 +6,37 @@ import pytest
 
 from pipeline import SampleResult, StepContext, StepProtocol
 
-
 # ---------------------------------------------------------------------------
 # Helper objects
 # ---------------------------------------------------------------------------
 
+
 class ValidStep:
     requires = frozenset({"a"})
     provides = frozenset({"b"})
+
     def __call__(self, ctx: StepContext) -> StepContext:
         return ctx
 
 
 class ValidStepWithPlainSets:
-    requires = {"a"}   # plain set, not frozenset
+    requires = {"a"}  # plain set, not frozenset
     provides = {"b"}
+
     def __call__(self, ctx: StepContext) -> StepContext:
         return ctx
 
 
 class MissingRequires:
     provides = frozenset({"b"})
+
     def __call__(self, ctx: StepContext) -> StepContext:
         return ctx
 
 
 class MissingProvides:
     requires = frozenset({"a"})
+
     def __call__(self, ctx: StepContext) -> StepContext:
         return ctx
 
@@ -44,8 +48,10 @@ class MissingCall:
 
 class EmptyStep:
     """Valid step with empty requires/provides (e.g. a pure side-effect step)."""
+
     requires = frozenset()
     provides = frozenset()
+
     def __call__(self, ctx: StepContext) -> StepContext:
         return ctx
 
@@ -53,6 +59,7 @@ class EmptyStep:
 # ---------------------------------------------------------------------------
 # StepProtocol
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.unit
 class TestStepProtocol:
@@ -86,6 +93,7 @@ class TestStepProtocol:
 # SampleResult
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.unit
 class TestSampleResult:
     def test_basic_construction(self):
@@ -118,6 +126,7 @@ class TestSampleResult:
     def test_branch_failure_has_cause(self):
         inner = RuntimeError("inner")
         from pipeline import BranchError
+
         outer = BranchError([inner])
         r = SampleResult(
             sample="x", output=None, error=outer, failed_at="Branch", cause=inner

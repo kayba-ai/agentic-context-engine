@@ -26,6 +26,7 @@ import sys
 from pathlib import Path
 
 import nest_asyncio
+
 nest_asyncio.apply()
 
 # Ensure the project root is on sys.path so `ace`, `ace2`, and `pipeline`
@@ -40,6 +41,7 @@ sys.path.insert(0, str(_root))
 
 # Load .env from project root (BEDROCK_API_KEY, OPENAI_API_KEY, etc.)
 from dotenv import load_dotenv
+
 load_dotenv(_root / ".env")
 
 from ace.adaptation import EnvironmentResult, Sample, TaskEnvironment
@@ -55,6 +57,7 @@ print("Imports OK")
 # ground truth.  The ACE loop uses this feedback to drive reflection and
 # skill updates.
 
+
 # %%
 class CapitalCityEnvironment(TaskEnvironment):
     """Score agent answers against capital-city ground truth."""
@@ -64,10 +67,13 @@ class CapitalCityEnvironment(TaskEnvironment):
         predicted = agent_output.final_answer.strip().lower()
         correct = predicted == expected
         return EnvironmentResult(
-            feedback="Correct!" if correct else f"Wrong. Expected: {sample.ground_truth}",
+            feedback=(
+                "Correct!" if correct else f"Wrong. Expected: {sample.ground_truth}"
+            ),
             ground_truth=sample.ground_truth,
             metrics={"accuracy": 1.0 if correct else 0.0},
         )
+
 
 env = CapitalCityEnvironment()
 print("Environment defined")
@@ -155,9 +161,9 @@ results = ace2.run(samples, env, epochs=3)
 print(f"Total results across 3 epochs: {len(results)}")
 
 correct = sum(
-    1 for r in results
-    if r.error is None
-    and r.output.environment_result.metrics.get("accuracy", 0) == 1.0
+    1
+    for r in results
+    if r.error is None and r.output.environment_result.metrics.get("accuracy", 0) == 1.0
 )
 print(f"Correct answers: {correct}/{len(results)}")
 print(f"Skills learned:  {skillbook2.stats()['skills']}")
@@ -179,8 +185,8 @@ ace3 = OfflineACE.from_roles(
     reflector=Reflector(client3),
     skill_manager=SkillManager(client3),
     skillbook=skillbook3,
-    reflection_window=5,       # keep last 5 reflections in the rolling window
-    max_refinement_rounds=1,   # reflector passes per sample
+    reflection_window=5,  # keep last 5 reflections in the rolling window
+    max_refinement_rounds=1,  # reflector passes per sample
 )
 
 results = ace3.run(samples[:2], env, epochs=1)
@@ -209,7 +215,7 @@ with tempfile.TemporaryDirectory() as tmpdir:
         samples,
         env,
         epochs=1,
-        checkpoint_interval=2,   # save every 2 successful samples
+        checkpoint_interval=2,  # save every 2 successful samples
         checkpoint_dir=tmpdir,
     )
 

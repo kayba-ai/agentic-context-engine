@@ -39,9 +39,13 @@ Short previews shown; use code to explore full content.
 | `ground_truth` | "{ground_truth_preview}" | {ground_truth_length} chars |
 | `feedback` | "{feedback_preview}..." | {feedback_length} chars |
 | `skillbook` | (strategies) | {skillbook_length} chars |
+| `traces` | list[dict] | {trace_count} entries |
 | `trace` | TraceContext | {step_count} steps |
 
-**Do NOT print entire large variables.** Use slicing, search, and trace methods.
+### traces structure
+{trace_sneak_peek}
+
+**Do NOT print entire large variables.** Use slicing, search, and trace/traces methods.
 
 ## Functions
 
@@ -52,7 +56,14 @@ Short previews shown; use code to explore full content.
 | `SHOW_VARS()` | Print all available variable names |
 | `ask_llm(question, context)` | Ask a sub-agent a focused question with specific context |
 
-## trace methods
+## traces exploration (list[dict])
+- `traces[0]` — first entry
+- `traces[-1]` — last entry
+- `traces[0].keys()` — see available fields
+- `len(traces)` — total entries
+- `[t for t in traces if 'error' in str(t)]` — find errors
+
+## trace methods (TraceContext, if available)
 - `trace.get_step(i)` — get step by index
 - `trace.find_steps(pattern)` — find steps matching text
 - `trace.get_errors()` — get steps with error indicators

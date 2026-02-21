@@ -43,17 +43,23 @@ class TestStepContextDefaults:
 class TestStepContextImmutability:
     def test_setting_named_field_raises(self):
         ctx = StepContext(sample="s")
-        with pytest.raises((dataclasses.FrozenInstanceError, AttributeError, TypeError)):
+        with pytest.raises(
+            (dataclasses.FrozenInstanceError, AttributeError, TypeError)
+        ):
             ctx.agent_output = "oops"  # type: ignore[misc]
 
     def test_setting_metadata_raises(self):
         ctx = StepContext(sample="s")
-        with pytest.raises((dataclasses.FrozenInstanceError, AttributeError, TypeError)):
+        with pytest.raises(
+            (dataclasses.FrozenInstanceError, AttributeError, TypeError)
+        ):
             ctx.metadata = MappingProxyType({"x": 1})  # type: ignore[misc]
 
     def test_setting_sample_raises(self):
         ctx = StepContext(sample="s")
-        with pytest.raises((dataclasses.FrozenInstanceError, AttributeError, TypeError)):
+        with pytest.raises(
+            (dataclasses.FrozenInstanceError, AttributeError, TypeError)
+        ):
             ctx.sample = "other"  # type: ignore[misc]
 
     def test_metadata_mappingproxy_is_not_mutable(self):
@@ -140,9 +146,8 @@ class TestStepContextEquality:
         assert StepContext(sample="a") != StepContext(sample="b")
 
     def test_different_named_field_not_equal(self):
-        assert (
-            StepContext(sample="s", agent_output="x")
-            != StepContext(sample="s", agent_output="y")
+        assert StepContext(sample="s", agent_output="x") != StepContext(
+            sample="s", agent_output="y"
         )
 
     def test_context_not_hashable(self):

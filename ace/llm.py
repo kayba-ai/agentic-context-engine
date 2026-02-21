@@ -46,6 +46,21 @@ class LLMClient(ABC):
                 parts.append(f"[Assistant]\n{msg['content']}")
         return self.complete("\n\n".join(parts), **kwargs)
 
+    def complete_structured(
+        self,
+        prompt: str,
+        response_model: Type[T],
+        **kwargs: Any,
+    ) -> T:
+        """Structured output: return a validated Pydantic model instance.
+
+        Default: call complete(), parse JSON, validate with response_model.
+        Subclasses (e.g. InstructorClient) may override for native support.
+        """
+        response = self.complete(prompt, **kwargs)
+        data = json.loads(response.text)
+        return response_model.model_validate(data)
+
 
 class DummyLLMClient(LLMClient):
     """Deterministic LLM stub for testing and dry runs.

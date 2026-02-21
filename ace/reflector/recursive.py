@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
@@ -101,33 +102,92 @@ class RecursiveReflector:
         self.prompt_template = prompt_template
         self.subagent_llm = subagent_llm
 
+    @staticmethod
+    def _trace_sneak_peek(traces: List[Dict[str, Any]]) -> str:
+        """Build a structural preview of the trace for the initial prompt."""
+        if not traces:
+            return "traces: (empty list)"
+
+        first = traces[0]
+        keys = list(first.keys())
+
+        preview_entry = {
+            k: str(v)[:100] + "..." if len(str(v)) > 100 else str(v)
+            for k, v in first.items()
+        }
+
+        lines = [
+            f"traces: list[dict] with {len(traces)} entries",
+            f"  keys: {keys}",
+            f"  first entry preview: {json.dumps(preview_entry, indent=2, ensure_ascii=False)[:500]}",
+        ]
+        if len(traces) > 1:
+            last = traces[-1]
+            preview_last = {
+                k: str(v)[:80] + "..." if len(str(v)) > 80 else str(v)
+                for k, v in last.items()
+            }
+            lines.append(
+                f"  last entry preview: {json.dumps(preview_last, indent=2, ensure_ascii=False)[:500]}"
+            )
+
+        return "\n".join(lines)
+
     @maybe_track(name="recursive_reflector", tags=["reflector", "recursive"])
     def reflect(
         self,
         *,
         question: str,
-        agent_output: "AgentOutput",
+        traces: Optional[List[Dict[str, Any]]] = None,
         skillbook: "Skillbook",
         ground_truth: Optional[str] = None,
         feedback: Optional[str] = None,
+        agent_output: Optional["AgentOutput"] = None,
         **kwargs: Any,
     ) -> "ReflectorOutput":
         """Perform recursive reflection using code execution.
 
         Args:
             question: The original task/question
-            agent_output: The agent's output containing reasoning and answer
+            traces: list[dict] — the execution trace(s). Each dict is one step/turn.
+                    The RR explores the structure dynamically via code.
             skillbook: The current skillbook of strategies
             ground_truth: Expected correct answer (if available)
             feedback: Execution feedback
+            agent_output: Optional AgentOutput for backward compat. If traces is None
+                          and agent_output is provided, traces are auto-created from it.
 
         Returns:
             ReflectorOutput with analysis and skill classifications
         """
-        # Build trace context from agent output (use pre-built trace if provided)
-        trace = agent_output.trace_context or TraceContext.from_agent_output(
-            agent_output
-        )
+        # Build traces from agent_output if not provided directly (backward compat)
+        if traces is None and agent_output is not None:
+            trace_ctx = getattr(agent_output, "trace_context", None)
+            if trace_ctx is not None:
+                trace_ctx = trace_ctx or TraceContext.from_agent_output(agent_output)
+            else:
+                trace_ctx = TraceContext.from_agent_output(agent_output)
+            # Also keep the old TraceContext for backward compat in sandbox
+            traces = [
+                {
+                    "role": "agent",
+                    "reasoning": agent_output.reasoning,
+                    "answer": agent_output.final_answer,
+                    "skill_ids": agent_output.skill_ids,
+                }
+            ]
+        elif traces is None:
+            traces = []
+
+        # Derive reasoning/answer from traces or agent_output for prompt previews
+        reasoning = ""
+        final_answer = ""
+        if agent_output is not None:
+            reasoning = agent_output.reasoning
+            final_answer = agent_output.final_answer
+        elif traces:
+            reasoning = str(traces[0].get("reasoning", ""))
+            final_answer = str(traces[0].get("answer", ""))
 
         # Create shared call budget
         budget = CallBudget(self.config.max_llm_calls)
@@ -154,37 +214,50 @@ class RecursiveReflector:
 
             ask_llm_fn = _disabled_ask_llm
 
-        # Create sandbox with trace
+        # Build trace context for backward compat (sandbox still gets it)
+        trace: Optional[TraceContext] = None
+        if agent_output is not None:
+            trace = getattr(
+                agent_output, "trace_context", None
+            ) or TraceContext.from_agent_output(agent_output)
+
+        # Create sandbox with trace (legacy TraceContext for existing trace methods)
         sandbox = TraceSandbox(trace=trace, llm_query_fn=None)
 
         # Inject ask_llm as primary, llm_query as legacy alias
         sandbox.inject("ask_llm", ask_llm_fn)
         sandbox.inject("llm_query", lambda prompt: ask_llm_fn(prompt, ""))
 
+        # Inject raw traces as primary data source
+        sandbox.inject("traces", traces)
+        sandbox.inject("trace_count", len(traces))
+
         # Inject context variables
         sandbox.inject("question", question)
-        sandbox.inject("reasoning", agent_output.reasoning)
-        sandbox.inject("final_answer", agent_output.final_answer)
+        sandbox.inject("reasoning", reasoning)
+        sandbox.inject("final_answer", final_answer)
         sandbox.inject("ground_truth", ground_truth)
         sandbox.inject("feedback", feedback)
         sandbox.inject("skillbook", skillbook.as_prompt() or "(empty skillbook)")
 
         # Build initial prompt with previews and metadata
-        # Full data is injected into sandbox - previews provide grounding
         skillbook_text = skillbook.as_prompt() or "(empty skillbook)"
+        trace_sneak_peek = self._trace_sneak_peek(traces)
         initial_prompt = self.prompt_template.format(
             question_length=len(question),
             question_preview=_preview(question),
-            reasoning_length=len(agent_output.reasoning),
-            reasoning_preview=_preview(agent_output.reasoning),
-            answer_length=len(agent_output.final_answer),
-            answer_preview=_preview(agent_output.final_answer),
+            reasoning_length=len(reasoning),
+            reasoning_preview=_preview(reasoning),
+            answer_length=len(final_answer),
+            answer_preview=_preview(final_answer),
             ground_truth_length=len(ground_truth) if ground_truth else 0,
             ground_truth_preview=_preview(ground_truth),
             feedback_length=len(feedback) if feedback else 0,
             feedback_preview=_preview(feedback),
             skillbook_length=len(skillbook_text),
             step_count=len(trace) if trace else 0,
+            trace_count=len(traces),
+            trace_sneak_peek=_preview(trace_sneak_peek, max_len=500),
         )
 
         # REPL loop
@@ -847,7 +920,7 @@ class RecursiveReflector:
     def _build_timeout_output(
         self,
         question: str,
-        agent_output: "AgentOutput",
+        agent_output: Optional["AgentOutput"],
         ground_truth: Optional[str],
         feedback: Optional[str],
         messages: Optional[List[Dict[str, str]]] = None,
@@ -860,7 +933,7 @@ class RecursiveReflector:
 
         Args:
             question: The original question
-            agent_output: The agent's output
+            agent_output: The agent's output (may be None if only traces were provided)
             ground_truth: Expected answer
             feedback: Execution feedback
             messages: Conversation history for fallback synthesis
@@ -882,7 +955,7 @@ class RecursiveReflector:
 
         # Fall back to generic timeout output
         is_correct = False
-        if ground_truth:
+        if ground_truth and agent_output is not None:
             is_correct = (
                 agent_output.final_answer.strip().lower()
                 == ground_truth.strip().lower()

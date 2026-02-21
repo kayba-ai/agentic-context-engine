@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
 
 from .roles import AgentOutput, ReflectorOutput, SkillManagerOutput
 
@@ -17,6 +17,7 @@ class Sample:
     context: str = ""
     ground_truth: Optional[str] = None
     metadata: Dict[str, object] = field(default_factory=dict)
+    id: Optional[str] = None
 
 
 @dataclass

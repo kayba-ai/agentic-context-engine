@@ -43,7 +43,7 @@ from typing import TYPE_CHECKING, List, Optional, Dict, Any, Tuple, Union
 
 from ..skillbook import Skillbook
 from ..roles import Agent, Reflector, SkillManager, AgentOutput
-from ..pipeline import OfflineACE
+from ..adaptation import OfflineACE
 from ..environments import Sample, TaskEnvironment
 from ..prompt_manager import PromptManager
 

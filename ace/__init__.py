@@ -8,6 +8,7 @@ from .roles import (
     Agent,
     ReplayAgent,
     Reflector,
+    ReflectorMode,
     SkillManager,
     AgentOutput,
     ReflectorOutput,
@@ -20,35 +21,20 @@ from .environments import (
     EnvironmentResult,
     ACEStepResult,
 )
-# ace.pipeline is not yet available — will be wired during cut-over (Part 5)
-try:
-    from .pipeline import (
-        BasePipeline,
-        ACEPipeline,
-        ACEBase,
-        PipelineOrderError,
-        Step,
-        StepContext,
-        AgentStep,
-        EvaluateStep,
-        ReflectStep,
-        UpdateStep,
-        OfflineACE,
-        OnlineACE,
-    )
-except ImportError:
-    BasePipeline = None  # type: ignore[assignment,misc]
-    ACEPipeline = None  # type: ignore[assignment,misc]
-    ACEBase = None  # type: ignore[assignment,misc]
-    PipelineOrderError = None  # type: ignore[assignment,misc]
-    Step = None  # type: ignore[assignment,misc]
-    StepContext = None  # type: ignore[assignment,misc]
-    AgentStep = None  # type: ignore[assignment,misc]
-    EvaluateStep = None  # type: ignore[assignment,misc]
-    ReflectStep = None  # type: ignore[assignment,misc]
-    UpdateStep = None  # type: ignore[assignment,misc]
-    OfflineACE = None  # type: ignore[assignment,misc]
-    OnlineACE = None  # type: ignore[assignment,misc]
+
+# ACE pipeline orchestrators (always available)
+from .adaptation import OfflineACE, OnlineACE, ACEBase
+
+# Pipeline-engine symbols (not yet wired — will be available after cut-over)
+BasePipeline = None  # type: ignore[assignment,misc]
+ACEPipeline = None  # type: ignore[assignment,misc]
+PipelineOrderError = None  # type: ignore[assignment,misc]
+Step = None  # type: ignore[assignment,misc]
+StepContext = None  # type: ignore[assignment,misc]
+AgentStep = None  # type: ignore[assignment,misc]
+EvaluateStep = None  # type: ignore[assignment,misc]
+ReflectStep = None  # type: ignore[assignment,misc]
+UpdateStep = None  # type: ignore[assignment,misc]
 from .async_learning import (
     LearningTask,
     ReflectionResult,
@@ -165,6 +151,7 @@ __all__ = [
     "Agent",
     "ReplayAgent",
     "Reflector",
+    "ReflectorMode",
     "SkillManager",
     "AgentOutput",
     "ReflectorOutput",

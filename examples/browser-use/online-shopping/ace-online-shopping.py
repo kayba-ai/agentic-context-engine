@@ -41,7 +41,6 @@ from ace import ACEAgent
 from ace.observability import configure_opik
 from browser_use import ChatBrowserUse
 
-
 # Shopping task definition
 TASK = """
 ### Migros Grocery Shopping - Essential 5 Items

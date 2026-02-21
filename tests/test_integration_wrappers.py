@@ -11,7 +11,6 @@ import pytest
 from ace.skillbook import Skillbook
 from ace.integrations.base import wrap_skillbook_context
 
-
 # ---------------------------------------------------------------------------
 # wrap_skillbook_context (base.py)
 # ---------------------------------------------------------------------------

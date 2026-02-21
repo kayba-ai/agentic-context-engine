@@ -29,6 +29,7 @@ SKILL_MANAGER_PROMPT = _prompt_manager.get_skill_manager_prompt()
 # Output model
 # ---------------------------------------------------------------------------
 
+
 class SkillManagerOutput(BaseModel):
     """Output from the SkillManager role containing skillbook update operations."""
 
@@ -49,6 +50,7 @@ class SkillManagerOutput(BaseModel):
 # ---------------------------------------------------------------------------
 # SkillManager
 # ---------------------------------------------------------------------------
+
 
 class SkillManager:
     """

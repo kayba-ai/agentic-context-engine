@@ -19,6 +19,7 @@ from pathlib import Path
 # asyncio.run() internally, which would fail.  nest_asyncio patches the
 # loop to allow nested calls.
 import nest_asyncio
+
 nest_asyncio.apply()
 
 # Walk up from the script/notebook directory until we find the project root
@@ -46,13 +47,18 @@ from pipeline import (
     BranchError,
 )
 
+
 def show(results: list[SampleResult]) -> None:
     """Pretty-print a list of SampleResult."""
     for r in results:
         tag = "OK" if r.error is None else f"FAIL @ {r.failed_at}"
         print(f"  [{tag}] sample={r.sample!r}")
         if r.output:
-            named = {k: getattr(r.output, k) for k in ("agent_output", "environment_result", "reflection") if getattr(r.output, k) is not None}
+            named = {
+                k: getattr(r.output, k)
+                for k in ("agent_output", "environment_result", "reflection")
+                if getattr(r.output, k) is not None
+            }
             if named:
                 print(f"         fields:   {named}")
             meta = dict(r.output.metadata)
@@ -60,6 +66,7 @@ def show(results: list[SampleResult]) -> None:
                 print(f"         metadata: {meta}")
         if r.error:
             print(f"         error:    {r.error}")
+
 
 # %% [markdown]
 # ## Step Definitions
@@ -71,44 +78,59 @@ def show(results: list[SampleResult]) -> None:
 #
 # No base class — pure duck typing via `StepProtocol`.
 
+
 # %%
 class Tokenize:
     """Split sample text into words, store token list and count."""
+
     requires = frozenset()
     provides = frozenset({"tokens", "word_count"})
 
     def __call__(self, ctx: StepContext) -> StepContext:
         tokens = str(ctx.sample).split()
         print(f"    [Tokenize]  '{ctx.sample}' → {len(tokens)} tokens")
-        return ctx.replace(metadata=MappingProxyType({
-            **ctx.metadata, "tokens": tokens, "word_count": len(tokens),
-        }))
+        return ctx.replace(
+            metadata=MappingProxyType(
+                {
+                    **ctx.metadata,
+                    "tokens": tokens,
+                    "word_count": len(tokens),
+                }
+            )
+        )
 
 
 class Uppercase:
     """Uppercase each token. Requires 'tokens' in metadata."""
+
     requires = frozenset({"tokens"})
     provides = frozenset({"upper_tokens"})
 
     def __call__(self, ctx: StepContext) -> StepContext:
         upper = [t.upper() for t in ctx.metadata["tokens"]]
         print(f"    [Uppercase] {ctx.metadata['tokens']} → {upper}")
-        return ctx.replace(metadata=MappingProxyType({**ctx.metadata, "upper_tokens": upper}))
+        return ctx.replace(
+            metadata=MappingProxyType({**ctx.metadata, "upper_tokens": upper})
+        )
 
 
 class Reverse:
     """Reverse each token. Designed to run in parallel with Uppercase."""
+
     requires = frozenset({"tokens"})
     provides = frozenset({"reversed_tokens"})
 
     def __call__(self, ctx: StepContext) -> StepContext:
         rev = [t[::-1] for t in ctx.metadata["tokens"]]
         print(f"    [Reverse]   {ctx.metadata['tokens']} → {rev}")
-        return ctx.replace(metadata=MappingProxyType({**ctx.metadata, "reversed_tokens": rev}))
+        return ctx.replace(
+            metadata=MappingProxyType({**ctx.metadata, "reversed_tokens": rev})
+        )
 
 
 class Summarize:
     """Combine processed metadata into a final agent_output string."""
+
     requires = frozenset({"upper_tokens", "reversed_tokens", "word_count"})
     provides = frozenset({"agent_output"})
 
@@ -124,11 +146,13 @@ class Summarize:
 
 class Boom:
     """Always fails — used to demonstrate error handling."""
+
     requires = frozenset()
     provides = frozenset()
 
     def __call__(self, ctx: StepContext) -> StepContext:
         raise RuntimeError(f"Boom on sample={ctx.sample!r}!")
+
 
 # %% [markdown]
 # ---
@@ -213,14 +237,18 @@ show(results)
 # | `LAST_WRITE_WINS` | Last branch's value wins for every field |
 # | `NAMESPACED` | Each branch stored at `metadata["branch_N"]`, no conflict possible |
 
+
 # %%
 class WriteAnswer:
     requires = frozenset()
     provides = frozenset({"agent_output"})
+
     def __init__(self, val: str):
         self.val = val
+
     def __call__(self, ctx):
         return ctx.replace(agent_output=self.val)
+
 
 ctx = StepContext(sample="q")
 
@@ -279,13 +307,16 @@ show(results)
 # %%
 print("Mixed success / failure:\n")
 
+
 class MaybeBoom:
     requires = frozenset()
     provides = frozenset()
+
     def __call__(self, ctx):
         if "bad" in str(ctx.sample):
             raise RuntimeError("bad sample!")
         return ctx
+
 
 results = Pipeline().then(Tokenize()).then(MaybeBoom()).run(["ok", "bad input", "fine"])
 show(results)
@@ -308,9 +339,11 @@ show(results)
 #
 # Call `wait_for_background()` to join all background threads.
 
+
 # %%
 class SlowScore:
     """Expensive scoring step that runs in background."""
+
     requires = frozenset()
     provides = frozenset({"score"})
     async_boundary = True
@@ -321,6 +354,7 @@ class SlowScore:
         score = ctx.metadata.get("word_count", 0) * 10
         print(f"    [SlowScore] sample={ctx.sample!r} score={score}  (background)")
         return ctx.replace(metadata=MappingProxyType({**ctx.metadata, "score": score}))
+
 
 pipe = Pipeline().then(Tokenize()).then(SlowScore())
 
@@ -363,13 +397,16 @@ show(results)
 # in parallel (via an `asyncio.Semaphore` in the foreground event loop).
 # This is independent of `max_workers` on individual steps.
 
+
 # %%
 class SlowStep:
     requires = frozenset()
     provides = frozenset({"done"})
+
     def __call__(self, ctx):
         time.sleep(0.1)
         return ctx.replace(metadata=MappingProxyType({**ctx.metadata, "done": True}))
+
 
 samples = [f"s{i}" for i in range(6)]
 pipe = Pipeline().then(SlowStep())

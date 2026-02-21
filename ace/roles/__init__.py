@@ -8,6 +8,7 @@ from .agent import Agent, AgentOutput, ReplayAgent
 from .reflector import (
     ExtractedLearning,
     Reflector,
+    ReflectorMode,
     ReflectorOutput,
     SkillTag,
 )
@@ -22,6 +23,7 @@ __all__ = [
     # Reflector
     "ExtractedLearning",
     "Reflector",
+    "ReflectorMode",
     "ReflectorOutput",
     "SkillTag",
     # SkillManager

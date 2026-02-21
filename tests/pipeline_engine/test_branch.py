@@ -30,14 +30,15 @@ from pipeline.branch import (
     _merge_raise_on_conflict,
 )
 
-
 # ---------------------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------------------
 
+
 class WriteX:
     requires = frozenset()
     provides = frozenset({"x"})
+
     def __call__(self, ctx: StepContext) -> StepContext:
         return ctx.replace(metadata=MappingProxyType({**ctx.metadata, "x": "from_x"}))
 
@@ -45,6 +46,7 @@ class WriteX:
 class WriteY:
     requires = frozenset()
     provides = frozenset({"y"})
+
     def __call__(self, ctx: StepContext) -> StepContext:
         return ctx.replace(metadata=MappingProxyType({**ctx.metadata, "y": "from_y"}))
 
@@ -52,58 +54,74 @@ class WriteY:
 class WriteZ:
     requires = frozenset()
     provides = frozenset({"z"})
+
     def __call__(self, ctx: StepContext) -> StepContext:
         return ctx.replace(metadata=MappingProxyType({**ctx.metadata, "z": "from_z"}))
 
 
 class WriteN:
     """Writes metadata['n'] = n.  Used in custom-merge arithmetic tests."""
+
     requires = frozenset()
     provides = frozenset({"n"})
+
     def __init__(self, n: int):
         self.n = n
+
     def __call__(self, ctx: StepContext) -> StepContext:
         return ctx.replace(metadata=MappingProxyType({**ctx.metadata, "n": self.n}))
 
 
 class WriteAgent:
     """Writes to the named field ctx.agent_output (not metadata)."""
+
     requires = frozenset()
     provides = frozenset({"agent_output"})
+
     def __init__(self, value: str):
         self.value = value
+
     def __call__(self, ctx: StepContext) -> StepContext:
         return ctx.replace(agent_output=self.value)
 
 
 class WriteReflection:
     """Writes to the named field ctx.reflection — second named-field for conflict tests."""
+
     requires = frozenset()
     provides = frozenset({"reflection"})
+
     def __init__(self, value: str):
         self.value = value
+
     def __call__(self, ctx: StepContext) -> StepContext:
         return ctx.replace(reflection=self.value)
 
 
 class Explode:
     """Always raises RuntimeError with a configurable message."""
+
     requires = frozenset()
     provides = frozenset()
+
     def __init__(self, msg: str = "boom"):
         self.msg = msg
+
     def __call__(self, ctx: StepContext) -> StepContext:
         raise RuntimeError(self.msg)
 
 
 class Log:
     """Side-effect step: appends its name to a shared log (thread-safe)."""
+
     requires = frozenset()
     provides = frozenset()
+
     def __init__(self, name: str, log: list[str], lock: threading.Lock):
         self.name = name
         self.log = log
         self.lock = lock
+
     def __call__(self, ctx: StepContext) -> StepContext:
         with self.lock:
             self.log.append(self.name)
@@ -112,10 +130,13 @@ class Log:
 
 class SlowPass:
     """Sleeps for *delay* seconds then passes context through."""
+
     requires = frozenset()
     provides = frozenset()
+
     def __init__(self, delay: float = 0.05):
         self.delay = delay
+
     def __call__(self, ctx: StepContext) -> StepContext:
         time.sleep(self.delay)
         return ctx
@@ -123,9 +144,11 @@ class SlowPass:
 
 # --- native async helpers ---
 
+
 class AsyncWriteX:
     requires = frozenset()
     provides = frozenset({"x"})
+
     async def __call__(self, ctx: StepContext) -> StepContext:
         await asyncio.sleep(0)
         return ctx.replace(metadata=MappingProxyType({**ctx.metadata, "x": "async_x"}))
@@ -134,6 +157,7 @@ class AsyncWriteX:
 class AsyncWriteY:
     requires = frozenset()
     provides = frozenset({"y"})
+
     async def __call__(self, ctx: StepContext) -> StepContext:
         await asyncio.sleep(0)
         return ctx.replace(metadata=MappingProxyType({**ctx.metadata, "y": "async_y"}))
@@ -142,8 +166,10 @@ class AsyncWriteY:
 class AsyncExplode:
     requires = frozenset()
     provides = frozenset()
+
     def __init__(self, msg: str = "async_boom"):
         self.msg = msg
+
     async def __call__(self, ctx: StepContext) -> StepContext:
         await asyncio.sleep(0)
         raise RuntimeError(self.msg)
@@ -152,6 +178,7 @@ class AsyncExplode:
 # ---------------------------------------------------------------------------
 # 1. Construction
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.unit
 class TestBranchConstruction:
@@ -169,11 +196,19 @@ class TestBranchConstruction:
         assert len(b.pipelines) == 2
 
     def test_three_children(self):
-        b = Branch(Pipeline().then(WriteX()), Pipeline().then(WriteY()), Pipeline().then(WriteZ()))
+        b = Branch(
+            Pipeline().then(WriteX()),
+            Pipeline().then(WriteY()),
+            Pipeline().then(WriteZ()),
+        )
         assert len(b.pipelines) == 3
 
     def test_provides_is_union_of_all_children(self):
-        b = Branch(Pipeline().then(WriteX()), Pipeline().then(WriteY()), Pipeline().then(WriteZ()))
+        b = Branch(
+            Pipeline().then(WriteX()),
+            Pipeline().then(WriteY()),
+            Pipeline().then(WriteZ()),
+        )
         assert {"x", "y", "z"} <= b.provides
 
     def test_provides_with_overlapping_children(self):
@@ -184,11 +219,18 @@ class TestBranchConstruction:
 
     def test_requires_is_union_of_all_children(self):
         class NeedsA:
-            requires = frozenset({"a"}); provides = frozenset({"b"})
-            def __call__(self, ctx): return ctx
+            requires = frozenset({"a"})
+            provides = frozenset({"b"})
+
+            def __call__(self, ctx):
+                return ctx
+
         class NeedsC:
-            requires = frozenset({"c"}); provides = frozenset({"d"})
-            def __call__(self, ctx): return ctx
+            requires = frozenset({"c"})
+            provides = frozenset({"d"})
+
+            def __call__(self, ctx):
+                return ctx
 
         b = Branch(NeedsA(), NeedsC())
         assert "a" in b.requires
@@ -234,6 +276,7 @@ class TestBranchConstruction:
 # ---------------------------------------------------------------------------
 # 2. Sync — RAISE_ON_CONFLICT
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.unit
 class TestBranchSyncRaiseOnConflict:
@@ -307,15 +350,24 @@ class TestBranchSyncRaiseOnConflict:
     def test_metadata_conflict_does_not_raise(self):
         """Metadata keys use last-writer-wins even with RAISE_ON_CONFLICT.
         The conflict check applies only to named StepContext fields."""
+
         class MetaV1:
-            requires = frozenset(); provides = frozenset({"x"})
+            requires = frozenset()
+            provides = frozenset({"x"})
+
             def __call__(self, ctx):
-                return ctx.replace(metadata=MappingProxyType({**ctx.metadata, "x": "v1"}))
+                return ctx.replace(
+                    metadata=MappingProxyType({**ctx.metadata, "x": "v1"})
+                )
 
         class MetaV2:
-            requires = frozenset(); provides = frozenset({"x"})
+            requires = frozenset()
+            provides = frozenset({"x"})
+
             def __call__(self, ctx):
-                return ctx.replace(metadata=MappingProxyType({**ctx.metadata, "x": "v2"}))
+                return ctx.replace(
+                    metadata=MappingProxyType({**ctx.metadata, "x": "v2"})
+                )
 
         b = Branch(
             Pipeline().then(MetaV1()),
@@ -350,6 +402,7 @@ class TestBranchSyncRaiseOnConflict:
 # ---------------------------------------------------------------------------
 # 3. Sync — LAST_WRITE_WINS
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.unit
 class TestBranchSyncLastWriteWins:
@@ -389,7 +442,7 @@ class TestBranchSyncLastWriteWins:
     def test_sole_writer_last_retains_value(self):
         """Only one branch writes a field; it wins because it's the last writer."""
         b = Branch(
-            Pipeline(),   # empty — agent_output stays None
+            Pipeline(),  # empty — agent_output stays None
             Pipeline().then(WriteAgent("only")),
             merge=MergeStrategy.LAST_WRITE_WINS,
         )
@@ -400,7 +453,7 @@ class TestBranchSyncLastWriteWins:
         """An empty last branch's None overwrites the first branch's value."""
         b = Branch(
             Pipeline().then(WriteAgent("first")),
-            Pipeline(),   # agent_output=None here — last writer wins
+            Pipeline(),  # agent_output=None here — last writer wins
             merge=MergeStrategy.LAST_WRITE_WINS,
         )
         out = b(self._ctx())
@@ -427,6 +480,7 @@ class TestBranchSyncLastWriteWins:
 # ---------------------------------------------------------------------------
 # 4. Sync — NAMESPACED
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.unit
 class TestBranchSyncNamespaced:
@@ -511,6 +565,7 @@ class TestBranchSyncNamespaced:
 # 5. Sync — custom merge
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.unit
 class TestBranchSyncCustomMerge:
 
@@ -519,6 +574,7 @@ class TestBranchSyncCustomMerge:
 
     def test_fn_receives_all_outputs(self):
         received: list = []
+
         def capture(ctxs):
             received.extend(ctxs)
             return ctxs[0]
@@ -530,6 +586,7 @@ class TestBranchSyncCustomMerge:
     def test_fn_receives_outputs_not_inputs(self):
         """Each element passed to the merge fn must be a result, not the input ctx."""
         received: list = []
+
         def capture(ctxs):
             received.extend(ctxs)
             return ctxs[0]
@@ -545,7 +602,9 @@ class TestBranchSyncCustomMerge:
             total = sum(ctx.metadata.get("n", 0) for ctx in ctxs)
             return ctxs[0].replace(metadata=MappingProxyType({"total": total}))
 
-        b = Branch(Pipeline().then(WriteN(3)), Pipeline().then(WriteN(7)), merge=merge_sum)
+        b = Branch(
+            Pipeline().then(WriteN(3)), Pipeline().then(WriteN(7)), merge=merge_sum
+        )
         out = b(self._ctx())
         assert out.metadata["total"] == 10
 
@@ -560,7 +619,9 @@ class TestBranchSyncCustomMerge:
         def bad_merge(ctxs):
             raise ValueError("merge exploded")
 
-        b = Branch(Pipeline().then(WriteX()), Pipeline().then(WriteY()), merge=bad_merge)
+        b = Branch(
+            Pipeline().then(WriteX()), Pipeline().then(WriteY()), merge=bad_merge
+        )
         with pytest.raises(ValueError, match="merge exploded"):
             b(self._ctx())
 
@@ -568,6 +629,7 @@ class TestBranchSyncCustomMerge:
 # ---------------------------------------------------------------------------
 # 6. Sync — failure semantics
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.unit
 class TestBranchSyncFailures:
@@ -663,6 +725,7 @@ class TestBranchSyncFailures:
 # 7. Sync — immutability / isolation
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.unit
 class TestBranchSyncImmutability:
 
@@ -675,7 +738,9 @@ class TestBranchSyncImmutability:
         lock = threading.Lock()
 
         class Capture:
-            requires = frozenset(); provides = frozenset()
+            requires = frozenset()
+            provides = frozenset()
+
             def __call__(self, ctx):
                 with lock:
                     received.append(ctx)
@@ -688,15 +753,24 @@ class TestBranchSyncImmutability:
 
     def test_branch_outputs_are_independent(self):
         """Writes in one branch must not appear in another branch's output."""
+
         class WriteXv1:
-            requires = frozenset(); provides = frozenset({"x"})
+            requires = frozenset()
+            provides = frozenset({"x"})
+
             def __call__(self, ctx):
-                return ctx.replace(metadata=MappingProxyType({**ctx.metadata, "x": "branch_a"}))
+                return ctx.replace(
+                    metadata=MappingProxyType({**ctx.metadata, "x": "branch_a"})
+                )
 
         class WriteXv2:
-            requires = frozenset(); provides = frozenset({"x"})
+            requires = frozenset()
+            provides = frozenset({"x"})
+
             def __call__(self, ctx):
-                return ctx.replace(metadata=MappingProxyType({**ctx.metadata, "x": "branch_b"}))
+                return ctx.replace(
+                    metadata=MappingProxyType({**ctx.metadata, "x": "branch_b"})
+                )
 
         b = Branch(
             Pipeline().then(WriteXv1()),
@@ -719,6 +793,7 @@ class TestBranchSyncImmutability:
 #
 # Every sync behaviour exercised above must hold in __call_async__.
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.unit
 class TestBranchAsyncParity:
@@ -756,13 +831,22 @@ class TestBranchAsyncParity:
 
     def test_metadata_conflict_does_not_raise(self):
         class MetaV1:
-            requires = frozenset(); provides = frozenset({"x"})
+            requires = frozenset()
+            provides = frozenset({"x"})
+
             def __call__(self, ctx):
-                return ctx.replace(metadata=MappingProxyType({**ctx.metadata, "x": "v1"}))
+                return ctx.replace(
+                    metadata=MappingProxyType({**ctx.metadata, "x": "v1"})
+                )
+
         class MetaV2:
-            requires = frozenset(); provides = frozenset({"x"})
+            requires = frozenset()
+            provides = frozenset({"x"})
+
             def __call__(self, ctx):
-                return ctx.replace(metadata=MappingProxyType({**ctx.metadata, "x": "v2"}))
+                return ctx.replace(
+                    metadata=MappingProxyType({**ctx.metadata, "x": "v2"})
+                )
 
         b = Branch(
             Pipeline().then(MetaV1()),
@@ -848,6 +932,7 @@ class TestBranchAsyncParity:
 
     def test_custom_merge_receives_all_outputs(self):
         received: list = []
+
         def capture(ctxs):
             received.extend(ctxs)
             return ctxs[0]
@@ -861,7 +946,9 @@ class TestBranchAsyncParity:
             total = sum(ctx.metadata.get("n", 0) for ctx in ctxs)
             return ctxs[0].replace(metadata=MappingProxyType({"total": total}))
 
-        b = Branch(Pipeline().then(WriteN(4)), Pipeline().then(WriteN(6)), merge=merge_sum)
+        b = Branch(
+            Pipeline().then(WriteN(4)), Pipeline().then(WriteN(6)), merge=merge_sum
+        )
         out = asyncio.run(b.__call_async__(self._ctx()))
         assert out.metadata["total"] == 10
 
@@ -893,6 +980,7 @@ class TestBranchAsyncParity:
 
     def test_merge_fn_not_called_on_failure(self):
         called: list = []
+
         def should_not_run(ctxs):
             called.append(True)
             return ctxs[0]
@@ -914,7 +1002,9 @@ class TestBranchAsyncParity:
         received: list[StepContext] = []
 
         class AsyncCapture:
-            requires = frozenset(); provides = frozenset()
+            requires = frozenset()
+            provides = frozenset()
+
             async def __call__(self, ctx):
                 received.append(ctx)
                 return ctx
@@ -935,6 +1025,7 @@ class TestBranchAsyncParity:
 # ---------------------------------------------------------------------------
 # 9. Async — native async children (coroutine __call__)
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.unit
 class TestBranchAsyncNativeCoroutines:
@@ -972,7 +1063,7 @@ class TestBranchAsyncNativeCoroutines:
     def test_mixed_sync_and_native_async_children(self):
         """Branch can fan out over a mix of sync (to_thread) and native async steps."""
         b = Branch(
-            Pipeline().then(WriteX()),       # sync → asyncio.to_thread
+            Pipeline().then(WriteX()),  # sync → asyncio.to_thread
             Pipeline().then(AsyncWriteY()),  # async → direct await
         )
         out = asyncio.run(b.__call_async__(self._ctx()))
@@ -983,7 +1074,7 @@ class TestBranchAsyncNativeCoroutines:
         b = Branch(
             Pipeline().then(AsyncWriteX()),
             Pipeline().then(AsyncWriteY()),
-            Pipeline().then(WriteZ()),       # sync
+            Pipeline().then(WriteZ()),  # sync
             merge=MergeStrategy.RAISE_ON_CONFLICT,
         )
         out = asyncio.run(b.__call_async__(self._ctx()))
@@ -998,6 +1089,7 @@ class TestBranchAsyncNativeCoroutines:
 # When Branch is a step inside a Pipeline, the async code path in run_async()
 # detects __call_async__ and calls it — Branch always runs async here.
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.unit
 class TestBranchViaRun:
@@ -1032,16 +1124,25 @@ class TestBranchViaRun:
 
     def test_pre_branch_data_visible_inside_branch(self):
         """Steps run before Branch must be visible in ctx received by branches."""
-        class SetPre:
-            requires = frozenset(); provides = frozenset({"pre"})
-            def __call__(self, ctx):
-                return ctx.replace(metadata=MappingProxyType({**ctx.metadata, "pre": 42}))
 
-        class ReadPre:
-            requires = frozenset({"pre"}); provides = frozenset({"read"})
+        class SetPre:
+            requires = frozenset()
+            provides = frozenset({"pre"})
+
             def __call__(self, ctx):
                 return ctx.replace(
-                    metadata=MappingProxyType({**ctx.metadata, "read": ctx.metadata["pre"]})
+                    metadata=MappingProxyType({**ctx.metadata, "pre": 42})
+                )
+
+        class ReadPre:
+            requires = frozenset({"pre"})
+            provides = frozenset({"read"})
+
+            def __call__(self, ctx):
+                return ctx.replace(
+                    metadata=MappingProxyType(
+                        {**ctx.metadata, "read": ctx.metadata["pre"]}
+                    )
                 )
 
         pipe = (
@@ -1060,9 +1161,13 @@ class TestBranchViaRun:
 
     def test_step_after_branch_receives_merged_context(self):
         class After:
-            requires = frozenset(); provides = frozenset({"after"})
+            requires = frozenset()
+            provides = frozenset({"after"})
+
             def __call__(self, ctx):
-                return ctx.replace(metadata=MappingProxyType({**ctx.metadata, "after": True}))
+                return ctx.replace(
+                    metadata=MappingProxyType({**ctx.metadata, "after": True})
+                )
 
         pipe = (
             Pipeline()
@@ -1139,6 +1244,6 @@ class TestBranchViaRun:
         results = pipe.run(["s"])
         elapsed = time.monotonic() - t0
         assert results[0].error is None
-        assert elapsed < delay * 1.5, (
-            f"Expected branches to run in parallel (~{delay}s), took {elapsed:.2f}s"
-        )
+        assert (
+            elapsed < delay * 1.5
+        ), f"Expected branches to run in parallel (~{delay}s), took {elapsed:.2f}s"

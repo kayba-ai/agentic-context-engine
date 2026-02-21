@@ -39,7 +39,6 @@ from ace_legacy import (
 )
 from ace_legacy.llm_providers import LiteLLMClient
 
-
 # ── Data ────────────────────────────────────────────────────────────────────
 
 
@@ -103,7 +102,9 @@ def build_online_samples() -> list[Sample]:
 # ── Runners ─────────────────────────────────────────────────────────────────
 
 
-def run_offline(llm: LiteLLMClient, pm: PromptManager, skillbook: Skillbook, epochs: int) -> None:
+def run_offline(
+    llm: LiteLLMClient, pm: PromptManager, skillbook: Skillbook, epochs: int
+) -> None:
     """Offline: replay traces, learn from historical data."""
     print("=" * 50)
     print("OFFLINE — Learning from recorded traces")
@@ -152,7 +153,9 @@ def run_online(llm: LiteLLMClient, pm: PromptManager, skillbook: Skillbook) -> N
     print(f"Skillbook: {skillbook.stats()['skills']} skills\n")
 
     for r in results:
-        status = "correct" if r.environment_result.metrics.get("correct", 0) else "wrong"
+        status = (
+            "correct" if r.environment_result.metrics.get("correct", 0) else "wrong"
+        )
         print(f"  Q: {r.sample.question}")
         print(f"  A: {r.agent_output.final_answer} [{status}]\n")
 
@@ -164,7 +167,9 @@ def main() -> None:
     load_dotenv()
 
     parser = argparse.ArgumentParser(description="ace_legacy demo")
-    parser.add_argument("--model", default="us.anthropic.claude-haiku-4-5-20251001-v1:0")
+    parser.add_argument(
+        "--model", default="us.anthropic.claude-haiku-4-5-20251001-v1:0"
+    )
     parser.add_argument("--mode", choices=["offline", "online", "both"], default="both")
     parser.add_argument("--epochs", type=int, default=1)
     args = parser.parse_args()

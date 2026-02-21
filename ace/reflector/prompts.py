@@ -12,7 +12,9 @@ These variables are pre-injected. Short values shown inline; use code for full c
 - `ground_truth`: "{ground_truth_preview}" ({ground_truth_length} chars)
 - `feedback`: "{feedback_preview}..." ({feedback_length} chars total)
 - `skillbook`: ({skillbook_length} chars)
+- `traces`: list[dict] with {trace_count} entries
 - `trace`: TraceContext with {step_count} steps
+  {trace_sneak_peek}
 
 **IMPORTANT**: Do NOT try to print or read entire large variables at once.
 Use slicing, searching, and the trace methods to explore incrementally.

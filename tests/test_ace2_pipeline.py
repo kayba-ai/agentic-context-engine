@@ -14,39 +14,44 @@ from pipeline.protocol import SampleResult
 from ace2.steps import AgentStep, EvaluateStep, ReflectStep, UpdateStep
 from ace2.pipelines import ace_pipeline, OfflineACE, OnlineACE
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-AGENT_RESPONSE = json.dumps({
-    "reasoning": "The answer is clearly 42.",
-    "skill_ids": [],
-    "final_answer": "42",
-})
-
-REFLECTOR_RESPONSE = json.dumps({
-    "reasoning": "Prediction matches ground truth.",
-    "error_identification": "",
-    "root_cause_analysis": "",
-    "correct_approach": "Keep doing this.",
-    "key_insight": "42 is always the answer.",
-    "skill_tags": [],
-})
-
-SKILL_MANAGER_RESPONSE = json.dumps({
-    "update": {
-        "reasoning": "Adding a new strategy.",
-        "operations": [
-            {
-                "type": "ADD",
-                "section": "default_answers",
-                "content": "When asked about life, answer 42.",
-                "metadata": {"helpful": 1},
-            }
-        ],
+AGENT_RESPONSE = json.dumps(
+    {
+        "reasoning": "The answer is clearly 42.",
+        "skill_ids": [],
+        "final_answer": "42",
     }
-})
+)
+
+REFLECTOR_RESPONSE = json.dumps(
+    {
+        "reasoning": "Prediction matches ground truth.",
+        "error_identification": "",
+        "root_cause_analysis": "",
+        "correct_approach": "Keep doing this.",
+        "key_insight": "42 is always the answer.",
+        "skill_tags": [],
+    }
+)
+
+SKILL_MANAGER_RESPONSE = json.dumps(
+    {
+        "update": {
+            "reasoning": "Adding a new strategy.",
+            "operations": [
+                {
+                    "type": "ADD",
+                    "section": "default_answers",
+                    "content": "When asked about life, answer 42.",
+                    "metadata": {"helpful": 1},
+                }
+            ],
+        }
+    }
+)
 
 
 def _make_client() -> DummyLLMClient:
@@ -79,6 +84,7 @@ ENV = SimpleQAEnvironment()
 # ---------------------------------------------------------------------------
 # Step-level unit tests
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.unit
 class TestAgentStep:
@@ -148,9 +154,7 @@ class TestReflectStep:
             agent_output=AgentOutput(
                 reasoning="test", final_answer="42", skill_ids=[], raw={}
             ),
-            environment_result=EnvironmentResult(
-                feedback="correct", ground_truth="42"
-            ),
+            environment_result=EnvironmentResult(feedback="correct", ground_truth="42"),
             skillbook=Skillbook(),
             recent_reflections=(),
         )
@@ -174,9 +178,7 @@ class TestReflectStep:
             agent_output=AgentOutput(
                 reasoning="test", final_answer="42", skill_ids=[], raw={}
             ),
-            environment_result=EnvironmentResult(
-                feedback="correct", ground_truth="42"
-            ),
+            environment_result=EnvironmentResult(feedback="correct", ground_truth="42"),
             skillbook=Skillbook(),
             recent_reflections=("old1", "old2"),  # already at capacity
         )
@@ -202,9 +204,7 @@ class TestUpdateStep:
             agent_output=AgentOutput(
                 reasoning="test", final_answer="42", skill_ids=[], raw={}
             ),
-            environment_result=EnvironmentResult(
-                feedback="correct", ground_truth="42"
-            ),
+            environment_result=EnvironmentResult(feedback="correct", ground_truth="42"),
             reflection=ReflectorOutput(
                 reasoning="ok",
                 error_identification="",
@@ -228,6 +228,7 @@ class TestUpdateStep:
 # Pipeline wiring test
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.unit
 class TestAcePipeline:
     def test_ace_pipeline_builds(self):
@@ -242,6 +243,7 @@ class TestAcePipeline:
 # ---------------------------------------------------------------------------
 # End-to-end runner tests
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.unit
 class TestOfflineACE:
@@ -350,6 +352,7 @@ class TestOnlineACE:
 # ---------------------------------------------------------------------------
 # from_client shorthand tests
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.unit
 class TestFromClient:
