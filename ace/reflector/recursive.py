@@ -169,6 +169,11 @@ class RecursiveReflector:
         sandbox.inject("feedback", feedback)
         sandbox.inject("skillbook", skillbook.as_prompt() or "(empty skillbook)")
 
+        # Inject raw traces for code-based exploration
+        traces = kwargs.get("traces")
+        if traces:
+            sandbox.inject("traces", traces)
+
         # Build initial prompt with previews and metadata
         # Full data is injected into sandbox - previews provide grounding
         skillbook_text = skillbook.as_prompt() or "(empty skillbook)"

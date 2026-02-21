@@ -36,6 +36,7 @@ from tests.pipeline_engine.conftest import (
 # Construction & contract inference
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.unit
 class TestPipelineConstruction:
     def test_empty_pipeline_has_empty_contracts(self):
@@ -63,7 +64,7 @@ class TestPipelineConstruction:
 
     def test_external_requires_inferred(self):
         """Fields needed by the first step that no prior step provides."""
-        p = Pipeline().then(SetB())   # SetB.requires = {"a"}, nothing provides "a"
+        p = Pipeline().then(SetB())  # SetB.requires = {"a"}, nothing provides "a"
         assert "a" in p.requires
 
     def test_internally_satisfied_requires_not_in_external(self):
@@ -87,6 +88,7 @@ class TestPipelineConstruction:
 # Validation
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.unit
 class TestPipelineValidation:
     def test_order_error_when_b_before_a(self):
@@ -100,17 +102,25 @@ class TestPipelineValidation:
     def test_no_order_error_for_external_input(self):
         """SetB requires 'a', but 'a' is not provided by any step → external input.
         This is valid — the caller is expected to put 'a' in the initial context."""
-        p = Pipeline().then(SetB())   # should NOT raise
+        p = Pipeline().then(SetB())  # should NOT raise
         assert "a" in p.requires
 
     def test_config_error_duplicate_async_boundary(self):
         class B1:
-            requires = frozenset(); provides = frozenset({"p"}); async_boundary = True
-            def __call__(self, ctx): return ctx
+            requires = frozenset()
+            provides = frozenset({"p"})
+            async_boundary = True
+
+            def __call__(self, ctx):
+                return ctx
 
         class B2:
-            requires = frozenset(); provides = frozenset({"q"}); async_boundary = True
-            def __call__(self, ctx): return ctx
+            requires = frozenset()
+            provides = frozenset({"q"})
+            async_boundary = True
+
+            def __call__(self, ctx):
+                return ctx
 
         with pytest.raises(PipelineConfigError, match="duplicate"):
             Pipeline().then(B1()).then(B2())
@@ -128,24 +138,28 @@ class TestPipelineValidation:
             warnings.simplefilter("always")
             Pipeline().then(inner)
 
-        assert any("async_boundary" in str(w.message) for w in caught), \
-            "Expected a warning about async_boundary on nested pipeline"
+        assert any(
+            "async_boundary" in str(w.message) for w in caught
+        ), "Expected a warning about async_boundary on nested pipeline"
 
     def test_validation_runs_on_each_then_call(self):
         # SetA provides "a"; SetB provides "b"; SetC requires "b".
         # Adding SetC before SetB (so "b" is internally provided but out of order)
         # must raise PipelineOrderError.
-        p = Pipeline().then(SetA()).then(SetB())   # "a" → "b" in order
+        p = Pipeline().then(SetA()).then(SetB())  # "a" → "b" in order
         with pytest.raises(PipelineOrderError):
             # Now add a step that requires "a" again, but "a" was already consumed;
             # add SetB *again* before SetC would work, but adding SetC before SetB
             # in a fresh pipeline is the right test:
-            Pipeline().then(SetA()).then(SetC()).then(SetB())  # "c" needs "b", "b" comes after
+            Pipeline().then(SetA()).then(SetC()).then(
+                SetB()
+            )  # "c" needs "b", "b" comes after
 
 
 # ---------------------------------------------------------------------------
 # __call__ (nested step mode)
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.unit
 class TestPipelineCall:
@@ -158,14 +172,18 @@ class TestPipelineCall:
     def test_call_ignores_async_boundary(self):
         """When used as nested step, async_boundary should not split execution."""
         p = Pipeline().then(SetA()).then(BoundaryStep()).then(SetB())
+
         # BoundaryStep requires nothing, provides "bg_result"
         # SetC would need "b", so we use SetA (provides "a"), then BoundaryStep,
         # then Noop — all should run.
         class AfterBoundary:
             requires = frozenset()
             provides = frozenset({"after"})
+
             def __call__(self, ctx):
-                return ctx.replace(metadata=MappingProxyType({**ctx.metadata, "after": True}))
+                return ctx.replace(
+                    metadata=MappingProxyType({**ctx.metadata, "after": True})
+                )
 
         p2 = Pipeline().then(SetA()).then(BoundaryStep()).then(AfterBoundary())
         ctx = p2(StepContext(sample="s"))
@@ -182,6 +200,7 @@ class TestPipelineCall:
 # ---------------------------------------------------------------------------
 # run() — basic
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.unit
 class TestPipelineRun:
@@ -231,14 +250,15 @@ class TestPipelineRun:
         par_time = time.monotonic() - t0
 
         # Parallel should be at least 2× faster
-        assert par_time < seq_time / 2, (
-            f"workers=4 ({par_time:.2f}s) not faster than workers=1 ({seq_time:.2f}s)"
-        )
+        assert (
+            par_time < seq_time / 2
+        ), f"workers=4 ({par_time:.2f}s) not faster than workers=1 ({seq_time:.2f}s)"
 
 
 # ---------------------------------------------------------------------------
 # run() — error handling
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.unit
 class TestPipelineRunErrors:
@@ -257,10 +277,12 @@ class TestPipelineRunErrors:
 
     def test_other_samples_continue_after_one_failure(self):
         """A failing sample must not prevent other samples from being processed."""
+
         class FailFirst:
             requires = frozenset()
             provides = frozenset()
             call_count = 0
+
             def __call__(self, ctx):
                 FailFirst.call_count += 1
                 if ctx.sample == "bad":
@@ -280,12 +302,16 @@ class TestPipelineRunErrors:
         class FirstStep:
             requires = frozenset()
             provides = frozenset({"p"})
-            def __call__(self, ctx): return ctx.replace(metadata={**ctx.metadata})
+
+            def __call__(self, ctx):
+                return ctx.replace(metadata={**ctx.metadata})
 
         class FailingStep:
             requires = frozenset({"p"})
             provides = frozenset()
-            def __call__(self, ctx): raise ValueError("fail")
+
+            def __call__(self, ctx):
+                raise ValueError("fail")
 
         results = Pipeline().then(FirstStep()).then(FailingStep()).run(["s"])
         assert results[0].failed_at == "FailingStep"
@@ -294,6 +320,7 @@ class TestPipelineRunErrors:
 # ---------------------------------------------------------------------------
 # run() — async_boundary + background
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.unit
 class TestPipelineAsyncBoundary:
@@ -326,9 +353,9 @@ class TestPipelineAsyncBoundary:
         results = pipe.run(["s"])
 
         # run() returned — background must NOT have finished yet
-        assert not bg_completed.is_set(), (
-            "run() blocked until background completed; it should return immediately"
-        )
+        assert (
+            not bg_completed.is_set()
+        ), "run() blocked until background completed; it should return immediately"
         assert len(results) == 1
 
         pipe.wait_for_background(timeout=5.0)
@@ -348,7 +375,9 @@ class TestPipelineAsyncBoundary:
             provides = frozenset({"bg"})
             async_boundary = True
             max_workers = 1
-            def __call__(self, ctx): raise RuntimeError("bg_boom")
+
+            def __call__(self, ctx):
+                raise RuntimeError("bg_boom")
 
         pipe = Pipeline().then(BGBoom())
         results = pipe.run(["s"])
@@ -380,15 +409,19 @@ class TestPipelineAsyncBoundary:
     def test_background_max_workers_1_serializes_execution(self):
         """With max_workers=1, background steps cannot interleave."""
         from tests.pipeline_engine.conftest import SerialStep
+
         SerialStep._log.clear()
 
         class TriggerBoundary:
             requires = frozenset()
             provides = frozenset({"trigger"})
             async_boundary = True
-            max_workers = 3   # multiple samples can start background at once
+            max_workers = 3  # multiple samples can start background at once
+
             def __call__(self, ctx):
-                return ctx.replace(metadata=MappingProxyType({**ctx.metadata, "trigger": True}))
+                return ctx.replace(
+                    metadata=MappingProxyType({**ctx.metadata, "trigger": True})
+                )
 
         # SerialStep has max_workers=1; two samples must not interleave
         pipe = Pipeline().then(TriggerBoundary()).then(SerialStep())
@@ -407,6 +440,7 @@ class TestPipelineAsyncBoundary:
 # run_async()
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.unit
 class TestPipelineRunAsync:
     def test_run_async_same_results_as_run(self):
@@ -424,7 +458,7 @@ class TestPipelineRunAsync:
 
     def test_run_async_workers_respected(self):
         """Multiple samples run concurrently with workers>1."""
-        delay = 0.05
+        delay = 0.15
         pipe = Pipeline().then(Slow(delay))
         t0 = time.monotonic()
         asyncio.run(pipe.run_async(list(range(4)), workers=4))
@@ -435,6 +469,7 @@ class TestPipelineRunAsync:
 # ---------------------------------------------------------------------------
 # Nesting
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.unit
 class TestPipelineNesting:
