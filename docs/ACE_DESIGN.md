@@ -972,11 +972,12 @@ The user-facing wrappers (ACELiteLLM, ACEAgent, ACELangChain) remain as convenie
 
 ```python
 class ACELiteLLM:
-    def __init__(self, llm, skillbook, ...):
+    def __init__(self, llm, skillbook, *, environment=None, ...):
         self.agent = Agent(llm, ...)
         self.reflector = Reflector(llm, ...)
         self.skill_manager = SkillManager(llm, ...)
         self.skillbook = skillbook
+        self.environment = environment
         self._ace: ACE | None = None
         self._analyser: TraceAnalyser | None = None
 
@@ -987,6 +988,7 @@ class ACELiteLLM:
                 reflector=self.reflector,
                 skill_manager=self.skill_manager,
                 skillbook=self.skillbook,
+                environment=self.environment,
             )
         return self._ace
 
@@ -1003,9 +1005,9 @@ class ACELiteLLM:
         """Use current skillbook to answer."""
         ...
 
-    def learn(self, samples, environment, epochs=1, wait=True):
-        """Delegate to ACE."""
-        return self._get_ace().run(samples, environment, epochs=epochs, wait=wait)
+    def learn(self, samples, epochs=1, wait=True):
+        """Delegate to ACE. Environment is set at construction time."""
+        return self._get_ace().run(samples, epochs=epochs, wait=wait)
 
     def learn_from_traces(self, traces, epochs=1, wait=True):
         """Delegate to TraceAnalyser."""
@@ -1286,10 +1288,10 @@ Issues acknowledged but deferred from this version of the spec.
 **Streaming / lazy iteration:**
 `_run()` eagerly materializes the full iterable into a list of `ACEStepContext` objects before passing them to `Pipeline.run()`. For a large generator with `epochs=1`, the entire input gets buffered into memory. True streaming would require the pipeline to accept an iterator and process items one-at-a-time (e.g., `for ctx in contexts: pipeline.run_one(ctx)`), or an async iterator pattern with `asyncio.as_completed`. This is a deliberate simplification — batch materialization keeps the epoch loop and error handling straightforward. Revisit if memory pressure from large single-pass runs becomes a real problem.
 
-**Builder API for custom pipelines:**
+**Builder API for custom pipelines (speculative):**
 The current API offers two extremes: factory methods (`from_client`, `from_roles`) that hide the pipeline entirely, and manual `Pipeline([...])` construction that requires understanding `ACEStepContext`, `SkillbookView`, step contracts, and `ACERunner` subclassing. Users who want to insert a custom step between Reflect and Update, or swap the execute head while keeping the learning tail, fall into a gap where neither approach serves them well.
 
-A builder API would bridge this gap:
+One possible direction is a builder API that would bridge this gap:
 
 ```python
 from ace import ACEBuilder
@@ -1315,9 +1317,7 @@ ace = (
 
 The builder would handle `SkillbookView` wiring, step ordering validation, and `ACERunner` construction internally. Users compose by name ("reflect", "apply") rather than by importing step classes.
 
-**When to implement:** When there is evidence of users building custom pipelines with `learning_tail()` and hitting friction with the manual wiring. The `learning_tail()` helper (see Integration Pattern section) covers the most common customisation — custom execute step + standard learning — without a builder. A builder adds value when users need fine-grained insertion points (between existing steps) or want to compose from presets without understanding the step internals.
-
-**Risk:** A builder that mirrors the step list adds a second way to construct pipelines, which means two things to document, test, and keep in sync. It can also hide the `requires`/`provides` contracts — when a validation step is inserted at the wrong position, the error comes from the pipeline engine (field missing) rather than the builder (wrong position name), making debugging indirect. Mitigate by having the builder validate the final step chain at `build()` time and surfacing clear errors.
+This would only be worth pursuing when there is evidence of users building custom pipelines with `learning_tail()` and hitting friction with the manual wiring. The `learning_tail()` helper (see Integration Pattern section) covers the most common customisation — custom execute step + standard learning — without a builder. A builder adds value when users need fine-grained insertion points (between existing steps) or want to compose from presets without understanding the step internals. The main risk is that a builder mirrors the step list, adding a second construction path to document, test, and keep in sync. It can also hide the `requires`/`provides` contracts — when a validation step is inserted at the wrong position, the error comes from the pipeline engine (field missing) rather than the builder (wrong position name), making debugging indirect. Mitigate by having the builder validate the final step chain at `build()` time and surfacing clear errors.
 
 **Skillbook rollback and versioning:**
 Currently the skillbook is mutated in place with no way to undo a bad update. If the LLM hallucinates a harmful skill or a batch degrades overall quality, the only recovery is restoring from a checkpoint file. A lightweight versioning mechanism — e.g., snapshotting skillbook state at epoch boundaries or before each `ApplyStep`, with a `rollback(to_version)` method — would enable automatic revert when a validation metric degrades, A/B comparison between skillbook versions, and safer experimentation with aggressive learning rates. This could live as a `VersionedSkillbook` wrapper or as an optional `SnapshotStep` inserted before `ApplyStep`. Deferred because the current checkpoint-to-disk approach covers the most common recovery scenario (resume after crash), and in-memory versioning adds memory overhead proportional to skillbook size times number of snapshots.
