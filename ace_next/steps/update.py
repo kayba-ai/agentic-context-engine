@@ -2,28 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Protocol, runtime_checkable
-
 from ..context import ACEStepContext
-from ..outputs import ReflectorOutput, SkillManagerOutput
-
-
-@runtime_checkable
-class SkillManagerLike(Protocol):
-    """Protocol for SkillManager-like objects.
-
-    Satisfied by ``ace.roles.SkillManager``.
-    """
-
-    def update_skills(
-        self,
-        *,
-        reflection: ReflectorOutput,
-        skillbook: Any,
-        question_context: str,
-        progress: str,
-        **kwargs: Any,
-    ) -> SkillManagerOutput: ...
+from ..protocols import SkillManagerLike
 
 
 class UpdateStep:

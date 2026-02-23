@@ -10,15 +10,16 @@ from .outputs import (
     SkillManagerOutput,
     SkillTag,
 )
+from .protocols import (
+    AgentLike,
+    DeduplicationConfig,
+    DeduplicationManagerLike,
+    ReflectorLike,
+    SkillManagerLike,
+)
 from .skill import Skill, SimilarityDecision
 from .skillbook import Skillbook
 from .updates import UpdateBatch, UpdateOperation
-
-# Protocols and config — defined alongside the steps that use them
-from .steps.agent import AgentLike
-from .steps.deduplicate import DeduplicationConfig, DeduplicationManagerLike
-from .steps.reflect import ReflectorLike
-from .steps.update import SkillManagerLike
 
 __all__ = [
     # Context
@@ -42,11 +43,10 @@ __all__ = [
     "EnvironmentResult",
     "TaskEnvironment",
     "SimpleEnvironment",
-    # Role protocols (defined in their step files)
+    # Protocols
     "AgentLike",
     "ReflectorLike",
     "SkillManagerLike",
-    # Deduplication (defined in deduplicate step)
     "DeduplicationConfig",
     "DeduplicationManagerLike",
 ]

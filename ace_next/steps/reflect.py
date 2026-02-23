@@ -3,31 +3,12 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional, Protocol, runtime_checkable
 
 from ..context import ACEStepContext
-from ..outputs import AgentOutput, ReflectorOutput
+from ..outputs import AgentOutput
+from ..protocols import ReflectorLike
 
 logger = logging.getLogger(__name__)
-
-
-@runtime_checkable
-class ReflectorLike(Protocol):
-    """Protocol for Reflector-like objects.
-
-    Satisfied by ``ace.roles.Reflector``.
-    """
-
-    def reflect(
-        self,
-        *,
-        question: str,
-        agent_output: AgentOutput,
-        skillbook: Any,
-        ground_truth: Optional[str] = ...,
-        feedback: Optional[str] = ...,
-        **kwargs: Any,
-    ) -> ReflectorOutput: ...
 
 
 class ReflectStep:

@@ -4,6 +4,25 @@ Specification for rewriting the legacy `ace/` module to use the pipeline engine.
 
 ---
 
+## Implementation Status
+
+Implemented in `ace_next/` (parallel to `ace/` for easy rollback). The package is fully self-contained — all types are copied locally, zero imports from `ace/`.
+
+| Component | Status | Location |
+|---|---|---|
+| Core types (`ACEStepContext`, `SkillbookView`, `ACESample`) | Done | `ace_next/context.py` |
+| Data types (`Skill`, `Skillbook`, `UpdateBatch`, outputs) | Done | `ace_next/skill.py`, `skillbook.py`, `updates.py`, `outputs.py` |
+| Environments (`Sample`, `TaskEnvironment`, etc.) | Done | `ace_next/environments.py` |
+| Protocols (`AgentLike`, `ReflectorLike`, etc.) | Done | `ace_next/protocols/` |
+| Steps (all 10) | Done | `ace_next/steps/` |
+| `learning_tail()` helper | Done | `ace_next/steps/__init__.py` |
+| `ACERunner` base class | Not started | — |
+| `TraceAnalyser` | Not started | — |
+| `ACE` runner | Not started | — |
+| Integration runners | Not started | — |
+
+---
+
 ## Goals
 
 1. Replace the monolithic `ACEBase` / `OfflineACE` / `OnlineACE` in `adaptation.py` with pipeline-based classes.
@@ -87,14 +106,20 @@ class SkillbookView:
     def get_skill(self, skill_id: str) -> Skill | None:
         return self._sb.get_skill(skill_id)
 
+    def skills(self, include_invalid: bool = False) -> list[Skill]:
+        return self._sb.skills(include_invalid=include_invalid)
+
+    def stats(self) -> dict[str, object]:
+        return self._sb.stats()
+
     def __len__(self) -> int:
-        return len(self._sb)
+        return len(self._sb.skills())
 
     def __iter__(self):
-        return iter(self._sb)
+        return iter(self._sb.skills())
 
     def __repr__(self) -> str:
-        return f"SkillbookView({len(self._sb)} skills)"
+        return f"SkillbookView({len(self)} skills)"
 ```
 
 **Enforcement:**
@@ -139,7 +164,7 @@ The `trace` field holds the raw execution record from any external system — a 
 | **Nature** | Step-to-step data + read-only dependencies | Mutable shared state |
 | **Lifetime** | Per-sample (born in `_build_context`, dies after pipeline) | Per-runner (created once, shared across samples) |
 | **Immutable?** | Yes — frozen fields, read-only views | No — mutable by design |
-| **Examples** | `agent_output`, `reflection`, `skillbook` (view) | `skillbook` (real), `environment`, `dedup_config` |
+| **Examples** | `agent_output`, `reflection`, `skillbook` (view) | `skillbook` (real), `environment`, `dedup_manager` |
 | **Validated by engine?** | Yes — `requires`/`provides` | No — runtime error if missing |
 
 ---
@@ -453,7 +478,7 @@ ace = ACE.from_roles(
     reflector=Reflector(llm),
     skill_manager=SkillManager(llm),
     skillbook=existing_skillbook,
-    dedup_config=DeduplicationConfig(similarity_threshold=0.85),
+    dedup_manager=dedup_manager(similarity_threshold=0.85),
 )
 ```
 
@@ -463,7 +488,7 @@ ace = ACE.from_roles(
 |---|---|---|
 | `skillbook` | `Skillbook()` | Starting skillbook (empty if not provided) |
 | `max_refinement_rounds` | `1` | Reflector iteration depth |
-| `dedup_config` | `None` | Appends a `DeduplicateStep` to the pipeline |
+| `dedup_manager` | `None` | Appends a `DeduplicateStep` to the pipeline |
 | `dedup_interval` | `10` | Deduplication frequency (samples between runs) |
 | `checkpoint_dir` | `None` | Appends a `CheckpointStep` to the pipeline |
 | `checkpoint_interval` | `10` | Checkpoint frequency (samples between saves) |
@@ -474,12 +499,12 @@ Checkpoint and deduplication are configured at construction time. The factory co
 # TraceAnalyser — learning tail only
 @classmethod
 def from_roles(cls, *, reflector, skill_manager, skillbook=None,
-               dedup_config=None, dedup_interval=10,
+               dedup_manager=None, dedup_interval=10,
                checkpoint_dir=None, checkpoint_interval=10, **kwargs):
     skillbook = skillbook or Skillbook()
     steps = learning_tail(
         reflector, skill_manager, skillbook,
-        dedup_config=dedup_config, dedup_interval=dedup_interval,
+        dedup_manager=dedup_manager, dedup_interval=dedup_interval,
         checkpoint_dir=checkpoint_dir, checkpoint_interval=checkpoint_interval,
         **kwargs,
     )
@@ -488,7 +513,7 @@ def from_roles(cls, *, reflector, skill_manager, skillbook=None,
 # ACE — execute head + learning tail
 @classmethod
 def from_roles(cls, *, agent, reflector, skill_manager, environment=None,
-               skillbook=None, dedup_config=None, dedup_interval=10,
+               skillbook=None, dedup_manager=None, dedup_interval=10,
                checkpoint_dir=None, checkpoint_interval=10, **kwargs):
     skillbook = skillbook or Skillbook()
     steps = [
@@ -496,7 +521,7 @@ def from_roles(cls, *, agent, reflector, skill_manager, environment=None,
         EvaluateStep(environment),
         *learning_tail(
             reflector, skill_manager, skillbook,
-            dedup_config=dedup_config, dedup_interval=dedup_interval,
+            dedup_manager=dedup_manager, dedup_interval=dedup_interval,
             checkpoint_dir=checkpoint_dir, checkpoint_interval=checkpoint_interval,
             **kwargs,
         ),
@@ -510,7 +535,7 @@ Read-only steps (ReflectStep, UpdateStep) access the skillbook via `ctx.skillboo
 
 ## Steps
 
-Reusable step implementations live in `ace/steps/`. Each is a single class in a single file. All satisfy the `StepProtocol` from the pipeline engine. Each step does exactly one thing.
+Reusable step implementations live in `ace_next/steps/`. Each is a single class in a single file. All satisfy the `StepProtocol` from the pipeline engine. Each step does exactly one thing.
 
 **Design principle: steps are stateless.** A step's `__call__` is a pure function of its constructor arguments and the incoming `ACEStepContext`. No internal counters, no accumulated state between invocations. If a step needs run-scoped information (like a global sample index for interval logic), the runner computes it and places it on the context. This keeps steps predictable across multiple `run()` calls — behaviour depends only on what's in the context, not on invocation history.
 
@@ -524,7 +549,7 @@ Reusable step implementations live in `ace/steps/`. Each is a single class in a 
 | **TagStep** | `reflection` | `skillbook` (real) | — | Tags skills on skillbook | 1 |
 | **UpdateStep** | `reflection`, `skillbook` | `skill_manager` | `skill_manager_output` | None (pure) | 1 |
 | **ApplyStep** | `skill_manager_output` | `skillbook` (real) | — | Applies update batch to skillbook | 1 |
-| **DeduplicateStep** | `global_sample_index` | `dedup_config`, `skillbook` (real) | — | Consolidates similar skills | 1 |
+| **DeduplicateStep** | `global_sample_index` | `manager` (DeduplicationManagerLike), `skillbook` (real) | — | Consolidates similar skills | 1 |
 | **CheckpointStep** | `global_sample_index` | `skillbook` (real) | — | Saves skillbook to disk | 1 |
 | **ObservabilityStep** | `skillbook` | — | — | Logs metrics to Opik | 1 |
 | **PersistStep** | `skillbook` | `target_path` | — | Writes skillbook to CLAUDE.md or similar | 1 |
@@ -542,7 +567,7 @@ class AgentStep:
     requires = frozenset({"sample", "skillbook"})
     provides = frozenset({"agent_output"})
 
-    def __init__(self, agent: Agent) -> None:
+    def __init__(self, agent: AgentLike) -> None:
         self.agent = agent
 
     def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
@@ -596,18 +621,39 @@ class ReflectStep:
     async_boundary = True
     max_workers = 3
 
-    def __init__(self, reflector: Reflector) -> None:
+    def __init__(self, reflector: ReflectorLike) -> None:
         self.reflector = reflector
 
     def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
-        reflection = self.reflector.reflect(
-            traces=ctx.trace,              # raw trace object (any type)
-            skillbook=ctx.skillbook,       # SkillbookView (read-only)
-        )
+        trace = ctx.trace
+
+        if isinstance(trace, dict):
+            # Structured trace from EvaluateStep — extract known fields
+            agent_output = AgentOutput(
+                reasoning=trace.get("reasoning", ""),
+                final_answer=trace.get("answer", ""),
+                skill_ids=trace.get("skill_ids", []),
+            )
+            reflection = self.reflector.reflect(
+                question=trace.get("question", ""),
+                agent_output=agent_output,
+                skillbook=ctx.skillbook,
+                ground_truth=trace.get("ground_truth"),
+                feedback=trace.get("feedback"),
+            )
+        else:
+            # Raw trace from TraceAnalyser or integration — pass as-is
+            reflection = self.reflector.reflect(
+                question="",
+                agent_output=AgentOutput(reasoning="", final_answer=""),
+                skillbook=ctx.skillbook,
+                trace=trace,
+            )
+
         return ctx.replace(reflection=reflection)
 ```
 
-Pure — produces a reflection object, no side effects. Receives `ctx.trace` (the raw trace — a dict from EvaluateStep, a browser-use `AgentHistoryList`, a plain dict from TraceAnalyser, or any arbitrary object) and `ctx.skillbook` (a `SkillbookView`). The Reflector is responsible for making sense of whatever trace type it receives. Declares `async_boundary = True` — everything from here onward runs in a background thread pool. This lets the execute head return fast while learning continues.
+Pure — produces a reflection object, no side effects. Handles two trace formats: (1) when `ctx.trace` is a dict (from EvaluateStep), it extracts known fields and calls the Reflector's existing API with typed arguments; (2) when `ctx.trace` is any other object (from TraceAnalyser or integrations), it passes the raw trace via `**kwargs` for the Reflector to handle directly. Declares `async_boundary = True` — everything from here onward runs in a background thread pool. This lets the execute head return fast while learning continues.
 
 ### TagStep
 
@@ -645,7 +691,7 @@ class UpdateStep:
 
     max_workers = 1
 
-    def __init__(self, skill_manager: SkillManager) -> None:
+    def __init__(self, skill_manager: SkillManagerLike) -> None:
         self.skill_manager = skill_manager
 
     def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
@@ -688,19 +734,22 @@ class DeduplicateStep:
 
     max_workers = 1
 
-    def __init__(self, config: DeduplicationConfig, skillbook: Skillbook, *, interval: int = 10) -> None:
-        self.manager = DeduplicationManager(config)
+    def __init__(self, manager: DeduplicationManagerLike, skillbook: Skillbook, *, interval: int = 10) -> None:
+        self.manager = manager
         self.skillbook = skillbook
         self.interval = interval
 
     def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
         if ctx.global_sample_index % self.interval != 0:
             return ctx
-        self.manager.deduplicate(self.skillbook)
+        report = self.manager.get_similarity_report(self.skillbook)
+        if report:
+            logger.info("DeduplicateStep: similarity report at sample %d:\n%s",
+                        ctx.global_sample_index, report)
         return ctx
 ```
 
-Optional side-effect step — consolidates similar skills in `self.skillbook` (injected). Appended to the pipeline by factory methods when `dedup_config` is provided. Stateless — uses `ctx.global_sample_index` (computed by the runner) with a configurable `interval` (default 10) to skip most invocations. Deduplication involves O(n²) similarity comparisons across all skills, so running it on every sample would be expensive as the skillbook grows.
+Optional side-effect step — consolidates similar skills in `self.skillbook` (injected). Appended to the pipeline by factory methods when a `DeduplicationManagerLike` is provided. The step takes a protocol, not the concrete `DeduplicationManager` — this keeps `ace_next` decoupled from the deduplication implementation in `ace/`. Stateless — uses `ctx.global_sample_index` (computed by the runner) with a configurable `interval` (default 10) to skip most invocations. Deduplication involves O(n²) similarity comparisons across all skills, so running it on every sample would be expensive as the skillbook grows.
 
 ### CheckpointStep
 
@@ -768,7 +817,7 @@ class PersistStep:
         self.skillbook = skillbook
 
     def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
-        self.skillbook.persist_to(self.target_path)
+        self.skillbook.save_to_file(str(self.target_path))
         return ctx
 ```
 
@@ -881,31 +930,31 @@ The pattern is the same for every integration: subclass `ACERunner`, provide a f
 Every integration assembles the same `[Reflect → Tag → Update → Apply]` suffix with optional dedup and checkpoint steps. Rather than duplicating this wiring in every factory method, `learning_tail()` returns the standard step list:
 
 ```python
-# ace/steps/__init__.py
+# ace_next/steps/__init__.py
 
 def learning_tail(
-    reflector: Reflector,
-    skill_manager: SkillManager,
+    reflector: ReflectorLike,
+    skill_manager: SkillManagerLike,
     skillbook: Skillbook,
     *,
-    dedup_config: DeduplicationConfig | None = None,
+    dedup_manager: DeduplicationManagerLike | None = None,
     dedup_interval: int = 10,
     checkpoint_dir: str | Path | None = None,
     checkpoint_interval: int = 10,
-) -> list[Step]:
+) -> list:
     """Return the standard ACE learning steps.
 
     Use this when building custom integrations that provide their own
     execute step(s) but want the standard learning pipeline.
     """
-    steps: list[Step] = [
+    steps: list = [
         ReflectStep(reflector),
         TagStep(skillbook),
         UpdateStep(skill_manager),
         ApplyStep(skillbook),
     ]
-    if dedup_config:
-        steps.append(DeduplicateStep(dedup_config, skillbook, interval=dedup_interval))
+    if dedup_manager:
+        steps.append(DeduplicateStep(dedup_manager, skillbook, interval=dedup_interval))
     if checkpoint_dir:
         steps.append(CheckpointStep(checkpoint_dir, skillbook, interval=checkpoint_interval))
     return steps
@@ -928,13 +977,13 @@ class BrowserACE(ACERunner):
 Power users building fully custom pipelines can also use it:
 
 ```python
-from ace.steps import learning_tail
+from ace_next.steps import learning_tail
 
 skillbook = Skillbook.load_from_file("expert.json")
 steps = [
     MyCustomExecuteStep(my_agent),
     MyValidationStep(),  # custom step before learning
-    *learning_tail(reflector, skill_manager, skillbook, dedup_config=dedup),
+    *learning_tail(reflector, skill_manager, skillbook, dedup_manager=dedup),
 ]
 runner = ACERunner(Pipeline(steps), skillbook)
 ```
@@ -1038,9 +1087,22 @@ Each wrapper is a thin facade over an `ACERunner` subclass. The runner owns the 
 ## Directory Structure
 
 ```
-ace/
-  steps/                    ← generic steps (one file per class
+ace_next/
+  __init__.py               ← Public API re-exports
+  context.py                ← ACEStepContext, SkillbookView, ACESample
+  skill.py                  ← Skill, SimilarityDecision
+  skillbook.py              ← Skillbook
+  updates.py                ← UpdateOperation, UpdateBatch
+  outputs.py                ← AgentOutput, ReflectorOutput, SkillManagerOutput, etc.
+  environments.py           ← Sample, TaskEnvironment, SimpleEnvironment, EnvironmentResult
+  protocols/                ← Role protocols (one file per protocol)
     __init__.py
+    agent.py                ← AgentLike
+    reflector.py            ← ReflectorLike
+    skill_manager.py        ← SkillManagerLike
+    deduplication.py        ← DeduplicationConfig, DeduplicationManagerLike
+  steps/                    ← Pipeline steps (one file per class)
+    __init__.py             ← learning_tail() helper
     agent.py                ← AgentStep
     evaluate.py             ← EvaluateStep
     reflect.py              ← ReflectStep
@@ -1050,10 +1112,11 @@ ace/
     deduplicate.py          ← DeduplicateStep
     checkpoint.py           ← CheckpointStep
     observability.py        ← ObservabilityStep
-  trace_analyser.py         ← TraceAnalyser class
-  ace.py                    ← ACE class
-  runner.py                 ← ACERunner base class
-  integrations/
+    persist.py              ← PersistStep
+  runner.py                 ← ACERunner base class (not started)
+  ace.py                    ← ACE class (not started)
+  trace_analyser.py         ← TraceAnalyser class (not started)
+  integrations/             ← (not started)
     browser_use/
       runner.py             ← BrowserACE (ACERunner subclass)
       steps/
@@ -1066,7 +1129,6 @@ ace/
       runner.py             ← ClaudeCodeACE (ACERunner subclass)
       steps/
         execute.py          ← ClaudeCodeExecuteStep
-        persist.py          ← PersistStep
     litellm.py              ← ACELiteLLM (high-level wrapper)
     base.py                 ← wrap_skillbook_context (unchanged)
 ```
@@ -1077,20 +1139,22 @@ Each integration provides: (1) an execute step and (2) an `ACERunner` subclass t
 
 | Old location | New location | Notes |
 |---|---|---|
-| `ace/adaptation.py` | Deleted | Replaced by `runner.py`, `ace.py`, `trace_analyser.py` |
+| `ace/adaptation.py` | Deleted | Replaced by `ace_next/runner.py`, `ace.py`, `trace_analyser.py` |
 | `ace/async_learning.py` | Deleted | Replaced by pipeline engine `async_boundary` |
-| `ace/environments.py` | Unchanged | `Sample`, `EnvironmentResult`, `TaskEnvironment`, `SimpleEnvironment` stay |
+| `ace/environments.py` | `ace_next/environments.py` | `Sample`, `EnvironmentResult`, `TaskEnvironment`, `SimpleEnvironment` (copied) |
+| `ace/roles.py` | `ace_next/protocols/` | Protocols extracted from role classes |
 | `ace2/` | Deleted | Superseded by this design |
-| New | `ace/steps/tag.py` | TagStep (split from ReflectStep) |
-| New | `ace/steps/apply.py` | ApplyStep (split from UpdateStep) |
-| New | `ace/steps/deduplicate.py` | DeduplicateStep (extracted from SkillManager) |
-| New | `ace/steps/checkpoint.py` | CheckpointStep |
-| New | `ace/steps/observability.py` | ObservabilityStep |
-| New | `ace/trace_analyser.py` | TraceAnalyser class |
-| New | `ace/runner.py` | ACERunner base class |
-| `ace/integrations/browser_use.py` | `ace/integrations/browser_use/` | Split into runner + steps |
-| `ace/integrations/langchain.py` | `ace/integrations/langchain/` | Split into runner + steps |
-| `ace/integrations/claude_code.py` | `ace/integrations/claude_code/` | Split into runner + steps |
+| New | `ace_next/steps/tag.py` | TagStep (split from ReflectStep) |
+| New | `ace_next/steps/apply.py` | ApplyStep (split from UpdateStep) |
+| New | `ace_next/steps/deduplicate.py` | DeduplicateStep (extracted from SkillManager) |
+| New | `ace_next/steps/checkpoint.py` | CheckpointStep |
+| New | `ace_next/steps/observability.py` | ObservabilityStep |
+| New | `ace_next/steps/persist.py` | PersistStep |
+| New | `ace_next/trace_analyser.py` | TraceAnalyser class |
+| New | `ace_next/runner.py` | ACERunner base class |
+| `ace/integrations/browser_use.py` | `ace_next/integrations/browser_use/` | Split into runner + steps |
+| `ace/integrations/langchain.py` | `ace_next/integrations/langchain/` | Split into runner + steps |
+| `ace/integrations/claude_code.py` | `ace_next/integrations/claude_code/` | Split into runner + steps |
 
 ---
 
@@ -1218,7 +1282,7 @@ ace = ACE.from_roles(
     reflector=Reflector(llm),
     skill_manager=SkillManager(llm),
     environment=SimpleEnvironment(),
-    dedup_config=DeduplicationConfig(similarity_threshold=0.85),
+    dedup_manager=dedup_manager(similarity_threshold=0.85),
     checkpoint_dir="./checkpoints",
     checkpoint_interval=10,
 )

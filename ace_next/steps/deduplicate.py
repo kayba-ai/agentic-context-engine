@@ -3,37 +3,12 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
-from typing import Literal, Optional, Protocol, runtime_checkable
 
 from ..context import ACEStepContext
+from ..protocols import DeduplicationManagerLike
 from ..skillbook import Skillbook
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class DeduplicationConfig:
-    """Configuration for skill deduplication."""
-
-    enabled: bool = True
-    embedding_model: str = "text-embedding-3-small"
-    embedding_provider: Literal["litellm", "sentence_transformers"] = "litellm"
-    similarity_threshold: float = 0.85
-    min_pairs_to_report: int = 1
-    within_section_only: bool = True
-    local_model_name: str = "all-MiniLM-L6-v2"
-
-
-@runtime_checkable
-class DeduplicationManagerLike(Protocol):
-    """Protocol for deduplication managers.
-
-    The concrete ``ace.deduplication.DeduplicationManager`` satisfies this
-    structurally.  Steps depend on the protocol, not the implementation.
-    """
-
-    def get_similarity_report(self, skillbook: Skillbook) -> Optional[str]: ...
 
 
 class DeduplicateStep:

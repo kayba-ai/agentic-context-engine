@@ -2,28 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional, Protocol, runtime_checkable
-
 from ..context import ACEStepContext
 from ..outputs import AgentOutput
-
-
-@runtime_checkable
-class AgentLike(Protocol):
-    """Protocol for Agent-like objects.
-
-    Satisfied by ``ace.roles.Agent`` and ``ace.roles.ReplayAgent``.
-    """
-
-    def generate(
-        self,
-        *,
-        question: str,
-        context: Optional[str],
-        skillbook: Any,
-        reflection: Optional[str] = ...,
-        **kwargs: Any,
-    ) -> AgentOutput: ...
+from ..protocols import AgentLike
 
 
 class AgentStep:

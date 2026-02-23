@@ -4,33 +4,33 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from ..protocols import (
+    DeduplicationManagerLike,
+    ReflectorLike,
+    SkillManagerLike,
+)
 from ..skillbook import Skillbook
 
-from .agent import AgentLike, AgentStep
+from .agent import AgentStep
 from .apply import ApplyStep
 from .checkpoint import CheckpointStep
-from .deduplicate import DeduplicationConfig, DeduplicationManagerLike, DeduplicateStep
+from .deduplicate import DeduplicateStep
 from .evaluate import EvaluateStep
 from .observability import ObservabilityStep
 from .persist import PersistStep
-from .reflect import ReflectorLike, ReflectStep
+from .reflect import ReflectStep
 from .tag import TagStep
-from .update import SkillManagerLike, UpdateStep
+from .update import UpdateStep
 
 __all__ = [
-    "AgentLike",
     "AgentStep",
     "ApplyStep",
     "CheckpointStep",
-    "DeduplicationConfig",
-    "DeduplicationManagerLike",
     "DeduplicateStep",
     "EvaluateStep",
     "ObservabilityStep",
     "PersistStep",
-    "ReflectorLike",
     "ReflectStep",
-    "SkillManagerLike",
     "TagStep",
     "UpdateStep",
     "learning_tail",
