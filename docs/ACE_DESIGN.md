@@ -171,6 +171,7 @@ class ACEStepContext(StepContext):
     total_epochs: int = 1
     step_index: int = 0
     total_steps: int | None = None
+    global_sample_index: int = 0
 ```
 
 **What goes on the context vs what gets injected:**
@@ -275,11 +276,13 @@ def _run(
         raise ValueError("Multi-epoch requires a Sequence, not a consumed Iterable.")
 
     results: list[SampleResult] = []
+    n = len(items) if isinstance(items, Sequence) else None
 
     for epoch in range(1, epochs + 1):
         contexts = [
             self._build_context(item, epoch=epoch, total_epochs=epochs,
-                                index=idx, total=len(items) if isinstance(items, Sequence) else None,
+                                index=idx, total=n,
+                                global_sample_index=(epoch - 1) * n + idx if n is not None else idx,
                                 **kwargs)
             for idx, item in enumerate(items, start=1)
         ]
@@ -320,7 +323,7 @@ No AgentStep, no EvaluateStep. The trace already contains the agent's output and
 TraceAnalyser converts each `Trace` into an `ACEStepContext` with `agent_output` and `environment_result` pre-filled:
 
 ```python
-def _build_context(self, trace: Trace, *, epoch, total_epochs, index, total) -> ACEStepContext:
+def _build_context(self, trace: Trace, *, epoch, total_epochs, index, total, global_sample_index) -> ACEStepContext:
     return ACEStepContext(
         sample=trace,              # Trace doubles as the "sample" for step access
         skillbook=SkillbookView(self.skillbook),
@@ -330,6 +333,7 @@ def _build_context(self, trace: Trace, *, epoch, total_epochs, index, total) -> 
         total_epochs=total_epochs,
         step_index=index,
         total_steps=total,
+        global_sample_index=global_sample_index,
     )
 ```
 
@@ -398,7 +402,7 @@ The full live adaptive pipeline. An agent executes, the environment evaluates, t
 ### Context building
 
 ```python
-def _build_context(self, sample, *, epoch, total_epochs, index, total, environment, **_) -> ACEStepContext:
+def _build_context(self, sample, *, epoch, total_epochs, index, total, global_sample_index, environment, **_) -> ACEStepContext:
     return ACEStepContext(
         sample=sample,
         skillbook=SkillbookView(self.skillbook),
@@ -407,6 +411,7 @@ def _build_context(self, sample, *, epoch, total_epochs, index, total, environme
         total_epochs=total_epochs,
         step_index=index,
         total_steps=total,
+        global_sample_index=global_sample_index,
     )
 ```
 
@@ -538,6 +543,8 @@ Read-only steps (ReflectStep, UpdateStep) access the skillbook via `ctx.skillboo
 
 Reusable step implementations live in `ace/steps/`. Each is a single class in a single file. All satisfy the `StepProtocol` from the pipeline engine. Each step does exactly one thing.
 
+**Design principle: steps are stateless.** A step's `__call__` is a pure function of its constructor arguments and the incoming `ACEStepContext`. No internal counters, no accumulated state between invocations. If a step needs run-scoped information (like a global sample index for interval logic), the runner computes it and places it on the context. This keeps steps predictable across multiple `run()` calls — behaviour depends only on what's in the context, not on invocation history.
+
 ### Step Summary
 
 | Step | Requires (context) | Injected (constructor) | Provides | Side effects | `max_workers` |
@@ -548,8 +555,8 @@ Reusable step implementations live in `ace/steps/`. Each is a single class in a 
 | **TagStep** | `reflection` | `skillbook` (real) | — | Tags skills on skillbook | 1 |
 | **UpdateStep** | `reflection`, `sample`, `environment_result`, `agent_output`, `skillbook` | `skill_manager` | `skill_manager_output` | None (pure) | 1 |
 | **ApplyStep** | `skill_manager_output` | `skillbook` (real) | — | Applies update batch to skillbook | 1 |
-| **DeduplicateStep** | — | `dedup_config`, `skillbook` (real) | — | Consolidates similar skills | 1 |
-| **CheckpointStep** | `epoch`, `total_steps`, `step_index` | `skillbook` (real) | — | Saves skillbook to disk | 1 |
+| **DeduplicateStep** | `global_sample_index` | `dedup_config`, `skillbook` (real) | — | Consolidates similar skills | 1 |
+| **CheckpointStep** | `global_sample_index` | `skillbook` (real) | — | Saves skillbook to disk | 1 |
 | **ObservabilityStep** | `sample`, `agent_output`, `environment_result`, `reflection`, `skill_manager_output`, `skillbook` | — | — | Logs metrics to Opik | 1 |
 
 **Requires vs Injected:** `Requires` lists context fields read by the step — validated by the pipeline engine at construction time. The `skillbook` field on the context is a `SkillbookView` (read-only). Steps that **write** to the skillbook (TagStep, ApplyStep, DeduplicateStep, CheckpointStep) receive the real `Skillbook` via constructor injection — marked as "(real)" in the table. These injected dependencies are not tracked by `requires`/`provides`.
@@ -696,7 +703,7 @@ Side-effect step — applies the update batch to `self.skillbook` (the real `Ski
 
 ```python
 class DeduplicateStep:
-    requires = frozenset()
+    requires = frozenset({"global_sample_index"})
     provides = frozenset()
 
     max_workers = 1
@@ -705,17 +712,15 @@ class DeduplicateStep:
         self.manager = DeduplicationManager(config)
         self.skillbook = skillbook
         self.interval = interval
-        self._counter = 0
 
     def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
-        self._counter += 1
-        if self._counter % self.interval != 0:
+        if ctx.global_sample_index % self.interval != 0:
             return ctx
         self.manager.deduplicate(self.skillbook)
         return ctx
 ```
 
-Optional side-effect step — consolidates similar skills in `self.skillbook` (injected). Appended to the pipeline by factory methods when `dedup_config` is provided. `requires` is empty — it only needs the skillbook, which is injected. Uses an internal counter with a configurable `interval` (default 10) to skip most invocations — deduplication involves O(n²) similarity comparisons across all skills, so running it on every sample would be expensive as the skillbook grows. Unlike `CheckpointStep` (which derives its interval from context fields and is stateless), `DeduplicateStep` uses an internal counter because the dedup interval is independent of epoch boundaries and sample numbering.
+Optional side-effect step — consolidates similar skills in `self.skillbook` (injected). Appended to the pipeline by factory methods when `dedup_config` is provided. Stateless — uses `ctx.global_sample_index` (computed by the runner) with a configurable `interval` (default 10) to skip most invocations. Deduplication involves O(n²) similarity comparisons across all skills, so running it on every sample would be expensive as the skillbook grows.
 
 ### CheckpointStep
 
@@ -723,7 +728,7 @@ Optional tail step that periodically saves the skillbook to disk. Stateless — 
 
 ```python
 class CheckpointStep:
-    requires = frozenset({"epoch", "step_index"})
+    requires = frozenset({"global_sample_index"})
     provides = frozenset()
 
     def __init__(self, directory: str | Path, skillbook: Skillbook, *, interval: int = 10) -> None:
@@ -732,26 +737,17 @@ class CheckpointStep:
         self.interval = interval
 
     def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
-        # Global sample number across epochs.
-        # total_steps is None for iterables (epochs=1 guaranteed), so
-        # the formula degrades to just step_index.
-        global_index = (
-            (ctx.epoch - 1) * ctx.total_steps + ctx.step_index
-            if ctx.total_steps is not None
-            else ctx.step_index
-        )
-
-        if global_index % self.interval != 0:
-            return ctx                      # nothing to do
+        if ctx.global_sample_index % self.interval != 0:
+            return ctx
 
         self.directory.mkdir(parents=True, exist_ok=True)
-        self.skillbook.save_to_file(str(self.directory / f"checkpoint_{global_index}.json"))
+        self.skillbook.save_to_file(str(self.directory / f"checkpoint_{ctx.global_sample_index}.json"))
         self.skillbook.save_to_file(str(self.directory / "latest.json"))
         return ctx
 ```
 
 Key points:
-- **Stateless.** Uses `ctx.epoch`, `ctx.total_steps`, and `ctx.step_index` to compute the global sample number. No internal counter, no reset needed. When `total_steps` is `None` (iterables), falls back to `step_index` alone — safe because iterables require `epochs=1`.
+- **Stateless.** Uses `ctx.global_sample_index` (computed by the runner) for interval logic. No internal counter, no reset needed.
 - **`provides` is empty** — it only writes to disk, does not modify the context.
 - **Skillbook via constructor** — saves `self.skillbook`, not a context field.
 - **Placement:** Appended after ApplyStep by the factory when `checkpoint_dir` is provided. When `async_boundary` is set, checkpoints happen in the background tail.
@@ -876,7 +872,7 @@ class BrowserACE(ACERunner):
         samples = [Sample(question=t) if isinstance(t, str) else t for t in tasks]
         return self._run(samples, epochs=epochs, wait=wait)
 
-    def _build_context(self, sample, *, epoch, total_epochs, index, total):
+    def _build_context(self, sample, *, epoch, total_epochs, index, total, global_sample_index):
         return ACEStepContext(
             sample=sample,
             skillbook=SkillbookView(self.skillbook),
@@ -884,6 +880,7 @@ class BrowserACE(ACERunner):
             total_epochs=total_epochs,
             step_index=index,
             total_steps=total,
+            global_sample_index=global_sample_index,
         )
 ```
 
