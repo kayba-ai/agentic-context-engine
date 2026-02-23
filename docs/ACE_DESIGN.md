@@ -16,9 +16,11 @@ Implemented in `ace_next/` (parallel to `ace/` for easy rollback). The package i
 | Protocols (`AgentLike`, `ReflectorLike`, etc.) | Done | `ace_next/protocols/` |
 | Steps (all 10) | Done | `ace_next/steps/` |
 | `learning_tail()` helper | Done | `ace_next/steps/__init__.py` |
-| `ACERunner` base class | Not started | — |
-| `TraceAnalyser` | Not started | — |
-| `ACE` runner | Not started | — |
+| `ACERunner` base class | Done | `ace_next/runners/base.py` |
+| `TraceAnalyser` | Done | `ace_next/runners/trace_analyser.py` |
+| `ACE` runner | Done | `ace_next/runners/ace.py` |
+| Implementations (`Agent`, `Reflector`, `SkillManager`) | Done | `ace_next/implementations/` |
+| Deduplication (`DeduplicationManager`, `SimilarityDetector`) | Done | `ace_next/deduplication/` |
 | Integration runners | Not started | — |
 
 ---
@@ -1101,6 +1103,20 @@ ace_next/
     reflector.py            ← ReflectorLike
     skill_manager.py        ← SkillManagerLike
     deduplication.py        ← DeduplicationConfig, DeduplicationManagerLike
+    llm.py                  ← LLMClientLike
+  implementations/          ← Concrete LLM-based role implementations
+    __init__.py             ← Exports Agent, Reflector, SkillManager
+    agent.py                ← Agent (implements AgentLike)
+    reflector.py            ← Reflector (implements ReflectorLike)
+    skill_manager.py        ← SkillManager (implements SkillManagerLike)
+    helpers.py              ← Shared utilities (extract_cited_skill_ids, etc.)
+    prompts.py              ← Default v2.1 prompt templates
+  deduplication/            ← Skill deduplication subsystem
+    __init__.py             ← Exports DeduplicationManager, SimilarityDetector, etc.
+    detector.py             ← SimilarityDetector (embeddings + cosine similarity)
+    manager.py              ← DeduplicationManager (implements DeduplicationManagerLike)
+    operations.py           ← ConsolidationOperation types + apply logic
+    prompts.py              ← Similarity report generation
   steps/                    ← Pipeline steps (one file per class)
     __init__.py             ← learning_tail() helper
     agent.py                ← AgentStep

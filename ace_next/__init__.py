@@ -2,7 +2,9 @@
 
 # Core types
 from .context import ACESample, ACEStepContext, SkillbookView
+from .deduplication import DeduplicationManager, SimilarityDetector
 from .environments import EnvironmentResult, Sample, SimpleEnvironment, TaskEnvironment
+from .implementations import Agent, Reflector, SkillManager
 from .outputs import (
     AgentOutput,
     ExtractedLearning,
@@ -14,6 +16,7 @@ from .protocols import (
     AgentLike,
     DeduplicationConfig,
     DeduplicationManagerLike,
+    LLMClientLike,
     ReflectorLike,
     SkillManagerLike,
 )
@@ -46,10 +49,18 @@ __all__ = [
     "SimpleEnvironment",
     # Protocols
     "AgentLike",
+    "LLMClientLike",
     "ReflectorLike",
     "SkillManagerLike",
     "DeduplicationConfig",
     "DeduplicationManagerLike",
+    # Implementations
+    "Agent",
+    "Reflector",
+    "SkillManager",
+    # Deduplication
+    "DeduplicationManager",
+    "SimilarityDetector",
     # Runners
     "ACE",
     "ACERunner",

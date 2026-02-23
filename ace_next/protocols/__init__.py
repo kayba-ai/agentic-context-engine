@@ -2,6 +2,7 @@
 
 from .agent import AgentLike
 from .deduplication import DeduplicationConfig, DeduplicationManagerLike
+from .llm import LLMClientLike
 from .reflector import ReflectorLike
 from .skill_manager import SkillManagerLike
 
@@ -9,6 +10,7 @@ __all__ = [
     "AgentLike",
     "DeduplicationConfig",
     "DeduplicationManagerLike",
+    "LLMClientLike",
     "ReflectorLike",
     "SkillManagerLike",
 ]
