@@ -171,6 +171,44 @@ The `trace` field holds the raw execution record from any external system — a 
 
 ---
 
+## Protocols
+
+Steps depend on protocols, not concrete classes. Each protocol defines the minimal interface a step needs. Concrete implementations satisfy them structurally — no inheritance required.
+
+All protocols live in `ace_next/protocols/` (one file per protocol, re-exported from `__init__.py`).
+
+| Protocol | Method | Used by | Satisfied by |
+|---|---|---|---|
+| `AgentLike` | `generate(question, context, skillbook, reflection, **kwargs) → AgentOutput` | `AgentStep` | `Agent` |
+| `ReflectorLike` | `reflect(question, agent_output, skillbook, ground_truth, feedback, **kwargs) → ReflectorOutput` | `ReflectStep` | `Reflector` |
+| `SkillManagerLike` | `update_skills(reflection, skillbook, question_context, progress, **kwargs) → SkillManagerOutput` | `UpdateStep` | `SkillManager` |
+| `DeduplicationManagerLike` | `get_similarity_report(skillbook) → str \| None` | `DeduplicateStep` | `DeduplicationManager` |
+| `LLMClientLike` | `complete(prompt, **kwargs) → Any` + `complete_structured(prompt, response_model, **kwargs) → T` | `Agent`, `Reflector`, `SkillManager` | Any LLM client with both methods |
+
+### LLMClientLike
+
+The implementations (`Agent`, `Reflector`, `SkillManager`) all depend on `LLMClientLike` — a protocol requiring two methods:
+
+```python
+@runtime_checkable
+class LLMClientLike(Protocol):
+    def complete(self, prompt: str, **kwargs: Any) -> Any: ...
+    def complete_structured(self, prompt: str, response_model: type[T], **kwargs: Any) -> T: ...
+```
+
+`complete_structured` returns a validated Pydantic model instance. This is the key capability — implementations call `llm.complete_structured(prompt, AgentOutput)` and get back a typed, validated object. Any LLM client that provides both methods satisfies the protocol: `LiteLLMClient` wrapped with Instructor, a custom OpenAI wrapper, or a mock for testing.
+
+**Design decision:** The old `ace/roles.py` auto-wrapped LLM clients with Instructor if `complete_structured` was missing. In `ace_next`, this auto-wrapping is removed — callers must pass a pre-wrapped client. This eliminates the hidden dependency on `ace.llm_providers.instructor_client` and makes the requirement explicit.
+
+### Why protocols, not ABC
+
+Protocols use structural typing (duck typing checked by mypy). A class satisfies a protocol if it has the right methods — no `class Agent(AgentLike)` inheritance needed. This means:
+- Users can pass any object with a matching method, not just subclasses.
+- Mocks satisfy protocols without ceremony.
+- Steps are decoupled from implementations at the type level, not just by convention.
+
+---
+
 ## Class Hierarchy
 
 ```
@@ -827,6 +865,162 @@ Integration-specific side-effect step — writes the current skillbook to an ext
 
 ---
 
+## Implementations
+
+Concrete LLM-based implementations of the role protocols. Live in `ace_next/implementations/` — fully self-contained with no imports from `ace/`.
+
+### Overview
+
+| Class | Protocol | Method | Location |
+|---|---|---|---|
+| `Agent` | `AgentLike` | `generate()` | `implementations/agent.py` |
+| `Reflector` | `ReflectorLike` | `reflect()` | `implementations/reflector.py` |
+| `SkillManager` | `SkillManagerLike` | `update_skills()` | `implementations/skill_manager.py` |
+
+All three share the same constructor pattern:
+
+```python
+def __init__(self, llm: LLMClientLike, prompt_template: str = DEFAULT_PROMPT, *, max_retries: int = 3) -> None:
+```
+
+The `llm` parameter must satisfy `LLMClientLike` — it must have both `complete()` and `complete_structured()`. No auto-wrapping with Instructor; callers pass pre-wrapped clients.
+
+### Agent
+
+Produces answers using the current skillbook of strategies. Formats the prompt with the skillbook, reflection, question, and context, then calls `llm.complete_structured(prompt, AgentOutput)`. After the LLM call, extracts cited skill IDs from the reasoning using `extract_cited_skill_ids()` (regex matching `[section-00001]` patterns).
+
+```python
+agent = Agent(llm)
+output = agent.generate(
+    question="What is the capital of France?",
+    context="Answer concisely",
+    skillbook=skillbook,
+)
+# output.final_answer == "Paris"
+# output.skill_ids == ["geography-00001"]  (extracted from reasoning)
+```
+
+### Reflector
+
+Analyzes agent outputs to extract lessons and improve strategies. Builds a skillbook excerpt from the agent's cited skill IDs (via `make_skillbook_excerpt()`), formats the prompt, and calls `llm.complete_structured(prompt, ReflectorOutput)`.
+
+**SIMPLE mode only** — single-pass reflection. Recursive mode (where the Reflector iterates multiple times to deepen analysis) is an advanced feature deferred to a later version.
+
+```python
+reflector = Reflector(llm)
+reflection = reflector.reflect(
+    question="What is 2+2?",
+    agent_output=agent_output,
+    skillbook=skillbook,
+    ground_truth="4",
+    feedback="Correct!",
+)
+# reflection.key_insight, reflection.skill_tags, reflection.extracted_learnings
+```
+
+### SkillManager
+
+Transforms reflections into actionable skillbook updates. Serializes the `ReflectorOutput` into a JSON dict, formats the prompt with progress and skillbook stats, and calls `llm.complete_structured(prompt, SkillManagerOutput)`.
+
+**No dedup integration** — in `ace_next`, deduplication is handled by a separate `DeduplicateStep` in the pipeline. The SkillManager only produces `SkillManagerOutput`; it does not call a dedup manager itself.
+
+```python
+sm = SkillManager(llm)
+output = sm.update_skills(
+    reflection=reflection_output,
+    skillbook=skillbook,
+    question_context="Math problem solving",
+    progress="5/10 correct",
+)
+skillbook.apply_update(output.update)
+```
+
+### Shared Helpers (`implementations/helpers.py`)
+
+| Function | Purpose |
+|---|---|
+| `extract_cited_skill_ids(text)` | Regex `[section-00001]` → deduplicated list of IDs |
+| `format_optional(value)` | Returns `"(none)"` for falsy values |
+| `make_skillbook_excerpt(skillbook, skill_ids)` | Builds `[id] content` lines for cited skills |
+
+### Prompt Templates (`implementations/prompts.py`)
+
+Self-contained copy of the v2.1 prompts from `ace/prompts_v2_1.py`. The `{current_date}` placeholder is filled at import time via `datetime.now().strftime(...)`.
+
+| Constant | Role |
+|---|---|
+| `AGENT_PROMPT` | Agent prompt with strategic problem-solving protocol |
+| `REFLECTOR_PROMPT` | Reflector prompt with diagnostic analysis protocol |
+| `SKILL_MANAGER_PROMPT` | SkillManager prompt with atomic strategy creation |
+| `SKILLBOOK_USAGE_INSTRUCTIONS` | Shared text for skillbook usage guidance |
+
+Also exports `wrap_skillbook_for_external_agent(skillbook)` — the canonical function for injecting skillbook context into external agentic systems.
+
+---
+
+## Deduplication
+
+Skill deduplication subsystem. Lives in `ace_next/deduplication/` — fully self-contained with no imports from `ace/`.
+
+### Overview
+
+| Class | Role | Location |
+|---|---|---|
+| `SimilarityDetector` | Computes embeddings, detects similar pairs | `deduplication/detector.py` |
+| `DeduplicationManager` | Coordinates detection and consolidation | `deduplication/manager.py` |
+| `MergeOp`, `DeleteOp`, `KeepOp`, `UpdateOp` | Consolidation operation types | `deduplication/operations.py` |
+
+### SimilarityDetector
+
+Computes embeddings and detects similar skill pairs using cosine similarity. Supports two embedding providers:
+
+- **LiteLLM** — uses `litellm.embedding()` for remote embedding models
+- **sentence-transformers** — uses a local `SentenceTransformer` model (lazy-loaded)
+
+Feature detection uses inline `importlib.import_module` checks instead of `ace.features`. Cosine similarity has a numpy implementation with a pure-Python fallback.
+
+Key methods:
+- `ensure_embeddings(skillbook)` — compute embeddings for all skills that lack one
+- `detect_similar_pairs(skillbook, threshold)` — find all pairs above the similarity threshold
+- Supports `within_section_only` mode (compare skills only within the same section)
+- Respects existing `KEEP` decisions via `skillbook.has_keep_decision()`
+
+### DeduplicationManager
+
+Satisfies `DeduplicationManagerLike` protocol. Coordinates the full dedup workflow:
+
+1. `get_similarity_report(skillbook)` — ensures embeddings, detects similar pairs, generates a formatted report for the SkillManager prompt. Returns `None` if dedup is disabled or too few pairs found.
+2. `parse_consolidation_operations(response_data)` — parses `consolidation_operations` from SkillManager response JSON into typed operation objects.
+3. `apply_operations(operations, skillbook)` — applies consolidation operations to the skillbook.
+
+### Consolidation Operations
+
+Four operation types, all dataclasses:
+
+| Operation | Effect |
+|---|---|
+| `MergeOp` | Combine skills — accumulate counters into `keep_id`, soft-delete others, update content |
+| `DeleteOp` | Soft-delete a redundant skill |
+| `KeepOp` | Store a `SimilarityDecision` so the pair is not flagged again |
+| `UpdateOp` | Refine a skill's content to differentiate it, clear its embedding |
+
+`apply_consolidation_operations(operations, skillbook)` dispatches each operation to the appropriate apply function.
+
+### Pipeline Integration
+
+Deduplication runs as a separate `DeduplicateStep` in the pipeline, not inside the SkillManager role. The step is appended by factory methods when a `DeduplicationManagerLike` is provided:
+
+```python
+ace = ACE.from_roles(
+    agent=agent, reflector=reflector, skill_manager=skill_manager,
+    dedup_manager=DeduplicationManager(DeduplicationConfig(similarity_threshold=0.85)),
+    dedup_interval=10,
+)
+# Pipeline: Agent → Evaluate → Reflect → Tag → Update → Apply → Deduplicate
+```
+
+---
+
 ## Integration Pattern
 
 External frameworks (browser-use, LangChain, Claude Code) integrate by providing **execute steps** that compose into an `ACERunner`. No separate pipeline classes per integration — just steps that plug into the standard runner infrastructure.
@@ -1157,10 +1351,14 @@ Each integration provides: (1) an execute step and (2) an `ACERunner` subclass t
 
 | Old location | New location | Notes |
 |---|---|---|
-| `ace/adaptation.py` | Deleted | Replaced by `ace_next/runner.py`, `ace.py`, `trace_analyser.py` |
+| `ace/adaptation.py` | Deleted | Replaced by `ace_next/runners/` |
 | `ace/async_learning.py` | Deleted | Replaced by pipeline engine `async_boundary` |
 | `ace/environments.py` | `ace_next/environments.py` | `Sample`, `EnvironmentResult`, `TaskEnvironment`, `SimpleEnvironment` (copied) |
-| `ace/roles.py` | `ace_next/protocols/` | Protocols extracted from role classes |
+| `ace/roles.py` (protocols) | `ace_next/protocols/` | Protocols extracted from role classes |
+| `ace/roles.py` (implementations) | `ace_next/implementations/` | Concrete `Agent`, `Reflector`, `SkillManager` classes |
+| `ace/llm.py` (interface) | `ace_next/protocols/llm.py` | `LLMClientLike` protocol |
+| `ace/prompts_v2_1.py` | `ace_next/implementations/prompts.py` | v2.1 prompt templates (self-contained copy) |
+| `ace/deduplication/` | `ace_next/deduplication/` | Full dedup subsystem (detector, manager, operations, prompts) |
 | `ace2/` | Deleted | Superseded by this design |
 | New | `ace_next/steps/tag.py` | TagStep (split from ReflectStep) |
 | New | `ace_next/steps/apply.py` | ApplyStep (split from UpdateStep) |
@@ -1168,8 +1366,7 @@ Each integration provides: (1) an execute step and (2) an `ACERunner` subclass t
 | New | `ace_next/steps/checkpoint.py` | CheckpointStep |
 | New | `ace_next/steps/observability.py` | ObservabilityStep |
 | New | `ace_next/steps/persist.py` | PersistStep |
-| New | `ace_next/trace_analyser.py` | TraceAnalyser class |
-| New | `ace_next/runner.py` | ACERunner base class |
+| New | `ace_next/runners/` | ACERunner, TraceAnalyser, ACE |
 | `ace/integrations/browser_use.py` | `ace_next/integrations/browser_use/` | Split into runner + steps |
 | `ace/integrations/langchain.py` | `ace_next/integrations/langchain/` | Split into runner + steps |
 | `ace/integrations/claude_code.py` | `ace_next/integrations/claude_code/` | Split into runner + steps |
@@ -1229,8 +1426,11 @@ Follows the pipeline engine's error model without additions.
 ### TraceAnalyser — learn from browser-use history
 
 ```python
-from ace import TraceAnalyser
-from ace.llm_providers import LiteLLMClient
+from ace_next import TraceAnalyser
+from ace.llm_providers.litellm_client import LiteLLMClient
+from ace.llm_providers.instructor_client import wrap_with_instructor
+
+llm = wrap_with_instructor(LiteLLMClient(model="gpt-4o-mini"))
 
 # Raw traces — plain dicts, no enforced schema
 traces = [
@@ -1249,9 +1449,7 @@ traces = [
 ]
 
 # Analyse — raw traces go directly to the Reflector via ctx.trace
-analyser = TraceAnalyser.from_client(
-    LiteLLMClient(model="gpt-4o-mini"),
-)
+analyser = TraceAnalyser.from_client(llm)
 results = analyser.run(traces, epochs=2)
 analyser.save("travel_agent.json")
 ```
@@ -1259,8 +1457,11 @@ analyser.save("travel_agent.json")
 ### ACE — live Q&A training
 
 ```python
-from ace import ACE, Sample, SimpleEnvironment
-from ace.llm_providers import LiteLLMClient
+from ace_next import ACE, Sample, SimpleEnvironment
+from ace.llm_providers.litellm_client import LiteLLMClient
+from ace.llm_providers.instructor_client import wrap_with_instructor
+
+llm = wrap_with_instructor(LiteLLMClient(model="gpt-4o-mini"))
 
 samples = [
     Sample(question="Capital of France?", ground_truth="Paris"),
@@ -1268,7 +1469,7 @@ samples = [
 ]
 
 # Environment provided at construction — EvaluateStep uses it to generate feedback
-ace = ACE.from_client(LiteLLMClient(model="gpt-4o-mini"), environment=SimpleEnvironment())
+ace = ACE.from_client(llm, environment=SimpleEnvironment())
 results = ace.run(samples, epochs=3)
 ace.save("geography.json")
 ```
@@ -1278,7 +1479,7 @@ ace.save("geography.json")
 ```python
 # No environment — trace still contains agent output + ground truth
 # The Reflector learns from ground-truth comparison directly
-ace = ACE.from_client(LiteLLMClient(model="gpt-4o-mini"))
+ace = ACE.from_client(llm)
 results = ace.run(samples, epochs=3)
 ```
 
@@ -1288,19 +1489,23 @@ results = ace.run(samples, epochs=3)
 # Any Iterable works with epochs=1 (consumed once, not replayed)
 samples = load_samples_from_csv("eval_set.csv")  # returns a list or generator
 
-ace = ACE.from_client(LiteLLMClient(model="gpt-4o-mini"))
+ace = ACE.from_client(llm)
 results = ace.run(samples, epochs=1)
 ```
 
 ### ACE — with checkpoints and deduplication
 
 ```python
+from ace_next import ACE, Agent, Reflector, SkillManager, SimpleEnvironment
+from ace_next.deduplication import DeduplicationManager
+from ace_next.protocols.deduplication import DeduplicationConfig
+
 ace = ACE.from_roles(
     agent=Agent(llm),
     reflector=Reflector(llm),
     skill_manager=SkillManager(llm),
     environment=SimpleEnvironment(),
-    dedup_manager=dedup_manager(similarity_threshold=0.85),
+    dedup_manager=DeduplicationManager(DeduplicationConfig(similarity_threshold=0.85)),
     checkpoint_dir="./checkpoints",
     checkpoint_interval=10,
 )
@@ -1311,13 +1516,13 @@ results = ace.run(samples, epochs=3)
 ### Integration — browser-use runner
 
 ```python
-from ace.integrations.browser_use import BrowserACE
+from ace_next.integrations.browser_use import BrowserACE
 from browser_use import Agent as BrowserAgent
 
 browser_agent = BrowserAgent(llm=ChatOpenAI(model="gpt-4o"))
 runner = BrowserACE.from_client(
     browser_agent,
-    ace_client=LiteLLMClient(model="gpt-4o-mini"),
+    ace_client=llm,  # Must satisfy LLMClientLike (complete + complete_structured)
 )
 
 # Live execution + learning
@@ -1328,7 +1533,7 @@ runner.save("browser_expert.json")
 ### Fire-and-forget — get results while learning continues
 
 ```python
-ace = ACE.from_client(LiteLLMClient(model="gpt-4o-mini"))
+ace = ACE.from_client(llm)
 
 # wait=False: returns after foreground steps (Agent + Evaluate)
 # Background learning (Reflect → Tag → Update → Apply) continues
@@ -1350,6 +1555,8 @@ ace.save("learned.json")
 ### Mixed workflow — batch then live
 
 ```python
+from ace_next import TraceAnalyser, ACE, Skillbook
+
 # Phase 1: build skillbook from historical traces
 analyser = TraceAnalyser.from_client(llm, skillbook=Skillbook())
 analyser.run(historical_traces, epochs=3)
@@ -1440,3 +1647,18 @@ Storing the real `Skillbook` as a field on `ACEStepContext` was the initial desi
 
 **Combined Reflect+Tag and Update+Apply steps:**
 Keeping ReflectStep as both reflection and tagging, and UpdateStep as both generation and application was considered. Rejected — each combination mixes a pure function (LLM call producing output) with a side effect (skillbook mutation). Splitting them means pure steps can be tested without a skillbook, side-effect steps can be tested without an LLM, and concerns are cleanly separated.
+
+**Instructor auto-wrapping in implementations:**
+The old `ace/roles.py` auto-wraps LLM clients with Instructor if `complete_structured` is missing (duck-typing check + fallback). Rejected for `ace_next` — auto-wrapping creates a hidden dependency on `ace.llm_providers.instructor_client` and masks what the implementation actually requires. In `ace_next`, `LLMClientLike` explicitly requires both `complete()` and `complete_structured()`. Callers wrap their LLM clients before passing them in. This makes the requirement visible at the call site and keeps implementations dependency-free.
+
+**Recursive Reflector:**
+The old `ace/reflector/` subsystem supports recursive mode where the Reflector iterates multiple times to deepen analysis. Rejected for the initial `ace_next` implementation — recursive mode pulls in significant additional complexity (iteration control, convergence detection, intermediate result accumulation) for marginal benefit on most workloads. The `Reflector` class implements SIMPLE mode only (single-pass reflection). Recursive mode can be added later as an opt-in capability without changing the `ReflectorLike` protocol.
+
+**Observability decorator on implementations:**
+The old `ace/roles.py` uses `@maybe_track()` decorators for Opik tracing on every role method. Rejected — `ObservabilityStep` already handles metrics at the pipeline level with full visibility into all context fields. Adding per-method decorators would double-count and create coupling between implementations and the observability system.
+
+**Deduplication inside SkillManager:**
+The old `ace/roles.py` SkillManager integrates with `DeduplicationManager` directly — calling `get_similarity_report()` before the LLM call and `apply_operations_from_response()` after. Rejected for `ace_next` — deduplication is now a separate `DeduplicateStep` in the pipeline. This is cleaner separation: the SkillManager role only produces `SkillManagerOutput`, and deduplication runs at a configurable interval as an independent pipeline step. The step takes a `DeduplicationManagerLike` protocol, keeping it decoupled from the concrete implementation.
+
+**Shared `ace_next/features.py` module:**
+Creating a centralized feature detection module (like `ace/features.py`) for optional dependency checks was considered. Rejected — the only code that needs feature detection is `deduplication/detector.py`, which uses a local `_has(module)` helper with `importlib.import_module`. A shared module would add a file for a single 4-line function. If more code needs feature detection in the future, the helper can be promoted to a shared location.
