@@ -472,9 +472,10 @@ ace = ACE.from_roles(
 | `checkpoint_dir` | `None` | Appends a `CheckpointStep` to the pipeline |
 | `checkpoint_interval` | `10` | Checkpoint frequency (samples between saves) |
 
-Checkpoint and deduplication are configured at construction time. The factory conditionally appends the corresponding steps to the pipeline tail:
+Checkpoint and deduplication are configured at construction time. The factory conditionally appends the corresponding steps to the pipeline tail. Both classes follow the same pattern — ACE prepends its execute steps:
 
 ```python
+# TraceAnalyser — learning tail only
 @classmethod
 def from_roles(cls, *, reflector, skill_manager, skillbook=None,
                dedup_config=None, dedup_interval=10,
@@ -486,6 +487,24 @@ def from_roles(cls, *, reflector, skill_manager, skillbook=None,
         checkpoint_dir=checkpoint_dir, checkpoint_interval=checkpoint_interval,
         **kwargs,
     )
+    return cls(pipeline=Pipeline(steps), skillbook=skillbook)
+
+# ACE — execute head + learning tail
+@classmethod
+def from_roles(cls, *, agent, reflector, skill_manager, skillbook=None,
+               dedup_config=None, dedup_interval=10,
+               checkpoint_dir=None, checkpoint_interval=10, **kwargs):
+    skillbook = skillbook or Skillbook()
+    steps = [
+        AgentStep(agent),
+        EvaluateStep(),
+        *learning_tail(
+            reflector, skill_manager, skillbook,
+            dedup_config=dedup_config, dedup_interval=dedup_interval,
+            checkpoint_dir=checkpoint_dir, checkpoint_interval=checkpoint_interval,
+            **kwargs,
+        ),
+    ]
     return cls(pipeline=Pipeline(steps), skillbook=skillbook)
 ```
 
@@ -504,16 +523,19 @@ Reusable step implementations live in `ace/steps/`. Each is a single class in a 
 | Step | Requires (context) | Injected (constructor) | Provides | Side effects | `max_workers` |
 |---|---|---|---|---|---|
 | **AgentStep** | `sample`, `skillbook` | `agent` | `agent_output` | None | default (1) |
-| **EvaluateStep** | `sample`, `agent_output`, `environment` | — | `environment_result` | None | default (1) |
-| **ReflectStep** | `sample`, `agent_output`, `environment_result`, `skillbook` | `reflector` | `reflection` | None (pure) | 3; `async_boundary = True` |
+| **EvaluateStep** | `sample`, `agent_output`, `environment` | — | `environment_result`, `trace` | None | default (1) |
+| **ReflectStep** | `trace`, `skillbook` | `reflector` | `reflection` | None (pure) | 3; `async_boundary = True` |
 | **TagStep** | `reflection` | `skillbook` (real) | — | Tags skills on skillbook | 1 |
-| **UpdateStep** | `reflection`, `sample`, `environment_result`, `agent_output`, `skillbook` | `skill_manager` | `skill_manager_output` | None (pure) | 1 |
+| **UpdateStep** | `reflection`, `skillbook` | `skill_manager` | `skill_manager_output` | None (pure) | 1 |
 | **ApplyStep** | `skill_manager_output` | `skillbook` (real) | — | Applies update batch to skillbook | 1 |
 | **DeduplicateStep** | `global_sample_index` | `dedup_config`, `skillbook` (real) | — | Consolidates similar skills | 1 |
 | **CheckpointStep** | `global_sample_index` | `skillbook` (real) | — | Saves skillbook to disk | 1 |
-| **ObservabilityStep** | `sample`, `agent_output`, `environment_result`, `reflection`, `skill_manager_output`, `skillbook` | — | — | Logs metrics to Opik | 1 |
+| **ObservabilityStep** | `skillbook` | — | — | Logs metrics to Opik | 1 |
+| **PersistStep** | `skillbook` | `target_path` | — | Writes skillbook to CLAUDE.md or similar | 1 |
 
 **Requires vs Injected:** `Requires` lists context fields read by the step — validated by the pipeline engine at construction time. The `skillbook` field on the context is a `SkillbookView` (read-only). Steps that **write** to the skillbook (TagStep, ApplyStep, DeduplicateStep, CheckpointStep) receive the real `Skillbook` via constructor injection — marked as "(real)" in the table. These injected dependencies are not tracked by `requires`/`provides`.
+
+**`trace` as the universal learning input:** The learning tail's *entry point* (ReflectStep) requires only `trace` and `skillbook` from the context — subsequent steps in the tail chain off ReflectStep's output (`reflection`). In the standard ACE pipeline, `EvaluateStep` bundles the structured fields (`sample`, `agent_output`, `environment_result`) into a `trace` dict. In TraceAnalyser, `_build_context` places the raw trace directly. In integrations, the execute step provides `trace` from its framework's native output. This means the learning tail is agnostic to trace format — `ReflectStep` passes `ctx.trace` to the Reflector, which is responsible for making sense of whatever it receives.
 
 Steps with `provides = —` are pure side-effect steps (`provides = frozenset()`). They mutate shared state (skillbook) or write to external systems (disk, Opik) but add no new fields to the context.
 
@@ -544,41 +566,50 @@ Reads the skillbook via `ctx.skillbook` (a `SkillbookView`). No constructor inje
 ```python
 class EvaluateStep:
     requires = frozenset({"sample", "agent_output", "environment"})
-    provides = frozenset({"environment_result"})
+    provides = frozenset({"environment_result", "trace"})
 
     def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
         environment_result = ctx.environment.evaluate(
             sample=ctx.sample,
             agent_output=ctx.agent_output,
         )
-        return ctx.replace(environment_result=environment_result)
+        # Bundle structured fields into a trace dict for the learning tail
+        trace = {
+            "question": ctx.sample.question,
+            "context": ctx.sample.context,
+            "ground_truth": ctx.sample.ground_truth,
+            "reasoning": ctx.agent_output.reasoning,
+            "answer": ctx.agent_output.final_answer,
+            "skill_ids": ctx.agent_output.skill_ids,
+            "feedback": environment_result.feedback,
+        }
+        return ctx.replace(environment_result=environment_result, trace=trace)
 ```
 
-Stateless. Reads the environment from the context (it's an immutable evaluator, safe on a frozen dataclass). No skillbook access needed.
+Stateless. Evaluates the agent output, then bundles the structured fields into a `trace` dict. This is the bridge between the execute head (which works with typed ACE objects) and the learning tail (which works with raw traces). The learning tail sees a uniform `ctx.trace` regardless of whether the data came from live execution or a pre-recorded trace.
 
 ### ReflectStep
 
 ```python
 class ReflectStep:
-    requires = frozenset({"sample", "agent_output", "environment_result", "skillbook"})
+    requires = frozenset({"trace", "skillbook"})
     provides = frozenset({"reflection"})
 
     async_boundary = True
     max_workers = 3
 
-    def __init__(self, reflector: Reflector, *, max_refinement_rounds=1) -> None:
+    def __init__(self, reflector: Reflector) -> None:
         self.reflector = reflector
-        self.max_refinement_rounds = max_refinement_rounds
 
     def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
         reflection = self.reflector.reflect(
-            ...,
+            traces=ctx.trace,              # raw trace object (any type)
             skillbook=ctx.skillbook,       # SkillbookView (read-only)
         )
         return ctx.replace(reflection=reflection)
 ```
 
-Pure — produces a reflection object, no side effects. Reads `ctx.skillbook` (a `SkillbookView`) for LLM prompt context. Declares `async_boundary = True` — everything from here onward runs in a background thread pool. This lets AgentStep + EvaluateStep return fast while learning continues.
+Pure — produces a reflection object, no side effects. Receives `ctx.trace` (the raw trace — a dict from EvaluateStep, a browser-use `AgentHistoryList`, a plain dict from TraceAnalyser, or any arbitrary object) and `ctx.skillbook` (a `SkillbookView`). The Reflector is responsible for making sense of whatever trace type it receives. Declares `async_boundary = True` — everything from here onward runs in a background thread pool. This lets the execute head return fast while learning continues.
 
 ### TagStep
 
@@ -611,7 +642,7 @@ Separated from ReflectStep so that:
 
 ```python
 class UpdateStep:
-    requires = frozenset({"reflection", "sample", "environment_result", "agent_output", "skillbook"})
+    requires = frozenset({"reflection", "skillbook"})
     provides = frozenset({"skill_manager_output"})
 
     max_workers = 1
@@ -621,16 +652,13 @@ class UpdateStep:
 
     def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
         output = self.skill_manager.update(
-            ...,
+            reflection=ctx.reflection,     # ReflectorOutput
             skillbook=ctx.skillbook,       # SkillbookView (read-only)
         )
-        # Attach insight-source provenance metadata
-        for op in output.operations:
-            op.metadata["insight_source"] = build_insight_source(ctx)
         return ctx.replace(skill_manager_output=output)
 ```
 
-Pure — generates update operations via an LLM call (reading `ctx.skillbook` for context) and attaches provenance metadata, but does not mutate the skillbook. `max_workers = 1` because the skill manager reads the current skillbook state and concurrent calls would see stale data.
+Pure — generates update operations from the `ReflectorOutput` and the current skillbook state. The Reflector has already done the heavy lifting of analysing the trace; the SkillManager turns those insights into concrete skillbook operations (ADD, UPDATE, TAG, REMOVE). Does not mutate the skillbook. `max_workers = 1` because the skill manager reads the current skillbook state and concurrent calls would see stale data.
 
 ### ApplyStep
 
@@ -711,17 +739,42 @@ Key points:
 
 ```python
 class ObservabilityStep:
-    requires = frozenset({"sample", "agent_output", "environment_result", "reflection", "skill_manager_output", "skillbook"})
+    requires = frozenset({"skillbook"})
     provides = frozenset()
 
     def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
-        # Log metrics to Opik, including skillbook size from ctx.skillbook
-        skill_count = len(ctx.skillbook)   # SkillbookView (read-only)
+        metrics = {"skill_count": len(ctx.skillbook)}
+        if ctx.reflection:
+            metrics["key_insight"] = ctx.reflection.key_insight
+            metrics["learnings_count"] = len(ctx.reflection.extracted_learnings)
+        if ctx.skill_manager_output:
+            metrics["operations_count"] = len(ctx.skill_manager_output.operations)
+        if ctx.trace:
+            metrics["trace_type"] = type(ctx.trace).__name__
+        # Log to Opik
         ...
         return ctx
 ```
 
-Optional side-effect step — logs metrics to Opik. Reads `ctx.skillbook` (a `SkillbookView`) for metrics (skill count, etc.). No constructor needed — fully stateless. Appended to the pipeline when Opik is installed.
+Optional side-effect step — logs metrics to Opik. Only requires `skillbook` (always present). Reads other context fields (`reflection`, `skill_manager_output`, `trace`) optionally — they may or may not be populated depending on the pipeline shape. This lets the same step work in both ACE and TraceAnalyser pipelines without breaking `requires` validation. Appended to the pipeline when Opik is installed.
+
+### PersistStep
+
+```python
+class PersistStep:
+    requires = frozenset({"skillbook"})
+    provides = frozenset()
+
+    def __init__(self, target_path: str | Path, skillbook: Skillbook) -> None:
+        self.target_path = Path(target_path)
+        self.skillbook = skillbook
+
+    def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
+        self.skillbook.persist_to(self.target_path)
+        return ctx
+```
+
+Integration-specific side-effect step — writes the current skillbook to an external file (e.g., `CLAUDE.md` for Claude Code). Used by `ClaudeCodeACE` to persist learned strategies into the project's instruction file after each learning cycle. Unlike `CheckpointStep` (which saves the full skillbook JSON at intervals), `PersistStep` runs on every sample and writes in the target format expected by the integration. Receives the real `Skillbook` via constructor injection.
 
 ---
 
@@ -736,33 +789,34 @@ An integration provides the "execute" part. The "learn" part is always the same.
 ```
 Standard ACE:      [Agent → Evaluate]      → [Reflect → Tag → Update → Apply]
                     ╰── execute (built-in) ╯   ╰──────── learn (shared) ──────╯
+                         provides: trace ──────► requires: trace  (skillbook set by _build_context)
 
 Browser-use:       [BrowserExecute]         → [Reflect → Tag → Update → Apply]
                     ╰── execute (integration)╯  ╰──────── learn (shared) ──────╯
+                         provides: trace ──────► requires: trace  (skillbook set by _build_context)
 
-LangChain:         [LangChainExecute]       → [Reflect → Tag → Update → Apply]
-
-Claude Code:       [ClaudeCodeExecute]      → [Reflect → Tag → Update → Apply → Persist]
+TraceAnalyser:     [_build_context]         → [Reflect → Tag → Update → Apply]
+                    ╰── sets ctx.trace ─────╯   ╰──────── learn (shared) ──────╯
 ```
 
-Each integration provides one or more execute steps. These steps `provide` at minimum `{"agent_output", "environment_result"}` — the same fields that `AgentStep + EvaluateStep` produce in the standard ACE pipeline. This is the contract that `ReflectStep` requires.
+Each integration provides one or more execute steps. These steps `provide` at minimum `{"trace"}` — the same field that `EvaluateStep` produces in the standard ACE pipeline. This is the contract that the learning tail (`ReflectStep`) requires.
 
 ### Execute step contract
 
-Every integration execute step must satisfy:
+Every integration execute step must provide `trace`:
 
 ```python
 class SomeExecuteStep:
-    requires = frozenset({"sample", "skillbook"})                     # minimum
-    provides = frozenset({"agent_output", "environment_result"})      # minimum
+    requires = frozenset({"sample", "skillbook"})       # minimum
+    provides = frozenset({"trace"})                      # minimum — feeds the learning tail
 
     def __init__(self, framework_client) -> None:
         self.framework_client = framework_client
 
     def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
-        # Run framework using ctx.skillbook (SkillbookView), evaluate result
+        # Run framework using ctx.skillbook (SkillbookView), build trace from result
         ...
-        return ctx.replace(agent_output=..., environment_result=...)
+        return ctx.replace(trace=...)
 ```
 
 Example — browser-use:
@@ -770,7 +824,7 @@ Example — browser-use:
 ```python
 class BrowserExecuteStep:
     requires = frozenset({"sample", "skillbook"})
-    provides = frozenset({"agent_output", "environment_result"})
+    provides = frozenset({"trace"})
 
     def __init__(self, browser_agent) -> None:
         self.browser_agent = browser_agent
@@ -785,18 +839,8 @@ class BrowserExecuteStep:
             additional_context=skillbook_context,
         )
 
-        # Convert to ACE types
-        agent_output = AgentOutput(
-            reasoning=history.model_thoughts(),
-            final_answer=history.final_result() or "No result",
-            skill_ids=[],
-            raw={"steps": len(history.history)},
-        )
-        env_result = EnvironmentResult(
-            feedback=f"Completed in {len(history.history)} steps" if history.is_done() else "Failed",
-            ground_truth=None,
-        )
-        return ctx.replace(agent_output=agent_output, environment_result=env_result)
+        # Pass the raw history as the trace — the Reflector analyses it directly
+        return ctx.replace(trace=history)
 ```
 
 ### Composing into a runner
@@ -1277,7 +1321,7 @@ Currently the skillbook is mutated in place with no way to undo a bad update. If
 Making TraceAnalyser and ACE subclasses of `Pipeline` was considered. Rejected — the runner is not a pipeline. It owns the epoch loop. Composition (`self.pipeline`) keeps responsibilities separate.
 
 **Cross-sample state (reflection window):**
-A rolling window of recent reflections that persists across samples was considered, with variants: on the runner, on `StepContext`, on step instances, via a shared mediator object. All rejected — each sample should be independent. The only cross-sample coupling is the skillbook itself, which evolves as samples are processed. Adding a reflection window complicates the model (reset between epochs, eventual consistency with background steps, ordering issues with concurrent workers) for marginal benefit. Note: `StepContext.recent_reflections` from the old implementation should be removed.
+A rolling window of recent reflections that persists across samples was considered, with variants: on the runner, on `StepContext`, on step instances, via a shared mediator object. All rejected — each sample should be independent. The only cross-sample coupling is the skillbook itself, which evolves as samples are processed. Adding a reflection window complicates the model (reset between epochs, eventual consistency with background steps, ordering issues with concurrent workers) for marginal benefit.
 
 **Separate Online and Offline classes:**
 Keeping two runner classes for single-pass and multi-epoch was considered. Rejected — the only difference is `epochs=1` vs `epochs > 1`, which is a parameter, not a class distinction. ACE handles both. TraceAnalyser is a separate class because its input type is fundamentally different (raw traces vs `Sample + Environment`), not because of epoch count.
