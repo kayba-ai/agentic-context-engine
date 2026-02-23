@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from ..context import ACEStepContext
-from ..environments import TaskEnvironment
+from ..core.context import ACEStepContext
+from ..core.environments import TaskEnvironment
 
 
 class EvaluateStep:

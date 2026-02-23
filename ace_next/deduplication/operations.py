@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, List, Literal, Union
 
 if TYPE_CHECKING:
-    from ..skillbook import Skillbook
+    from ..core.skillbook import Skillbook
 
 logger = logging.getLogger(__name__)
 
@@ -132,7 +132,7 @@ def _apply_keep(op: KeepOp, skillbook: "Skillbook") -> None:
         logger.warning("KEEP: Need at least 2 skill IDs")
         return
 
-    from ..skillbook import SimilarityDecision
+    from ..core.skillbook import SimilarityDecision
 
     for i, id_a in enumerate(op.skill_ids):
         for id_b in op.skill_ids[i + 1 :]:

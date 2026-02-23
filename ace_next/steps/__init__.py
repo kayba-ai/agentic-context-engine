@@ -9,7 +9,7 @@ from ..protocols import (
     ReflectorLike,
     SkillManagerLike,
 )
-from ..skillbook import Skillbook
+from ..core.skillbook import Skillbook
 
 from .agent import AgentStep
 from .apply import ApplyStep

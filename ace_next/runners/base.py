@@ -9,8 +9,8 @@ from typing import Any
 from pipeline import Pipeline
 from pipeline.protocol import SampleResult
 
-from ..context import ACEStepContext, SkillbookView
-from ..skillbook import Skillbook
+from ..core.context import ACEStepContext, SkillbookView
+from ..core.skillbook import Skillbook
 
 logger = logging.getLogger(__name__)
 

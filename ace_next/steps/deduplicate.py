@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import logging
 
-from ..context import ACEStepContext
+from ..core.context import ACEStepContext
 from ..protocols import DeduplicationManagerLike
-from ..skillbook import Skillbook
+from ..core.skillbook import Skillbook
 
 logger = logging.getLogger(__name__)
 

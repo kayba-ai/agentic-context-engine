@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import logging
 
-from ..context import ACEStepContext
-from ..outputs import AgentOutput
+from ..core.context import ACEStepContext
+from ..core.outputs import AgentOutput
 from ..protocols import ReflectorLike
 
 logger = logging.getLogger(__name__)

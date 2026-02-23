@@ -9,13 +9,13 @@ from typing import Any
 from pipeline import Pipeline
 from pipeline.protocol import SampleResult
 
-from ..context import ACEStepContext, SkillbookView
+from ..core.context import ACEStepContext, SkillbookView
 from ..protocols import (
     DeduplicationManagerLike,
     ReflectorLike,
     SkillManagerLike,
 )
-from ..skillbook import Skillbook
+from ..core.skillbook import Skillbook
 from ..steps import learning_tail
 from .base import ACERunner
 

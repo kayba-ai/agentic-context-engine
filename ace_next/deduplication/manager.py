@@ -18,7 +18,7 @@ from .operations import (
 from .prompts import format_pair_for_logging, generate_similarity_report
 
 if TYPE_CHECKING:
-    from ..skillbook import Skillbook
+    from ..core.skillbook import Skillbook
 
 logger = logging.getLogger(__name__)
 

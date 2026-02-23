@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from ..skillbook import Skillbook
+from ..core.skillbook import Skillbook
 
-from ..context import ACEStepContext
+from ..core.context import ACEStepContext
 
 
 class ApplyStep:

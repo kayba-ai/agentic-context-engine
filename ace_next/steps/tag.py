@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import logging
 
-from ..skillbook import Skillbook
+from ..core.skillbook import Skillbook
 
-from ..context import ACEStepContext
+from ..core.context import ACEStepContext
 
 logger = logging.getLogger(__name__)
 

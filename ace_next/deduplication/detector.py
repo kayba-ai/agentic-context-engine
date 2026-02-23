@@ -9,8 +9,8 @@ from typing import TYPE_CHECKING, List, Optional, Tuple
 from ..protocols.deduplication import DeduplicationConfig
 
 if TYPE_CHECKING:
-    from ..skill import Skill
-    from ..skillbook import Skillbook
+    from ..core.skillbook import Skill
+    from ..core.skillbook import Skillbook
 
 logger = logging.getLogger(__name__)
 

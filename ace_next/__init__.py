@@ -1,17 +1,27 @@
 """ACE next — pipeline-based rewrite of the ACE framework."""
 
 # Core types
-from .context import ACESample, ACEStepContext, SkillbookView
-from .deduplication import DeduplicationManager, SimilarityDetector
-from .environments import EnvironmentResult, Sample, SimpleEnvironment, TaskEnvironment
-from .implementations import Agent, Reflector, SkillManager
-from .outputs import (
+from .core import (
+    ACESample,
+    ACEStepContext,
     AgentOutput,
+    EnvironmentResult,
     ExtractedLearning,
     ReflectorOutput,
+    Sample,
+    SimpleEnvironment,
+    Skill,
+    Skillbook,
+    SkillbookView,
     SkillManagerOutput,
     SkillTag,
+    SimilarityDecision,
+    TaskEnvironment,
+    UpdateBatch,
+    UpdateOperation,
 )
+from .deduplication import DeduplicationManager, SimilarityDetector
+from .implementations import Agent, Reflector, SkillManager
 from .protocols import (
     AgentLike,
     DeduplicationConfig,
@@ -21,9 +31,6 @@ from .protocols import (
     SkillManagerLike,
 )
 from .runners import ACE, ACERunner, TraceAnalyser
-from .skill import Skill, SimilarityDecision
-from .skillbook import Skillbook
-from .updates import UpdateBatch, UpdateOperation
 
 __all__ = [
     # Context

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ..context import ACEStepContext
+from ..core.context import ACEStepContext
 from ..protocols import SkillManagerLike
 
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Optional, Protocol, runtime_checkable
 
-from ..outputs import AgentOutput, ReflectorOutput
+from ..core.outputs import AgentOutput, ReflectorOutput
 
 
 @runtime_checkable

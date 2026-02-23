@@ -6,7 +6,7 @@ import re
 from typing import TYPE_CHECKING, List, Optional, Sequence
 
 if TYPE_CHECKING:
-    from ..skillbook import Skillbook
+    from ..core.skillbook import Skillbook
 
 
 def extract_cited_skill_ids(text: str) -> List[str]:

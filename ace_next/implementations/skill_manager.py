@@ -6,7 +6,7 @@ import json
 import logging
 from typing import Any
 
-from ..outputs import ReflectorOutput, SkillManagerOutput
+from ..core.outputs import ReflectorOutput, SkillManagerOutput
 from ..protocols.llm import LLMClientLike
 from .prompts import SKILL_MANAGER_PROMPT
 

@@ -9,15 +9,15 @@ from typing import Any
 from pipeline import Pipeline
 from pipeline.protocol import SampleResult
 
-from ..context import ACEStepContext, SkillbookView
-from ..environments import Sample, TaskEnvironment
+from ..core.context import ACEStepContext, SkillbookView
+from ..core.environments import Sample, TaskEnvironment
 from ..protocols import (
     AgentLike,
     DeduplicationManagerLike,
     ReflectorLike,
     SkillManagerLike,
 )
-from ..skillbook import Skillbook
+from ..core.skillbook import Skillbook
 from ..steps import AgentStep, EvaluateStep, learning_tail
 from .base import ACERunner
 

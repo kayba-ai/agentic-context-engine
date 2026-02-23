@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, List, Tuple
 
 if TYPE_CHECKING:
-    from ..skill import Skill
+    from ..core.skillbook import Skill
 
 SIMILARITY_REPORT_HEADER = """
 ## Similar Skills Detected

@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Optional
 
-from ..outputs import AgentOutput, ReflectorOutput
+from ..core.outputs import AgentOutput, ReflectorOutput
 from ..protocols.llm import LLMClientLike
 from .helpers import format_optional, make_skillbook_excerpt
 from .prompts import REFLECTOR_PROMPT

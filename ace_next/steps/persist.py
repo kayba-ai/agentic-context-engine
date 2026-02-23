@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ..skillbook import Skillbook
+from ..core.skillbook import Skillbook
 
-from ..context import ACEStepContext
+from ..core.context import ACEStepContext
 
 
 class PersistStep:

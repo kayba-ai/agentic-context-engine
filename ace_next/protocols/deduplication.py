@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal, Optional, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
-    from ..skillbook import Skillbook
+    from ..core.skillbook import Skillbook
 
 
 @dataclass

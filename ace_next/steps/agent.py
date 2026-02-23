@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from ..context import ACEStepContext
-from ..outputs import AgentOutput
+from ..core.context import ACEStepContext
+from ..core.outputs import AgentOutput
 from ..protocols import AgentLike
 
 
