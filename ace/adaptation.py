@@ -288,6 +288,48 @@ class ACEBase:
         ]
         return "\n".join(parts)
 
+    def _build_traces(
+        self,
+        sample: Sample,
+        agent_output: AgentOutput,
+        env_result: EnvironmentResult,
+    ) -> Dict[str, Any]:
+        """Build a self-contained traces dict for RecursiveReflector.
+
+        Handles three input formats from sample.metadata["traces"]:
+        1. Dict with "steps" key — used as-is
+        2. Plain List[Dict] — auto-wrapped as {"steps": list}
+        3. Missing/None — builds default from agent output
+
+        Always injects question/ground_truth/feedback from sample/environment
+        if not already present, making the traces dict self-contained.
+        """
+        raw = sample.metadata.get("traces")
+
+        # Handle both formats: plain list or full dict
+        if isinstance(raw, list):
+            raw = {"steps": raw}
+
+        if isinstance(raw, dict) and "steps" in raw:
+            traces: Dict[str, Any] = dict(raw)  # shallow copy
+        else:
+            traces = {
+                "steps": [
+                    {
+                        "role": "agent",
+                        "reasoning": agent_output.reasoning,
+                        "answer": agent_output.final_answer,
+                        "skill_ids": agent_output.skill_ids,
+                    }
+                ],
+            }
+
+        # Always inject task context from the environment
+        traces.setdefault("question", sample.question)
+        traces.setdefault("ground_truth", env_result.ground_truth)
+        traces.setdefault("feedback", env_result.feedback)
+        return traces
+
     def _progress_string(
         self, epoch: int, total_epochs: int, step: int, total_steps: int
     ) -> str:
@@ -312,15 +354,8 @@ class ACEBase:
         )
         env_result = environment.evaluate(sample, agent_output)
 
-        # Build traces from agent execution (or use pre-recorded traces from sample)
-        traces = getattr(sample, "metadata", {}).get("traces") or [
-            {
-                "role": "agent",
-                "reasoning": agent_output.reasoning,
-                "answer": agent_output.final_answer,
-                "skill_ids": agent_output.skill_ids,
-            }
-        ]
+        # Build self-contained traces dict for RecursiveReflector
+        traces: Dict[str, Any] = self._build_traces(sample, agent_output, env_result)
 
         reflection = self.reflector.reflect(
             question=sample.question,
@@ -409,6 +444,9 @@ class ACEBase:
         # Evaluate (sync - usually fast)
         env_result = environment.evaluate(sample, agent_output)
 
+        # Build self-contained traces dict for RecursiveReflector
+        traces: Dict[str, Any] = self._build_traces(sample, agent_output, env_result)
+
         # Submit to async pipeline (Reflector runs in thread pool)
         if self._async_pipeline:
             task = LearningTask(
@@ -419,6 +457,7 @@ class ACEBase:
                 step_index=step_index,
                 total_epochs=total_epochs,
                 total_steps=total_steps,
+                metadata={"traces": traces},
             )
             self._async_pipeline.submit(task)
 

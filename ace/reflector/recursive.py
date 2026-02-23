@@ -228,36 +228,65 @@ class RecursiveReflector:
         sandbox.inject("ask_llm", ask_llm_fn)
         sandbox.inject("llm_query", lambda prompt: ask_llm_fn(prompt, ""))
 
-        # Inject raw traces as primary data source
-        sandbox.inject("traces", traces)
-        sandbox.inject("trace_count", len(traces))
+        # Inject skillbook (always available)
+        skillbook_text = skillbook.as_prompt() or "(empty skillbook)"
+        sandbox.inject("skillbook", skillbook_text)
 
-        # Inject context variables
-        sandbox.inject("question", question)
-        sandbox.inject("reasoning", reasoning)
-        sandbox.inject("final_answer", final_answer)
-        sandbox.inject("ground_truth", ground_truth)
-        sandbox.inject("feedback", feedback)
-        sandbox.inject("skillbook", skillbook.as_prompt() or "(empty skillbook)")
+        # Pop traces from kwargs to avoid leaking to LLM API
+        traces = kwargs.pop("traces", None)
+
+        if traces:
+            # traces is the single source of truth — inject it directly
+            sandbox.inject("traces", traces)
+            # Derive preview values from traces dict
+            t_question = traces.get("question", question) or question
+            t_ground_truth = traces.get("ground_truth", ground_truth)
+            t_feedback = traces.get("feedback", feedback)
+            t_steps = traces.get("steps", [])
+            # Extract reasoning/answer from first agent step for preview
+            first_agent: dict[str, str] = next(
+                (s for s in t_steps if s.get("role") == "agent"), {}
+            )
+            t_reasoning = first_agent.get("reasoning", agent_output.reasoning)
+            t_answer = first_agent.get("answer", agent_output.final_answer)
+        else:
+            # Build traces dict from individual params (backward compat)
+            traces = {
+                "question": question,
+                "ground_truth": ground_truth,
+                "feedback": feedback,
+                "steps": [
+                    {
+                        "role": "agent",
+                        "reasoning": agent_output.reasoning,
+                        "answer": agent_output.final_answer,
+                        "skill_ids": agent_output.skill_ids,
+                    }
+                ],
+            }
+            sandbox.inject("traces", traces)
+            t_question = question
+            t_ground_truth = ground_truth
+            t_feedback = feedback
+            t_reasoning = agent_output.reasoning
+            t_answer = agent_output.final_answer
+            t_steps = traces["steps"]
 
         # Build initial prompt with previews and metadata
-        skillbook_text = skillbook.as_prompt() or "(empty skillbook)"
-        trace_sneak_peek = self._trace_sneak_peek(traces)
+        # Full data is injected into sandbox - previews provide grounding
         initial_prompt = self.prompt_template.format(
-            question_length=len(question),
-            question_preview=_preview(question),
-            reasoning_length=len(reasoning),
-            reasoning_preview=_preview(reasoning),
-            answer_length=len(final_answer),
-            answer_preview=_preview(final_answer),
-            ground_truth_length=len(ground_truth) if ground_truth else 0,
-            ground_truth_preview=_preview(ground_truth),
-            feedback_length=len(feedback) if feedback else 0,
-            feedback_preview=_preview(feedback),
+            question_length=len(t_question),
+            question_preview=_preview(t_question),
+            reasoning_length=len(t_reasoning) if t_reasoning else 0,
+            reasoning_preview=_preview(t_reasoning),
+            answer_length=len(t_answer) if t_answer else 0,
+            answer_preview=_preview(t_answer),
+            ground_truth_length=len(t_ground_truth) if t_ground_truth else 0,
+            ground_truth_preview=_preview(t_ground_truth),
+            feedback_length=len(t_feedback) if t_feedback else 0,
+            feedback_preview=_preview(t_feedback),
             skillbook_length=len(skillbook_text),
-            step_count=len(trace) if trace else 0,
-            trace_count=len(traces),
-            trace_sneak_peek=_preview(trace_sneak_peek, max_len=500),
+            step_count=len(t_steps) if t_steps else (len(trace) if trace else 0),
         )
 
         # REPL loop

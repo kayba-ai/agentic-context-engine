@@ -70,8 +70,9 @@ class TestRecursiveReflector(unittest.TestCase):
         """Test basic reflection that produces code and calls FINAL."""
         # Iteration 0: explore (FINAL would be rejected here)
         explore_response = """```python
-print(f"Question: {question}")
-print(f"Correct: {final_answer.strip() == ground_truth.strip()}")
+print(f"Question: {traces['question']}")
+step = traces['steps'][0]
+print(f"Correct: {step['answer'].strip() == traces['ground_truth'].strip()}")
 ```"""
         # Iteration 1: FINAL accepted
         final_response = """```python
@@ -203,7 +204,7 @@ FINAL({
 
     def test_extracted_learnings_parsed(self):
         """Test that extracted learnings are properly parsed."""
-        explore_response = "```python\nprint(question[:50])\n```"
+        explore_response = "```python\nprint(traces['question'][:50])\n```"
         final_response = """```python
 FINAL({
     "reasoning": "Analysis complete.",
@@ -238,7 +239,7 @@ FINAL({
 
     def test_skill_tags_parsed(self):
         """Test that skill tags are properly parsed."""
-        explore_response = "```python\nprint(question[:50])\n```"
+        explore_response = "```python\nprint(traces['question'][:50])\n```"
         final_response = """```python
 FINAL({
     "reasoning": "Analysis complete.",
@@ -474,7 +475,7 @@ class TestPrematureFinalRejected(unittest.TestCase):
                     # First call: immediately calls FINAL (premature)
                     return LLMResponse(
                         text="""```python
-print(f"Question: {question[:100]}")
+print(f"Question: {traces['question'][:100]}")
 FINAL({
     "reasoning": "Premature analysis",
     "error_identification": "none",
@@ -526,7 +527,7 @@ FINAL({
         """Test that FINAL() is accepted normally on iteration >= 1."""
         responses = [
             # Iteration 0: explore
-            "```python\nprint(question[:100])\n```",
+            "```python\nprint(traces['question'][:100])\n```",
             # Iteration 1: FINAL should be accepted
             """```python
 FINAL({
@@ -583,7 +584,9 @@ class TestFinalRejectedAfterExecutionError(unittest.TestCase):
                 call_count[0] += 1
                 if call_count[0] == 1:
                     # Iteration 0: explore first
-                    return LLMResponse(text="```python\nprint(question[:50])\n```")
+                    return LLMResponse(
+                        text="```python\nprint(traces['question'][:50])\n```"
+                    )
                 elif call_count[0] == 2:
                     # Iteration 1: code that triggers an error before FINAL
                     # Using undefined_variable triggers NameError which sets result.success=False
@@ -643,7 +646,7 @@ FINAL({
         """FINAL() should be accepted when code execution succeeds."""
         responses = [
             # Iteration 0: explore
-            "```python\nprint(question[:50])\n```",
+            "```python\nprint(traces['question'][:50])\n```",
             # Iteration 1: successful code + FINAL
             """```python
 result = "success"
@@ -765,7 +768,9 @@ class TestLLMQueryLimitInReflector(unittest.TestCase):
 
                 if self._repl_call == 1:
                     # Iteration 0: explore (no FINAL)
-                    return LLMResponse(text="```python\nprint(question[:50])\n```")
+                    return LLMResponse(
+                        text="```python\nprint(traces['question'][:50])\n```"
+                    )
                 elif self._repl_call == 2:
                     # Iteration 1: llm_query calls + FINAL
                     return LLMResponse(
@@ -1563,7 +1568,9 @@ class TestEmptyLLMResponse(unittest.TestCase):
                     return LLMResponse(text="")
                 elif call_count[0] == 2:
                     # Second call: explore
-                    return LLMResponse(text="```python\nprint(question[:50])\n```")
+                    return LLMResponse(
+                        text="```python\nprint(traces['question'][:50])\n```"
+                    )
                 else:
                     # Third call: FINAL
                     return LLMResponse(

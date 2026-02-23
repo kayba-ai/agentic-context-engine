@@ -31,21 +31,23 @@ and curate your learnings. Your job is to identify WHAT the agent did that matte
 ## Pre-injected Variables
 Short previews shown; use code to explore full content.
 
-| Variable | Preview | Size |
-|----------|---------|------|
-| `question` | "{question_preview}" | {question_length} chars |
-| `reasoning` | "{reasoning_preview}..." | {reasoning_length} chars |
-| `final_answer` | "{answer_preview}" | {answer_length} chars |
-| `ground_truth` | "{ground_truth_preview}" | {ground_truth_length} chars |
-| `feedback` | "{feedback_preview}..." | {feedback_length} chars |
-| `skillbook` | (strategies) | {skillbook_length} chars |
-| `traces` | list[dict] | {trace_count} entries |
-| `trace` | TraceContext | {step_count} steps |
+| Variable | Description | Size |
+|----------|-------------|------|
+| `traces` | Dict with keys: question, ground_truth, feedback, steps (List[Dict]) | {step_count} steps |
+| `skillbook` | Current strategies (string) | {skillbook_length} chars |
+| `trace` | TraceContext with `.find_steps()`, `.get_errors()`, `.summary()` | {step_count} steps |
 
-### traces structure
-{trace_sneak_peek}
+### Previews (from traces)
+| Field | Preview | Size |
+|-------|---------|------|
+| `traces["question"]` | "{question_preview}" | {question_length} chars |
+| first agent step reasoning | "{reasoning_preview}..." | {reasoning_length} chars |
+| first agent step answer | "{answer_preview}" | {answer_length} chars |
+| `traces["ground_truth"]` | "{ground_truth_preview}" | {ground_truth_length} chars |
+| `traces["feedback"]` | "{feedback_preview}..." | {feedback_length} chars |
 
-**Do NOT print entire large variables.** Use slicing, search, and trace/traces methods.
+**Start by exploring:** `traces.keys()` and `traces['steps'][0].keys()` to understand the data structure.
+**Do NOT print entire large variables.** Use slicing, search, and trace methods.
 
 ## Functions
 
@@ -56,14 +58,7 @@ Short previews shown; use code to explore full content.
 | `SHOW_VARS()` | Print all available variable names |
 | `ask_llm(question, context)` | Ask a sub-agent a focused question with specific context |
 
-## traces exploration (list[dict])
-- `traces[0]` — first entry
-- `traces[-1]` — last entry
-- `traces[0].keys()` — see available fields
-- `len(traces)` — total entries
-- `[t for t in traces if 'error' in str(t)]` — find errors
-
-## trace methods (TraceContext, if available)
+## trace methods (convenience wrapper around traces)
 - `trace.get_step(i)` — get step by index
 - `trace.find_steps(pattern)` — find steps matching text
 - `trace.get_errors()` — get steps with error indicators

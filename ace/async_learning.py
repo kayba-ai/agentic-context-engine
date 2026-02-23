@@ -428,6 +428,7 @@ class AsyncLearningPipeline:
                 ground_truth=task.environment_result.ground_truth,
                 feedback=task.environment_result.feedback,
                 max_refinement_rounds=self._max_refinement_rounds,
+                traces=task.metadata.get("traces"),
             )
 
             # Create result
