@@ -1039,7 +1039,7 @@ Each wrapper is a thin facade over an `ACERunner` subclass. The runner owns the 
 
 ```
 ace/
-  steps/                    ← generic steps (one file per class)
+  steps/                    ← generic steps (one file per class
     __init__.py
     agent.py                ← AgentStep
     evaluate.py             ← EvaluateStep

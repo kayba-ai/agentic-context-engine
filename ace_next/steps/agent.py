@@ -1,0 +1,48 @@
+"""AgentStep — runs the Agent role to produce an answer."""
+
+from __future__ import annotations
+
+from typing import Any, Optional, Protocol, runtime_checkable
+
+from ..context import ACEStepContext
+from ..outputs import AgentOutput
+
+
+@runtime_checkable
+class AgentLike(Protocol):
+    """Protocol for Agent-like objects.
+
+    Satisfied by ``ace.roles.Agent`` and ``ace.roles.ReplayAgent``.
+    """
+
+    def generate(
+        self,
+        *,
+        question: str,
+        context: Optional[str],
+        skillbook: Any,
+        reflection: Optional[str] = ...,
+        **kwargs: Any,
+    ) -> AgentOutput: ...
+
+
+class AgentStep:
+    """Execute the Agent role against the current sample and skillbook.
+
+    Reads the skillbook via ``ctx.skillbook`` (a ``SkillbookView``).
+    """
+
+    requires = frozenset({"sample", "skillbook"})
+    provides = frozenset({"agent_output"})
+
+    def __init__(self, agent: AgentLike) -> None:
+        self.agent = agent
+
+    def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
+        agent_output: AgentOutput = self.agent.generate(
+            question=ctx.sample.question,
+            context=ctx.sample.context,
+            skillbook=ctx.skillbook,
+            sample=ctx.sample,
+        )
+        return ctx.replace(agent_output=agent_output)
