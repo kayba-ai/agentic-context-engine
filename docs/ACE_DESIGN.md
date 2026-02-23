@@ -119,10 +119,8 @@ class ACEStepContext(StepContext):
 
     sample: ACESample | None = None
     skillbook: SkillbookView | None = None
-    environment: TaskEnvironment | None = None
     trace: object | None = None
     agent_output: AgentOutput | None = None
-    environment_result: EnvironmentResult | None = None
     reflection: ReflectorOutput | None = None
     skill_manager_output: UpdateBatch | None = None
     epoch: int = 1
@@ -141,7 +139,7 @@ The `trace` field holds the raw execution record from any external system — a 
 | **Nature** | Step-to-step data + read-only dependencies | Mutable shared state |
 | **Lifetime** | Per-sample (born in `_build_context`, dies after pipeline) | Per-runner (created once, shared across samples) |
 | **Immutable?** | Yes — frozen fields, read-only views | No — mutable by design |
-| **Examples** | `agent_output`, `reflection`, `skillbook` (view) | `skillbook` (real), `dedup_config` |
+| **Examples** | `agent_output`, `reflection`, `skillbook` (view) | `skillbook` (real), `environment`, `dedup_config` |
 | **Validated by engine?** | Yes — `requires`/`provides` | No — runtime error if missing |
 
 ---
@@ -316,7 +314,7 @@ class TraceAnalyser(ACERunner):
     ) -> list[SampleResult]: ...
 ```
 
-Note: no `environment` parameter, no converter. The raw trace goes straight onto the context. The Reflector is responsible for making sense of it — this gives maximum flexibility for analysis without constraining trace format. Extraction into `agent_output`/`environment_result` can be added later as an optional step if needed. No checkpoint parameters — checkpoints are configured at construction time via the factory methods.
+Note: no `environment` parameter, no converter. The raw trace goes straight onto the context. The Reflector is responsible for making sense of it — this gives maximum flexibility for analysis without constraining trace format. Extraction into structured fields can be added later as an optional step if needed. No checkpoint parameters — checkpoints are configured at construction time via the factory methods.
 
 ### Multi-epoch semantics
 
@@ -343,13 +341,13 @@ No epoch loop, no per-sample iteration — `_run()` handles all of that.
 
 ## ACE
 
-The full live adaptive pipeline. An agent executes, the environment evaluates, the reflector analyses, the skill manager updates.
+The full live adaptive pipeline. An agent executes, the reflector analyses, the skill manager updates. Optionally evaluates against a `TaskEnvironment` for feedback-driven learning.
 
 ### When to use
 
 - You are building a new agent from scratch.
-- You have a `TaskEnvironment` that can evaluate outputs.
 - You want closed-loop learning where the agent improves in real time.
+- Optionally: you have a `TaskEnvironment` that can evaluate outputs (provides richer feedback for the Reflector).
 
 ### Pipeline
 
@@ -360,11 +358,10 @@ The full live adaptive pipeline. An agent executes, the environment evaluates, t
 ### Context building
 
 ```python
-def _build_context(self, sample, *, epoch, total_epochs, index, total, global_sample_index, environment, **_) -> ACEStepContext:
+def _build_context(self, sample, *, epoch, total_epochs, index, total, global_sample_index, **_) -> ACEStepContext:
     return ACEStepContext(
         sample=sample,
         skillbook=SkillbookView(self.skillbook),
-        environment=environment,
         epoch=epoch,
         total_epochs=total_epochs,
         step_index=index,
@@ -373,9 +370,7 @@ def _build_context(self, sample, *, epoch, total_epochs, index, total, global_sa
     )
 ```
 
-Each sample is independent. The `skillbook` field is a `SkillbookView` (read-only). Write steps receive the real `Skillbook` via constructor injection. The `environment` is forwarded from `run()` → `_run(**kwargs)` → `_build_context()` — no instance state modified.
-
-Note: `environment` is on the context here (unlike TraceAnalyser) because `EvaluateStep` needs it and doesn't own the environment — it's per-run, not per-step. The environment is an immutable evaluator, so putting it on the frozen context is safe.
+Each sample is independent. The `skillbook` field is a `SkillbookView` (read-only). Write steps receive the real `Skillbook` via constructor injection. The environment (if any) is injected into `EvaluateStep` at construction time — it does not appear on the context.
 
 ### Interface
 
@@ -384,20 +379,21 @@ class ACE(ACERunner):
     """Live adaptive pipeline: Agent → Evaluate → Reflect → Tag → Update → Apply."""
 
     @classmethod
-    def from_client(cls, client, *, skillbook=None, **kwargs) -> "ACE": ...
+    def from_client(cls, client, *, environment=None, skillbook=None, **kwargs) -> "ACE": ...
 
     @classmethod
-    def from_roles(cls, *, agent, reflector, skill_manager, skillbook=None, **kwargs) -> "ACE": ...
+    def from_roles(cls, *, agent, reflector, skill_manager, environment=None, skillbook=None, **kwargs) -> "ACE": ...
 
     def run(
         self,
         samples: Sequence[Sample] | Iterable[Sample],
-        environment: TaskEnvironment,
         epochs: int = 1,
         *,
         wait: bool = True,
     ) -> list[SampleResult]: ...
 ```
+
+The `environment` is optional and provided at construction time, not at `run()` time. When provided, `EvaluateStep` uses it to generate feedback that enriches the trace. When omitted, the trace still contains the agent's output, question, context, and ground truth — the Reflector can learn from ground-truth comparison or from the agent's reasoning alone.
 
 ### Single-pass vs multi-epoch
 
@@ -405,13 +401,13 @@ A single class handles both use cases. `epochs=1` gives single-pass behaviour. `
 
 ```python
 # Single pass (was OnlineACE)
-results = ace.run(samples, environment, epochs=1)
+results = ace.run(samples, epochs=1)
 
 # Multi-epoch batch (was OfflineACE)
-results = ace.run(training_set, environment, epochs=3)
+results = ace.run(training_set, epochs=3)
 
 # Fire-and-forget — agent results returned fast, learning continues in background
-results = ace.run(samples, environment, wait=False)
+results = ace.run(samples, wait=False)
 ```
 
 When `samples` is an `Iterable` (not `Sequence`), `epochs` must be `1` — you cannot replay a consumed iterable. `_run()` raises `ValueError` if `epochs > 1` and `samples` is not a `Sequence`. Note: `_run()` materializes the full iterable into a list of contexts before passing them to `Pipeline.run()`. This is a deliberate simplification — see Potential Improvements.
@@ -419,11 +415,11 @@ When `samples` is an `Iterable` (not `Sequence`), `epochs` must be `1` — you c
 ### run() — delegates to _run()
 
 ```python
-def run(self, samples, environment, epochs=1, *, wait=True):
-    return self._run(samples, epochs=epochs, wait=wait, environment=environment)
+def run(self, samples, epochs=1, *, wait=True):
+    return self._run(samples, epochs=epochs, wait=wait)
 ```
 
-The public `run()` forwards `environment` through `_run(**kwargs)` to `_build_context()`. No instance state is modified — the runner stays reentrant.
+No instance state is modified — the runner stays reentrant.
 
 ---
 
@@ -491,13 +487,13 @@ def from_roles(cls, *, reflector, skill_manager, skillbook=None,
 
 # ACE — execute head + learning tail
 @classmethod
-def from_roles(cls, *, agent, reflector, skill_manager, skillbook=None,
-               dedup_config=None, dedup_interval=10,
+def from_roles(cls, *, agent, reflector, skill_manager, environment=None,
+               skillbook=None, dedup_config=None, dedup_interval=10,
                checkpoint_dir=None, checkpoint_interval=10, **kwargs):
     skillbook = skillbook or Skillbook()
     steps = [
         AgentStep(agent),
-        EvaluateStep(),
+        EvaluateStep(environment),
         *learning_tail(
             reflector, skill_manager, skillbook,
             dedup_config=dedup_config, dedup_interval=dedup_interval,
@@ -523,7 +519,7 @@ Reusable step implementations live in `ace/steps/`. Each is a single class in a 
 | Step | Requires (context) | Injected (constructor) | Provides | Side effects | `max_workers` |
 |---|---|---|---|---|---|
 | **AgentStep** | `sample`, `skillbook` | `agent` | `agent_output` | None | default (1) |
-| **EvaluateStep** | `sample`, `agent_output`, `environment` | — | `environment_result`, `trace` | None | default (1) |
+| **EvaluateStep** | `sample`, `agent_output` | `environment` (optional) | `trace` | None | default (1) |
 | **ReflectStep** | `trace`, `skillbook` | `reflector` | `reflection` | None (pure) | 3; `async_boundary = True` |
 | **TagStep** | `reflection` | `skillbook` (real) | — | Tags skills on skillbook | 1 |
 | **UpdateStep** | `reflection`, `skillbook` | `skill_manager` | `skill_manager_output` | None (pure) | 1 |
@@ -535,7 +531,7 @@ Reusable step implementations live in `ace/steps/`. Each is a single class in a 
 
 **Requires vs Injected:** `Requires` lists context fields read by the step — validated by the pipeline engine at construction time. The `skillbook` field on the context is a `SkillbookView` (read-only). Steps that **write** to the skillbook (TagStep, ApplyStep, DeduplicateStep, CheckpointStep) receive the real `Skillbook` via constructor injection — marked as "(real)" in the table. These injected dependencies are not tracked by `requires`/`provides`.
 
-**`trace` as the universal learning input:** The learning tail's *entry point* (ReflectStep) requires only `trace` and `skillbook` from the context — subsequent steps in the tail chain off ReflectStep's output (`reflection`). In the standard ACE pipeline, `EvaluateStep` bundles the structured fields (`sample`, `agent_output`, `environment_result`) into a `trace` dict. In TraceAnalyser, `_build_context` places the raw trace directly. In integrations, the execute step provides `trace` from its framework's native output. This means the learning tail is agnostic to trace format — `ReflectStep` passes `ctx.trace` to the Reflector, which is responsible for making sense of whatever it receives.
+**`trace` as the universal learning input:** The learning tail's *entry point* (ReflectStep) requires only `trace` and `skillbook` from the context — subsequent steps in the tail chain off ReflectStep's output (`reflection`). In the standard ACE pipeline, `EvaluateStep` bundles the structured fields (`sample`, `agent_output`, and optionally environment feedback) into a `trace` dict. In TraceAnalyser, `_build_context` places the raw trace directly. In integrations, the execute step provides `trace` from its framework's native output. This means the learning tail is agnostic to trace format — `ReflectStep` passes `ctx.trace` to the Reflector, which is responsible for making sense of whatever it receives.
 
 Steps with `provides = —` are pure side-effect steps (`provides = frozenset()`). They mutate shared state (skillbook) or write to external systems (disk, Opik) but add no new fields to the context.
 
@@ -565,15 +561,13 @@ Reads the skillbook via `ctx.skillbook` (a `SkillbookView`). No constructor inje
 
 ```python
 class EvaluateStep:
-    requires = frozenset({"sample", "agent_output", "environment"})
-    provides = frozenset({"environment_result", "trace"})
+    requires = frozenset({"sample", "agent_output"})
+    provides = frozenset({"trace"})
+
+    def __init__(self, environment: TaskEnvironment | None = None) -> None:
+        self.environment = environment
 
     def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
-        environment_result = ctx.environment.evaluate(
-            sample=ctx.sample,
-            agent_output=ctx.agent_output,
-        )
-        # Bundle structured fields into a trace dict for the learning tail
         trace = {
             "question": ctx.sample.question,
             "context": ctx.sample.context,
@@ -581,12 +575,16 @@ class EvaluateStep:
             "reasoning": ctx.agent_output.reasoning,
             "answer": ctx.agent_output.final_answer,
             "skill_ids": ctx.agent_output.skill_ids,
-            "feedback": environment_result.feedback,
         }
-        return ctx.replace(environment_result=environment_result, trace=trace)
+        if self.environment:
+            result = self.environment.evaluate(
+                sample=ctx.sample, agent_output=ctx.agent_output,
+            )
+            trace["feedback"] = result.feedback
+        return ctx.replace(trace=trace)
 ```
 
-Stateless. Evaluates the agent output, then bundles the structured fields into a `trace` dict. This is the bridge between the execute head (which works with typed ACE objects) and the learning tail (which works with raw traces). The learning tail sees a uniform `ctx.trace` regardless of whether the data came from live execution or a pre-recorded trace.
+Bridges the execute head (typed ACE objects) to the learning tail (raw traces). Always bundles the structured fields into a `trace` dict. Optionally evaluates the agent output against a `TaskEnvironment` — when provided via constructor, the environment's feedback is included in the trace. When no environment is provided, the trace still contains the agent's output, question, context, and ground truth — the Reflector can learn from these directly. The `TaskEnvironment` is injected at construction time (not on the context) to keep the context free of per-runner dependencies. This also means different `ACE` instances can use different environments without changing the pipeline shape.
 
 ### ReflectStep
 
@@ -1185,9 +1183,19 @@ samples = [
     Sample(question="Largest ocean?", ground_truth="Pacific"),
 ]
 
-ace = ACE.from_client(LiteLLMClient(model="gpt-4o-mini"))
-results = ace.run(samples, SimpleEnvironment(), epochs=3)
+# Environment provided at construction — EvaluateStep uses it to generate feedback
+ace = ACE.from_client(LiteLLMClient(model="gpt-4o-mini"), environment=SimpleEnvironment())
+results = ace.run(samples, epochs=3)
 ace.save("geography.json")
+```
+
+### ACE — without environment
+
+```python
+# No environment — trace still contains agent output + ground truth
+# The Reflector learns from ground-truth comparison directly
+ace = ACE.from_client(LiteLLMClient(model="gpt-4o-mini"))
+results = ace.run(samples, epochs=3)
 ```
 
 ### ACE — single-pass with iterable
@@ -1197,7 +1205,7 @@ ace.save("geography.json")
 samples = load_samples_from_csv("eval_set.csv")  # returns a list or generator
 
 ace = ACE.from_client(LiteLLMClient(model="gpt-4o-mini"))
-results = ace.run(samples, environment, epochs=1)
+results = ace.run(samples, epochs=1)
 ```
 
 ### ACE — with checkpoints and deduplication
@@ -1207,12 +1215,13 @@ ace = ACE.from_roles(
     agent=Agent(llm),
     reflector=Reflector(llm),
     skill_manager=SkillManager(llm),
+    environment=SimpleEnvironment(),
     dedup_config=DeduplicationConfig(similarity_threshold=0.85),
     checkpoint_dir="./checkpoints",
     checkpoint_interval=10,
 )
 # Pipeline: Agent → Evaluate → Reflect → Tag → Update → Apply → Deduplicate → Checkpoint
-results = ace.run(samples, environment, epochs=3)
+results = ace.run(samples, epochs=3)
 ```
 
 ### Integration — browser-use runner
@@ -1239,7 +1248,7 @@ ace = ACE.from_client(LiteLLMClient(model="gpt-4o-mini"))
 
 # wait=False: returns after foreground steps (Agent + Evaluate)
 # Background learning (Reflect → Tag → Update → Apply) continues
-results = ace.run(samples, environment, epochs=1, wait=False)
+results = ace.run(samples, epochs=1, wait=False)
 
 # Use agent outputs immediately
 for r in results:
@@ -1264,7 +1273,7 @@ skillbook = analyser.skillbook
 
 # Phase 2: deploy with live learning
 ace = ACE.from_client(llm, skillbook=skillbook)
-ace.run(live_samples, environment, epochs=1)
+ace.run(live_samples, epochs=1)
 ace.save("production.json")
 ```
 
