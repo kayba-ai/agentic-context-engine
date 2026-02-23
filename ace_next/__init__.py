@@ -17,6 +17,7 @@ from .protocols import (
     ReflectorLike,
     SkillManagerLike,
 )
+from .runners import ACE, ACERunner, TraceAnalyser
 from .skill import Skill, SimilarityDecision
 from .skillbook import Skillbook
 from .updates import UpdateBatch, UpdateOperation
@@ -49,4 +50,8 @@ __all__ = [
     "SkillManagerLike",
     "DeduplicationConfig",
     "DeduplicationManagerLike",
+    # Runners
+    "ACE",
+    "ACERunner",
+    "TraceAnalyser",
 ]

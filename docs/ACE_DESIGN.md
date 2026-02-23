@@ -1113,9 +1113,11 @@ ace_next/
     checkpoint.py           ← CheckpointStep
     observability.py        ← ObservabilityStep
     persist.py              ← PersistStep
-  runner.py                 ← ACERunner base class (not started)
-  ace.py                    ← ACE class (not started)
-  trace_analyser.py         ← TraceAnalyser class (not started)
+  runners/                    ← Runner classes (compose Pipeline, manage epoch loop)
+    __init__.py               ← Re-exports ACERunner, TraceAnalyser, ACE
+    base.py                   ← ACERunner base class
+    trace_analyser.py         ← TraceAnalyser (learning tail only)
+    ace.py                    ← ACE (full adaptive pipeline)
   integrations/             ← (not started)
     browser_use/
       runner.py             ← BrowserACE (ACERunner subclass)
