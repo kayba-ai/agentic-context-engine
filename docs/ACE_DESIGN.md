@@ -11,7 +11,7 @@ Specification for rewriting the legacy `ace/` module to use the pipeline engine.
    - **TraceAnalyser**: takes pre-recorded traces, outputs a skillbook. Replaces the concept of "offline" learning.
    - **ACE**: the live adaptive pipeline. Replaces the concept of "online" learning. Also supports multi-epoch batch runs.
 3. Clean OOP: shared base class, composition over inheritance, pluggable steps.
-4. Unify the integration pattern — external frameworks produce `Trace` objects, TraceAnalyser consumes them.
+4. Unify the integration pattern — external frameworks produce raw trace objects (any type), TraceAnalyser passes them to the Reflector as-is.
 5. Maximise step granularity — each step does one thing so concerns are separated and each step is independently testable.
 
 ---
@@ -29,49 +29,6 @@ Specification for rewriting the legacy `ace/` module to use the pipeline engine.
 
 ## Core Types
 
-### Trace
-
-A pre-recorded execution record. Framework-agnostic — works for browser-use histories, LangChain runs, Claude Code transcripts, or any external system.
-
-```python
-@dataclass
-class Trace:
-    """Pre-recorded execution data for offline analysis."""
-    task: str                           # what was asked
-    output: str                         # what was produced
-    feedback: str                       # how it was evaluated
-    ground_truth: str | None = None     # expected answer (optional)
-    reasoning: str = ""                 # agent's reasoning / execution trace
-    context: str = ""                   # task context
-    metadata: dict = field(default_factory=dict)
-    id: str | None = None
-
-    @property
-    def question(self) -> str:
-        """Alias for task — lets steps that access ctx.sample.question work with Trace objects."""
-        return self.task
-```
-
-TraceAnalyser builds `agent_output` and `environment_result` internally from these fields, so callers never need to import ACE role types.
-
-**Conversion helpers** on `Trace`:
-
-```python
-def to_agent_output(self) -> AgentOutput:
-    return AgentOutput(
-        reasoning=self.reasoning or f"Task: {self.task}",
-        final_answer=self.output,
-        skill_ids=[],
-        raw=self.metadata,
-    )
-
-def to_environment_result(self) -> EnvironmentResult:
-    return EnvironmentResult(
-        feedback=self.feedback,
-        ground_truth=self.ground_truth,
-    )
-```
-
 ### Sample (unchanged)
 
 The existing `Sample` dataclass stays as-is. ACE uses it.
@@ -86,13 +43,13 @@ class Sample:
     id: str | None = None
 ```
 
-### ACESample — shared protocol
+### ACESample — protocol for step access
 
-Both `Trace` and `Sample` expose a `.question` attribute — Trace via a property alias, Sample as a direct field. Steps access `ctx.sample.question` without knowing which type they have. A `Protocol` makes this duck typing explicit and type-safe:
+Steps access `ctx.sample.question` uniformly. A `Protocol` makes this duck typing explicit and type-safe:
 
 ```python
 class ACESample(Protocol):
-    """Minimal interface that both Sample and Trace satisfy."""
+    """Minimal interface that Sample satisfies."""
 
     @property
     def question(self) -> str: ...
@@ -107,7 +64,7 @@ class ACESample(Protocol):
     def metadata(self) -> dict: ...
 ```
 
-`ACEStepContext.sample` is typed as `ACESample`. Both `Sample` and `Trace` satisfy it structurally — no inheritance required. Mypy validates both sides: producers must provide the attributes, consumers can rely on them.
+`ACEStepContext.sample` is typed as `ACESample`. `Sample` satisfies it structurally. Mypy validates both sides: producers must provide the attributes, consumers can rely on them.
 
 ### SkillbookView — read-only projection
 
@@ -163,6 +120,7 @@ class ACEStepContext(StepContext):
     sample: ACESample | None = None
     skillbook: SkillbookView | None = None
     environment: TaskEnvironment | None = None
+    trace: object | None = None
     agent_output: AgentOutput | None = None
     environment_result: EnvironmentResult | None = None
     reflection: ReflectorOutput | None = None
@@ -173,6 +131,8 @@ class ACEStepContext(StepContext):
     total_steps: int | None = None
     global_sample_index: int = 0
 ```
+
+The `trace` field holds the raw execution record from any external system — a browser-use `AgentHistoryList`, a LangChain result dict, a Claude Code transcript, or any arbitrary Python object. It has no enforced schema. The Reflector receives the raw trace and is responsible for making sense of it — this gives maximum flexibility for analysis without constraining trace format. Extraction helpers can be added later as an optional layer if needed.
 
 **What goes on the context vs what gets injected:**
 
@@ -190,7 +150,7 @@ class ACEStepContext(StepContext):
 
 ```
 ACERunner (shared infrastructure: epoch loop, delegates to Pipeline.run())
-├── TraceAnalyser       — [Reflect → Tag → Update → Apply]; input = Trace
+├── TraceAnalyser       — [Reflect → Tag → Update → Apply]; input = any trace object
 ├── ACE                 — [Agent → Evaluate → Reflect → Tag → Update → Apply]; input = Sample + Environment
 ├── BrowserACE          — [BrowserExecute → Reflect → Tag → Update → Apply]; input = tasks
 ├── LangChainACE        — [LangChainExecute → Reflect → Tag → Update → Apply]; input = chain inputs
@@ -302,7 +262,7 @@ The runner builds fully-initialized `ACEStepContext` objects (epoch counters, pr
 
 ## TraceAnalyser
 
-Analyses pre-recorded traces without executing an agent. Runs the learning tail only.
+Analyses pre-recorded traces without executing an agent. Runs the learning tail only. Accepts raw trace objects of any type — the raw trace is placed directly on `ctx.trace` and the Reflector is responsible for making sense of it.
 
 ### When to use
 
@@ -320,15 +280,13 @@ No AgentStep, no EvaluateStep. The trace already contains the agent's output and
 
 ### Context building
 
-TraceAnalyser converts each `Trace` into an `ACEStepContext` with `agent_output` and `environment_result` pre-filled:
+TraceAnalyser places the raw trace directly on `ctx.trace`. No extraction, no conversion — the Reflector receives the trace as-is and has full freedom to analyze it however it sees fit.
 
 ```python
-def _build_context(self, trace: Trace, *, epoch, total_epochs, index, total, global_sample_index) -> ACEStepContext:
+def _build_context(self, raw_trace, *, epoch, total_epochs, index, total, global_sample_index) -> ACEStepContext:
     return ACEStepContext(
-        sample=trace,              # Trace doubles as the "sample" for step access
         skillbook=SkillbookView(self.skillbook),
-        agent_output=trace.to_agent_output(),
-        environment_result=trace.to_environment_result(),
+        trace=raw_trace,                         # raw object, no enforced schema
         epoch=epoch,
         total_epochs=total_epochs,
         step_index=index,
@@ -353,12 +311,12 @@ class TraceAnalyser(ACERunner):
 
     def run(
         self,
-        traces: Sequence[Trace],
+        traces: Sequence[Any],
         epochs: int = 1,
     ) -> list[SampleResult]: ...
 ```
 
-Note: no `environment` parameter. The evaluation is already baked into the trace. No checkpoint parameters — checkpoints are configured at construction time via the factory methods.
+Note: no `environment` parameter, no converter. The raw trace goes straight onto the context. The Reflector is responsible for making sense of it — this gives maximum flexibility for analysis without constraining trace format. Extraction into `agent_output`/`environment_result` can be added later as an optional step if needed. No checkpoint parameters — checkpoints are configured at construction time via the factory methods.
 
 ### Multi-epoch semantics
 
@@ -522,16 +480,12 @@ def from_roles(cls, *, reflector, skill_manager, skillbook=None,
                dedup_config=None, dedup_interval=10,
                checkpoint_dir=None, checkpoint_interval=10, **kwargs):
     skillbook = skillbook or Skillbook()
-    steps = [
-        ReflectStep(reflector, **kwargs),          # reads ctx.skillbook (view)
-        TagStep(skillbook),                        # writes self.skillbook (real)
-        UpdateStep(skill_manager),                 # reads ctx.skillbook (view)
-        ApplyStep(skillbook),                      # writes self.skillbook (real)
-    ]
-    if dedup_config:
-        steps.append(DeduplicateStep(dedup_config, skillbook, interval=dedup_interval))  # writes (real)
-    if checkpoint_dir:
-        steps.append(CheckpointStep(checkpoint_dir, skillbook, interval=checkpoint_interval))
+    steps = learning_tail(
+        reflector, skill_manager, skillbook,
+        dedup_config=dedup_config, dedup_interval=dedup_interval,
+        checkpoint_dir=checkpoint_dir, checkpoint_interval=checkpoint_interval,
+        **kwargs,
+    )
     return cls(pipeline=Pipeline(steps), skillbook=skillbook)
 ```
 
@@ -856,15 +810,9 @@ class BrowserACE(ACERunner):
     @classmethod
     def from_client(cls, browser_agent, ace_client, *, skillbook=None, **kwargs):
         skillbook = skillbook or Skillbook()
-        reflector = Reflector(ace_client)
-        skill_manager = SkillManager(ace_client)
-
         steps = [
-            BrowserExecuteStep(browser_agent),             # reads ctx.skillbook (view)
-            ReflectStep(reflector, **kwargs),               # reads ctx.skillbook (view)
-            TagStep(skillbook),                            # writes self.skillbook (real)
-            UpdateStep(skill_manager),                     # reads ctx.skillbook (view)
-            ApplyStep(skillbook),                          # writes self.skillbook (real)
+            BrowserExecuteStep(browser_agent),
+            *learning_tail(Reflector(ace_client), SkillManager(ace_client), skillbook, **kwargs),
         ]
         return cls(pipeline=Pipeline(steps), skillbook=skillbook)
 
@@ -886,30 +834,82 @@ class BrowserACE(ACERunner):
 
 The pattern is the same for every integration: subclass `ACERunner`, provide a factory that wires the execute step(s) + learning tail, override `run()` with the integration-specific signature, and implement `_build_context()`.
 
+### `learning_tail()` — reusable learning steps
+
+Every integration assembles the same `[Reflect → Tag → Update → Apply]` suffix with optional dedup and checkpoint steps. Rather than duplicating this wiring in every factory method, `learning_tail()` returns the standard step list:
+
+```python
+# ace/steps/__init__.py
+
+def learning_tail(
+    reflector: Reflector,
+    skill_manager: SkillManager,
+    skillbook: Skillbook,
+    *,
+    dedup_config: DeduplicationConfig | None = None,
+    dedup_interval: int = 10,
+    checkpoint_dir: str | Path | None = None,
+    checkpoint_interval: int = 10,
+) -> list[Step]:
+    """Return the standard ACE learning steps.
+
+    Use this when building custom integrations that provide their own
+    execute step(s) but want the standard learning pipeline.
+    """
+    steps: list[Step] = [
+        ReflectStep(reflector),
+        TagStep(skillbook),
+        UpdateStep(skill_manager),
+        ApplyStep(skillbook),
+    ]
+    if dedup_config:
+        steps.append(DeduplicateStep(dedup_config, skillbook, interval=dedup_interval))
+    if checkpoint_dir:
+        steps.append(CheckpointStep(checkpoint_dir, skillbook, interval=checkpoint_interval))
+    return steps
+```
+
+Integration factories become shorter and less error-prone:
+
+```python
+class BrowserACE(ACERunner):
+    @classmethod
+    def from_client(cls, browser_agent, ace_client, *, skillbook=None, **kwargs):
+        skillbook = skillbook or Skillbook()
+        steps = [
+            BrowserExecuteStep(browser_agent),
+            *learning_tail(Reflector(ace_client), SkillManager(ace_client), skillbook, **kwargs),
+        ]
+        return cls(pipeline=Pipeline(steps), skillbook=skillbook)
+```
+
+Power users building fully custom pipelines can also use it:
+
+```python
+from ace.steps import learning_tail
+
+skillbook = Skillbook.load_from_file("expert.json")
+steps = [
+    MyCustomExecuteStep(my_agent),
+    MyValidationStep(),  # custom step before learning
+    *learning_tail(reflector, skill_manager, skillbook, dedup_config=dedup),
+]
+runner = ACERunner(Pipeline(steps), skillbook)
+```
+
 ### TraceAnalyser — batch learning from recorded executions
 
-Integrations also support offline learning. When an integration records execution history (browser-use AgentHistory, LangChain intermediate_steps, Claude Code transcripts), it can convert them to `Trace` objects and feed them to TraceAnalyser:
+Integrations also support offline learning. When an integration records execution history (browser-use AgentHistory, LangChain intermediate_steps, Claude Code transcripts), it feeds the raw objects directly to TraceAnalyser:
 
 ```python
 # Record browser executions
 histories = [await agent.run(task) for task in tasks]
 
-# Convert to traces
-traces = [browser_history_to_trace(h, task) for h, task in zip(histories, tasks)]
-
-# Batch analysis
+# Feed raw histories directly — Reflector analyses them as-is
 analyser = TraceAnalyser.from_client(llm_client)
-analyser.run(traces, epochs=2)
+analyser.run(histories, epochs=2)
 analyser.save("browser_expert.json")
 ```
-
-Each integration provides a `to_trace()` converter:
-
-| Integration | Converter | Source |
-|---|---|---|
-| browser-use | `browser_history_to_trace(history, task)` | `AgentHistoryList` |
-| LangChain | `langchain_result_to_trace(result, input)` | `Dict` with `intermediate_steps` or `messages` |
-| Claude Code | `transcript_to_trace(transcript, task)` | Claude Code transcript |
 
 ### Live vs offline
 
@@ -1009,29 +1009,25 @@ ace/
   trace_analyser.py         ← TraceAnalyser class
   ace.py                    ← ACE class
   runner.py                 ← ACERunner base class
-  trace.py                  ← Trace dataclass
   integrations/
     browser_use/
       runner.py             ← BrowserACE (ACERunner subclass)
       steps/
         execute.py          ← BrowserExecuteStep
-      converter.py          ← browser_history_to_trace()
     langchain/
       runner.py             ← LangChainACE (ACERunner subclass)
       steps/
         execute.py          ← LangChainExecuteStep
-      converter.py          ← langchain_result_to_trace()
     claude_code/
       runner.py             ← ClaudeCodeACE (ACERunner subclass)
       steps/
         execute.py          ← ClaudeCodeExecuteStep
         persist.py          ← PersistStep
-      converter.py          ← transcript_to_trace()
     litellm.py              ← ACELiteLLM (high-level wrapper)
     base.py                 ← wrap_skillbook_context (unchanged)
 ```
 
-Each integration provides: (1) an execute step, (2) an `ACERunner` subclass that composes the step with the learning tail, and (3) a `to_trace()` converter for offline analysis. No separate pipeline classes.
+Each integration provides: (1) an execute step and (2) an `ACERunner` subclass that composes the step with the learning tail. For offline analysis, raw trace objects are passed directly to TraceAnalyser. No separate pipeline classes.
 
 ### What moves where
 
@@ -1046,12 +1042,11 @@ Each integration provides: (1) an execute step, (2) an `ACERunner` subclass that
 | New | `ace/steps/deduplicate.py` | DeduplicateStep (extracted from SkillManager) |
 | New | `ace/steps/checkpoint.py` | CheckpointStep |
 | New | `ace/steps/observability.py` | ObservabilityStep |
-| New | `ace/trace.py` | Trace dataclass |
 | New | `ace/trace_analyser.py` | TraceAnalyser class |
 | New | `ace/runner.py` | ACERunner base class |
-| `ace/integrations/browser_use.py` | `ace/integrations/browser_use/` | Split into runner + steps + converter |
-| `ace/integrations/langchain.py` | `ace/integrations/langchain/` | Split into runner + steps + converter |
-| `ace/integrations/claude_code.py` | `ace/integrations/claude_code/` | Split into runner + steps + converter |
+| `ace/integrations/browser_use.py` | `ace/integrations/browser_use/` | Split into runner + steps |
+| `ace/integrations/langchain.py` | `ace/integrations/langchain/` | Split into runner + steps |
+| `ace/integrations/claude_code.py` | `ace/integrations/claude_code/` | Split into runner + steps |
 
 ---
 
@@ -1108,27 +1103,29 @@ Follows the pipeline engine's error model without additions.
 ### TraceAnalyser — learn from browser-use history
 
 ```python
-from ace import TraceAnalyser, Trace
+from ace import TraceAnalyser
 from ace.llm_providers import LiteLLMClient
 
-# Convert recorded browser sessions to traces
+# Raw traces — plain dicts, no enforced schema
 traces = [
-    Trace(
-        task="Find the cheapest flight to Tokyo",
-        output="$450 on ANA, departing March 15",
-        feedback="Correct price found in 8 steps",
-        reasoning="Step 1: Navigate to Google Flights...",
-    ),
-    Trace(
-        task="Book a hotel in Shibuya",
-        output="Failed: could not find checkout button",
-        feedback="Task failed after 15 steps — checkout button was behind a cookie modal",
-        reasoning="Step 1: Navigate to Booking.com...",
-    ),
+    {
+        "task": "Find the cheapest flight to Tokyo",
+        "output": "$450 on ANA, departing March 15",
+        "feedback": "Correct price found in 8 steps",
+        "reasoning": "Step 1: Navigate to Google Flights...",
+    },
+    {
+        "task": "Book a hotel in Shibuya",
+        "output": "Failed: could not find checkout button",
+        "feedback": "Task failed after 15 steps — checkout button was behind a cookie modal",
+        "reasoning": "Step 1: Navigate to Booking.com...",
+    },
 ]
 
-# Analyse
-analyser = TraceAnalyser.from_client(LiteLLMClient(model="gpt-4o-mini"))
+# Analyse — raw traces go directly to the Reflector via ctx.trace
+analyser = TraceAnalyser.from_client(
+    LiteLLMClient(model="gpt-4o-mini"),
+)
 results = analyser.run(traces, epochs=2)
 analyser.save("travel_agent.json")
 ```
@@ -1236,6 +1233,39 @@ Issues acknowledged but deferred from this version of the spec.
 **Streaming / lazy iteration:**
 `_run()` eagerly materializes the full iterable into a list of `ACEStepContext` objects before passing them to `Pipeline.run()`. For a large generator with `epochs=1`, the entire input gets buffered into memory. True streaming would require the pipeline to accept an iterator and process items one-at-a-time (e.g., `for ctx in contexts: pipeline.run_one(ctx)`), or an async iterator pattern with `asyncio.as_completed`. This is a deliberate simplification — batch materialization keeps the epoch loop and error handling straightforward. Revisit if memory pressure from large single-pass runs becomes a real problem.
 
+**Builder API for custom pipelines:**
+The current API offers two extremes: factory methods (`from_client`, `from_roles`) that hide the pipeline entirely, and manual `Pipeline([...])` construction that requires understanding `ACEStepContext`, `SkillbookView`, step contracts, and `ACERunner` subclassing. Users who want to insert a custom step between Reflect and Update, or swap the execute head while keeping the learning tail, fall into a gap where neither approach serves them well.
+
+A builder API would bridge this gap:
+
+```python
+from ace import ACEBuilder
+
+# Start from a preset, customise from there
+ace = (
+    ACEBuilder(model="gpt-4o-mini")
+    .execute(MyCustomExecuteStep(my_agent))     # replace the execute head
+    .add_step(MyValidationStep(), after="reflect")  # insert custom step
+    .deduplicate(similarity_threshold=0.85)
+    .checkpoint("./checkpoints", interval=10)
+    .build()
+)
+results = ace.run(samples, environment)
+
+# Or build from the standard ACE preset and tweak
+ace = (
+    ACEBuilder.from_preset("ace", model="gpt-4o-mini")
+    .add_step(MyLoggingStep(), after="apply")
+    .build()
+)
+```
+
+The builder would handle `SkillbookView` wiring, step ordering validation, and `ACERunner` construction internally. Users compose by name ("reflect", "apply") rather than by importing step classes.
+
+**When to implement:** When there is evidence of users building custom pipelines with `learning_tail()` and hitting friction with the manual wiring. The `learning_tail()` helper (see Integration Pattern section) covers the most common customisation — custom execute step + standard learning — without a builder. A builder adds value when users need fine-grained insertion points (between existing steps) or want to compose from presets without understanding the step internals.
+
+**Risk:** A builder that mirrors the step list adds a second way to construct pipelines, which means two things to document, test, and keep in sync. It can also hide the `requires`/`provides` contracts — when a validation step is inserted at the wrong position, the error comes from the pipeline engine (field missing) rather than the builder (wrong position name), making debugging indirect. Mitigate by having the builder validate the final step chain at `build()` time and surfacing clear errors.
+
 **Skillbook rollback and versioning:**
 Currently the skillbook is mutated in place with no way to undo a bad update. If the LLM hallucinates a harmful skill or a batch degrades overall quality, the only recovery is restoring from a checkpoint file. A lightweight versioning mechanism — e.g., snapshotting skillbook state at epoch boundaries or before each `ApplyStep`, with a `rollback(to_version)` method — would enable automatic revert when a validation metric degrades, A/B comparison between skillbook versions, and safer experimentation with aggressive learning rates. This could live as a `VersionedSkillbook` wrapper or as an optional `SnapshotStep` inserted before `ApplyStep`. Deferred because the current checkpoint-to-disk approach covers the most common recovery scenario (resume after crash), and in-memory versioning adds memory overhead proportional to skillbook size times number of snapshots.
 
@@ -1250,13 +1280,13 @@ Making TraceAnalyser and ACE subclasses of `Pipeline` was considered. Rejected �
 A rolling window of recent reflections that persists across samples was considered, with variants: on the runner, on `StepContext`, on step instances, via a shared mediator object. All rejected — each sample should be independent. The only cross-sample coupling is the skillbook itself, which evolves as samples are processed. Adding a reflection window complicates the model (reset between epochs, eventual consistency with background steps, ordering issues with concurrent workers) for marginal benefit. Note: `StepContext.recent_reflections` from the old implementation should be removed.
 
 **Separate Online and Offline classes:**
-Keeping two runner classes for single-pass and multi-epoch was considered. Rejected — the only difference is `epochs=1` vs `epochs > 1`, which is a parameter, not a class distinction. ACE handles both. TraceAnalyser is a separate class because its input type is fundamentally different (`Trace` vs `Sample + Environment`), not because of epoch count.
+Keeping two runner classes for single-pass and multi-epoch was considered. Rejected — the only difference is `epochs=1` vs `epochs > 1`, which is a parameter, not a class distinction. ACE handles both. TraceAnalyser is a separate class because its input type is fundamentally different (raw traces vs `Sample + Environment`), not because of epoch count.
 
-**Trace as a Sample subclass:**
-Making `Trace` inherit from `Sample` was considered so that steps could accept either. Rejected — `Trace` has `output`, `feedback`, and `reasoning` which are outputs, not inputs. A Trace is a complete execution record; a Sample is an input to execution. Conflating them muddies the type contract. Instead, `Trace` exposes a `question` property that aliases `task`, satisfying the minimal interface steps need.
+**Structured Trace dataclass:**
+A `@dataclass Trace` with typed fields (`task`, `output`, `feedback`, `reasoning`, etc.) was considered. Rejected — it imposes a schema on trace data that doesn't match reality. External frameworks produce wildly different trace shapes (browser-use `AgentHistoryList`, LangChain result dicts, Claude Code transcripts). Forcing them through a common dataclass means either losing information (fields that don't map) or adding catch-all `metadata: dict` buckets that defeat the purpose of typing. Instead, `ctx.trace` is `object | None` — the raw trace as-is. The Reflector receives it directly and is responsible for making sense of it. This gives maximum flexibility for analysis without constraining trace format. Extraction helpers (converter functions, typed intermediate representations) can be layered on later if needed.
 
-**Steps that accept both Trace and Sample:**
-Making ReflectStep and UpdateStep polymorphic over input type was considered. Rejected — steps always receive `StepContext` with the same named fields. The runner is responsible for building the context correctly. Steps do not need to know whether the data came from a Trace or from live execution.
+**Steps that accept both traces and samples:**
+Making ReflectStep and UpdateStep polymorphic over input type was considered. Rejected — steps always receive `StepContext` with the same named fields. The runner (via `_build_context`) is responsible for building the context correctly. Steps do not need to know whether the data came from a raw trace or from live execution.
 
 **Observability in the runner:**
 Keeping observability logic in `ACERunner._track_observability_data()` was considered. Rejected — it mixes concerns. A dedicated `ObservabilityStep` is independently testable, optional, and composable.
