@@ -30,7 +30,19 @@ from .protocols import (
     ReflectorLike,
     SkillManagerLike,
 )
-from .runners import ACE, ACERunner, TraceAnalyser
+from .integrations import (
+    BrowserExecuteStep,
+    BrowserResult,
+    BrowserToTrace,
+    ClaudeCodeExecuteStep,
+    ClaudeCodeResult,
+    ClaudeCodeToTrace,
+    LangChainExecuteStep,
+    LangChainResult,
+    LangChainToTrace,
+    wrap_skillbook_context,
+)
+from .runners import ACE, ACERunner, BrowserUse, ClaudeCode, LangChain, TraceAnalyser
 
 __all__ = [
     # Context
@@ -68,8 +80,22 @@ __all__ = [
     # Deduplication
     "DeduplicationManager",
     "SimilarityDetector",
+    # Integration steps
+    "BrowserExecuteStep",
+    "BrowserResult",
+    "BrowserToTrace",
+    "ClaudeCodeExecuteStep",
+    "ClaudeCodeResult",
+    "ClaudeCodeToTrace",
+    "LangChainExecuteStep",
+    "LangChainResult",
+    "LangChainToTrace",
+    "wrap_skillbook_context",
     # Runners
     "ACE",
     "ACERunner",
+    "BrowserUse",
+    "ClaudeCode",
+    "LangChain",
     "TraceAnalyser",
 ]

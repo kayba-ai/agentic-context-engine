@@ -5,7 +5,7 @@ from __future__ import annotations
 import dataclasses
 from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import Any
+from typing import Any, Self
 
 
 @dataclass(frozen=True)
@@ -32,6 +32,6 @@ class StepContext:
         if not isinstance(self.metadata, MappingProxyType):
             object.__setattr__(self, "metadata", MappingProxyType(self.metadata))
 
-    def replace(self, **changes: Any) -> "StepContext":
+    def replace(self, **changes: Any) -> Self:
         """Return a new context with the given fields replaced."""
         return dataclasses.replace(self, **changes)

@@ -21,7 +21,8 @@ Implemented in `ace_next/` (parallel to `ace/` for easy rollback). The package i
 | `ACE` runner | Done | `ace_next/runners/ace.py` |
 | Implementations (`Agent`, `Reflector`, `SkillManager`) | Done | `ace_next/implementations/` |
 | Deduplication (`DeduplicationManager`, `SimilarityDetector`) | Done | `ace_next/deduplication/` |
-| Integration runners | Not started | — |
+| Integration steps (`BrowserExecuteStep`, `LangChainExecuteStep`, `ClaudeCodeExecuteStep`) | Done | `ace_next/integrations/` |
+| Integration runners (`BrowserUse`, `LangChain`, `ClaudeCode`) | Done | `ace_next/runners/` |
 
 ---
 
@@ -215,12 +216,14 @@ Protocols use structural typing (duck typing checked by mypy). A class satisfies
 ACERunner (shared infrastructure: epoch loop, delegates to Pipeline.run())
 ├── TraceAnalyser       — [Reflect → Tag → Update → Apply]; input = any trace object
 ├── ACE                 — [Agent → Evaluate → Reflect → Tag → Update → Apply]; input = Sample + Environment
-├── BrowserACE          — [BrowserExecute → Reflect → Tag → Update → Apply]; input = tasks
-├── LangChainACE        — [LangChainExecute → Reflect → Tag → Update → Apply]; input = chain inputs
-└── ClaudeCodeACE       — [ClaudeCodeExecute → Reflect → Tag → Update → Apply → Persist]; input = tasks
+├── BrowserUse          — [BrowserExecute → BrowserToTrace → Reflect → Tag → Update → Apply]; input = task strings
+├── LangChain           — [LangChainExecute → LangChainToTrace → Reflect → Tag → Update → Apply]; input = chain inputs
+└── ClaudeCode          — [ClaudeCodeExecute → ClaudeCodeToTrace → Reflect → Tag → Update → Apply]; input = task strings
 ```
 
 All compose a `Pipeline` rather than extending it. The pipeline is an implementation detail, not part of the public interface. Each subclass only overrides `run()` (public signature) and `_build_context()` (input mapping).
+
+Each integration runner uses two steps before the learning tail: (1) an **execute step** that produces an integration-specific result type (e.g. `BrowserResult`), and (2) a **ToTrace step** that converts that result into the standardised trace dict the learning tail expects. This separation keeps framework-specific logic in the execute step and trace formatting in the converter — each is independently testable.
 
 ---
 
@@ -1023,103 +1026,160 @@ ace = ACE.from_roles(
 
 ## Integration Pattern
 
-External frameworks (browser-use, LangChain, Claude Code) integrate by providing **execute steps** that compose into an `ACERunner`. No separate pipeline classes per integration — just steps that plug into the standard runner infrastructure.
+External frameworks (browser-use, LangChain, Claude Code) integrate via composable pipeline steps in `ace_next/integrations/`. Each integration provides three things:
 
-### Core idea: integrations are sub-pipelines
+1. **Result type** — an integration-specific dataclass (e.g. `BrowserResult`, `ClaudeCodeResult`)
+2. **Execute step** — INJECT skillbook context + EXECUTE the framework, writes the result to `ctx.trace`
+3. **ToTrace step** — converts the integration-specific result into the standardised trace dict that `ReflectStep` expects
 
-An integration provides the "execute" part. The "learn" part is always the same. The runner composes them:
+Runners in `ace_next/runners/` compose these steps with `learning_tail()`.
+
+### Core idea: execute → convert → learn
+
+Each integration defines its own input/output format. A converter step acts as a compatibility layer between the integration-specific result and the learning tail's standardised trace dict.
 
 ```
-Standard ACE:      [Agent → Evaluate]      → [Reflect → Tag → Update → Apply]
-                    ╰── execute (built-in) ╯   ╰──────── learn (shared) ──────╯
-                         provides: trace ──────► requires: trace  (skillbook set by _build_context)
+Standard ACE:      [Agent → Evaluate]                          → [Reflect → Tag → Update → Apply]
+                    ╰── execute (built-in) ──╯                    ╰──────── learn (shared) ──────╯
+                         provides: trace (dict) ─────────────────► requires: trace
 
-Browser-use:       [BrowserExecute]         → [Reflect → Tag → Update → Apply]
-                    ╰── execute (integration)╯  ╰──────── learn (shared) ──────╯
-                         provides: trace ──────► requires: trace  (skillbook set by _build_context)
+Browser-use:       [BrowserExecute] → [BrowserToTrace]         → [Reflect → Tag → Update → Apply]
+                    ╰── execute ────╯   ╰── convert ──╯           ╰──────── learn (shared) ──────╯
+                    provides: trace      rewrites trace             requires: trace
+                    (BrowserResult)      (BrowserResult → dict)
 
-TraceAnalyser:     [_build_context]         → [Reflect → Tag → Update → Apply]
-                    ╰── sets ctx.trace ─────╯   ╰──────── learn (shared) ──────╯
+TraceAnalyser:     [_build_context]                            → [Reflect → Tag → Update → Apply]
+                    ╰── sets ctx.trace (raw object) ───────╯      ╰──────── learn (shared) ──────╯
 ```
 
-Each integration provides one or more execute steps. These steps `provide` at minimum `{"trace"}` — the same field that `EvaluateStep` produces in the standard ACE pipeline. This is the contract that the learning tail (`ReflectStep`) requires.
+The execute step writes an integration-specific result type to `ctx.trace`. The ToTrace step reads that result and rewrites `ctx.trace` with a standardised dict. The learning tail only ever sees the dict.
 
-### Execute step contract
+### Two-step contract
 
-Every integration execute step must provide `trace`:
+Every integration provides two steps that chain together:
+
+**Step 1 — Execute step** (INJECT + EXECUTE):
 
 ```python
 class SomeExecuteStep:
-    requires = frozenset({"sample", "skillbook"})       # minimum
-    provides = frozenset({"trace"})                      # minimum — feeds the learning tail
+    requires = frozenset({"sample", "skillbook"})
+    provides = frozenset({"trace"})
 
     def __init__(self, framework_client) -> None:
         self.framework_client = framework_client
 
     def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
-        # Run framework using ctx.skillbook (SkillbookView), build trace from result
-        ...
-        return ctx.replace(trace=...)
+        task = ctx.sample                               # raw input (string, dict, etc.)
+        enhanced = self._inject(task, ctx.skillbook)    # prepend skillbook context
+        result = self.framework_client.run(enhanced)    # framework-specific execution
+        return ctx.replace(trace=SomeResult(...))       # integration-specific result type
 ```
 
-Example — browser-use:
+**Step 2 — ToTrace step** (convert to standardised dict):
+
+```python
+class SomeToTrace:
+    requires = frozenset({"trace"})
+    provides = frozenset({"trace"})         # overwrites trace with standardised dict
+
+    def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
+        r: SomeResult = ctx.trace
+        trace = {
+            "question": r.task,
+            "reasoning": r.execution_trace,     # integration-specific formatting
+            "answer": r.output,
+            "skill_ids": r.cited_skill_ids,
+            "feedback": f"Task {'succeeded' if r.success else 'failed'}",
+            "ground_truth": None,
+        }
+        return ctx.replace(trace=trace)
+```
+
+The standardised trace dict keys match what `ReflectStep` expects: `question`, `reasoning`, `answer`, `skill_ids`, `feedback`, `ground_truth`.
+
+### Why two steps instead of one
+
+Splitting execute from trace conversion gives three benefits:
+
+1. **Independent testability** — test the execute step with a mock framework without worrying about trace format; test the ToTrace step with a fixture result without running a real framework.
+2. **Reusability** — the execute step can be used standalone (without learning) to get framework-specific results. The ToTrace step can be swapped for a custom converter.
+3. **Separation of concerns** — framework interaction logic stays in the execute step; trace formatting stays in the converter. Neither knows about the other's internals.
+
+### Result types
+
+Each integration defines its own result dataclass:
+
+| Integration | Result type | Key fields |
+|---|---|---|
+| Browser-use | `BrowserResult` | `task`, `success`, `output`, `error`, `steps_count`, `duration_seconds`, `cited_skill_ids`, `chronological_steps`, `raw_history` |
+| Claude Code | `ClaudeCodeResult` | `task`, `success`, `output`, `execution_trace`, `returncode`, `error` |
+| LangChain | `LangChainResult` | `task`, `output`, `result_type` (simple/agent/langgraph/error), `success`, `error`, `intermediate_steps`, `messages`, `raw_result` |
+
+### Example — browser-use execute step
 
 ```python
 class BrowserExecuteStep:
     requires = frozenset({"sample", "skillbook"})
     provides = frozenset({"trace"})
 
-    def __init__(self, browser_agent) -> None:
-        self.browser_agent = browser_agent
+    def __init__(self, browser_llm, browser=None, **agent_kwargs) -> None:
+        self.browser_llm = browser_llm
+        self.browser = browser
+        self.agent_kwargs = agent_kwargs
 
     async def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
-        # Inject skillbook context into the browser agent
-        skillbook_context = ctx.skillbook.as_prompt()  # SkillbookView (read-only)
+        task: str = ctx.sample      # raw task string, not a Sample object
 
-        # Execute with framework
-        history = await self.browser_agent.run(
-            task=ctx.sample.question,
-            additional_context=skillbook_context,
+        # INJECT — prepend skillbook context
+        enhanced_task = self._inject(task, ctx.skillbook)
+
+        # EXECUTE — run browser-use agent
+        agent = Agent(task=enhanced_task, llm=self.browser_llm, **self.agent_kwargs)
+        history = await agent.run()
+
+        # Build integration-specific result
+        result = BrowserResult(
+            task=task, success=True, output=history.final_result(),
+            steps_count=history.number_of_steps(),
+            chronological_steps=..., raw_history=history,
         )
-
-        # Pass the raw history as the trace — the Reflector analyses it directly
-        return ctx.replace(trace=history)
+        return ctx.replace(trace=result)
 ```
 
 ### Composing into a runner
 
-Integrations compose their execute step(s) with the shared learning tail and pass the result to `ACERunner`:
+Runners compose execute step + ToTrace step + learning tail:
 
 ```python
-class BrowserACE(ACERunner):
-    """Browser-use integration runner."""
+class BrowserUse(ACERunner):
+    """Browser-use agent with ACE learning pipeline."""
 
     @classmethod
-    def from_client(cls, browser_agent, ace_client, *, skillbook=None, **kwargs):
+    def from_roles(cls, *, browser_llm, reflector, skill_manager,
+                   skillbook=None, **kwargs):
         skillbook = skillbook or Skillbook()
         steps = [
-            BrowserExecuteStep(browser_agent),
-            *learning_tail(Reflector(ace_client), SkillManager(ace_client), skillbook, **kwargs),
+            BrowserExecuteStep(browser_llm),
+            BrowserToTrace(),
+            *learning_tail(reflector, skill_manager, skillbook, **kwargs),
         ]
         return cls(pipeline=Pipeline(steps), skillbook=skillbook)
 
-    def run(self, tasks, *, epochs=1, wait=True, **kwargs):
-        samples = [Sample(question=t) if isinstance(t, str) else t for t in tasks]
-        return self._run(samples, epochs=epochs, wait=wait)
+    def run(self, tasks, epochs=1, *, wait=True):
+        return self._run(tasks, epochs=epochs, wait=wait)
 
-    def _build_context(self, sample, *, epoch, total_epochs, index, total, global_sample_index):
+    def _build_context(self, task, *, epoch, total_epochs, index, total,
+                       global_sample_index, **_):
         return ACEStepContext(
-            sample=sample,
+            sample=task,    # raw string — not wrapped in Sample
             skillbook=SkillbookView(self.skillbook),
-            epoch=epoch,
-            total_epochs=total_epochs,
-            step_index=index,
-            total_steps=total,
+            epoch=epoch, total_epochs=total_epochs,
+            step_index=index, total_steps=total,
             global_sample_index=global_sample_index,
         )
 ```
 
-The pattern is the same for every integration: subclass `ACERunner`, provide a factory that wires the execute step(s) + learning tail, override `run()` with the integration-specific signature, and implement `_build_context()`.
+The pattern is the same for every integration: subclass `ACERunner`, compose `[ExecuteStep, ToTrace, *learning_tail()]` in the factory, accept raw inputs (strings, dicts) in `run()`, and map them to `ACEStepContext` in `_build_context()`. No `Sample` wrapping — the raw input goes directly on `ctx.sample`.
 
 ### `learning_tail()` — reusable learning steps
 
@@ -1159,13 +1219,14 @@ def learning_tail(
 Integration factories become shorter and less error-prone:
 
 ```python
-class BrowserACE(ACERunner):
+class BrowserUse(ACERunner):
     @classmethod
-    def from_client(cls, browser_agent, ace_client, *, skillbook=None, **kwargs):
+    def from_roles(cls, *, browser_llm, reflector, skill_manager, skillbook=None, **kwargs):
         skillbook = skillbook or Skillbook()
         steps = [
-            BrowserExecuteStep(browser_agent),
-            *learning_tail(Reflector(ace_client), SkillManager(ace_client), skillbook, **kwargs),
+            BrowserExecuteStep(browser_llm),
+            BrowserToTrace(),
+            *learning_tail(reflector, skill_manager, skillbook, **kwargs),
         ]
         return cls(pipeline=Pipeline(steps), skillbook=skillbook)
 ```
@@ -1260,11 +1321,12 @@ class ACELiteLLM:
 
 
 class ACEAgent:
-    """Browser-use convenience wrapper. Delegates to BrowserACE."""
+    """Browser-use convenience wrapper. Delegates to BrowserUse."""
 
-    def __init__(self, browser_agent, ace_client, **kwargs):
-        self.runner = BrowserACE.from_client(
-            browser_agent, ace_client, **kwargs
+    def __init__(self, browser_llm, reflector, skill_manager, **kwargs):
+        self.runner = BrowserUse.from_roles(
+            browser_llm=browser_llm, reflector=reflector,
+            skill_manager=skill_manager, **kwargs
         )
 
     async def run(self, task):
@@ -1324,28 +1386,21 @@ ace_next/
     observability.py        ← ObservabilityStep
     persist.py              ← PersistStep
   runners/                    ← Runner classes (compose Pipeline, manage epoch loop)
-    __init__.py               ← Re-exports ACERunner, TraceAnalyser, ACE
+    __init__.py               ← Re-exports ACERunner, TraceAnalyser, ACE, BrowserUse, LangChain, ClaudeCode
     base.py                   ← ACERunner base class
     trace_analyser.py         ← TraceAnalyser (learning tail only)
     ace.py                    ← ACE (full adaptive pipeline)
-  integrations/             ← (not started)
-    browser_use/
-      runner.py             ← BrowserACE (ACERunner subclass)
-      steps/
-        execute.py          ← BrowserExecuteStep
-    langchain/
-      runner.py             ← LangChainACE (ACERunner subclass)
-      steps/
-        execute.py          ← LangChainExecuteStep
-    claude_code/
-      runner.py             ← ClaudeCodeACE (ACERunner subclass)
-      steps/
-        execute.py          ← ClaudeCodeExecuteStep
-    litellm.py              ← ACELiteLLM (high-level wrapper)
-    base.py                 ← wrap_skillbook_context (unchanged)
+    browser_use.py            ← BrowserUse runner (BrowserExecuteStep + BrowserToTrace + learning_tail)
+    langchain.py              ← LangChain runner (LangChainExecuteStep + LangChainToTrace + learning_tail)
+    claude_code.py            ← ClaudeCode runner (ClaudeCodeExecuteStep + ClaudeCodeToTrace + learning_tail)
+  integrations/               ← Integration steps (execute + result type + trace converter)
+    __init__.py               ← Exports steps, result types, ToTrace converters, wrap_skillbook_context
+    browser_use.py            ← BrowserExecuteStep, BrowserResult, BrowserToTrace
+    langchain.py              ← LangChainExecuteStep, LangChainResult, LangChainToTrace
+    claude_code.py            ← ClaudeCodeExecuteStep, ClaudeCodeResult, ClaudeCodeToTrace
 ```
 
-Each integration provides: (1) an execute step and (2) an `ACERunner` subclass that composes the step with the learning tail. For offline analysis, raw trace objects are passed directly to TraceAnalyser. No separate pipeline classes.
+Each integration provides: (1) an execute step, (2) a result type, and (3) a ToTrace converter step. Runners in `ace_next/runners/` compose these with `learning_tail()`. For offline analysis, raw trace objects are passed directly to TraceAnalyser.
 
 ### What moves where
 
@@ -1366,10 +1421,10 @@ Each integration provides: (1) an execute step and (2) an `ACERunner` subclass t
 | New | `ace_next/steps/checkpoint.py` | CheckpointStep |
 | New | `ace_next/steps/observability.py` | ObservabilityStep |
 | New | `ace_next/steps/persist.py` | PersistStep |
-| New | `ace_next/runners/` | ACERunner, TraceAnalyser, ACE |
-| `ace/integrations/browser_use.py` | `ace_next/integrations/browser_use/` | Split into runner + steps |
-| `ace/integrations/langchain.py` | `ace_next/integrations/langchain/` | Split into runner + steps |
-| `ace/integrations/claude_code.py` | `ace_next/integrations/claude_code/` | Split into runner + steps |
+| New | `ace_next/runners/` | ACERunner, TraceAnalyser, ACE, BrowserUse, LangChain, ClaudeCode |
+| `ace/integrations/browser_use.py` | `ace_next/integrations/browser_use.py` + `ace_next/runners/browser_use.py` | Split into execute step + result type + ToTrace converter + runner |
+| `ace/integrations/langchain.py` | `ace_next/integrations/langchain.py` + `ace_next/runners/langchain.py` | Split into execute step + result type + ToTrace converter + runner |
+| `ace/integrations/claude_code.py` | `ace_next/integrations/claude_code.py` + `ace_next/runners/claude_code.py` | Split into execute step + result type + ToTrace converter + runner |
 
 ---
 
