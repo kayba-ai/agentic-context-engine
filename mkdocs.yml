@@ -1,0 +1,89 @@
+site_name: ACE Documentation
+site_description: Agentic Context Engineering — Self-Improving Language Model Agents
+site_url: https://kayba-ai.github.io/agentic-context-engine/
+repo_url: https://github.com/kayba-ai/agentic-context-engine
+repo_name: kayba-ai/agentic-context-engine
+
+theme:
+  name: material
+  custom_dir: overrides
+  logo: assets/Kayba_logo_rounded.png
+  favicon: assets/Kayba_logo_rounded.png
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.tabs.link
+
+plugins:
+  - search
+  - mike:
+      alias_type: symlink
+      canonical_version: latest
+
+extra:
+  version:
+    provider: mike
+    default: latest
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Quick Start: getting-started/quick-start.md
+    - Setup Guide: getting-started/setup.md
+  - Guides:
+    - Complete ACE Guide: guides/complete-guide.md
+    - Integration Guide: guides/integration.md
+    - Prompt Engineering: guides/prompts.md
+    - Testing: guides/testing.md
+  - Pipeline Engine:
+    - Overview: pipeline/index.md
+    - Quick Start: pipeline/quick-start.md
+    - Core Concepts: pipeline/core-concepts.md
+    - Execution Model: pipeline/execution.md
+    - Branching & Parallelism: pipeline/branching.md
+    - Error Handling: pipeline/error-handling.md
+    - Building Custom Steps: pipeline/custom-steps.md
+    - API Reference: pipeline/api-reference.md
+  - Integrations:
+    - Opik Observability: integrations/opik.md
+  - API Reference: api/index.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.snippets
+  - attr_list
+  - md_in_html
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - toc:
+      permalink: true
