@@ -10,6 +10,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Type, TypeVar, Union
 
@@ -458,16 +459,87 @@ class LiteLLMClient:
             logger.error(f"Error in LiteLLM multi-turn completion: {e}")
             raise
 
+    @staticmethod
+    def _extract_json(text: str) -> dict:
+        """Extract JSON from LLM response, handling markdown fences and preamble."""
+        text = text.strip()
+
+        # Strip markdown code fences
+        if text.startswith("```json"):
+            text = text[7:]
+        elif text.startswith("```"):
+            text = text[3:]
+        if text.endswith("```"):
+            text = text[:-3]
+        text = text.strip()
+
+        # Try direct parse first
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            pass
+
+        # Fallback: find the first top-level { ... } block
+        match = re.search(r"\{", text)
+        if match:
+            start = match.start()
+            depth = 0
+            in_string = False
+            escape = False
+            for i in range(start, len(text)):
+                ch = text[i]
+                if escape:
+                    escape = False
+                    continue
+                if ch == "\\":
+                    escape = True
+                    continue
+                if ch == '"' and not escape:
+                    in_string = not in_string
+                    continue
+                if in_string:
+                    continue
+                if ch == "{":
+                    depth += 1
+                elif ch == "}":
+                    depth -= 1
+                    if depth == 0:
+                        return json.loads(text[start : i + 1])
+
+        raise ValueError(
+            f"Could not extract JSON from LLM response: {text[:200]}..."
+        )
+
     def complete_structured(
         self,
         prompt: str,
         response_model: Type[T],
         **kwargs: Any,
     ) -> T:
-        """Structured output: call complete(), parse JSON, validate with Pydantic."""
-        response = self.complete(prompt, **kwargs)
-        data = json.loads(response.text)
-        return response_model.model_validate(data)
+        """Structured output: call complete(), parse JSON, validate with Pydantic.
+
+        Handles markdown-fenced responses and retries on parse failure.
+        """
+        max_retries = kwargs.pop("max_retries", 3)
+        last_error: Exception | None = None
+
+        for attempt in range(max_retries):
+            response = self.complete(prompt, **kwargs)
+            try:
+                data = self._extract_json(response.text)
+                return response_model.model_validate(data)
+            except (json.JSONDecodeError, ValueError, Exception) as e:
+                last_error = e
+                logger.warning(
+                    "Structured parse attempt %d/%d failed: %s",
+                    attempt + 1,
+                    max_retries,
+                    e,
+                )
+
+        raise ValueError(
+            f"Failed to parse structured output after {max_retries} attempts: {last_error}"
+        )
 
     async def acomplete(
         self, prompt: str, system: Optional[str] = None, **kwargs: Any
