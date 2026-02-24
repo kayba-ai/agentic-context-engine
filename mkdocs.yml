@@ -50,6 +50,15 @@ nav:
     - Integration Guide: guides/integration.md
     - Prompt Engineering: guides/prompts.md
     - Testing: guides/testing.md
+  - Pipeline Engine:
+    - Overview: pipeline/index.md
+    - Quick Start: pipeline/quick-start.md
+    - Core Concepts: pipeline/core-concepts.md
+    - Execution Model: pipeline/execution.md
+    - Branching & Parallelism: pipeline/branching.md
+    - Error Handling: pipeline/error-handling.md
+    - Building Custom Steps: pipeline/custom-steps.md
+    - API Reference: pipeline/api-reference.md
   - Integrations:
     - Opik Observability: integrations/opik.md
   - API Reference: api/index.md
@@ -57,7 +66,11 @@ nav:
 markdown_extensions:
   - admonition
   - pymdownx.details
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.inlinehilite
@@ -66,5 +79,8 @@ markdown_extensions:
   - pymdownx.snippets
   - attr_list
   - md_in_html
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - toc:
       permalink: true
