@@ -370,9 +370,6 @@ class TraceAnalyser(ACERunner):
     """Analyse pre-recorded traces to build a skillbook."""
 
     @classmethod
-    def from_client(cls, client, *, skillbook=None, **kwargs) -> "TraceAnalyser": ...
-
-    @classmethod
     def from_roles(cls, *, reflector, skill_manager, skillbook=None, **kwargs) -> "TraceAnalyser": ...
 
     def run(
@@ -447,9 +444,6 @@ class ACE(ACERunner):
     """Live adaptive pipeline: Agent → Evaluate → Reflect → Tag → Update → Apply."""
 
     @classmethod
-    def from_client(cls, client, *, environment=None, skillbook=None, **kwargs) -> "ACE": ...
-
-    @classmethod
     def from_roles(cls, *, agent, reflector, skill_manager, environment=None, skillbook=None, **kwargs) -> "ACE": ...
 
     def run(
@@ -493,19 +487,9 @@ No instance state is modified — the runner stays reentrant.
 
 ## Factory Methods
 
-Both TraceAnalyser and ACE provide the same two factory patterns:
+All runners provide a single `from_roles` factory that takes pre-built role instances:
 
-### `from_client` — one LLM, zero boilerplate
-
-```python
-# TraceAnalyser: creates Reflector + SkillManager from the client
-analyser = TraceAnalyser.from_client(LiteLLMClient(model="gpt-4o-mini"))
-
-# ACE: creates Agent + Reflector + SkillManager from the client
-ace = ACE.from_client(LiteLLMClient(model="gpt-4o-mini"))
-```
-
-### `from_roles` — full control
+### `from_roles` — explicit construction
 
 ```python
 # TraceAnalyser: bring your own roles
@@ -521,7 +505,7 @@ ace = ACE.from_roles(
     reflector=Reflector(llm),
     skill_manager=SkillManager(llm),
     skillbook=existing_skillbook,
-    dedup_manager=dedup_manager(similarity_threshold=0.85),
+    dedup_manager=DeduplicationManager(DeduplicationConfig(similarity_threshold=0.85)),
 )
 ```
 
@@ -530,7 +514,6 @@ ace = ACE.from_roles(
 | Parameter | Default | Description |
 |---|---|---|
 | `skillbook` | `Skillbook()` | Starting skillbook (empty if not provided) |
-| `max_refinement_rounds` | `1` | Reflector iteration depth |
 | `dedup_manager` | `None` | Appends a `DeduplicateStep` to the pipeline |
 | `dedup_interval` | `10` | Deduplication frequency (samples between runs) |
 | `checkpoint_dir` | `None` | Appends a `CheckpointStep` to the pipeline |
@@ -864,7 +847,7 @@ class PersistStep:
         return ctx
 ```
 
-Integration-specific side-effect step — writes the current skillbook to an external file (e.g., `CLAUDE.md` for Claude Code). Used by `ClaudeCodeACE` to persist learned strategies into the project's instruction file after each learning cycle. Unlike `CheckpointStep` (which saves the full skillbook JSON at intervals), `PersistStep` runs on every sample and writes in the target format expected by the integration. Receives the real `Skillbook` via constructor injection.
+Integration-specific side-effect step — writes the current skillbook to an external file (e.g., `CLAUDE.md` for Claude Code). Used by `ClaudeCode` runner to persist learned strategies into the project's instruction file after each learning cycle. Unlike `CheckpointStep` (which saves the full skillbook JSON at intervals), `PersistStep` runs on every sample and writes in the target format expected by the integration. Receives the real `Skillbook` via constructor injection.
 
 ---
 
@@ -1254,7 +1237,10 @@ Integrations also support offline learning. When an integration records executio
 histories = [await agent.run(task) for task in tasks]
 
 # Feed raw histories directly — Reflector analyses them as-is
-analyser = TraceAnalyser.from_client(llm_client)
+analyser = TraceAnalyser.from_roles(
+    reflector=Reflector(llm_client),
+    skill_manager=SkillManager(llm_client),
+)
 analyser.run(histories, epochs=2)
 analyser.save("browser_expert.json")
 ```
@@ -1504,7 +1490,7 @@ traces = [
 ]
 
 # Analyse — raw traces go directly to the Reflector via ctx.trace
-analyser = TraceAnalyser.from_client(llm)
+analyser = TraceAnalyser.from_roles(reflector=Reflector(llm), skill_manager=SkillManager(llm))
 results = analyser.run(traces, epochs=2)
 analyser.save("travel_agent.json")
 ```
@@ -1513,6 +1499,7 @@ analyser.save("travel_agent.json")
 
 ```python
 from ace_next import ACE, Sample, SimpleEnvironment
+from ace_next.implementations import Agent, Reflector, SkillManager
 from ace.llm_providers.litellm_client import LiteLLMClient
 from ace.llm_providers.instructor_client import wrap_with_instructor
 
@@ -1524,7 +1511,12 @@ samples = [
 ]
 
 # Environment provided at construction — EvaluateStep uses it to generate feedback
-ace = ACE.from_client(llm, environment=SimpleEnvironment())
+ace = ACE.from_roles(
+    agent=Agent(llm),
+    reflector=Reflector(llm),
+    skill_manager=SkillManager(llm),
+    environment=SimpleEnvironment(),
+)
 results = ace.run(samples, epochs=3)
 ace.save("geography.json")
 ```
@@ -1534,7 +1526,11 @@ ace.save("geography.json")
 ```python
 # No environment — trace still contains agent output + ground truth
 # The Reflector learns from ground-truth comparison directly
-ace = ACE.from_client(llm)
+ace = ACE.from_roles(
+    agent=Agent(llm),
+    reflector=Reflector(llm),
+    skill_manager=SkillManager(llm),
+)
 results = ace.run(samples, epochs=3)
 ```
 
@@ -1544,7 +1540,7 @@ results = ace.run(samples, epochs=3)
 # Any Iterable works with epochs=1 (consumed once, not replayed)
 samples = load_samples_from_csv("eval_set.csv")  # returns a list or generator
 
-ace = ACE.from_client(llm)
+ace = ACE.from_roles(agent=Agent(llm), reflector=Reflector(llm), skill_manager=SkillManager(llm))
 results = ace.run(samples, epochs=1)
 ```
 
@@ -1571,13 +1567,18 @@ results = ace.run(samples, epochs=3)
 ### Integration — browser-use runner
 
 ```python
-from ace_next.integrations.browser_use import BrowserACE
-from browser_use import Agent as BrowserAgent
+from ace_next.runners import BrowserUse
+from ace_next.implementations import Reflector, SkillManager
+from ace.llm_providers.litellm_client import LiteLLMClient
+from langchain_openai import ChatOpenAI
 
-browser_agent = BrowserAgent(llm=ChatOpenAI(model="gpt-4o"))
-runner = BrowserACE.from_client(
-    browser_agent,
-    ace_client=llm,  # Must satisfy LLMClientLike (complete + complete_structured)
+llm = LiteLLMClient(model="gpt-4o-mini")
+browser_llm = ChatOpenAI(model="gpt-4o")
+
+runner = BrowserUse.from_roles(
+    browser_llm=browser_llm,
+    reflector=Reflector(llm),
+    skill_manager=SkillManager(llm),
 )
 
 # Live execution + learning
@@ -1588,7 +1589,11 @@ runner.save("browser_expert.json")
 ### Fire-and-forget — get results while learning continues
 
 ```python
-ace = ACE.from_client(llm)
+ace = ACE.from_roles(
+    agent=Agent(llm),
+    reflector=Reflector(llm),
+    skill_manager=SkillManager(llm),
+)
 
 # wait=False: returns after foreground steps (Agent + Evaluate)
 # Background learning (Reflect → Tag → Update → Apply) continues
@@ -1611,14 +1616,27 @@ ace.save("learned.json")
 
 ```python
 from ace_next import TraceAnalyser, ACE, Skillbook
+from ace_next.implementations import Agent, Reflector, SkillManager
+
+reflector = Reflector(llm)
+skill_manager = SkillManager(llm)
 
 # Phase 1: build skillbook from historical traces
-analyser = TraceAnalyser.from_client(llm, skillbook=Skillbook())
+skillbook = Skillbook()
+analyser = TraceAnalyser.from_roles(
+    reflector=reflector,
+    skill_manager=skill_manager,
+    skillbook=skillbook,
+)
 analyser.run(historical_traces, epochs=3)
-skillbook = analyser.skillbook
 
-# Phase 2: deploy with live learning
-ace = ACE.from_client(llm, skillbook=skillbook)
+# Phase 2: deploy with live learning (reuse the evolved skillbook)
+ace = ACE.from_roles(
+    agent=Agent(llm),
+    reflector=reflector,
+    skill_manager=skill_manager,
+    skillbook=skillbook,
+)
 ace.run(live_samples, epochs=1)
 ace.save("production.json")
 ```
@@ -1633,7 +1651,7 @@ Issues acknowledged but deferred from this version of the spec.
 `_run()` eagerly materializes the full iterable into a list of `ACEStepContext` objects before passing them to `Pipeline.run()`. For a large generator with `epochs=1`, the entire input gets buffered into memory. True streaming would require the pipeline to accept an iterator and process items one-at-a-time (e.g., `for ctx in contexts: pipeline.run_one(ctx)`), or an async iterator pattern with `asyncio.as_completed`. This is a deliberate simplification — batch materialization keeps the epoch loop and error handling straightforward. Revisit if memory pressure from large single-pass runs becomes a real problem.
 
 **Builder API for custom pipelines (speculative):**
-The current API offers two extremes: factory methods (`from_client`, `from_roles`) that hide the pipeline entirely, and manual `Pipeline([...])` construction that requires understanding `ACEStepContext`, `SkillbookView`, step contracts, and `ACERunner` subclassing. Users who want to insert a custom step between Reflect and Update, or swap the execute head while keeping the learning tail, fall into a gap where neither approach serves them well.
+The current API offers two extremes: factory methods (`from_roles`) that hide the pipeline entirely, and manual `Pipeline([...])` construction that requires understanding `ACEStepContext`, `SkillbookView`, step contracts, and `ACERunner` subclassing. Users who want to insert a custom step between Reflect and Update, or swap the execute head while keeping the learning tail, fall into a gap where neither approach serves them well.
 
 One possible direction is a builder API that would bridge this gap:
 
