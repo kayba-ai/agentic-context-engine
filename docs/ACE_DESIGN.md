@@ -23,6 +23,7 @@ Implemented in `ace_next/` (parallel to `ace/` for easy rollback). The package i
 | Deduplication (`DeduplicationManager`, `SimilarityDetector`) | Done | `ace_next/deduplication/` |
 | Integration steps (`BrowserExecuteStep`, `LangChainExecuteStep`, `ClaudeCodeExecuteStep`) | Done | `ace_next/integrations/` |
 | Integration runners (`BrowserUse`, `LangChain`, `ClaudeCode`) | Done | `ace_next/runners/` |
+| LLM providers (`LiteLLMClient`, `InstructorClient`, `LangChainLiteLLMClient`, `ClaudeCodeLLMClient`) | Done | `ace_next/providers/` |
 
 ---
 
@@ -199,7 +200,7 @@ class LLMClientLike(Protocol):
 
 `complete_structured` returns a validated Pydantic model instance. This is the key capability — implementations call `llm.complete_structured(prompt, AgentOutput)` and get back a typed, validated object. Any LLM client that provides both methods satisfies the protocol: `LiteLLMClient` wrapped with Instructor, a custom OpenAI wrapper, or a mock for testing.
 
-**Design decision:** The old `ace/roles.py` auto-wrapped LLM clients with Instructor if `complete_structured` was missing. In `ace_next`, this auto-wrapping is removed — callers must pass a pre-wrapped client. This eliminates the hidden dependency on `ace.llm_providers.instructor_client` and makes the requirement explicit.
+**Design decision:** The old `ace/roles.py` auto-wrapped LLM clients with Instructor if `complete_structured` was missing. In `ace_next`, this auto-wrapping is removed — callers must pass a pre-wrapped client (e.g. `wrap_with_instructor(LiteLLMClient(...))` from `ace_next.providers`). This makes the requirement explicit.
 
 ### Why protocols, not ABC
 
@@ -1384,6 +1385,12 @@ ace_next/
     browser_use.py            ← BrowserExecuteStep, BrowserResult, BrowserToTrace
     langchain.py              ← LangChainExecuteStep, LangChainResult, LangChainToTrace
     claude_code.py            ← ClaudeCodeExecuteStep, ClaudeCodeResult, ClaudeCodeToTrace
+  providers/                  ← LLM client wrappers (not pipeline steps)
+    __init__.py               ← Exports LiteLLMClient, InstructorClient, etc.
+    litellm.py                ← LiteLLMClient, LiteLLMConfig, LLMResponse
+    instructor.py             ← InstructorClient, wrap_with_instructor
+    langchain.py              ← LangChainLiteLLMClient (optional: langchain-litellm)
+    claude_code.py            ← ClaudeCodeLLMClient, ClaudeCodeLLMConfig (optional: claude CLI)
 ```
 
 Each integration provides: (1) an execute step, (2) a result type, and (3) a ToTrace converter step. Runners in `ace_next/runners/` compose these with `learning_tail()`. For offline analysis, raw trace objects are passed directly to TraceAnalyser.
@@ -1411,6 +1418,10 @@ Each integration provides: (1) an execute step, (2) a result type, and (3) a ToT
 | `ace/integrations/browser_use.py` | `ace_next/integrations/browser_use.py` + `ace_next/runners/browser_use.py` | Split into execute step + result type + ToTrace converter + runner |
 | `ace/integrations/langchain.py` | `ace_next/integrations/langchain.py` + `ace_next/runners/langchain.py` | Split into execute step + result type + ToTrace converter + runner |
 | `ace/integrations/claude_code.py` | `ace_next/integrations/claude_code.py` + `ace_next/runners/claude_code.py` | Split into execute step + result type + ToTrace converter + runner |
+| `ace/llm_providers/litellm_client.py` | `ace_next/providers/litellm.py` | Self-contained: `LiteLLMClient`, `LiteLLMConfig`, `LLMResponse` (no ABC) |
+| `ace/llm_providers/instructor_client.py` | `ace_next/providers/instructor.py` | Self-contained: `InstructorClient`, `wrap_with_instructor` |
+| `ace/llm_providers/langchain_client.py` | `ace_next/providers/langchain.py` | Self-contained: `LangChainLiteLLMClient` (no ABC) |
+| `ace/llm_providers/claude_code_client.py` | `ace_next/providers/claude_code.py` | Self-contained: `ClaudeCodeLLMClient`, `ClaudeCodeLLMConfig` (no ABC) |
 
 ---
 
@@ -1467,9 +1478,7 @@ Follows the pipeline engine's error model without additions.
 ### TraceAnalyser — learn from browser-use history
 
 ```python
-from ace_next import TraceAnalyser
-from ace.llm_providers.litellm_client import LiteLLMClient
-from ace.llm_providers.instructor_client import wrap_with_instructor
+from ace_next import TraceAnalyser, Reflector, SkillManager, LiteLLMClient, wrap_with_instructor
 
 llm = wrap_with_instructor(LiteLLMClient(model="gpt-4o-mini"))
 
@@ -1498,10 +1507,8 @@ analyser.save("travel_agent.json")
 ### ACE — live Q&A training
 
 ```python
-from ace_next import ACE, Sample, SimpleEnvironment
-from ace_next.implementations import Agent, Reflector, SkillManager
-from ace.llm_providers.litellm_client import LiteLLMClient
-from ace.llm_providers.instructor_client import wrap_with_instructor
+from ace_next import ACE, Sample, SimpleEnvironment, Agent, Reflector, SkillManager
+from ace_next import LiteLLMClient, wrap_with_instructor
 
 llm = wrap_with_instructor(LiteLLMClient(model="gpt-4o-mini"))
 
@@ -1567,9 +1574,7 @@ results = ace.run(samples, epochs=3)
 ### Integration — browser-use runner
 
 ```python
-from ace_next.runners import BrowserUse
-from ace_next.implementations import Reflector, SkillManager
-from ace.llm_providers.litellm_client import LiteLLMClient
+from ace_next import BrowserUse, Reflector, SkillManager, LiteLLMClient
 from langchain_openai import ChatOpenAI
 
 llm = LiteLLMClient(model="gpt-4o-mini")
@@ -1722,7 +1727,7 @@ Storing the real `Skillbook` as a field on `ACEStepContext` was the initial desi
 Keeping ReflectStep as both reflection and tagging, and UpdateStep as both generation and application was considered. Rejected — each combination mixes a pure function (LLM call producing output) with a side effect (skillbook mutation). Splitting them means pure steps can be tested without a skillbook, side-effect steps can be tested without an LLM, and concerns are cleanly separated.
 
 **Instructor auto-wrapping in implementations:**
-The old `ace/roles.py` auto-wraps LLM clients with Instructor if `complete_structured` is missing (duck-typing check + fallback). Rejected for `ace_next` — auto-wrapping creates a hidden dependency on `ace.llm_providers.instructor_client` and masks what the implementation actually requires. In `ace_next`, `LLMClientLike` explicitly requires both `complete()` and `complete_structured()`. Callers wrap their LLM clients before passing them in. This makes the requirement visible at the call site and keeps implementations dependency-free.
+The old `ace/roles.py` auto-wraps LLM clients with Instructor if `complete_structured` is missing (duck-typing check + fallback). Rejected for `ace_next` — auto-wrapping masks what the implementation actually requires. In `ace_next`, `LLMClientLike` explicitly requires both `complete()` and `complete_structured()`. Callers wrap their LLM clients before passing them in (e.g. `wrap_with_instructor(LiteLLMClient(...))` from `ace_next.providers`). This makes the requirement visible at the call site and keeps implementations dependency-free.
 
 **Recursive Reflector:**
 The old `ace/reflector/` subsystem supports recursive mode where the Reflector iterates multiple times to deepen analysis. Rejected for the initial `ace_next` implementation — recursive mode pulls in significant additional complexity (iteration control, convergence detection, intermediate result accumulation) for marginal benefit on most workloads. The `Reflector` class implements SIMPLE mode only (single-pass reflection). Recursive mode can be added later as an opt-in capability without changing the `ReflectorLike` protocol.

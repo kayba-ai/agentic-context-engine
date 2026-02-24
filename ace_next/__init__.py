@@ -42,6 +42,17 @@ from .integrations import (
     LangChainToTrace,
     wrap_skillbook_context,
 )
+from .providers import (
+    CLAUDE_CODE_CLI_AVAILABLE,
+    ClaudeCodeLLMClient,
+    ClaudeCodeLLMConfig,
+    InstructorClient,
+    LangChainLiteLLMClient,
+    LiteLLMClient,
+    LiteLLMConfig,
+    LLMResponse,
+    wrap_with_instructor,
+)
 from .runners import ACE, ACERunner, BrowserUse, ClaudeCode, LangChain, TraceAnalyser
 
 __all__ = [
@@ -91,6 +102,16 @@ __all__ = [
     "LangChainResult",
     "LangChainToTrace",
     "wrap_skillbook_context",
+    # LLM providers
+    "LiteLLMClient",
+    "LiteLLMConfig",
+    "LLMResponse",
+    "InstructorClient",
+    "wrap_with_instructor",
+    "LangChainLiteLLMClient",
+    "ClaudeCodeLLMClient",
+    "ClaudeCodeLLMConfig",
+    "CLAUDE_CODE_CLI_AVAILABLE",
     # Runners
     "ACE",
     "ACERunner",
