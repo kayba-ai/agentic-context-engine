@@ -133,7 +133,7 @@ class SkillbookView:
 - **Runtime** — `AttributeError` if someone calls a write method anyway.
 - **Convention** — the underlying `_sb` is underscore-prefixed. Accessing it is a deliberate violation, not an accident.
 
-Steps that only **read** the skillbook (AgentStep, ReflectStep, UpdateStep, ObservabilityStep) access `ctx.skillbook` — the view. Steps that **write** the skillbook (TagStep, ApplyStep, DeduplicateStep, CheckpointStep) receive the real `Skillbook` via constructor injection and use `self.skillbook`.
+Steps that only **read** the skillbook (AgentStep, ReflectStep, UpdateStep, OpikStep) access `ctx.skillbook` — the view. Steps that **write** the skillbook (TagStep, ApplyStep, DeduplicateStep, CheckpointStep) receive the real `Skillbook` via constructor injection and use `self.skillbook`.
 
 ### ACEStepContext
 
@@ -588,14 +588,14 @@ Reusable step implementations live in `ace_next/steps/`. Each is a single class 
 | **ApplyStep** | `skill_manager_output` | `skillbook` (real) | — | Applies update batch to skillbook | 1 |
 | **DeduplicateStep** | `global_sample_index` | `manager` (DeduplicationManagerLike), `skillbook` (real) | — | Consolidates similar skills | 1 |
 | **CheckpointStep** | `global_sample_index` | `skillbook` (real) | — | Saves skillbook to disk | 1 |
-| **ObservabilityStep** | `skillbook` | — | — | Logs metrics to Opik | 1 |
+| **OpikStep** | `skillbook` | `project_name`, `tags`, `register_litellm_callback` | — | Logs pipeline traces to Opik | 1 |
 | **PersistStep** | `skillbook` | `target_path` | — | Writes skillbook to CLAUDE.md or similar | 1 |
 
 **Requires vs Injected:** `Requires` lists context fields read by the step — validated by the pipeline engine at construction time. The `skillbook` field on the context is a `SkillbookView` (read-only). Steps that **write** to the skillbook (TagStep, ApplyStep, DeduplicateStep, CheckpointStep) receive the real `Skillbook` via constructor injection — marked as "(real)" in the table. These injected dependencies are not tracked by `requires`/`provides`.
 
 **`trace` as the universal learning input:** The learning tail's *entry point* (ReflectStep) requires only `trace` and `skillbook` from the context — subsequent steps in the tail chain off ReflectStep's output (`reflection`). In the standard ACE pipeline, `EvaluateStep` bundles the structured fields (`sample`, `agent_output`, and optionally environment feedback) into a `trace` dict. In TraceAnalyser, `_build_context` places the raw trace directly. In integrations, the execute step provides `trace` from its framework's native output. This means the learning tail is agnostic to trace format — `ReflectStep` passes `ctx.trace` to the Reflector, which is responsible for making sense of whatever it receives.
 
-Steps with `provides = —` are pure side-effect steps (`provides = frozenset()`). They mutate shared state (skillbook) or write to external systems (disk, Opik) but add no new fields to the context.
+Steps with `provides = —` are pure side-effect steps (`provides = frozenset()`). They mutate shared state (skillbook) or write to external systems (disk, Opik) but add no new fields to the context. `OpikStep` is not included in `learning_tail()` — users append it explicitly to keep observability decoupled from core learning.
 
 ### AgentStep
 
@@ -819,28 +819,46 @@ Key points:
 - **Placement:** Appended after ApplyStep by the factory when `checkpoint_dir` is provided. When `async_boundary` is set, checkpoints happen in the background tail.
 - **`max_workers` not set** — inherits default of 1 from the pipeline engine, which is correct (disk writes should be serialised).
 
-### ObservabilityStep
+### OpikStep
 
 ```python
-class ObservabilityStep:
+class OpikStep:
     requires = frozenset({"skillbook"})
     provides = frozenset()
 
-    def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
-        metrics = {"skill_count": len(ctx.skillbook)}
-        if ctx.reflection:
-            metrics["key_insight"] = ctx.reflection.key_insight
-            metrics["learnings_count"] = len(ctx.reflection.extracted_learnings)
-        if ctx.skill_manager_output:
-            metrics["operations_count"] = len(ctx.skill_manager_output.operations)
-        if ctx.trace:
-            metrics["trace_type"] = type(ctx.trace).__name__
-        # Log to Opik
-        ...
-        return ctx
+    def __init__(
+        self,
+        project_name: str = "ace-framework",
+        tags: list[str] | None = None,
+        register_litellm_callback: bool = True,
+    ) -> None: ...
 ```
 
-Optional side-effect step — logs metrics to Opik. Only requires `skillbook` (always present). Reads other context fields (`reflection`, `skill_manager_output`, `trace`) optionally — they may or may not be populated depending on the pipeline shape. This lets the same step work in both ACE and TraceAnalyser pipelines without breaking `requires` validation. Appended to the pipeline when Opik is installed.
+Explicit, opt-in observability step — creates an Opik trace per sample with pipeline metadata, agent output, reflection insights, and skill manager operations. Optionally registers the LiteLLM `OpikLogger` callback for per-LLM-call token/cost tracking (`register_litellm_callback=True` by default).
+
+Only requires `skillbook` (always present). Reads other context fields (`reflection`, `skill_manager_output`, `trace`, `agent_output`) with guards — they may or may not be populated depending on pipeline shape. Gracefully degrades to a no-op when Opik is not installed or `OPIK_DISABLED=true`.
+
+**Not wired into `learning_tail()`.** Users append it explicitly:
+
+```python
+from ace_next.steps import OpikStep, learning_tail
+
+# Append to a custom pipeline
+steps = [
+    MyExecuteStep(agent),
+    MyToTrace(),
+    *learning_tail(reflector, skill_manager, skillbook),
+    OpikStep(project_name="my-project"),
+]
+
+# Or to a runner's pipeline
+runner = BrowserUse.from_roles(browser_llm=llm, reflector=r, skill_manager=sm)
+runner.pipeline.then(OpikStep())
+
+# LLM-level token tracking only (no pipeline traces)
+from ace_next import register_opik_litellm_callback
+register_opik_litellm_callback()
+```
 
 ### PersistStep
 
@@ -1441,7 +1459,8 @@ ace_next/
     apply.py                ← ApplyStep
     deduplicate.py          ← DeduplicateStep
     checkpoint.py           ← CheckpointStep
-    observability.py        ← ObservabilityStep
+    observability.py        ← ObservabilityStep (logger.info)
+    opik.py                 ← OpikStep
     persist.py              ← PersistStep
   runners/                    ← Runner classes (compose Pipeline, manage epoch loop)
     __init__.py               ← Re-exports ACERunner, TraceAnalyser, ACE, BrowserUse, LangChain, ClaudeCode, ACELiteLLM
@@ -1484,7 +1503,8 @@ Each integration provides: (1) an execute step, (2) a result type, and (3) a ToT
 | New | `ace_next/steps/apply.py` | ApplyStep (split from UpdateStep) |
 | New | `ace_next/steps/deduplicate.py` | DeduplicateStep (extracted from SkillManager) |
 | New | `ace_next/steps/checkpoint.py` | CheckpointStep |
-| New | `ace_next/steps/observability.py` | ObservabilityStep |
+| New | `ace_next/steps/observability.py` | ObservabilityStep (logger.info) |
+| New | `ace_next/steps/opik.py` | OpikStep (Opik trace logging) |
 | New | `ace_next/steps/persist.py` | PersistStep |
 | New | `ace_next/runners/` | ACERunner, TraceAnalyser, ACE, BrowserUse, LangChain, ClaudeCode |
 | `ace/integrations/browser_use.py` | `ace_next/integrations/browser_use.py` + `ace_next/runners/browser_use.py` | Split into execute step + result type + ToTrace converter + runner |
@@ -1834,7 +1854,7 @@ A `@dataclass Trace` with typed fields (`task`, `output`, `feedback`, `reasoning
 Making ReflectStep and UpdateStep polymorphic over input type was considered. Rejected — steps always receive `StepContext` with the same named fields. The runner (via `_build_context`) is responsible for building the context correctly. Steps do not need to know whether the data came from a raw trace or from live execution.
 
 **Observability in the runner:**
-Keeping observability logic in `ACERunner._track_observability_data()` was considered. Rejected — it mixes concerns. A dedicated `ObservabilityStep` is independently testable, optional, and composable.
+Keeping observability logic in `ACERunner._track_observability_data()` was considered. Rejected — it mixes concerns. A dedicated `OpikStep` is independently testable, optional, and composable. It is not wired into `learning_tail()` — users append it explicitly to avoid coupling observability into the core pipeline.
 
 **Custom AsyncLearningPipeline:**
 The legacy `ace/async_learning.py` implements a manual thread pool with reflector and skill manager queues. Rejected — the pipeline engine's `async_boundary` and `max_workers` provide the same functionality with less code and consistent semantics.
@@ -1858,7 +1878,7 @@ The old `ace/roles.py` auto-wraps LLM clients with Instructor if `complete_struc
 The old `ace/reflector/` subsystem supports recursive mode where the Reflector iterates multiple times to deepen analysis. Rejected for the initial `ace_next` implementation — recursive mode pulls in significant additional complexity (iteration control, convergence detection, intermediate result accumulation) for marginal benefit on most workloads. The `Reflector` class implements SIMPLE mode only (single-pass reflection). Recursive mode can be added later as an opt-in capability without changing the `ReflectorLike` protocol.
 
 **Observability decorator on implementations:**
-The old `ace/roles.py` uses `@maybe_track()` decorators for Opik tracing on every role method. Rejected — `ObservabilityStep` already handles metrics at the pipeline level with full visibility into all context fields. Adding per-method decorators would double-count and create coupling between implementations and the observability system.
+The old `ace/roles.py` uses `@maybe_track()` decorators for Opik tracing on every role method. Rejected — `OpikStep` handles metrics at the pipeline level with full visibility into all context fields. Adding per-method decorators would double-count and create coupling between implementations and the observability system.
 
 **Deduplication inside SkillManager:**
 The old `ace/roles.py` SkillManager integrates with `DeduplicationManager` directly — calling `get_similarity_report()` before the LLM call and `apply_operations_from_response()` after. Rejected for `ace_next` — deduplication is now a separate `DeduplicateStep` in the pipeline. This is cleaner separation: the SkillManager role only produces `SkillManagerOutput`, and deduplication runs at a configurable interval as an independent pipeline step. The step takes a `DeduplicationManagerLike` protocol, keeping it decoupled from the concrete implementation.

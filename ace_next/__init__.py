@@ -62,6 +62,7 @@ from .runners import (
     LangChain,
     TraceAnalyser,
 )
+from .steps.opik import OPIK_AVAILABLE, OpikStep, register_opik_litellm_callback
 
 __all__ = [
     # Context
@@ -127,6 +128,10 @@ __all__ = [
     "ClaudeCode",
     "LangChain",
     "TraceAnalyser",
+    # Observability
+    "OpikStep",
+    "OPIK_AVAILABLE",
+    "register_opik_litellm_callback",
     # Convenience wrapper
     "ACELiteLLM",
 ]

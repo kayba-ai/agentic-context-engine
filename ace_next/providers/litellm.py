@@ -9,7 +9,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import os
 import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Type, TypeVar, Union
@@ -26,15 +25,6 @@ try:
 except ImportError:
     LITELLM_AVAILABLE = False
     logger.warning("LiteLLM not installed. Install with: pip install litellm")
-
-# Opik span association (optional)
-try:
-    from opik.opik_context import get_current_span_data
-
-    OPIK_SPAN_AVAILABLE = True
-except ImportError:
-    get_current_span_data = None
-    OPIK_SPAN_AVAILABLE = False
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -183,8 +173,6 @@ class LiteLLMClient:
         if self.config.fallbacks:
             self._setup_router()
 
-        self._setup_opik_integration()
-
     # -- Router ---------------------------------------------------------------
 
     def _setup_router(self) -> None:
@@ -224,40 +212,6 @@ class LiteLLMClient:
             num_retries=self.config.max_retries,
             timeout=self.config.timeout,
         )
-
-    # -- Opik integration (optional) -----------------------------------------
-
-    def _setup_opik_integration(self) -> None:
-        """Set up Opik integration for automatic token and cost tracking."""
-        disabled_check = os.environ.get("OPIK_DISABLED", "").lower() in (
-            "true",
-            "1",
-            "yes",
-        )
-        enabled_check = os.environ.get("OPIK_ENABLED", "").lower() in (
-            "false",
-            "0",
-            "no",
-        )
-        if disabled_check or enabled_check:
-            logger.debug("Opik integration disabled via environment variable")
-            return
-
-        try:
-            from litellm.integrations.opik.opik import OpikLogger
-
-            opik_logger = OpikLogger()
-            if "opik" not in [
-                cb.__class__.__name__.lower()
-                for cb in getattr(litellm, "callbacks", [])
-                if hasattr(cb, "__class__")
-            ]:
-                litellm.callbacks.append(opik_logger)
-                logger.debug("Opik LiteLLM callback registered for token tracking")
-        except ImportError:
-            logger.debug("Opik not available, continuing without automatic tracking")
-        except Exception as e:
-            logger.debug(f"Failed to setup Opik integration (non-critical): {e}")
 
     # -- Claude parameter resolution -----------------------------------------
 
@@ -367,21 +321,6 @@ class LiteLLMClient:
             call_params["extra_headers"] = self.config.extra_headers
         if self.config.ssl_verify is not None:
             call_params["ssl_verify"] = self.config.ssl_verify
-
-        # Opik span association
-        if OPIK_SPAN_AVAILABLE and get_current_span_data:
-            try:
-                current_span_data = get_current_span_data()
-                if current_span_data:
-                    if "metadata" not in call_params:
-                        call_params["metadata"] = {}
-                    if "opik" not in call_params["metadata"]:
-                        call_params["metadata"]["opik"] = {}
-                    call_params["metadata"]["opik"][
-                        "current_span_data"
-                    ] = current_span_data
-            except Exception as e:
-                logger.debug(f"Failed to associate LLM call with Opik span: {e}")
 
         if self.config.extra_params:
             call_params.update(self.config.extra_params)
