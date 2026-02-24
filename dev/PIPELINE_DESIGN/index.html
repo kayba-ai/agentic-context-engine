@@ -1,0 +1,1977 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Agentic Context Engineering — Self-Improving Language Model Agents">
+      
+      
+      
+        <link rel="canonical" href="https://kayba-ai.github.io/agentic-context-engine/latest/PIPELINE_DESIGN/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.2">
+    
+    
+      
+        <title>Pipeline Architecture Design - ACE Framework</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#pipeline-architecture-design" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="ACE Framework" class="md-header__button md-logo" aria-label="ACE Framework" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            ACE Framework
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Pipeline Architecture Design
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/kayba-ai/agentic-context-engine" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    kayba-ai/agentic-context-engine
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../getting-started/quick-start/" class="md-tabs__link">
+          
+  
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../guides/complete-guide/" class="md-tabs__link">
+          
+  
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../pipeline/" class="md-tabs__link">
+          
+  
+  
+  Pipeline Engine
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../integrations/opik/" class="md-tabs__link">
+          
+  
+  
+  Integrations
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../api/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  API Reference
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="ACE Framework" class="md-nav__button md-logo" aria-label="ACE Framework" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    ACE Framework
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/kayba-ai/agentic-context-engine" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    kayba-ai/agentic-context-engine
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/quick-start/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Setup Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/complete-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Complete ACE Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/integration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integration Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/prompts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipeline Engine
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Pipeline Engine
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pipeline/quick-start/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pipeline/core-concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pipeline/execution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Execution Model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pipeline/branching/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Branching & Parallelism
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pipeline/error-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Error Handling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pipeline/custom-steps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Building Custom Steps
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pipeline/api-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integrations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Integrations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../integrations/opik/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Opik Observability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#design-decisions-for-the-generalized-pipeline-system-trying-to-keep-is-as-generic-as-possible" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Design decisions for the generalized pipeline system. Trying to keep is as generic as possible.
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#core-primitives" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Core Primitives
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-protocol" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step protocol
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#stepcontext-immutability-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        StepContext — immutability contract
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="StepContext — immutability contract">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#subclassing-for-domain-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Subclassing for domain fields
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#immutable-update-patterns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Immutable update patterns
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pipeline
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Pipeline">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#inner-pipeline-as-a-fan-out-step" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inner pipeline as a fan-out step
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#requiresprovides-for-nested-pipelines" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        requires/provides for nested pipelines
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#branch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Branch
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Branch">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#context-merging" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context merging
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#async-behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Async Behavior
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Async Behavior">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-async-steps-non-blocking-io" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Async steps — non-blocking I/O
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-async_boundary-pipeline-across-samples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. async_boundary — pipeline across samples
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-branch-parallelism-concurrent-work-on-the-same-sample" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Branch parallelism — concurrent work on the same sample
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rule-of-thumb" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rule of thumb
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#concurrency-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Concurrency Model
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Concurrency Model">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#workers-vs-max_workers-independent-pools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        workers vs max_workers — independent pools
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#error-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Error Handling
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#summary-table" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Summary Table
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-was-rejected-and-why" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Was Rejected and Why
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#external-libraries-considered" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        External Libraries Considered
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="pipeline-architecture-design">Pipeline Architecture Design<a class="headerlink" href="#pipeline-architecture-design" title="Permanent link">&para;</a></h1>
+<h2 id="design-decisions-for-the-generalized-pipeline-system-trying-to-keep-is-as-generic-as-possible">Design decisions for the generalized pipeline system. Trying to keep is as generic as possible.<a class="headerlink" href="#design-decisions-for-the-generalized-pipeline-system-trying-to-keep-is-as-generic-as-possible" title="Permanent link">&para;</a></h2>
+<h2 id="core-primitives">Core Primitives<a class="headerlink" href="#core-primitives" title="Permanent link">&para;</a></h2>
+<p>Everything in the framework composes from three primitives:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Sequential:  A → B → C
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>Branch:      A → (B ∥ C) → D    (fork + implicit join)
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>Pipeline:    a step that is itself a pipeline (nesting / reuse)
+</code></pre></div>
+<hr />
+<h2 id="step">Step<a class="headerlink" href="#step" title="Permanent link">&para;</a></h2>
+<p>A <code>Step</code> is the smallest unit of work. It receives a <code>StepContext</code>, does one focused thing, and returns the context.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyStep</span><span class="p">:</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">requires</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;agent_output&quot;</span><span class="p">}</span>   <span class="c1"># fields it reads</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">provides</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;reflection&quot;</span><span class="p">}</span>     <span class="c1"># fields it writes</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">StepContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StepContext</span><span class="p">:</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>        <span class="o">...</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>        <span class="k">return</span> <span class="n">ctx</span>
+</code></pre></div>
+<p>Rules:
+- Always synchronous within its own execution
+- Must declare <code>requires</code> and <code>provides</code> — the pipeline validates ordering at construction time
+- Steps declare their own parallelism constraints (see below)</p>
+<h3 id="step-protocol">Step protocol<a class="headerlink" href="#step-protocol" title="Permanent link">&para;</a></h3>
+<p>For static type checking, the framework exposes a <code>typing.Protocol</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Set</span> <span class="k">as</span> <span class="n">AbstractSet</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Protocol</span><span class="p">,</span> <span class="n">runtime_checkable</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="nd">@runtime_checkable</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="k">class</span><span class="w"> </span><span class="nc">StepProtocol</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">requires</span><span class="p">:</span> <span class="n">AbstractSet</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="n">provides</span><span class="p">:</span> <span class="n">AbstractSet</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">StepContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StepContext</span><span class="p">:</span> <span class="o">...</span>
+</code></pre></div>
+<p><code>AbstractSet[str]</code> accepts both <code>set</code> and <code>frozenset</code> — steps declare plain set literals; the pipeline normalizes them to <code>frozenset</code> at construction time before doing any contract validation. <code>Pipeline</code> and <code>Branch</code> both satisfy this protocol, so they can be nested wherever a <code>Step</code> is expected without extra annotation. <code>@runtime_checkable</code> lets the pipeline validator use <code>isinstance(step, StepProtocol)</code> at construction time to give a clear error if a step is missing required attributes, rather than failing at call time.</p>
+<h3 id="stepcontext-immutability-contract">StepContext — immutability contract<a class="headerlink" href="#stepcontext-immutability-contract" title="Permanent link">&para;</a></h3>
+<p><code>StepContext</code> is a frozen dataclass. Steps never mutate the incoming context — they return a new one via <code>.replace()</code>.</p>
+<p>The pipeline engine defines a minimal base with only two fields:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">types</span><span class="w"> </span><span class="kn">import</span> <span class="n">MappingProxyType</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">StepContext</span><span class="p">:</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">sample</span><span class="p">:</span> <span class="n">Any</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">metadata</span><span class="p">:</span> <span class="n">MappingProxyType</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="n">MappingProxyType</span><span class="p">({}))</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>        <span class="c1"># Ensures mutation is a hard runtime error even if caller passes a plain dict</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span> <span class="n">MappingProxyType</span><span class="p">):</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>            <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;metadata&quot;</span><span class="p">,</span> <span class="n">MappingProxyType</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">))</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">replace</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">changes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;StepContext&quot;</span><span class="p">:</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>        <span class="k">return</span> <span class="n">dataclasses</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">changes</span><span class="p">)</span>
+</code></pre></div>
+<p>The engine never reads anything beyond <code>sample</code> and <code>metadata</code>. All domain-specific fields are added by subclassing.</p>
+<h4 id="subclassing-for-domain-fields">Subclassing for domain fields<a class="headerlink" href="#subclassing-for-domain-fields" title="Permanent link">&para;</a></h4>
+<p>Consuming applications subclass <code>StepContext</code> to add named fields for concepts shared across their pipelines:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">ACEContext</span><span class="p">(</span><span class="n">StepContext</span><span class="p">):</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="c1"># Shared across all ACE pipelines</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">skillbook</span><span class="p">:</span> <span class="n">Skillbook</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">environment</span><span class="p">:</span> <span class="n">TaskEnvironment</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="c1"># Produced by steps (None until the providing step runs)</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="n">agent_output</span><span class="p">:</span> <span class="n">AgentOutput</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>    <span class="n">environment_result</span><span class="p">:</span> <span class="n">EnvironmentResult</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>    <span class="n">reflection</span><span class="p">:</span> <span class="n">ReflectorOutput</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>    <span class="n">skill_manager_output</span><span class="p">:</span> <span class="n">UpdateBatch</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>    <span class="c1"># Runner bookkeeping</span>
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>    <span class="n">epoch</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
+<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>    <span class="n">total_epochs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
+<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>    <span class="n">step_index</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+<a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a>    <span class="n">total_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+</code></pre></div>
+<p>The <code>requires</code>/<code>provides</code> validation works on attribute names (strings) — it checks that the field exists on the context object at runtime, so it is subclass-agnostic. A step that declares <code>requires = {"skillbook"}</code> works whether the context is <code>ACEContext</code> or any other subclass that has a <code>skillbook</code> attribute.</p>
+<p>Data that is specific to a single integration or step goes in <code>metadata</code> to prevent field accumulation on the subclass. For example, <code>metadata["browser_history"]</code> for browser-use or <code>metadata["transcript_path"]</code> for Claude Code.</p>
+<h4 id="immutable-update-patterns">Immutable update patterns<a class="headerlink" href="#immutable-update-patterns" title="Permanent link">&para;</a></h4>
+<p>Updating metadata follows the same immutable pattern as any other field:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">return</span> <span class="n">ctx</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="n">MappingProxyType</span><span class="p">({</span><span class="o">**</span><span class="n">ctx</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">value</span><span class="p">}))</span>
+</code></pre></div>
+<p>Steps follow this pattern:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">StepContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StepContext</span><span class="p">:</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="n">result</span> <span class="o">=</span> <span class="n">do_work</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">sample</span><span class="p">)</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="k">return</span> <span class="n">ctx</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">result</span><span class="o">=</span><span class="n">result</span><span class="p">)</span>
+</code></pre></div>
+<p><code>frozen=True</code> makes mutation a hard error at runtime rather than a subtle bug. It also makes <code>Branch</code> safe by default — since <code>StepContext</code> is immutable, all branches can receive the same object without risk; no deep copy is needed.</p>
+<hr />
+<h2 id="pipeline">Pipeline<a class="headerlink" href="#pipeline" title="Permanent link">&para;</a></h2>
+<p>A <code>Pipeline</code> is an ordered list of steps that runs sequentially for a single input. It also satisfies the <code>Step</code> protocol, so it can be embedded inside another pipeline.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">pipe</span> <span class="o">=</span> <span class="n">Pipeline</span><span class="p">([</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="n">AgentStep</span><span class="p">(),</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="n">EvaluateStep</span><span class="p">(),</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="n">ReflectStep</span><span class="p">(),</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="n">UpdateStep</span><span class="p">(),</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="p">])</span>
+</code></pre></div>
+<p><strong>Fluent builder API (preferred):</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">pipe</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    <span class="n">Pipeline</span><span class="p">()</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">AgentStep</span><span class="p">())</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">EvaluateStep</span><span class="p">())</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>    <span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">ReflectStep</span><span class="p">())</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>    <span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">UpdateStep</span><span class="p">())</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="p">)</span>
+</code></pre></div>
+<p><strong>Fan-out across contexts:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">pipe</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">contexts</span><span class="p">,</span> <span class="n">workers</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>   <span class="c1"># same pipeline, N contexts in parallel</span>
+</code></pre></div>
+<h3 id="inner-pipeline-as-a-fan-out-step">Inner pipeline as a fan-out step<a class="headerlink" href="#inner-pipeline-as-a-fan-out-step" title="Permanent link">&para;</a></h3>
+<p>A <code>Pipeline</code>-as-<code>Step</code> receives one context and must return one context — but nothing prevents it from internally expanding to multiple sub-inputs. This is the <strong>map-reduce step</strong> pattern:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">MultiSearchStep</span><span class="p">:</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Generates N queries from one context, runs them in parallel, merges.&quot;&quot;&quot;</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">StepContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StepContext</span><span class="p">:</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>        <span class="n">queries</span> <span class="o">=</span> <span class="n">generate_queries</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">sample</span><span class="p">)</span>                          <span class="c1"># 1 → N</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>        <span class="n">sub_ctxs</span> <span class="o">=</span> <span class="p">[</span><span class="n">StepContext</span><span class="p">(</span><span class="n">sample</span><span class="o">=</span><span class="n">q</span><span class="p">)</span> <span class="k">for</span> <span class="n">q</span> <span class="ow">in</span> <span class="n">queries</span><span class="p">]</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>        <span class="n">sub_pipe</span> <span class="o">=</span> <span class="n">Pipeline</span><span class="p">()</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">FetchStep</span><span class="p">())</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>        <span class="n">results</span> <span class="o">=</span> <span class="n">sub_pipe</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">sub_ctxs</span><span class="p">,</span> <span class="n">workers</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">queries</span><span class="p">))</span>         <span class="c1"># parallel</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>        <span class="k">return</span> <span class="n">ctx</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">agent_output</span><span class="o">=</span><span class="n">merge</span><span class="p">(</span><span class="n">results</span><span class="p">))</span>                 <span class="c1"># N → 1</span>
+</code></pre></div>
+<p><code>sub_pipe.run()</code> is a top-level runner call, so <code>async_boundary</code> and <code>workers</code> on its inner steps fire normally. From the outer pipeline's perspective, <code>MultiSearchStep</code> is a black box that takes one context and returns one context — the fan-out is an internal implementation detail.</p>
+<h3 id="requiresprovides-for-nested-pipelines">requires/provides for nested pipelines<a class="headerlink" href="#requiresprovides-for-nested-pipelines" title="Permanent link">&para;</a></h3>
+<p>When a <code>Pipeline</code> is used as a <code>Step</code> inside another pipeline, its <code>requires</code> and <code>provides</code> are computed automatically at construction time from its inner steps — no manual annotation needed.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">Pipeline</span><span class="p">:</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">steps</span><span class="p">):</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">steps</span> <span class="o">=</span> <span class="n">steps</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">requires</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">provides</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_infer_contracts</span><span class="p">(</span><span class="n">steps</span><span class="p">)</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>    <span class="nd">@staticmethod</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_infer_contracts</span><span class="p">(</span><span class="n">steps</span><span class="p">):</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>        <span class="n">provided_so_far</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>        <span class="n">external_requires</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>        <span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="n">steps</span><span class="p">:</span>
+<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a>            <span class="n">external_requires</span> <span class="o">|=</span> <span class="n">step</span><span class="o">.</span><span class="n">requires</span> <span class="o">-</span> <span class="n">provided_so_far</span>
+<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a>            <span class="n">provided_so_far</span> <span class="o">|=</span> <span class="n">step</span><span class="o">.</span><span class="n">provides</span>
+<a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a>        <span class="k">return</span> <span class="nb">frozenset</span><span class="p">(</span><span class="n">external_requires</span><span class="p">),</span> <span class="nb">frozenset</span><span class="p">(</span><span class="n">provided_so_far</span><span class="p">)</span>
+</code></pre></div>
+<ul>
+<li><code>requires</code> = everything the pipeline needs from the outside (what its first steps need that no earlier inner step provides)</li>
+<li><code>provides</code> = union of everything any inner step writes</li>
+</ul>
+<p>The outer pipeline validates against these aggregated values at construction time, so nesting never breaks the contract.</p>
+<p><strong>Deliberate constraint:</strong> <code>_infer_contracts</code> assumes all <code>Branch</code> children always run. It has no concept of conditional branches where only some children execute. If one branch provided a field that a later step required but other branches did not, static validation would pass while the pipeline could fail at runtime. Conditional branching — where a branch may or may not run depending on context — is out of scope; all branches in a <code>Branch</code> are always executed.</p>
+<hr />
+<h2 id="branch">Branch<a class="headerlink" href="#branch" title="Permanent link">&para;</a></h2>
+<p>A <code>Branch</code> is a step that runs multiple pipelines in parallel and joins before returning. It is just a <code>Step</code> — no special pipeline mode needed.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="n">pipe</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>    <span class="n">Pipeline</span><span class="p">()</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>    <span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">AgentStep</span><span class="p">())</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>    <span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">EvaluateStep</span><span class="p">())</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>    <span class="o">.</span><span class="n">branch</span><span class="p">(</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>        <span class="n">Pipeline</span><span class="p">()</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">ReflectStep</span><span class="p">()),</span>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>        <span class="n">Pipeline</span><span class="p">()</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">LogStep</span><span class="p">()),</span>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>    <span class="p">)</span>
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>    <span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">UpdateStep</span><span class="p">())</span>   <span class="c1"># only runs after both branches complete</span>
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="p">)</span>
+</code></pre></div>
+<p><code>wait</code> is implicit — any step after a <code>Branch</code> waits for all branches to finish.</p>
+<h3 id="context-merging">Context merging<a class="headerlink" href="#context-merging" title="Permanent link">&para;</a></h3>
+<p>Each branch receives the same context reference. Since <code>StepContext</code> is frozen, no copy is needed — branches cannot mutate what they receive. When all branches complete, their output contexts are merged back into one before the next step runs.</p>
+<p>The merge function receives the list of output contexts and returns a single context:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="n">Branch</span><span class="p">(</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>    <span class="n">Pipeline</span><span class="p">()</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">ReflectStep</span><span class="p">()),</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>    <span class="n">Pipeline</span><span class="p">()</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">LogStep</span><span class="p">()),</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>    <span class="n">merge</span><span class="o">=</span><span class="k">lambda</span> <span class="n">ctxs</span><span class="p">:</span> <span class="n">dataclasses</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>        <span class="n">ctxs</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>        <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="o">**</span><span class="n">ctxs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span> <span class="o">**</span><span class="n">ctxs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">metadata</span><span class="p">}</span>
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>    <span class="p">)</span>
+<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="p">)</span>
+</code></pre></div>
+<p><strong>Built-in merge strategies:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Strategy</th>
+<th>Behaviour</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>raise_on_conflict</code></td>
+<td>raises if two branches write the same field — safe default, no silent data loss</td>
+</tr>
+<tr>
+<td><code>last_write_wins</code></td>
+<td>last branch's value wins on conflict — simple but lossy</td>
+</tr>
+<tr>
+<td><code>namespaced</code></td>
+<td>branches write to <code>ctx.metadata["branch_0"]</code> etc., no conflict possible</td>
+</tr>
+<tr>
+<td>custom <code>merge=fn</code></td>
+<td><code>fn(ctxs: list[StepContext]) -&gt; StepContext</code> — full control</td>
+</tr>
+</tbody>
+</table>
+<p>The actual default when no <code>merge=</code> argument is passed is <code>raise_on_conflict</code>. The constructor signature makes this explicit:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">pipelines</span><span class="p">,</span> <span class="n">merge</span><span class="o">=</span><span class="n">MergeStrategy</span><span class="o">.</span><span class="n">RAISE_ON_CONFLICT</span><span class="p">):</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>    <span class="o">...</span>
+</code></pre></div>
+<p>In practice, branches that write disjoint fields (e.g. Reflect writes <code>reflection</code>, Log writes <code>metadata["log"]</code>) never conflict and the merge is a no-op — <code>raise_on_conflict</code> passes through without raising.</p>
+<hr />
+<h2 id="async-behavior">Async Behavior<a class="headerlink" href="#async-behavior" title="Permanent link">&para;</a></h2>
+<p>"Async" means three different things in this framework, operating at different levels. It is important to keep them separate — they solve different problems.</p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Level</th>
+<th>Problem it solves</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Async step</td>
+<td>single step</td>
+<td>don't block the thread during I/O</td>
+</tr>
+<tr>
+<td><code>async_boundary</code></td>
+<td>across samples</td>
+<td>start the next sample before the current one finishes</td>
+</tr>
+<tr>
+<td>Branch parallelism</td>
+<td>within one sample</td>
+<td>run independent work simultaneously on the same data</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="1-async-steps-non-blocking-io">1. Async steps — non-blocking I/O<a class="headerlink" href="#1-async-steps-non-blocking-io" title="Permanent link">&para;</a></h3>
+<p><strong>Problem:</strong> A step makes a network call (LLM API, HTTP, subprocess). It should not block the thread while waiting for a response.</p>
+<p><strong>Solution:</strong> Define the step as a coroutine. The pipeline detects this automatically and awaits it. Sync steps get wrapped with <code>asyncio.to_thread()</code> so they are safe in an async context too.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="c1"># Sync step — no changes needed</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">AgentStep</span><span class="p">:</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">StepContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StepContext</span><span class="p">:</span> <span class="o">...</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="c1"># Async step — native coroutine, awaited by the pipeline</span>
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="k">class</span><span class="w"> </span><span class="nc">BrowserExecuteStep</span><span class="p">:</span>
+<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">StepContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StepContext</span><span class="p">:</span> <span class="o">...</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="c1"># Pipeline runner — handles both transparently</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">steps</span><span class="p">:</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>    <span class="k">if</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">iscoroutinefunction</span><span class="p">(</span><span class="n">step</span><span class="o">.</span><span class="fm">__call__</span><span class="p">):</span>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>        <span class="n">ctx</span> <span class="o">=</span> <span class="k">await</span> <span class="n">step</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>    <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>        <span class="n">ctx</span> <span class="o">=</span> <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">to_thread</span><span class="p">(</span><span class="n">step</span><span class="p">,</span> <span class="n">ctx</span><span class="p">)</span>
+</code></pre></div>
+<p>Pipeline entry points: <code>pipe.run(contexts)</code> for sync callers, <code>await pipe.run_async(contexts)</code> for async callers (e.g. inside browser-use).</p>
+<p>This type is about <strong>not blocking</strong>. Nothing runs in parallel — the pipeline is still sequential, it just yields the thread during waits.</p>
+<hr />
+<h3 id="2-async_boundary-pipeline-across-samples">2. async_boundary — pipeline across samples<a class="headerlink" href="#2-async_boundary-pipeline-across-samples" title="Permanent link">&para;</a></h3>
+<p><strong>Problem:</strong> Reflect and Update are slow (LLM calls). If we wait for them before starting the next sample, throughput is poor. We want to fire them off and immediately move to sample N+1.</p>
+<p><strong>Solution:</strong> A step declares <code>async_boundary = True</code>. Everything from that step onwards runs in a background executor. The pipeline loop does not wait — it moves straight to the next sample.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">ReflectStep</span><span class="p">:</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>    <span class="n">async_boundary</span> <span class="o">=</span> <span class="kc">True</span>   <span class="c1"># hand off to background from here</span>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>    <span class="n">max_workers</span> <span class="o">=</span> <span class="mi">3</span>         <span class="c1"># up to 3 reflections running in parallel</span>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="k">class</span><span class="w"> </span><span class="nc">UpdateStep</span><span class="p">:</span>
+<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>    <span class="n">max_workers</span> <span class="o">=</span> <span class="mi">1</span>         <span class="c1"># must serialize — writes to shared skillbook</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>sample 1:  [Agent] [Evaluate] ──fire──► [Reflect] [Update]  (background)
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>sample 2:  [Agent] [Evaluate] ──fire──► [Reflect] [Update]  (background)
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>sample 3:  [Agent] [Evaluate] ...
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>                              ↑
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>                        async_boundary
+</code></pre></div>
+<p>This type is about <strong>throughput</strong>. Multiple samples are in-flight simultaneously, at different stages of the pipeline. The caller only waits for steps before the boundary.</p>
+<p>Note: <code>max_workers</code> controls how many background instances of a step run concurrently. Steps that write shared state (like <code>UpdateStep</code>) must use <code>max_workers = 1</code> to avoid races.</p>
+<p><strong>Background pool is per step class, shared across pipeline instances.</strong> <code>ReflectStep.max_workers = 3</code> means a single pool of 3 threads for all <code>ReflectStep</code> instances. This avoids pool proliferation and makes <code>max_workers</code> a straightforward capacity knob independent of how many pipelines are running.</p>
+<p><strong>Pool lifecycle:</strong> The <code>ThreadPoolExecutor</code> for each step class is created lazily at first use (not at class definition or pipeline construction) and persists for the process lifetime. Callers that need explicit cleanup can call <code>StepClass._executor.shutdown(wait=True)</code>. If two users of the same step class need different concurrency limits (e.g. different LLM backends behind the same step type), they should subclass rather than share the class attribute.</p>
+<p><strong>Boundary rules:</strong>
+- The <strong>first</strong> step with <code>async_boundary = True</code> is the handoff point. Only one boundary per pipeline.
+- If multiple steps in the same pipeline declare <code>async_boundary = True</code>, the pipeline raises <code>PipelineConfigError</code> at construction time. A duplicate boundary is almost always a copy-paste mistake, not a deliberate choice.
+- <code>async_boundary</code> inside a <code>Branch</code> child pipeline raises <code>PipelineConfigError</code> at construction time. Branch children always block until joined; detaching mid-branch is incoherent and there is no valid interpretation.
+- <code>async_boundary</code> inside a <code>Pipeline</code>-as-<code>Step</code> raises a <strong>warning</strong> at construction time (not an error). When a pipeline is used as a step inside another pipeline, there is no "next sample" to move to — the outer pipeline is blocked waiting for the inner one to return a context. The boundary is ignored and the inner pipeline runs fully synchronously. The warning surfaces this declared intent being ignored so callers can investigate. The same pipeline definition works both as a top-level runner (where <code>async_boundary</code> fires) and as a nested step (where it warns and is ignored) — no reconfiguration needed.</p>
+<hr />
+<h3 id="3-branch-parallelism-concurrent-work-on-the-same-sample">3. Branch parallelism — concurrent work on the same sample<a class="headerlink" href="#3-branch-parallelism-concurrent-work-on-the-same-sample" title="Permanent link">&para;</a></h3>
+<p><strong>Problem:</strong> Two independent steps could run at the same time on the same sample (e.g. reflect and log), but a linear pipeline forces them to be sequential.</p>
+<p><strong>Solution:</strong> <code>Branch</code> forks the context, runs each sub-pipeline in parallel, then joins before the next step. In sync mode it uses <code>ThreadPoolExecutor</code>; in async mode it uses <code>asyncio.gather()</code>.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="n">pipe</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>    <span class="n">Pipeline</span><span class="p">()</span>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>    <span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">EvaluateStep</span><span class="p">())</span>
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>    <span class="o">.</span><span class="n">branch</span><span class="p">(</span>
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>        <span class="n">Pipeline</span><span class="p">()</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">ReflectStep</span><span class="p">()),</span>   <span class="c1"># runs in parallel</span>
+<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>        <span class="n">Pipeline</span><span class="p">()</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">LogStep</span><span class="p">()),</span>       <span class="c1"># runs in parallel</span>
+<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a>    <span class="p">)</span>
+<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a>    <span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">UpdateStep</span><span class="p">())</span>   <span class="c1"># waits for both branches</span>
+<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="c1"># Branch internals (async mode)</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">StepContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StepContext</span><span class="p">:</span>
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>    <span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span>
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a>        <span class="o">*</span><span class="p">[</span><span class="n">p</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">pipelines</span><span class="p">],</span>
+<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>        <span class="n">return_exceptions</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>   <span class="c1"># all branches run to completion even if one fails</span>
+<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a>    <span class="p">)</span>
+<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a>    <span class="n">failures</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="ne">BaseException</span><span class="p">)]</span>
+<a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a>    <span class="k">if</span> <span class="n">failures</span><span class="p">:</span>
+<a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a>        <span class="k">raise</span> <span class="n">BranchError</span><span class="p">(</span><span class="n">failures</span><span class="p">)</span>   <span class="c1"># caller sees all branch failures, not just the first</span>
+<a id="__codelineno-20-10" name="__codelineno-20-10" href="#__codelineno-20-10"></a>    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+</code></pre></div>
+<p><code>return_exceptions=True</code> is required for consistent error handling: without it, the first branch failure cancels all remaining branches and the <code>SampleResult</code> would silently drop their work. With it, all branches complete and the runner captures the full failure set.</p>
+<p>This type is about <strong>latency within a single sample</strong>. Nothing moves to the next sample — the pipeline waits for the join before continuing.</p>
+<hr />
+<h3 id="rule-of-thumb">Rule of thumb<a class="headerlink" href="#rule-of-thumb" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Answer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Does the step wait on I/O?</td>
+<td><code>async def __call__</code></td>
+</tr>
+<tr>
+<td>Do I want to process more samples while previous ones are still learning?</td>
+<td><code>async_boundary</code> on the step where the handoff happens</td>
+</tr>
+<tr>
+<td>Can two steps on the same sample run simultaneously?</td>
+<td><code>Branch</code></td>
+</tr>
+<tr>
+<td>Do I want N samples going through the pipeline at the same time?</td>
+<td><code>workers=N</code> on <code>run()</code></td>
+</tr>
+</tbody>
+</table>
+<p>Each mechanism is independent. They compose freely — you can have async steps inside branches, behind an <code>async_boundary</code>, run with multiple workers.</p>
+<hr />
+<h2 id="concurrency-model">Concurrency Model<a class="headerlink" href="#concurrency-model" title="Permanent link">&para;</a></h2>
+<p>Parallelism is declared on the <strong>step</strong>, not the pipeline. The pipeline executor reads these at runtime:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">ReflectStep</span><span class="p">:</span>
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>    <span class="n">async_boundary</span> <span class="o">=</span> <span class="kc">True</span>   <span class="c1"># hand off to background threads from here</span>
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>    <span class="n">max_workers</span> <span class="o">=</span> <span class="mi">3</span>         <span class="c1"># up to 3 running in parallel</span>
+<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>
+<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a><span class="k">class</span><span class="w"> </span><span class="nc">UpdateStep</span><span class="p">:</span>
+<a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a>    <span class="n">max_workers</span> <span class="o">=</span> <span class="mi">1</span>         <span class="c1"># must serialize (writes to shared skillbook)</span>
+</code></pre></div>
+<p><strong>Fan-out (same step, different samples):</strong>
+Controlled by <code>max_workers</code> on the step. Each step class has a single shared <code>ThreadPoolExecutor</code> — <code>ReflectStep.max_workers = 3</code> means one pool of 3 threads regardless of how many pipeline instances are running.</p>
+<p><strong>Pipeline split (pipelining across samples):</strong>
+<code>async_boundary = True</code> on a step tells the runner to hand off everything from that step onwards to background threads, freeing the caller to start the next sample immediately.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>sample 1:  [AgentStep] [EvaluateStep] ──► [ReflectStep] [UpdateStep]
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>sample 2:  [AgentStep] [EvaluateStep] ──► ...             (background)
+<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>                                      ↑
+<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a>                               async_boundary
+</code></pre></div>
+<p>This replaces the hardcoded <code>steps[:2]</code> / <code>steps[2:]</code> split that existed in the old <code>AsyncLearningPipeline</code>.</p>
+<h3 id="workers-vs-max_workers-independent-pools">workers vs max_workers — independent pools<a class="headerlink" href="#workers-vs-max_workers-independent-pools" title="Permanent link">&para;</a></h3>
+<p>These two knobs control different thread pools and do not interact:</p>
+<table>
+<thead>
+<tr>
+<th>Knob</th>
+<th>Pool</th>
+<th>Controls</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pipe.run(contexts, workers=N)</code></td>
+<td>foreground pool</td>
+<td>how many contexts run through pre-boundary steps simultaneously</td>
+</tr>
+<tr>
+<td><code>step.max_workers = K</code></td>
+<td>background pool per step class</td>
+<td>how many instances of that step run in the background simultaneously</td>
+</tr>
+</tbody>
+</table>
+<p>A sample leaves the foreground pool when it crosses the <code>async_boundary</code> point and enters the background step's pool. With <code>workers=4</code> and <code>ReflectStep.max_workers=3</code>, you can have 4 samples in Agent/Evaluate and 3 reflections running concurrently — two separate pools, no multiplication.</p>
+<p>Mental model: <code>workers</code> controls throughput <em>into</em> the pipeline; <code>max_workers</code> controls throughput <em>through</em> each slow background step.</p>
+<p><strong>LLM rate limits:</strong> <code>workers</code> and <code>max_workers</code> are independent pools, but total concurrent outbound LLM calls = foreground calls + background calls. With <code>workers=4</code> and <code>ReflectStep.max_workers=3</code>, up to 7 LLM requests may be in-flight simultaneously. Account for this when configuring per-provider rate limits.</p>
+<hr />
+<h2 id="error-handling">Error Handling<a class="headerlink" href="#error-handling" title="Permanent link">&para;</a></h2>
+<p>Failure semantics differ depending on which side of the <code>async_boundary</code> a step is on.</p>
+<p><strong>Foreground steps</strong> (before the boundary): the runner catches exceptions per sample and records them in a <code>SampleResult</code>. The pipeline then moves to the next sample.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="c1"># Pipeline runner (foreground loop)</span>
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="k">for</span> <span class="n">ctx</span> <span class="ow">in</span> <span class="n">contexts</span><span class="p">:</span>
+<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a>        <span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">foreground_steps</span><span class="p">:</span>
+<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a>            <span class="n">ctx</span> <span class="o">=</span> <span class="n">step</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+<a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_submit_to_background</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+<a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a>        <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">SampleResult</span><span class="p">(</span><span class="n">sample</span><span class="o">=</span><span class="n">ctx</span><span class="o">.</span><span class="n">sample</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="n">ctx</span><span class="p">,</span> <span class="n">error</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">failed_at</span><span class="o">=</span><span class="kc">None</span><span class="p">))</span>
+<a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a>    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+<a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a>        <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">SampleResult</span><span class="p">(</span><span class="n">sample</span><span class="o">=</span><span class="n">ctx</span><span class="o">.</span><span class="n">sample</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">error</span><span class="o">=</span><span class="n">e</span><span class="p">,</span> <span class="n">failed_at</span><span class="o">=</span><span class="nb">type</span><span class="p">(</span><span class="n">step</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">))</span>
+</code></pre></div>
+<p><strong>Background steps</strong> (after the boundary): the caller has already moved on, so exceptions cannot propagate. Background failures are captured and attached to the <code>SampleResult</code> — nothing is dropped silently.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="nd">@dataclass</span>
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">SampleResult</span><span class="p">:</span>
+<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>    <span class="n">sample</span><span class="p">:</span> <span class="n">Any</span>
+<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a>    <span class="n">output</span><span class="p">:</span> <span class="n">StepContext</span> <span class="o">|</span> <span class="kc">None</span>     <span class="c1"># None if a step failed</span>
+<a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a>    <span class="n">error</span><span class="p">:</span> <span class="ne">Exception</span> <span class="o">|</span> <span class="kc">None</span>        <span class="c1"># set if any step failed</span>
+<a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a>    <span class="n">failed_at</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span>          <span class="c1"># name of the step class that failed</span>
+<a id="__codelineno-24-7" name="__codelineno-24-7" href="#__codelineno-24-7"></a>    <span class="n">cause</span><span class="p">:</span> <span class="ne">Exception</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span> <span class="c1"># for BranchError: the inner step exception</span>
+</code></pre></div>
+<p>Every sample produces a result — either successful with <code>output</code> set, or failed with <code>error</code> and <code>failed_at</code> set. After <code>run()</code> completes (or after <code>wait_for_learning()</code>), callers can inspect results for failures.</p>
+<p>When a <code>Branch</code> step fails, <code>failed_at</code> is <code>"Branch"</code> and <code>error</code> is a <code>BranchError</code>. <code>cause</code> carries the inner exception from the failing branch so callers can see which inner step actually failed, not just the outer wrapper.</p>
+<p>Retry logic is the responsibility of individual steps, not the pipeline.</p>
+<p><strong>Shutdown:</strong> <code>wait_for_background(timeout=N)</code> raises <code>TimeoutError</code> if background steps have not drained within <code>N</code> seconds. Individual step implementations are responsible for their own per-call timeouts (e.g. LLM API call timeouts).</p>
+<p><strong>Monitoring:</strong> <code>background_stats()</code> returns a <code>dict</code> with <code>active</code> and <code>completed</code> counts for background threads. Thread-safe — can be called from any thread while the pipeline is running. This is the public API for monitoring background progress; callers should not access <code>_bg_lock</code> or <code>_bg_threads</code> directly.</p>
+<hr />
+<h2 id="summary-table">Summary Table<a class="headerlink" href="#summary-table" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Concept</th>
+<th>Unit</th>
+<th>Threading</th>
+<th>Communication</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Step</code></td>
+<td>single unit of work</td>
+<td>always sync</td>
+<td>via <code>StepContext</code></td>
+</tr>
+<tr>
+<td><code>Pipeline</code></td>
+<td>ordered step list for one input</td>
+<td><code>workers=N</code> across inputs</td>
+<td>via <code>StepContext</code></td>
+</tr>
+<tr>
+<td><code>Branch</code></td>
+<td>parallel pipeline list</td>
+<td>always parallel internally</td>
+<td>copy + merge of <code>StepContext</code></td>
+</tr>
+<tr>
+<td><code>Pipeline</code> as a <code>Step</code></td>
+<td>reuse / nesting</td>
+<td>inherits parent context</td>
+<td>via <code>StepContext</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="what-was-rejected-and-why">What Was Rejected and Why<a class="headerlink" href="#what-was-rejected-and-why" title="Permanent link">&para;</a></h2>
+<p><strong><code>PipelineProcess</code> (external wrapper):</strong>
+Adding a separate class to wrap pipelines with executor/queue machinery was considered. Rejected — it adds an indirection layer without benefit for this project's use case. Concurrency is declared on steps instead.</p>
+<p><strong>Special async pipeline subclass:</strong>
+Having an <code>AsyncPipeline</code> type was considered. Rejected — it mixes sequential logic with concurrency concerns in the same class. The <code>async_boundary</code> marker on steps is data-driven and doesn't require subclassing.</p>
+<p><strong>Full DAG executor (auto-inferred parallelism):</strong>
+The <code>requires</code>/<code>provides</code> graph already contains enough information to infer which steps can run in parallel. Deferred — <code>Branch</code> covers the explicit fork/join case; automatic DAG inference can be added later if needed.</p>
+<p><strong>Alternative <code>requires</code>/<code>provides</code> declaration styles:</strong>
+Four alternatives to plain set class attributes were considered:</p>
+<ul>
+<li><code>__init_subclass__</code> keyword args (<code>class MyStep(Step, requires={"agent_output"})</code>): moves the declaration to the class header but requires inheriting from a base <code>Step</code> class, eliminating the structural Protocol advantage — any object with the right attributes is a step without needing to inherit anything.</li>
+<li><code>ClassVar</code> annotations (<code>requires: ClassVar[frozenset[str]] = ...</code>): more type-checker friendly but adds verbosity with no semantic change.</li>
+<li>Function decorator wrapping <code>__call__</code>: removes class boilerplate for stateless steps but introduces two styles (decorated functions vs classes with collaborators like <code>self.reflector</code>), inconsistency not worth the reduction.</li>
+<li>Decomposed signature / Hamilton-style (steps receive named fields as parameters instead of <code>StepContext</code>): elegant zero-annotation contracts — <code>requires</code> and <code>provides</code> are inferred from function signature at zero cost. Rejected because it loses explicit ordering control (order is inferred from data dependencies, not declared; independent steps have undefined order), collapses the two-tier <code>StepContext</code>/<code>metadata</code> structure into a flat dict (integration-specific data collides with shared fields), and makes side-effect steps with no consumed output impossible to anchor in the sequence.</li>
+</ul>
+<p>Plain set class attributes with pipeline normalization to <code>frozenset</code> at construction time is the right balance: explicit, readable, no inheritance required, and the ordering and context model stay intact.</p>
+<hr />
+<h2 id="external-libraries-considered">External Libraries Considered<a class="headerlink" href="#external-libraries-considered" title="Permanent link">&para;</a></h2>
+<p>This pattern is known as <strong>Pipes and Filters</strong>. Several open source libraries implement variants of it. None were adopted — reasons below.</p>
+<p><strong><a href="https://kedro.org/">Kedro</a></strong> — closest to the <code>requires</code>/<code>provides</code> model. Nodes declare explicit named inputs and outputs; pipelines are composable. The gap: requires a "data catalog" abstraction for named datasets, has no <code>async_boundary</code> concept, and is oriented toward ML/ETL rather than agentic loops. Fighting the data catalog to pass a <code>StepContext</code> would cost more than writing the primitives cleanly.</p>
+<p><strong><a href="https://github.com/dagworks-inc/hamilton">Hamilton</a></strong> — lightest-weight equivalent. Functions declare inputs as parameters and outputs as return types; the framework infers the DAG. No server, no UI. The gap: no built-in async boundary, no fork/join <code>Branch</code>, no per-step <code>max_workers</code>. Gets contract validation for free but requires building all concurrency from scratch anyway.</p>
+<p><strong><a href="https://github.com/cgarciae/pypeln">Pypeln</a></strong> — designed for exactly the "process N samples through concurrent stages" problem. Has sync, thread, and async modes. The gap: no typed contracts, no <code>Branch</code>, no nested pipelines. Gets the <code>async_boundary</code>-style throughput but not the structural guarantees.</p>
+<p><strong><a href="https://dagster.io/">Dagster</a></strong> — closest overall feature set. Ops (≈ Steps) with typed inputs/outputs, jobs (≈ Pipelines), graph-based branching. The gap: it is a platform, not a library. Brings a scheduler, UI, asset catalog, and significant operational overhead. Too heavy to embed inside ACE.</p>
+<p><strong>Conclusion:</strong> The specific combination of <code>async_boundary</code>, per-step <code>max_workers</code>, <code>Pipeline</code>-as-<code>Step</code> nesting, and <code>SampleResult</code> error wrapping is not provided by any of the above out of the box. Adapting any of them would cost as much as writing the ~300-line core cleanly.</p>
+<p><strong>What is borrowed rather than written:</strong> <code>concurrent.futures.ThreadPoolExecutor</code> for the background step pools, and <code>asyncio.gather</code> (or <code>anyio</code> task groups) for <code>Branch</code> internals. These are well-tested primitives that are not reinvented.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.highlight", "search.share", "content.code.copy", "content.tabs.link"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

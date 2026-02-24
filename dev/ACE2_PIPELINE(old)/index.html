@@ -10,7 +10,7 @@
       
       
       
-        <link rel="canonical" href="https://kayba-ai.github.io/agentic-context-engine/latest/COMPLETE_GUIDE_TO_ACE/">
+        <link rel="canonical" href="https://kayba-ai.github.io/agentic-context-engine/latest/ACE2_PIPELINE%28old%29/">
       
       
       
@@ -23,7 +23,7 @@
     
     
       
-        <title>Agentic Context Engineering: Complete Guide - ACE Framework</title>
+        <title>ACE2 Pipeline Architecture - ACE Framework</title>
       
     
     
@@ -74,7 +74,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#agentic-context-engineering-complete-guide" class="md-skip">
+        <a href="#ace2-pipeline-architecture" class="md-skip">
           Skip to content
         </a>
       
@@ -112,7 +112,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Agentic Context Engineering: Complete Guide
+              ACE2 Pipeline Architecture
             
           </span>
         </div>
@@ -1130,10 +1130,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#what-is-agentic-context-engineering" class="md-nav__link">
+  <a href="#why-ace2" class="md-nav__link">
     <span class="md-ellipsis">
       
-        What is Agentic Context Engineering?
+        Why ACE2?
       
     </span>
   </a>
@@ -1141,10 +1141,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#the-core-problem" class="md-nav__link">
+  <a href="#file-layout" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The Core Problem
+        File Layout
       
     </span>
   </a>
@@ -1152,55 +1152,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#how-ace-works" class="md-nav__link">
+  <a href="#the-four-steps" class="md-nav__link">
     <span class="md-ellipsis">
       
-        How ACE Works
+        The Four Steps
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="How ACE Works">
+    <nav class="md-nav" aria-label="The Four Steps">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#the-three-agents" class="md-nav__link">
+  <a href="#pipeline-wiring" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The Three Agents
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#the-skillbook" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The Skillbook
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#the-learning-cycle" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The Learning Cycle
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#insight-levels" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Insight Levels
+        Pipeline Wiring
       
     </span>
   </a>
@@ -1213,22 +1180,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#key-technical-innovations" class="md-nav__link">
+  <a href="#design-decisions" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Key Technical Innovations
+        Design Decisions
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Key Technical Innovations">
+    <nav class="md-nav" aria-label="Design Decisions">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#update-operations-preventing-context-collapse" class="md-nav__link">
+  <a href="#composition-over-inheritance" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Update Operations (Preventing Context Collapse)
+        Composition over Inheritance
       
     </span>
   </a>
@@ -1236,10 +1203,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#semantic-deduplication" class="md-nav__link">
+  <a href="#recent_reflections-is-cross-sample-state" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Semantic Deduplication
+        recent_reflections is Cross-Sample State
       
     </span>
   </a>
@@ -1247,10 +1214,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#hybrid-retrieval" class="md-nav__link">
+  <a href="#async-boundaries-and-worker-limits" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Hybrid Retrieval
+        Async Boundaries and Worker Limits
       
     </span>
   </a>
@@ -1258,10 +1225,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#async-learning-mode" class="md-nav__link">
+  <a href="#insight-source-provenance" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Async Learning Mode
+        Insight Source Provenance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deduplication-wiring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deduplication Wiring
       
     </span>
   </a>
@@ -1274,33 +1252,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#performance-results" class="md-nav__link">
+  <a href="#api-surface" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Performance Results
+        API Surface
       
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#when-to-use-ace" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        When to Use ACE
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="When to Use ACE">
+    <nav class="md-nav" aria-label="API Surface">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#best-fit-use-cases" class="md-nav__link">
+  <a href="#quick-start-from_client" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Best Fit Use Cases
+        Quick Start (from_client)
       
     </span>
   </a>
@@ -1308,10 +1275,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#when-not-to-use-ace" class="md-nav__link">
+  <a href="#custom-roles-from_roles" class="md-nav__link">
     <span class="md-ellipsis">
       
-        When NOT to Use ACE
+        Custom Roles (from_roles)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#manual-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Manual Pipeline
       
     </span>
   </a>
@@ -1324,22 +1302,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#ace-vs-other-approaches" class="md-nav__link">
+  <a href="#runner-behaviour" class="md-nav__link">
     <span class="md-ellipsis">
       
-        ACE vs. Other Approaches
+        Runner Behaviour
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="ACE vs. Other Approaches">
+    <nav class="md-nav" aria-label="Runner Behaviour">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#vs-fine-tuning" class="md-nav__link">
+  <a href="#offlineace" class="md-nav__link">
     <span class="md-ellipsis">
       
-        vs. Fine-Tuning
+        OfflineACE
       
     </span>
   </a>
@@ -1347,10 +1325,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#vs-rag" class="md-nav__link">
+  <a href="#onlineace" class="md-nav__link">
     <span class="md-ellipsis">
       
-        vs. RAG
+        OnlineACE
       
     </span>
   </a>
@@ -1363,10 +1341,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#getting-started" class="md-nav__link">
+  <a href="#testing" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Getting Started
+        Testing
       
     </span>
   </a>
@@ -1374,41 +1352,13 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#additional-resources" class="md-nav__link">
+  <a href="#migration-path" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Additional Resources
+        Migration Path
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Additional Resources">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#research" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Research
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#community" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Community
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -1432,266 +1382,197 @@
   
 
 
-<h1 id="agentic-context-engineering-complete-guide">Agentic Context Engineering: Complete Guide<a class="headerlink" href="#agentic-context-engineering-complete-guide" title="Permanent link">&para;</a></h1>
-<p><strong>How ACE enables AI agents to improve through in-context learning instead of fine-tuning.</strong></p>
-<hr />
-<h2 id="what-is-agentic-context-engineering">What is Agentic Context Engineering?<a class="headerlink" href="#what-is-agentic-context-engineering" title="Permanent link">&para;</a></h2>
-<p>Agentic Context Engineering (ACE) is a framework introduced by researchers at Stanford University and SambaNova Systems that enables AI agents to improve performance by dynamically curating their own context through execution feedback.</p>
-<p><strong>Key Innovation:</strong> Instead of updating model weights through expensive fine-tuning cycles, ACE treats context as a living "skillbook" that evolves based on what strategies actually work in practice.</p>
-<p><strong>Research Paper:</strong> <a href="https://arxiv.org/abs/2510.04618">Agentic Context Engineering (arXiv:2510.04618)</a></p>
-<hr />
-<h2 id="the-core-problem">The Core Problem<a class="headerlink" href="#the-core-problem" title="Permanent link">&para;</a></h2>
-<p>Modern AI agents face a fundamental limitation: they don't learn from execution history. When an agent makes a mistake, developers must manually intervene—editing prompts, adjusting parameters, or fine-tuning the model.</p>
-<p><strong>Traditional approaches have major drawbacks:</strong>
-- <strong>Repetitive failures:</strong> Agents lack institutional memory
-- <strong>Manual intervention:</strong> Doesn't scale as complexity increases
-- <strong>Expensive adaptation:</strong> Fine-tuning costs $10,000+ per cycle and takes weeks
-- <strong>Black box improvement:</strong> Unclear what changed or why</p>
-<hr />
-<h2 id="how-ace-works">How ACE Works<a class="headerlink" href="#how-ace-works" title="Permanent link">&para;</a></h2>
-<p>ACE introduces a three-agent architecture where specialized roles collaborate to build and maintain a dynamic knowledge base called the "skillbook."</p>
-<h3 id="the-three-agents">The Three Agents<a class="headerlink" href="#the-three-agents" title="Permanent link">&para;</a></h3>
-<p><strong>1. Agent</strong> - Task Execution
-- Performs the actual work using strategies from the skillbook
-- Operates like a traditional agent but with access to learned knowledge</p>
-<p><strong>2. Reflector</strong> - Performance Analysis
-- Analyzes execution outcomes without human supervision
-- Identifies which strategies worked, which failed, and why
-- Generates insights that inform skillbook updates</p>
-<p><strong>3. SkillManager</strong> - Knowledge Management
-- Adds new strategies based on successful executions
-- Removes or marks strategies that consistently fail
-- Merges semantically similar strategies to prevent redundancy</p>
-<h3 id="the-skillbook">The Skillbook<a class="headerlink" href="#the-skillbook" title="Permanent link">&para;</a></h3>
-<p>The skillbook stores learned strategies as structured "skills"—discrete pieces of knowledge with metadata:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">{</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">&quot;content&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;When querying financial data, filter by date range first to reduce result set size&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="nt">&quot;helpful_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">&quot;harmful_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nt">&quot;section&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;task_guidance&quot;</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">}</span>
+<h1 id="ace2-pipeline-architecture">ACE2 Pipeline Architecture<a class="headerlink" href="#ace2-pipeline-architecture" title="Permanent link">&para;</a></h1>
+<p>ACE2 reimplements the ACE core on top of the generic pipeline engine (<code>pipeline/</code>).
+This document records the design choices, file layout, and migration path.</p>
+<h2 id="why-ace2">Why ACE2?<a class="headerlink" href="#why-ace2" title="Permanent link">&para;</a></h2>
+<p>The original ACE implementation (<code>ace/adaptation.py</code>) hard-codes the four-step loop
+(Agent → Evaluate → Reflect → Update) inside monolithic <code>OfflineACE</code> / <code>OnlineACE</code>
+classes. This makes it difficult to:</p>
+<ul>
+<li>Swap, reorder, or skip steps</li>
+<li>Run steps in parallel or in background threads</li>
+<li>Share the pipeline engine with non-ACE workloads</li>
+<li>Test individual steps in isolation</li>
+</ul>
+<p>ACE2 decomposes the same logic into discrete <strong>steps</strong> that plug into the generic
+pipeline engine, giving us all of the above for free.</p>
+<h2 id="file-layout">File Layout<a class="headerlink" href="#file-layout" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>ace2/
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├── __init__.py
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>├── steps/
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>│   ├── __init__.py          # re-exports all steps
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>│   ├── agent.py             # AgentStep
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>│   ├── evaluate.py          # EvaluateStep
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>│   ├── reflect.py           # ReflectStep
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>│   └── update.py            # UpdateStep
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>└── pipelines/
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    ├── __init__.py           # ace_pipeline() factory + re-exports
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    ├── offline.py            # OfflineACE runner
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    └── online.py             # OnlineACE runner
 </code></pre></div>
-<h3 id="the-learning-cycle">The Learning Cycle<a class="headerlink" href="#the-learning-cycle" title="Permanent link">&para;</a></h3>
-<ol>
-<li><strong>Execution:</strong> Agent receives a task and retrieves relevant skillbook skills</li>
-<li><strong>Action:</strong> Agent executes using retrieved strategies</li>
-<li><strong>Reflection:</strong> Reflector analyzes the execution outcome</li>
-<li><strong>Curation:</strong> SkillManager updates the skillbook with update operations</li>
-<li><strong>Iteration:</strong> Process repeats, skillbook grows more refined over time</li>
-</ol>
-<h3 id="insight-levels">Insight Levels<a class="headerlink" href="#insight-levels" title="Permanent link">&para;</a></h3>
-<p>The Reflector can analyze execution at three different levels of scope, producing insights of varying depth:</p>
+<h2 id="the-four-steps">The Four Steps<a class="headerlink" href="#the-four-steps" title="Permanent link">&para;</a></h2>
+<p>Each step implements the <code>StepProtocol</code> (requires/provides/<code>__call__</code>).
+The pipeline engine validates that every step's <code>requires</code> are satisfied
+by earlier steps or by the initial context seeded by the runner.</p>
 <table>
 <thead>
 <tr>
-<th>Level</th>
-<th>Scope</th>
-<th>What's Analyzed</th>
-<th>Learning Quality</th>
+<th>Step</th>
+<th>Requires</th>
+<th>Provides</th>
+<th>Notes</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><strong>Micro</strong></td>
-<td>Single interaction + environment</td>
-<td>Request → response → ground truth/feedback</td>
-<td>Learns from correctness</td>
+<td><strong>AgentStep</strong></td>
+<td><code>sample</code>, <code>skillbook</code></td>
+<td><code>agent_output</code></td>
+<td>Wraps <code>Agent.generate()</code>. Reads <code>recent_reflections</code> from context but does NOT declare it as a requirement (see below).</td>
 </tr>
 <tr>
-<td><strong>Meso</strong></td>
-<td>Full agent run</td>
-<td>Reasoning traces (thoughts, tool calls, observations)</td>
-<td>Learns from execution patterns</td>
+<td><strong>EvaluateStep</strong></td>
+<td><code>sample</code>, <code>agent_output</code>, <code>environment</code></td>
+<td><code>environment_result</code></td>
+<td>Stateless — no constructor args. Calls <code>environment.evaluate()</code>.</td>
 </tr>
 <tr>
-<td><strong>Macro</strong></td>
-<td>Cross-run analysis</td>
-<td>Patterns across multiple executions</td>
-<td>Comprehensive (future)</td>
+<td><strong>ReflectStep</strong></td>
+<td><code>sample</code>, <code>agent_output</code>, <code>environment_result</code>, <code>skillbook</code></td>
+<td><code>reflection</code>, <code>recent_reflections</code></td>
+<td><code>async_boundary=True</code>, <code>max_workers=3</code>. Tags skills and maintains rolling reflection window.</td>
+</tr>
+<tr>
+<td><strong>UpdateStep</strong></td>
+<td><code>reflection</code>, <code>skillbook</code>, <code>sample</code>, <code>environment_result</code>, <code>agent_output</code></td>
+<td><code>skill_manager_output</code></td>
+<td><code>max_workers=1</code> to serialise skillbook writes. Attaches insight-source provenance.</td>
 </tr>
 </tbody>
 </table>
-<p><strong>Micro-level insights</strong> come from the full ACE adaptation loop with environment feedback and ground truth. The Reflector knows whether the answer was correct and learns from that evaluation. Used by OfflineACE and OnlineACE.</p>
-<p><strong>Meso-level insights</strong> come from full agent runs with intermediate steps—the agent's thoughts, tool calls, and observations—but without external ground truth. The Reflector learns from the execution patterns themselves. Used by integration wrappers like ACELangChain with AgentExecutor.</p>
-<p><strong>Macro-level insights</strong> (future) will compare patterns across multiple runs to identify systemic improvements.</p>
-<hr />
-<h2 id="key-technical-innovations">Key Technical Innovations<a class="headerlink" href="#key-technical-innovations" title="Permanent link">&para;</a></h2>
-<h3 id="update-operations-preventing-context-collapse">Update Operations (Preventing Context Collapse)<a class="headerlink" href="#update-operations-preventing-context-collapse" title="Permanent link">&para;</a></h3>
-<p>A critical insight from the ACE paper: LLMs exhibit <strong>brevity bias</strong> when asked to rewrite context. They compress information, losing crucial details.</p>
-<p>ACE solves this through <strong>update operations</strong>—incremental modifications that never ask the LLM to regenerate entire contexts:</p>
-<ul>
-<li><strong>Add:</strong> Insert new skill to skillbook</li>
-<li><strong>Remove:</strong> Delete specific skill by ID</li>
-<li><strong>Modify:</strong> Update specific fields (helpful_count, content refinement)</li>
-</ul>
-<p>This preserves the exact wording and structure of learned knowledge.</p>
-<h3 id="semantic-deduplication">Semantic Deduplication<a class="headerlink" href="#semantic-deduplication" title="Permanent link">&para;</a></h3>
-<p>As agents learn, they may generate similar but differently-worded strategies. ACE prevents skillbook bloat through embedding-based deduplication, keeping the skillbook concise while capturing diverse knowledge.</p>
-<h3 id="hybrid-retrieval">Hybrid Retrieval<a class="headerlink" href="#hybrid-retrieval" title="Permanent link">&para;</a></h3>
-<p>Instead of dumping the entire skillbook into context, ACE uses hybrid retrieval to select only the most relevant skills. This:</p>
-<ul>
-<li>Keeps context windows manageable</li>
-<li>Prioritizes proven strategies</li>
-<li>Reduces token costs</li>
-</ul>
-<h3 id="async-learning-mode">Async Learning Mode<a class="headerlink" href="#async-learning-mode" title="Permanent link">&para;</a></h3>
-<p>For latency-sensitive applications, ACE supports async learning where the Agent returns immediately while Reflector and SkillManager process in the background:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>┌───────────────────────────────────────────────────────────────────────┐
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>│                       ASYNC LEARNING PIPELINE                         │
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>├───────────────────────────────────────────────────────────────────────┤
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>│                                                                       │
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>│  Sample 1 ──► Agent ──► Env ──► Reflector ─┐                         │
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>│  Sample 2 ──► Agent ──► Env ──► Reflector ─┼──► Queue ──► SkillManager│
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>│  Sample 3 ──► Agent ──► Env ──► Reflector ─┘           (serialized)   │
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>│             (parallel)        (parallel)                              │
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>│                                                                       │
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>└───────────────────────────────────────────────────────────────────────┘
+<h3 id="pipeline-wiring">Pipeline Wiring<a class="headerlink" href="#pipeline-wiring" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">Pipeline</span><span class="p">()</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">AgentStep</span><span class="p">(</span><span class="n">agent</span><span class="p">))</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">EvaluateStep</span><span class="p">())</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">ReflectStep</span><span class="p">(</span><span class="n">reflector</span><span class="p">,</span> <span class="n">reflection_window</span><span class="o">=</span><span class="mi">3</span><span class="p">))</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">UpdateStep</span><span class="p">(</span><span class="n">skill_manager</span><span class="p">))</span>
 </code></pre></div>
-<p><strong>Why this architecture:</strong>
-- <strong>Parallel Reflectors</strong>: Safe to parallelize (read-only analysis, no skillbook writes)
-- <strong>Serialized SkillManager</strong>: Must be sequential (writes to skillbook, handles deduplication)
-- <strong>3x faster learning</strong>: Reflector LLM calls run concurrently</p>
-<p><strong>Usage:</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">adapter</span> <span class="o">=</span> <span class="n">OfflineACE</span><span class="p">(</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="n">skillbook</span><span class="o">=</span><span class="n">skillbook</span><span class="p">,</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="n">agent</span><span class="o">=</span><span class="n">agent</span><span class="p">,</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">reflector</span><span class="o">=</span><span class="n">reflector</span><span class="p">,</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">skill_manager</span><span class="o">=</span><span class="n">skill_manager</span><span class="p">,</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">async_learning</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>        <span class="c1"># Enable async mode</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="n">max_reflector_workers</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>    <span class="c1"># Parallel Reflector threads</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="p">)</span>
+<h2 id="design-decisions">Design Decisions<a class="headerlink" href="#design-decisions" title="Permanent link">&para;</a></h2>
+<h3 id="composition-over-inheritance">Composition over Inheritance<a class="headerlink" href="#composition-over-inheritance" title="Permanent link">&para;</a></h3>
+<p>The runners (<code>OfflineACE</code>, <code>OnlineACE</code>) hold a <code>Pipeline</code> by composition — they
+are <strong>not</strong> subclasses of <code>Pipeline</code>. This matches the spec and keeps the runner
+logic (epoch loops, checkpointing, error capture) separate from the pipeline
+engine's step-chaining logic.</p>
+<h3 id="recent_reflections-is-cross-sample-state"><code>recent_reflections</code> is Cross-Sample State<a class="headerlink" href="#recent_reflections-is-cross-sample-state" title="Permanent link">&para;</a></h3>
+<p><code>recent_reflections</code> is a rolling window of serialised reflections that carries
+across samples. It is:</p>
+<ul>
+<li><strong>Seeded</strong> by the runner (starts as empty tuple <code>()</code>)</li>
+<li><strong>Grown</strong> by <code>ReflectStep</code> (appends new reflection, trims to window size)</li>
+<li><strong>Propagated</strong> by the runner between samples (<code>recent_reflections = out_ctx.recent_reflections</code>)</li>
+<li><strong>Read</strong> by <code>AgentStep</code> to build the reflection context string</li>
+</ul>
+<p>Critically, <code>AgentStep</code> does <strong>not</strong> declare <code>recent_reflections</code> in its <code>requires</code>
+set. If it did, the pipeline validator would see a circular dependency (AgentStep
+requires something that ReflectStep provides, but ReflectStep comes after AgentStep).
+Instead, the runner guarantees it is always present in the initial <code>StepContext</code>.</p>
+<h3 id="async-boundaries-and-worker-limits">Async Boundaries and Worker Limits<a class="headerlink" href="#async-boundaries-and-worker-limits" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>ReflectStep</code> sets <code>async_boundary = True</code> — the pipeline engine can run it
+  (and everything after it) in a background thread pool, so the Agent + Evaluate
+  foreground path returns quickly.</li>
+<li><code>ReflectStep</code> uses <code>max_workers = 3</code> — multiple reflections can run concurrently.</li>
+<li><code>UpdateStep</code> uses <code>max_workers = 1</code> — skillbook mutations are serialised to
+  avoid race conditions, even when multiple ReflectSteps finish in parallel.</li>
+</ul>
+<h3 id="insight-source-provenance">Insight Source Provenance<a class="headerlink" href="#insight-source-provenance" title="Permanent link">&para;</a></h3>
+<p><code>UpdateStep</code> calls <code>build_insight_source()</code> before applying updates to the
+skillbook. This attaches provenance metadata (sample question, epoch, step,
+error identification) to each operation so we can trace where a skill came from.</p>
+<h3 id="deduplication-wiring">Deduplication Wiring<a class="headerlink" href="#deduplication-wiring" title="Permanent link">&para;</a></h3>
+<p>Both runners accept an optional <code>dedup_config</code> parameter in <code>from_roles()</code> /
+<code>from_client()</code>. If provided and the <code>SkillManager</code> doesn't already have a
+<code>DeduplicationManager</code>, one is created and attached. This matches the old
+<code>ACEBase</code> behaviour.</p>
+<h2 id="api-surface">API Surface<a class="headerlink" href="#api-surface" title="Permanent link">&para;</a></h2>
+<h3 id="quick-start-from_client">Quick Start (from_client)<a class="headerlink" href="#quick-start-from_client" title="Permanent link">&para;</a></h3>
+<p>The simplest way — a single LLM client, all roles created internally:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace.llm_providers</span><span class="w"> </span><span class="kn">import</span> <span class="n">LiteLLMClient</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace2.pipelines</span><span class="w"> </span><span class="kn">import</span> <span class="n">OfflineACE</span><span class="p">,</span> <span class="n">OnlineACE</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">client</span> <span class="o">=</span> <span class="n">LiteLLMClient</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">)</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="c1"># Offline: multi-epoch training</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">ace</span> <span class="o">=</span> <span class="n">OfflineACE</span><span class="o">.</span><span class="n">from_client</span><span class="p">(</span><span class="n">client</span><span class="p">)</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">results</span> <span class="o">=</span> <span class="n">ace</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">train_samples</span><span class="p">,</span> <span class="n">environment</span><span class="p">,</span> <span class="n">epochs</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
 <a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="n">results</span> <span class="o">=</span> <span class="n">adapter</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="n">environment</span><span class="p">)</span>  <span class="c1"># Fast - learning in background</span>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="c1"># Control methods</span>
-<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="n">adapter</span><span class="o">.</span><span class="n">learning_stats</span>       <span class="c1"># Check progress</span>
-<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="n">adapter</span><span class="o">.</span><span class="n">wait_for_learning</span><span class="p">()</span>  <span class="c1"># Block until complete</span>
-<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="n">adapter</span><span class="o">.</span><span class="n">stop_async_learning</span><span class="p">()</span> <span class="c1"># Shutdown pipeline</span>
-</code></pre></div></p>
-<hr />
-<h2 id="performance-results">Performance Results<a class="headerlink" href="#performance-results" title="Permanent link">&para;</a></h2>
-<p>The Stanford team evaluated ACE across multiple benchmarks:</p>
-<p><strong>AppWorld Agent Benchmark:</strong>
-- <strong>+17.1 percentage points</strong> improvement vs. base LLM (≈40% relative improvement)
-- Tested on complex multi-step tasks requiring tool use and reasoning</p>
-<p><strong>Finance Domain (FiNER):</strong>
-- <strong>+8.6 percentage points</strong> improvement on financial reasoning tasks</p>
-<p><strong>Adaptation Efficiency:</strong>
-- <strong>86.9% lower adaptation latency</strong> compared to existing context-adaptation methods</p>
-<p><strong>Key Insight:</strong> Performance improvements compound over time. As the skillbook grows, agents make fewer mistakes on similar tasks, creating a positive feedback loop.</p>
-<hr />
-<h2 id="when-to-use-ace">When to Use ACE<a class="headerlink" href="#when-to-use-ace" title="Permanent link">&para;</a></h2>
-<h3 id="best-fit-use-cases">Best Fit Use Cases<a class="headerlink" href="#best-fit-use-cases" title="Permanent link">&para;</a></h3>
-<p><strong>Software Development Agents</strong>
-- Learn project-specific patterns (naming conventions, error handling)
-- Build knowledge of common bugs and solutions
-- Accumulate code review guidelines</p>
-<p><strong>Customer Support Automation</strong>
-- Learn which issues need human escalation
-- Discover effective communication patterns
-- Build institutional knowledge of edge cases</p>
-<p><strong>Data Analysis Agents</strong>
-- Learn efficient query patterns
-- Discover which visualizations work for which data types
-- Build baseline expectations from execution history</p>
-<p><strong>Research Assistants</strong>
-- Learn effective search strategies per domain
-- Discover citation patterns and summarization techniques
-- Build knowledge of reliable sources</p>
-<h3 id="when-not-to-use-ace">When NOT to Use ACE<a class="headerlink" href="#when-not-to-use-ace" title="Permanent link">&para;</a></h3>
-<p>ACE may not be the right fit when:
-- <strong>Single-use tasks:</strong> No benefit from learning if task never repeats
-- <strong>Perfect first-time execution required:</strong> ACE learns through iteration
-- <strong>Purely factual retrieval:</strong> Traditional RAG may be more appropriate</p>
-<hr />
-<h2 id="ace-vs-other-approaches">ACE vs. Other Approaches<a class="headerlink" href="#ace-vs-other-approaches" title="Permanent link">&para;</a></h2>
-<h3 id="vs-fine-tuning">vs. Fine-Tuning<a class="headerlink" href="#vs-fine-tuning" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Aspect</th>
-<th>ACE</th>
-<th>Fine-Tuning</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Speed</td>
-<td>Immediate (after single execution)</td>
-<td>Days to weeks</td>
-</tr>
-<tr>
-<td>Cost</td>
-<td>Inference only</td>
-<td>$10K+ per iteration</td>
-</tr>
-<tr>
-<td>Interpretability</td>
-<td>Readable skillbook</td>
-<td>Black box weights</td>
-</tr>
-<tr>
-<td>Reversibility</td>
-<td>Edit/remove strategies easily</td>
-<td>Requires retraining</td>
-</tr>
-</tbody>
-</table>
-<h3 id="vs-rag">vs. RAG<a class="headerlink" href="#vs-rag" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Aspect</th>
-<th>ACE</th>
-<th>RAG</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Knowledge Source</td>
-<td>Learned from execution</td>
-<td>Static documents</td>
-</tr>
-<tr>
-<td>Update Mechanism</td>
-<td>Autonomous skill updates</td>
-<td>Manual updates</td>
-</tr>
-<tr>
-<td>Content Type</td>
-<td>Strategies, patterns</td>
-<td>Facts, references</td>
-</tr>
-<tr>
-<td>Optimization</td>
-<td>Self-improving</td>
-<td>Requires query tuning</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h2 id="getting-started">Getting Started<a class="headerlink" href="#getting-started" title="Permanent link">&para;</a></h2>
-<p>Ready to build self-learning agents? Check out these resources:</p>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="c1"># Online: single-pass streaming</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="n">ace</span> <span class="o">=</span> <span class="n">OnlineACE</span><span class="o">.</span><span class="n">from_client</span><span class="p">(</span><span class="n">client</span><span class="p">)</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="n">results</span> <span class="o">=</span> <span class="n">ace</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">test_samples</span><span class="p">,</span> <span class="n">environment</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="custom-roles-from_roles">Custom Roles (from_roles)<a class="headerlink" href="#custom-roles-from_roles" title="Permanent link">&para;</a></h3>
+<p>Full control over role configuration:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace.roles</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span><span class="p">,</span> <span class="n">Reflector</span><span class="p">,</span> <span class="n">SkillManager</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace.prompts_v2_1</span><span class="w"> </span><span class="kn">import</span> <span class="n">PromptManager</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">pm</span> <span class="o">=</span> <span class="n">PromptManager</span><span class="p">()</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">ace</span> <span class="o">=</span> <span class="n">OfflineACE</span><span class="o">.</span><span class="n">from_roles</span><span class="p">(</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">agent</span><span class="o">=</span><span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">prompt_template</span><span class="o">=</span><span class="n">pm</span><span class="o">.</span><span class="n">get_agent_prompt</span><span class="p">()),</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="n">reflector</span><span class="o">=</span><span class="n">Reflector</span><span class="p">(</span><span class="n">client</span><span class="p">),</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="n">skill_manager</span><span class="o">=</span><span class="n">SkillManager</span><span class="p">(</span><span class="n">client</span><span class="p">),</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>    <span class="n">skillbook</span><span class="o">=</span><span class="n">skillbook</span><span class="p">,</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>    <span class="n">reflection_window</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    <span class="n">dedup_config</span><span class="o">=</span><span class="n">dedup_config</span><span class="p">,</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="p">)</span>
+</code></pre></div>
+<h3 id="manual-pipeline">Manual Pipeline<a class="headerlink" href="#manual-pipeline" title="Permanent link">&para;</a></h3>
+<p>Build a custom pipeline with different steps or ordering:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pipeline</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace2.steps</span><span class="w"> </span><span class="kn">import</span> <span class="n">AgentStep</span><span class="p">,</span> <span class="n">EvaluateStep</span><span class="p">,</span> <span class="n">ReflectStep</span><span class="p">,</span> <span class="n">UpdateStep</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">pipe</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">Pipeline</span><span class="p">()</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">AgentStep</span><span class="p">(</span><span class="n">agent</span><span class="p">))</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">EvaluateStep</span><span class="p">())</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">ReflectStep</span><span class="p">(</span><span class="n">reflector</span><span class="p">,</span> <span class="n">reflection_window</span><span class="o">=</span><span class="mi">5</span><span class="p">))</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>    <span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">UpdateStep</span><span class="p">(</span><span class="n">skill_manager</span><span class="p">))</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="p">)</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="c1"># Use with a runner or call directly</span>
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="n">ace</span> <span class="o">=</span> <span class="n">OfflineACE</span><span class="p">(</span><span class="n">pipe</span><span class="p">,</span> <span class="n">skillbook</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="runner-behaviour">Runner Behaviour<a class="headerlink" href="#runner-behaviour" title="Permanent link">&para;</a></h2>
+<h3 id="offlineace">OfflineACE<a class="headerlink" href="#offlineace" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong><a href="../QUICK_START/">Quick Start Guide</a></strong> - Get running in 5 minutes</li>
-<li><strong><a href="../INTEGRATION_GUIDE/">Integration Guide</a></strong> - Add ACE to existing agents</li>
-<li><strong><a href="../API_REFERENCE/">API Reference</a></strong> - Complete API documentation</li>
-<li><strong><a href="../examples/">Examples</a></strong> - Ready-to-run code examples</li>
+<li>Loops <code>epochs × samples</code>, building a <code>StepContext</code> per sample</li>
+<li>Propagates <code>recent_reflections</code> across samples within an epoch</li>
+<li>Supports checkpoint saving (<code>checkpoint_interval</code> + <code>checkpoint_dir</code>)</li>
+<li>Captures exceptions per-sample as <code>SampleResult.error</code></li>
 </ul>
-<hr />
-<h2 id="additional-resources">Additional Resources<a class="headerlink" href="#additional-resources" title="Permanent link">&para;</a></h2>
-<h3 id="research">Research<a class="headerlink" href="#research" title="Permanent link">&para;</a></h3>
+<h3 id="onlineace">OnlineACE<a class="headerlink" href="#onlineace" title="Permanent link">&para;</a></h3>
 <ul>
-<li><a href="https://arxiv.org/abs/2510.04618">Original ACE Paper (arXiv)</a></li>
+<li>Single pass over an arbitrary iterable (list or generator)</li>
+<li>Same <code>StepContext</code> + error capture pattern</li>
+<li>No epoch concept — <code>epoch=1, total_epochs=1</code> always</li>
 </ul>
-<h3 id="community">Community<a class="headerlink" href="#community" title="Permanent link">&para;</a></h3>
-<ul>
-<li><a href="https://discord.com/invite/mqCqH7sTyK">Discord Server</a></li>
-<li><a href="https://github.com/kayba-ai/agentic-context-engine">GitHub</a></li>
-<li><a href="https://kayba.ai/">Kayba Website</a></li>
-</ul>
-<hr />
-<p><strong>Last Updated:</strong> November 2025</p>
+<h2 id="testing">Testing<a class="headerlink" href="#testing" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>tests/test_ace2_pipeline.py<span class="w"> </span>-v
+</code></pre></div>
+<p>The test suite covers:
+- Each step in isolation (6 tests)
+- Pipeline wiring validation (1 test)
+- OfflineACE end-to-end: single epoch, multi epoch, checkpointing, error capture (4 tests)
+- OnlineACE end-to-end: single sample, streaming generator (2 tests)
+- <code>from_client</code> shorthand for both runners (3 tests)</p>
+<h2 id="migration-path">Migration Path<a class="headerlink" href="#migration-path" title="Permanent link">&para;</a></h2>
+<p>ACE2 is currently a parallel implementation. The cut-over plan (TODO Part 5):</p>
+<ol>
+<li>Move <code>ace2/steps/</code> and <code>ace2/pipelines/</code> into <code>ace/pipeline/</code></li>
+<li>Update <code>ace/__init__.py</code> to import from the new location</li>
+<li>Deprecate <code>ace/adaptation.py</code> (<code>OfflineACE</code>, <code>OnlineACE</code>, <code>ACEBase</code>)</li>
+<li>Update all examples and benchmarks to use the new imports</li>
+</ol>
 
 
 
