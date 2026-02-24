@@ -1,4 +1,4 @@
-site_name: ACE Framework
+site_name: ACE Documentation
 site_description: Agentic Context Engineering — Self-Improving Language Model Agents
 site_url: https://kayba-ai.github.io/agentic-context-engine/
 repo_url: https://github.com/kayba-ai/agentic-context-engine
@@ -6,6 +6,9 @@ repo_name: kayba-ai/agentic-context-engine
 
 theme:
   name: material
+  custom_dir: overrides
+  logo: assets/Kayba_logo_rounded.png
+  favicon: assets/Kayba_logo_rounded.png
   palette:
     - scheme: default
       primary: indigo
