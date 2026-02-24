@@ -6,6 +6,7 @@ import asyncio
 import threading
 import time
 import warnings
+from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
@@ -291,14 +292,29 @@ class Pipeline:
         with self._bg_lock:
             self._bg_threads = [t for t in self._bg_threads if t.is_alive()]
 
+    def background_stats(self) -> dict[str, int]:
+        """Return a snapshot of background task progress.
+
+        Returns a dict with ``active`` and ``completed`` counts.  Safe to
+        call from any thread while the pipeline is running.
+        """
+        with self._bg_lock:
+            threads = list(self._bg_threads)
+        active = sum(1 for t in threads if t.is_alive())
+        completed = len(threads) - active
+        return {"active": active, "completed": completed}
+
     # ------------------------------------------------------------------
     # run() — sync entry point
     # ------------------------------------------------------------------
 
     def run(
-        self, samples: Any, workers: int = 1
+        self, contexts: Iterable[StepContext], workers: int = 1
     ) -> list[SampleResult]:
-        """Process *samples* through the pipeline (sync entry point).
+        """Process *contexts* through the pipeline (sync entry point).
+
+        Each item must be a fully-initialized ``StepContext``.  The pipeline
+        never wraps or re-creates contexts — it processes what it receives.
 
         Splits at the first ``async_boundary`` step:
         - Foreground steps run in the calling context (with up to ``workers``
@@ -307,19 +323,19 @@ class Pipeline:
           asynchronously.  Call ``wait_for_background()`` to block until they
           finish and ``SampleResult`` objects are fully populated.
 
-        Every sample produces exactly one ``SampleResult`` — nothing is
+        Every context produces exactly one ``SampleResult`` — nothing is
         dropped silently.
         """
-        return asyncio.run(self.run_async(samples, workers=workers))
+        return asyncio.run(self.run_async(contexts, workers=workers))
 
     # ------------------------------------------------------------------
     # run_async() — async entry point
     # ------------------------------------------------------------------
 
     async def run_async(
-        self, samples: Any, workers: int = 1
+        self, contexts: Iterable[StepContext], workers: int = 1
     ) -> list[SampleResult]:
-        """Async entry point; use ``await pipe.run_async(samples)`` from
+        """Async entry point; use ``await pipe.run_async(contexts)`` from
         coroutine contexts (e.g. inside browser-use tasks)."""
         boundary_idx = self._find_boundary_index()
         if boundary_idx is None:
@@ -331,11 +347,10 @@ class Pipeline:
 
         sem = asyncio.Semaphore(workers)
 
-        async def process_one(sample: Any) -> SampleResult:
+        async def process_one(ctx: StepContext) -> SampleResult:
             async with sem:
-                ctx = StepContext(sample=sample)
                 result = SampleResult(
-                    sample=sample, output=None, error=None, failed_at=None
+                    sample=ctx.sample, output=None, error=None, failed_at=None
                 )
                 last_step_name: str | None = None
                 try:
@@ -360,4 +375,4 @@ class Pipeline:
 
                 return result
 
-        return list(await asyncio.gather(*[process_one(s) for s in samples]))
+        return list(await asyncio.gather(*[process_one(c) for c in contexts]))
