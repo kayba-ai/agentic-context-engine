@@ -23,6 +23,8 @@ Implemented in `ace_next/` (parallel to `ace/` for easy rollback). The package i
 | Deduplication (`DeduplicationManager`, `SimilarityDetector`) | Done | `ace_next/deduplication/` |
 | Integration steps (`BrowserExecuteStep`, `LangChainExecuteStep`, `ClaudeCodeExecuteStep`) | Done | `ace_next/integrations/` |
 | Integration runners (`BrowserUse`, `LangChain`, `ClaudeCode`) | Done | `ace_next/runners/` |
+| Convenience `from_model()` on integration runners | Done | `ace_next/runners/browser_use.py`, `langchain.py`, `claude_code.py` |
+| `ACELiteLLM` convenience wrapper | Done | `ace_next/runners/litellm.py` |
 | LLM providers (`LiteLLMClient`, `InstructorClient`, `LangChainLiteLLMClient`, `ClaudeCodeLLMClient`) | Done | `ace_next/providers/` |
 
 ---
@@ -220,9 +222,17 @@ ACERunner (shared infrastructure: epoch loop, delegates to Pipeline.run())
 ├── BrowserUse          — [BrowserExecute → BrowserToTrace → Reflect → Tag → Update → Apply]; input = task strings
 ├── LangChain           — [LangChainExecute → LangChainToTrace → Reflect → Tag → Update → Apply]; input = chain inputs
 └── ClaudeCode          — [ClaudeCodeExecute → ClaudeCodeToTrace → Reflect → Tag → Update → Apply]; input = task strings
+
+ACELiteLLM (standalone convenience wrapper — not an ACERunner subclass)
+├── ask()               — direct Agent call, no pipeline
+├── learn()             — delegates to lazy-init ACE runner
+├── learn_from_traces() — delegates to lazy-init TraceAnalyser
+└── learn_from_feedback()— manual single-shot learning from last ask()
 ```
 
-All compose a `Pipeline` rather than extending it. The pipeline is an implementation detail, not part of the public interface. Each subclass only overrides `run()` (public signature) and `_build_context()` (input mapping).
+All runners compose a `Pipeline` rather than extending it. The pipeline is an implementation detail, not part of the public interface. Each subclass only overrides `run()` (public signature) and `_build_context()` (input mapping).
+
+Integration runners (`BrowserUse`, `LangChain`, `ClaudeCode`) each provide two construction paths: `from_roles()` for pre-built role instances, and `from_model()` for auto-building roles from a model string. `ACELiteLLM` is a standalone class (not an `ACERunner` subclass) because it wraps two different runners and exposes a different API (`ask`, `learn`, `learn_from_traces`).
 
 Each integration runner uses two steps before the learning tail: (1) an **execute step** that produces an integration-specific result type (e.g. `BrowserResult`), and (2) a **ToTrace step** that converts that result into the standardised trace dict the learning tail expects. This separation keeps framework-specific logic in the execute step and trace formatting in the converter — each is independently testable.
 
@@ -488,7 +498,7 @@ No instance state is modified — the runner stays reentrant.
 
 ## Factory Methods
 
-All runners provide a single `from_roles` factory that takes pre-built role instances:
+All runners provide a `from_roles` factory that takes pre-built role instances. Integration runners (`BrowserUse`, `LangChain`, `ClaudeCode`) also provide a `from_model()` factory that auto-builds roles from a model string (see [High-Level Convenience API](#high-level-convenience-api)).
 
 ### `from_roles` — explicit construction
 
@@ -1259,73 +1269,134 @@ Both update the same skillbook. A common workflow: TraceAnalyser builds an initi
 
 ---
 
-## High-Level Integration Wrappers
+## High-Level Convenience API
 
-The user-facing wrappers (ACELiteLLM, ACEAgent, ACELangChain) remain as convenience classes. Internally, they lazy-init and cache the appropriate runner. Since runners are reentrant (no per-call instance state), caching is safe.
+Integration runners provide two construction paths directly on the class — no separate wrapper classes needed:
+
+1. **`from_roles()`** — accepts pre-built role instances (Reflector, SkillManager, etc.)
+2. **`from_model()`** — accepts a model string and auto-builds roles internally
+
+This keeps the API surface minimal: one class per integration, two ways to construct it.
+
+```python
+# Explicit construction — bring your own roles
+runner = BrowserUse.from_roles(
+    browser_llm=browser_llm,
+    reflector=Reflector(llm),
+    skill_manager=SkillManager(llm),
+)
+
+# Convenience construction — just specify the model
+runner = BrowserUse.from_model(browser_llm, ace_model="gpt-4o-mini")
+
+# Both return the same BrowserUse instance with the same API
+results = runner.run(["Find top HN post", "Check weather in NYC"])
+runner.save("browser_expert.json")
+```
+
+### `from_model()` on integration runners
+
+Each integration runner's `from_model()` builds a `LiteLLMClient`, wraps it in `Reflector` and `SkillManager`, and delegates to `from_roles()`:
+
+```python
+class BrowserUse(ACERunner):
+    @classmethod
+    def from_model(cls, browser_llm, *, ace_model="gpt-4o-mini",
+                   ace_max_tokens=2048, ace_llm=None, **kwargs) -> BrowserUse:
+        if ace_llm is None:
+            from ..providers import LiteLLMClient
+            ace_llm = LiteLLMClient(model=ace_model, max_tokens=ace_max_tokens)
+        return cls.from_roles(
+            browser_llm=browser_llm,
+            reflector=Reflector(ace_llm),
+            skill_manager=SkillManager(ace_llm),
+            **kwargs,
+        )
+```
+
+The same pattern applies to `LangChain.from_model(runnable, ...)` and `ClaudeCode.from_model(working_dir=..., ...)`. Providers are imported lazily inside `from_model()` to avoid hard dependencies on `litellm` at import time.
+
+### Additional convenience on `from_roles()`
+
+Integration runners also accept `skillbook_path` and `dedup_config` on `from_roles()` for common resolution patterns:
+
+```python
+runner = BrowserUse.from_roles(
+    browser_llm=browser_llm,
+    reflector=reflector,
+    skill_manager=skill_manager,
+    skillbook_path="browser_expert.json",   # loads skillbook from file
+    dedup_config=DeduplicationConfig(similarity_threshold=0.85),  # builds DeduplicationManager
+)
+```
+
+### Convenience lifecycle methods on runners
+
+All integration runners provide:
+
+- `get_strategies() -> str` — formatted skillbook strategies for display
+- Backward-compat aliases: `save_skillbook`, `load_skillbook`, `wait_for_learning`
+
+These are defined directly on the runner class, not on a separate wrapper.
+
+### `ACELiteLLM` — standalone convenience wrapper
+
+`ACELiteLLM` is the only standalone wrapper class (not an `ACERunner` subclass). It exists because it wraps two different runners (`ACE` and `TraceAnalyser`) and exposes a fundamentally different API (`ask`, `learn`, `learn_from_traces`, `learn_from_feedback`).
 
 ```python
 class ACELiteLLM:
-    def __init__(self, llm, skillbook, *, environment=None, ...):
-        self.agent = Agent(llm, ...)
-        self.reflector = Reflector(llm, ...)
-        self.skill_manager = SkillManager(llm, ...)
-        self.skillbook = skillbook
+    def __init__(self, llm, *, skillbook=None, environment=None, ...):
+        self.agent = Agent(llm)
+        self.reflector = Reflector(llm)
+        self.skill_manager = SkillManager(llm)
+        self._skillbook = skillbook or Skillbook()
         self.environment = environment
-        self._ace: ACE | None = None
-        self._analyser: TraceAnalyser | None = None
+        self._ace: ACE | None = None          # lazy-init
+        self._analyser: TraceAnalyser | None = None  # lazy-init
 
-    def _get_ace(self) -> ACE:
-        if self._ace is None:
-            self._ace = ACE.from_roles(
-                agent=self.agent,
-                reflector=self.reflector,
-                skill_manager=self.skill_manager,
-                skillbook=self.skillbook,
-                environment=self.environment,
-            )
-        return self._ace
+    @classmethod
+    def from_model(cls, model="gpt-4o-mini", *, max_tokens=2048,
+                   temperature=0.0, **kwargs) -> ACELiteLLM:
+        """Build from a model string."""
+        llm = LiteLLMClient(model=model, max_tokens=max_tokens, temperature=temperature)
+        return cls(llm, **kwargs)
 
-    def _get_analyser(self) -> TraceAnalyser:
-        if self._analyser is None:
-            self._analyser = TraceAnalyser.from_roles(
-                reflector=self.reflector,
-                skill_manager=self.skill_manager,
-                skillbook=self.skillbook,
-            )
-        return self._analyser
+    def ask(self, question, context="") -> str:
+        """Direct Agent call — no pipeline. Stores interaction for learn_from_feedback()."""
+        output = self.agent.generate(question=question, context=context, skillbook=self._skillbook)
+        self._last_interaction = (question, output)
+        return output.final_answer
 
-    def ask(self, question) -> str:
-        """Use current skillbook to answer."""
-        ...
+    def learn(self, samples, environment=None, epochs=1, *, wait=True):
+        """Delegate to lazy-init ACE runner."""
+        return self._get_ace(environment).run(samples, epochs=epochs, wait=wait)
 
-    def learn(self, samples, epochs=1, wait=True):
-        """Delegate to ACE. Environment is set at construction time."""
-        return self._get_ace().run(samples, epochs=epochs, wait=wait)
-
-    def learn_from_traces(self, traces, epochs=1, wait=True):
-        """Delegate to TraceAnalyser."""
+    def learn_from_traces(self, traces, epochs=1, *, wait=True):
+        """Delegate to lazy-init TraceAnalyser."""
         return self._get_analyser().run(traces, epochs=epochs, wait=wait)
 
+    def learn_from_feedback(self, feedback, ground_truth=None) -> bool:
+        """Manual single-shot learning from last ask() call."""
+        ...
 
-class ACEAgent:
-    """Browser-use convenience wrapper. Delegates to BrowserUse."""
-
-    def __init__(self, browser_llm, reflector, skill_manager, **kwargs):
-        self.runner = BrowserUse.from_roles(
-            browser_llm=browser_llm, reflector=reflector,
-            skill_manager=skill_manager, **kwargs
-        )
-
-    async def run(self, task):
-        results = self.runner.run([task])
-        return results[0]
-
-    @property
-    def skillbook(self):
-        return self.runner.skillbook
+    def load(self, path):
+        """Load skillbook — invalidates cached runners (stale refs)."""
+        self._skillbook = Skillbook.load_from_file(path)
+        self._ace = None
+        self._analyser = None
 ```
 
-Each wrapper is a thin facade over an `ACERunner` subclass. The runner owns the pipeline, the skillbook, and the epoch loop.
+Runners are cached and invalidated on `load()` (new skillbook object means stale references). Since runners are reentrant (no per-call instance state), caching is safe.
+
+### Why not separate wrapper classes
+
+The original design had separate wrapper classes (`ACEAgent`, `ACELangChain`, `ACEClaudeCode`) that delegated to the corresponding runners. This was rejected because:
+
+- **Two classes for one concept** — users must understand both `BrowserUse` (the runner) and `ACEAgent` (the wrapper), and choose which to use.
+- **Thin delegation** — the wrappers only added `from_model()` and a few lifecycle helpers, all of which fit naturally on the runner itself.
+- **No added value** — the runner already manages the pipeline, skillbook, and epoch loop. Adding a wrapper just adds indirection.
+
+The exception is `ACELiteLLM`, which is genuinely different: it wraps two runners, has `ask()` (direct Agent call, no pipeline), and has `learn_from_feedback()` (manual single-shot learning). These don't map to any single runner's API.
 
 ---
 
@@ -1373,13 +1444,14 @@ ace_next/
     observability.py        ← ObservabilityStep
     persist.py              ← PersistStep
   runners/                    ← Runner classes (compose Pipeline, manage epoch loop)
-    __init__.py               ← Re-exports ACERunner, TraceAnalyser, ACE, BrowserUse, LangChain, ClaudeCode
+    __init__.py               ← Re-exports ACERunner, TraceAnalyser, ACE, BrowserUse, LangChain, ClaudeCode, ACELiteLLM
     base.py                   ← ACERunner base class
     trace_analyser.py         ← TraceAnalyser (learning tail only)
     ace.py                    ← ACE (full adaptive pipeline)
-    browser_use.py            ← BrowserUse runner (BrowserExecuteStep + BrowserToTrace + learning_tail)
-    langchain.py              ← LangChain runner (LangChainExecuteStep + LangChainToTrace + learning_tail)
-    claude_code.py            ← ClaudeCode runner (ClaudeCodeExecuteStep + ClaudeCodeToTrace + learning_tail)
+    browser_use.py            ← BrowserUse runner (from_roles + from_model)
+    langchain.py              ← LangChain runner (from_roles + from_model)
+    claude_code.py            ← ClaudeCode runner (from_roles + from_model)
+    litellm.py                ← ACELiteLLM convenience wrapper (ask + learn + learn_from_traces)
   integrations/               ← Integration steps (execute + result type + trace converter)
     __init__.py               ← Exports steps, result types, ToTrace converters, wrap_skillbook_context
     browser_use.py            ← BrowserExecuteStep, BrowserResult, BrowserToTrace
@@ -1580,15 +1652,68 @@ from langchain_openai import ChatOpenAI
 llm = LiteLLMClient(model="gpt-4o-mini")
 browser_llm = ChatOpenAI(model="gpt-4o")
 
+# Explicit construction — bring your own roles
 runner = BrowserUse.from_roles(
     browser_llm=browser_llm,
     reflector=Reflector(llm),
     skill_manager=SkillManager(llm),
 )
 
+# Or convenience construction — just specify the model
+runner = BrowserUse.from_model(browser_llm, ace_model="gpt-4o-mini")
+
 # Live execution + learning
 results = runner.run(["Find top HN post", "Check weather in Tokyo"])
 runner.save("browser_expert.json")
+```
+
+### Integration — LangChain runner (from_model)
+
+```python
+from ace_next import LangChain
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+
+chain = ChatPromptTemplate.from_template("Answer: {input}") | ChatOpenAI(model="gpt-4o")
+
+# One-liner construction
+runner = LangChain.from_model(chain, ace_model="gpt-4o-mini")
+results = runner.run([{"input": "What is ACE?"}, {"input": "Explain skillbooks"}])
+runner.save("chain_expert.json")
+```
+
+### Integration — Claude Code runner (from_model)
+
+```python
+from ace_next import ClaudeCode
+
+runner = ClaudeCode.from_model(working_dir="./my_project", ace_model="gpt-4o-mini")
+results = runner.run(["Add unit tests for utils.py", "Refactor the auth module"])
+runner.save("code_expert.json")
+```
+
+### ACELiteLLM — conversational agent with learning
+
+```python
+from ace_next import ACELiteLLM, SimpleEnvironment, Sample
+
+ace = ACELiteLLM.from_model("gpt-4o-mini")
+
+# Direct Q&A (no pipeline)
+answer = ace.ask("What is the capital of France?")
+
+# Batch learning (delegates to ACE runner)
+samples = [
+    Sample(question="Capital of France?", ground_truth="Paris"),
+    Sample(question="Largest ocean?", ground_truth="Pacific"),
+]
+ace.learn(samples, environment=SimpleEnvironment(), epochs=3)
+
+# Manual feedback learning from last ask()
+ace.ask("What is 2+2?")
+ace.learn_from_feedback("The answer should be 4", ground_truth="4")
+
+ace.save("learned.json")
 ```
 
 ### Fire-and-forget — get results while learning continues
@@ -1740,3 +1865,6 @@ The old `ace/roles.py` SkillManager integrates with `DeduplicationManager` direc
 
 **Shared `ace_next/features.py` module:**
 Creating a centralized feature detection module (like `ace/features.py`) for optional dependency checks was considered. Rejected — the only code that needs feature detection is `deduplication/detector.py`, which uses a local `_has(module)` helper with `importlib.import_module`. A shared module would add a file for a single 4-line function. If more code needs feature detection in the future, the helper can be promoted to a shared location.
+
+**Separate wrapper classes for integration runners:**
+Having separate convenience classes (`ACEAgent`, `ACELangChain`, `ACEClaudeCode`) that wrap the corresponding runners was the initial design. Each wrapper eagerly built a runner via `from_roles()` and delegated all calls to it. Rejected — the wrappers only added `from_model()` and a few lifecycle helpers (`get_strategies()`, backward-compat aliases), all of which fit naturally as methods on the runner class itself. Two classes for one concept forces users to understand both and choose which to use, while the runner already manages the pipeline, skillbook, and epoch loop. Instead, `from_model()` and convenience methods are defined directly on `BrowserUse`, `LangChain`, and `ClaudeCode`. The exception is `ACELiteLLM`, which is genuinely different: it wraps two runners (`ACE` and `TraceAnalyser`), has `ask()` (direct Agent call, no pipeline), and has `learn_from_feedback()` (manual single-shot learning). These don't map to any single runner's API.

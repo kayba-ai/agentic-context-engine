@@ -53,7 +53,15 @@ from .providers import (
     LLMResponse,
     wrap_with_instructor,
 )
-from .runners import ACE, ACERunner, BrowserUse, ClaudeCode, LangChain, TraceAnalyser
+from .runners import (
+    ACE,
+    ACELiteLLM,
+    ACERunner,
+    BrowserUse,
+    ClaudeCode,
+    LangChain,
+    TraceAnalyser,
+)
 
 __all__ = [
     # Context
@@ -119,4 +127,6 @@ __all__ = [
     "ClaudeCode",
     "LangChain",
     "TraceAnalyser",
+    # Convenience wrapper
+    "ACELiteLLM",
 ]
