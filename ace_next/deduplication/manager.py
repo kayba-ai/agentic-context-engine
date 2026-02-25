@@ -43,9 +43,7 @@ class DeduplicationManager:
     # DeduplicationManagerLike interface
     # ------------------------------------------------------------------
 
-    def get_similarity_report(
-        self, skillbook: "Skillbook"
-    ) -> Optional[str]:
+    def get_similarity_report(self, skillbook: "Skillbook") -> Optional[str]:
         """Generate a similarity report for the SkillManager prompt.
 
         Should be called **before** the SkillManager runs.
@@ -71,9 +69,7 @@ class DeduplicationManager:
 
         logger.info("Found %d similar skill pairs", len(similar_pairs))
         for skill_a, skill_b, similarity in similar_pairs:
-            logger.debug(
-                format_pair_for_logging(skill_a, skill_b, similarity)
-            )
+            logger.debug(format_pair_for_logging(skill_a, skill_b, similarity))
 
         return generate_similarity_report(similar_pairs)
 
@@ -118,9 +114,7 @@ class DeduplicationManager:
                     operations.append(
                         KeepOp(
                             skill_ids=raw_op.get("skill_ids", []),
-                            differentiation=raw_op.get(
-                                "differentiation", ""
-                            ),
+                            differentiation=raw_op.get("differentiation", ""),
                             reasoning=raw_op.get("reasoning", ""),
                         )
                     )
@@ -133,13 +127,9 @@ class DeduplicationManager:
                         )
                     )
                 else:
-                    logger.warning(
-                        "Unknown consolidation operation type: %s", op_type
-                    )
+                    logger.warning("Unknown consolidation operation type: %s", op_type)
             except Exception as e:
-                logger.warning(
-                    "Failed to parse consolidation operation: %s", e
-                )
+                logger.warning("Failed to parse consolidation operation: %s", e)
 
         logger.info("Parsed %d consolidation operations", len(operations))
         return operations

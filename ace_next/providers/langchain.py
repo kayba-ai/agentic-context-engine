@@ -71,7 +71,9 @@ class LangChainLiteLLMClient:
         self.max_tokens = max_tokens
 
         if router:
-            logger.info("Initializing LangChainLiteLLMClient with router for model: %s", model)
+            logger.info(
+                "Initializing LangChainLiteLLMClient with router for model: %s", model
+            )
             self.llm = ChatLiteLLMRouter(
                 router=router,
                 model_name=model,
@@ -112,7 +114,9 @@ class LangChainLiteLLMClient:
             }
         if self.is_router:
             metadata["router"] = True
-            metadata["model_used"] = response.response_metadata.get("model_name", self.model)
+            metadata["model_used"] = response.response_metadata.get(
+                "model_name", self.model
+            )
         return metadata
 
     # -- public API -------------------------------------------------------------
@@ -122,7 +126,9 @@ class LangChainLiteLLMClient:
         filtered = self._filter_kwargs(kwargs)
         try:
             response = self.llm.invoke(prompt, **filtered)
-            return LLMResponse(text=response.content, raw=self._extract_metadata(response))
+            return LLMResponse(
+                text=response.content, raw=self._extract_metadata(response)
+            )
         except Exception as e:
             logger.error("Error in LangChain completion: %s", e)
             raise
@@ -132,7 +138,9 @@ class LangChainLiteLLMClient:
         filtered = self._filter_kwargs(kwargs)
         try:
             response = await self.llm.ainvoke(prompt, **filtered)
-            return LLMResponse(text=response.content, raw=self._extract_metadata(response))
+            return LLMResponse(
+                text=response.content, raw=self._extract_metadata(response)
+            )
         except Exception as e:
             logger.error("Error in async LangChain completion: %s", e)
             raise
@@ -148,7 +156,9 @@ class LangChainLiteLLMClient:
             logger.error("Error in LangChain streaming: %s", e)
             raise
 
-    async def acomplete_with_stream(self, prompt: str, **kwargs: Any) -> AsyncIterator[str]:
+    async def acomplete_with_stream(
+        self, prompt: str, **kwargs: Any
+    ) -> AsyncIterator[str]:
         """Async streaming completion."""
         filtered = self._filter_kwargs(kwargs)
         try:

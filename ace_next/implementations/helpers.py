@@ -35,9 +35,7 @@ def format_optional(value: Optional[str]) -> str:
     return value or "(none)"
 
 
-def make_skillbook_excerpt(
-    skillbook: "Skillbook", skill_ids: Sequence[str]
-) -> str:
+def make_skillbook_excerpt(skillbook: "Skillbook", skill_ids: Sequence[str]) -> str:
     """Build a compact excerpt of cited skills.
 
     Args:
