@@ -445,9 +445,7 @@ class LiteLLMClient:
                     if depth == 0:
                         return json.loads(text[start : i + 1])
 
-        raise ValueError(
-            f"Could not extract JSON from LLM response: {text[:200]}..."
-        )
+        raise ValueError(f"Could not extract JSON from LLM response: {text[:200]}...")
 
     def complete_structured(
         self,

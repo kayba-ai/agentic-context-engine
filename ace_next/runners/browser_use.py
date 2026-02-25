@@ -193,5 +193,5 @@ class BrowserUse(ACERunner):
 
     # Backward-compat aliases
     save_skillbook = ACERunner.save
-    load_skillbook = save_skillbook  # alias for discoverability
+    load_skillbook = ACERunner.load
     wait_for_learning = ACERunner.wait_for_background

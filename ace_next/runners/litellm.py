@@ -260,9 +260,7 @@ class ACELiteLLM:
             RuntimeError: If learning is disabled.
         """
         if not self.is_learning:
-            raise RuntimeError(
-                "Learning is disabled. Call enable_learning() first."
-            )
+            raise RuntimeError("Learning is disabled. Call enable_learning() first.")
         return self._get_ace(environment).run(samples, epochs=epochs, wait=wait)
 
     def learn_from_traces(
@@ -286,9 +284,7 @@ class ACELiteLLM:
             RuntimeError: If learning is disabled.
         """
         if not self.is_learning:
-            raise RuntimeError(
-                "Learning is disabled. Call enable_learning() first."
-            )
+            raise RuntimeError("Learning is disabled. Call enable_learning() first.")
         return self._get_analyser().run(traces, epochs=epochs, wait=wait)
 
     def learn_from_feedback(

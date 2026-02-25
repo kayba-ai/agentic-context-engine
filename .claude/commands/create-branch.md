@@ -15,7 +15,11 @@ Create a new git branch with an associated worktree following the project naming
 3. Construct branch name: `<type>/<developer>/<description>`
 4. Construct worktree path: `../<type>-<developer>-<description>` (replace all `/` with `-`)
 5. Create branch and worktree atomically: `git worktree add -b <branch> <worktree-path>`
-6. Report success with the created branch name and worktree path
+6. Symlink `.env` from the main worktree into the new worktree:
+   - Get the main worktree path: `git worktree list --porcelain | head -1` (first `worktree` line)
+   - If `<main-worktree>/.env` exists, create symlink: `ln -s <main-worktree>/.env <new-worktree>/.env`
+   - If `.env` doesn't exist in main worktree, skip silently
+7. Report success with the created branch name and worktree path
 
 **Valid types:** feature, fix, docs, refactor, test, chore
 
@@ -23,6 +27,7 @@ Create a new git branch with an associated worktree following the project naming
 ```
 ✓ Created branch: <branch-name>
 ✓ Created worktree: <worktree-path>
+✓ Linked .env → <main-worktree>/.env
 
 To switch to the new worktree:
   cd <worktree-path>

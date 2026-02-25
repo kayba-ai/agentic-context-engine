@@ -179,10 +179,16 @@ class ClaudeCodeLLMClient:
 
             if result.returncode != 0:
                 error_msg = result.stderr[:500] if result.stderr else "Unknown error"
-                logger.error("Claude CLI failed (code %d): %s", result.returncode, error_msg)
+                logger.error(
+                    "Claude CLI failed (code %d): %s", result.returncode, error_msg
+                )
                 return LLMResponse(
                     text=f"Error: Claude CLI failed with code {result.returncode}",
-                    raw={"error": True, "returncode": result.returncode, "stderr": error_msg},
+                    raw={
+                        "error": True,
+                        "returncode": result.returncode,
+                        "stderr": error_msg,
+                    },
                 )
 
             return LLMResponse(
@@ -202,7 +208,9 @@ class ClaudeCodeLLMClient:
             )
         except Exception as e:
             logger.error("Claude CLI error: %s", e)
-            return LLMResponse(text=f"Error: {e}", raw={"error": True, "exception": str(e)})
+            return LLMResponse(
+                text=f"Error: {e}", raw={"error": True, "exception": str(e)}
+            )
 
     # -- structured output -----------------------------------------------------
 
@@ -239,7 +247,9 @@ class ClaudeCodeLLMClient:
 
             if response.raw and response.raw.get("error"):
                 last_error = f"CLI error: {response.text}"
-                logger.warning("Attempt %d/%d: %s", attempt + 1, max_retries, last_error)
+                logger.warning(
+                    "Attempt %d/%d: %s", attempt + 1, max_retries, last_error
+                )
                 continue
 
             try:
@@ -254,11 +264,15 @@ class ClaudeCodeLLMClient:
                 return result
             except json.JSONDecodeError as e:
                 last_error = f"JSON parse error: {e}"
-                logger.warning("Attempt %d/%d: %s", attempt + 1, max_retries, last_error)
+                logger.warning(
+                    "Attempt %d/%d: %s", attempt + 1, max_retries, last_error
+                )
                 structured_prompt += f"\n\nPREVIOUS ATTEMPT FAILED: {last_error}. Please output valid JSON only."
             except Exception as e:
                 last_error = f"Validation error: {e}"
-                logger.warning("Attempt %d/%d: %s", attempt + 1, max_retries, last_error)
+                logger.warning(
+                    "Attempt %d/%d: %s", attempt + 1, max_retries, last_error
+                )
                 structured_prompt += f"\n\nPREVIOUS ATTEMPT FAILED: {last_error}. Please follow the schema exactly."
 
         raise ValueError(

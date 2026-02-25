@@ -181,7 +181,9 @@ class ExactMatchEnvironment(TaskEnvironment):
         correct = expected in predicted
 
         return EnvironmentResult(
-            feedback="Correct!" if correct else f"Wrong. Expected: {sample.ground_truth}",
+            feedback=(
+                "Correct!" if correct else f"Wrong. Expected: {sample.ground_truth}"
+            ),
             ground_truth=sample.ground_truth,
             metrics={"accuracy": 1.0 if correct else 0.0},
         )
@@ -258,9 +260,12 @@ print(f"Skills learned: {skillbook4.stats()}")
 for epoch in range(1, 3):
     epoch_results = [r for r in results4 if r.output and r.output.epoch == epoch]
     correct = sum(
-        1 for r in epoch_results
-        if r.output and r.output.agent_output
-        and (r.sample.ground_truth or "").lower() in r.output.agent_output.final_answer.lower()
+        1
+        for r in epoch_results
+        if r.output
+        and r.output.agent_output
+        and (r.sample.ground_truth or "").lower()
+        in r.output.agent_output.final_answer.lower()
     )
     print(f"  Epoch {epoch}: {correct}/{len(epoch_results)} correct")
 
@@ -331,8 +336,12 @@ for r in results_manual:
         print(f"  ERROR: {r.error}")
     elif r.output:
         out: ACEStepContext = r.output
-        print(f"  Agent answer:      {out.agent_output.final_answer if out.agent_output else 'N/A'}")
-        print(f"  Reflector insight:  {out.reflection.key_insight if out.reflection else 'N/A'}")
+        print(
+            f"  Agent answer:      {out.agent_output.final_answer if out.agent_output else 'N/A'}"
+        )
+        print(
+            f"  Reflector insight:  {out.reflection.key_insight if out.reflection else 'N/A'}"
+        )
         print(f"  Skills now:        {skillbook5.stats()}")
 
 # %% [markdown]
@@ -396,9 +405,7 @@ from ace_next.protocols import DeduplicationConfig
 
 skillbook8 = Skillbook()
 
-dedup = DeduplicationManager(
-    DeduplicationConfig(similarity_threshold=0.85)
-)
+dedup = DeduplicationManager(DeduplicationConfig(similarity_threshold=0.85))
 
 ace8 = ACE.from_roles(
     agent=Agent(client),

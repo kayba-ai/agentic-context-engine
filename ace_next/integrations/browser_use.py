@@ -63,11 +63,12 @@ class BrowserExecuteStep:
     requires = frozenset({"sample", "skillbook"})
     provides = frozenset({"trace"})
 
-    def __init__(self, browser_llm: Any, browser: Any = None, **agent_kwargs: Any) -> None:
+    def __init__(
+        self, browser_llm: Any, browser: Any = None, **agent_kwargs: Any
+    ) -> None:
         if not BROWSER_USE_AVAILABLE:
             raise ImportError(
-                "browser-use is not installed. Install with: "
-                "pip install browser-use"
+                "browser-use is not installed. Install with: " "pip install browser-use"
             )
         self.browser_llm = browser_llm
         self.browser = browser
@@ -134,9 +135,7 @@ class BrowserExecuteStep:
 
         try:
             steps_count = (
-                history.number_of_steps()
-                if hasattr(history, "number_of_steps")
-                else 0
+                history.number_of_steps() if hasattr(history, "number_of_steps") else 0
             )
         except Exception:
             steps_count = 0

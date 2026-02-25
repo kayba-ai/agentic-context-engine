@@ -44,6 +44,10 @@ class ACERunner:
         """Save the current skillbook to disk."""
         self.skillbook.save_to_file(path)
 
+    def load(self, path: str) -> None:
+        """Load a skillbook from disk, replacing the current one."""
+        self.skillbook = Skillbook.load_from_file(path)
+
     def wait_for_background(self, timeout: float | None = None) -> None:
         """Block until all background learning tasks complete.
 
@@ -90,6 +94,12 @@ class ACERunner:
         n: int | None = len(items) if isinstance(items, Sequence) else None
 
         for epoch in range(1, epochs + 1):
+            logger.info(
+                "Epoch %d/%d: processing %s samples",
+                epoch,
+                epochs,
+                n if n is not None else "unknown",
+            )
             contexts: list[ACEStepContext] = [
                 self._build_context(
                     item,
