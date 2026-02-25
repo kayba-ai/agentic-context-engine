@@ -1,297 +1,144 @@
-# ACE Framework Quick Start
+# Quick Start
 
-Get your first self-learning AI agent running!
+Get a self-learning agent running in under a minute.
 
----
-
-## Installation
-
-```bash
-pip install ace-framework
-```
-
-Set your API key:
-
-```bash
-export OPENAI_API_KEY="your-key-here"
-# Or: ANTHROPIC_API_KEY, GOOGLE_API_KEY, etc.
-```
-
----
-
-## Integration Examples
-
-### ACELiteLLM - Simple Self-Improving Agent
+## Simplest Example
 
 ```python
-from ace import ACELiteLLM
+from ace_next import ACELiteLLM
 
-# Create self-improving agent
-agent = ACELiteLLM(model="gpt-4o-mini")
+agent = ACELiteLLM.from_model("gpt-4o-mini")
 
-# Ask related questions - agent learns patterns
+# Ask related questions — the agent learns patterns across them
 answer1 = agent.ask("If all cats are animals, is Felix (a cat) an animal?")
-answer2 = agent.ask("If all birds fly, can penguins (birds) fly?")  # Learns to check assumptions!
-answer3 = agent.ask("If all metals conduct electricity, does copper conduct electricity?")
+answer2 = agent.ask("If all birds fly, can penguins (birds) fly?")
 
-# View learned strategies
-print(f"Learned {len(agent.skillbook.skills())} reasoning skills")
+print(f"Learned {len(agent.skillbook.skills())} strategies")
 
-# Save for reuse
-agent.save_skillbook("my_agent.json")
-
-# Load and continue
-agent2 = ACELiteLLM(model="gpt-4o-mini", skillbook_path="my_agent.json")
+# Save and reload later
+agent.save("my_agent.json")
 ```
 
-### ACELangChain - Wrap LangChain Chains/Agents
+## Choose Your Integration
 
-Best for multi-step workflows and tool-using agents.
+=== "LiteLLM"
+
+    The simplest path. Supports 100+ LLM providers.
+
+    ```python
+    from ace_next import ACELiteLLM
+
+    agent = ACELiteLLM.from_model("gpt-4o-mini")
+    answer = agent.ask("Your question")
+    agent.save("learned.json")
+    ```
+
+=== "LangChain"
+
+    Wrap any LangChain Runnable (chains, agents, graphs) with learning.
+
+    ```python
+    from ace_next import LangChain
+
+    runner = LangChain.from_model(your_chain, ace_model="gpt-4o-mini")
+    results = runner.run([{"input": "Your task"}])
+    runner.save("chain_expert.json")
+    ```
+
+=== "Browser-Use"
+
+    Browser automation that learns navigation patterns.
+
+    ```python
+    from ace_next import BrowserUse
+    from langchain_openai import ChatOpenAI
+
+    runner = BrowserUse.from_model(
+        browser_llm=ChatOpenAI(model="gpt-4o"),
+        ace_model="gpt-4o-mini",
+    )
+    results = runner.run("Find the top post on Hacker News")
+    runner.save("browser_expert.json")
+    ```
+
+=== "Claude Code"
+
+    Self-improving coding agent using the Claude Code CLI.
+
+    ```python
+    from ace_next import ClaudeCode
+
+    runner = ClaudeCode.from_model(working_dir="./my_project")
+    results = runner.run("Add unit tests for utils.py")
+    runner.save("coding_expert.json")
+    ```
+
+## Full Pipeline Example
+
+For full control, use the three ACE roles directly:
 
 ```python
-from ace import ACELangChain
-
-ace_chain = ACELangChain(runnable=your_langchain_chain)
-result = ace_chain.invoke({"question": "Your task"})  # Learns automatically
-```
-
-### ACEAgent - Browser Automation (browser-use)
-
-Drop-in replacement for `browser_use.Agent` with automatic learning.
-
-```bash
-pip install ace-framework[browser-use]
-```
-
-```python
-from ace import ACEAgent
-from browser_use import ChatBrowserUse
-
-# Two LLMs: ChatBrowserUse for browser, gpt-4o-mini for ACE learning
-agent = ACEAgent(
-    llm=ChatBrowserUse(),      # Browser execution
-    ace_model="gpt-4o-mini"    # ACE learning
+from ace_next import (
+    ACE, Agent, Reflector, SkillManager,
+    LiteLLMClient, Sample, SimpleEnvironment,
 )
 
-await agent.run(task="Find top Hacker News post")
-agent.save_skillbook("hn_expert.json")
+# Create LLM and roles
+llm = LiteLLMClient(model="gpt-4o-mini")
+agent = Agent(llm)
+reflector = Reflector(llm)
+skill_manager = SkillManager(llm)
 
-# Reuse learned knowledge
-agent = ACEAgent(llm=ChatBrowserUse(), skillbook_path="hn_expert.json")
-await agent.run(task="New task")  # Starts smart!
-```
-
-### ACEClaudeCode - Claude Code CLI
-
-Self-improving coding agent using Claude Code.
-
-```python
-from ace import ACEClaudeCode
-
-agent = ACEClaudeCode(
-    working_dir="./my_project",
-    ace_model="claude-sonnet-4-5-20250929"  # Any LiteLLM-supported model works
+# Build the adaptive pipeline
+runner = ACE.from_roles(
+    agent=agent,
+    reflector=reflector,
+    skill_manager=skill_manager,
+    environment=SimpleEnvironment(),
 )
 
-# Execute coding tasks - agent learns from each
-result = agent.run(task="Add unit tests for utils.py")
-agent.save_skillbook("coding_expert.json")
-
-# Reuse learned knowledge
-agent = ACEClaudeCode(working_dir="./project", skillbook_path="coding_expert.json")
-```
-
----
-
-## Advanced Tutorial: Understanding ACE Internals
-
-Want to understand how ACE works under the hood? This section shows the full architecture with Agent, Reflector, and SkillManager roles.
-
-### Full Pipeline Example
-
-```python
-from ace import OfflineACE, Agent, Reflector, SkillManager
-from ace import LiteLLMClient, Sample, TaskEnvironment, EnvironmentResult
-
-
-# Simple environment that checks if answer contains the ground truth
-class SimpleEnvironment(TaskEnvironment):
-    def evaluate(self, sample, agent_output):
-        correct = str(sample.ground_truth).lower() in str(agent_output.final_answer).lower()
-        return EnvironmentResult(
-            feedback="Correct!" if correct else "Incorrect",
-            ground_truth=sample.ground_truth
-        )
-
-
-# Initialize LLM client
-client = LiteLLMClient(model="gpt-4o-mini")
-
-# Create ACE components (three roles)
-agent = Agent(client)              # Produces answers
-reflector = Reflector(client)      # Analyzes performance
-skill_manager = SkillManager(client)  # Updates skillbook
-
-# Create adapter to orchestrate everything
-adapter = OfflineACE(agent=agent, reflector=reflector, skill_manager=skill_manager)
-
-# Create training samples
+# Train on samples
 samples = [
     Sample(question="What is the capital of France?", context="", ground_truth="Paris"),
     Sample(question="What is 2 + 2?", context="", ground_truth="4"),
-    Sample(question="Who wrote Romeo and Juliet?", context="", ground_truth="Shakespeare")
 ]
 
-# Train the agent
-print("Training agent...")
-results = adapter.run(samples, SimpleEnvironment(), epochs=2)
-
-# Save learned strategies
-adapter.skillbook.save_to_file("my_agent.json")
-print(f"✅ Agent trained! Learned {len(adapter.skillbook.skills())} strategies")
-
-# Test with new question
-test_output = agent.generate(
-    question="What is 5 + 3?",
-    context="",
-    skillbook=adapter.skillbook
-)
-print(f"\nTest question: What is 5 + 3?")
-print(f"Answer: {test_output.final_answer}")
+results = runner.run(samples, epochs=2)
+print(f"Learned {len(runner.skillbook.skills())} strategies")
+runner.save("trained.json")
 ```
 
-Expected output:
-```
-Training agent...
-✅ Agent trained! Learned 3 strategies
-
-Test question: What is 5 + 3?
-Answer: 8
-```
-
-### Understanding the Architecture
-
-**Three ACE Roles:**
-1. **Agent** - Executes tasks using skillbook strategies
-2. **Reflector** - Analyzes what worked/didn't work
-3. **SkillManager** - Updates skillbook with new strategies
-
-**Two Adaptation Modes:**
-- **OfflineACE** - Train on batch of samples (shown above)
-- **OnlineACE** - Learn from each task in real-time
-
----
-
-## Next Steps
-
-### Load Saved Agent
+## Loading Saved Agents
 
 ```python
-from ace import ACELiteLLM
+from ace_next import ACELiteLLM
 
-# Load previously trained agent
-agent = ACELiteLLM(model="gpt-4o-mini", skillbook_path="my_agent.json")
-
-# Use it immediately
-answer = agent.ask("New question")
+# Resume from a saved skillbook
+agent = ACELiteLLM.from_model("gpt-4o-mini", skillbook_path="my_agent.json")
+answer = agent.ask("New question")  # Uses previously learned strategies
 ```
 
-Or with full pipeline:
+## Trying Different Models
 
 ```python
-from ace import Skillbook, Agent, LiteLLMClient
+from ace_next import ACELiteLLM
 
-# Load skillbook
-skillbook = Skillbook.load_from_file("my_agent.json")
+# OpenAI
+agent = ACELiteLLM.from_model("gpt-4o-mini")
 
-# Use with agent
-client = LiteLLMClient(model="gpt-4o-mini")
-agent = Agent(client)
-output = agent.generate(
-    question="New question",
-    context="",
-    skillbook=skillbook
-)
+# Anthropic
+agent = ACELiteLLM.from_model("claude-sonnet-4-5-20250929")
+
+# Google
+agent = ACELiteLLM.from_model("gemini-pro")
+
+# Local (Ollama)
+agent = ACELiteLLM.from_model("ollama/llama2")
 ```
 
-### Try Different Models
+## What to Read Next
 
-```python
-# Anthropic Claude
-agent = ACELiteLLM(model="claude-3-5-sonnet-20241022")
-
-# Google Gemini
-agent = ACELiteLLM(model="gemini-pro")
-
-# Local Ollama
-agent = ACELiteLLM(model="ollama/llama2")
-```
-
----
-
-## Common Patterns
-
-### Online Learning (Learn While Running)
-
-```python
-from ace import OnlineACE
-
-adapter = OnlineACE(
-    skillbook=skillbook,
-    agent=agent,
-    reflector=reflector,
-    skill_manager=skill_manager
-)
-
-# Process tasks one by one, learning from each
-for task in tasks:
-    result = adapter.process(task, environment)
-```
-
-### Custom Evaluation
-
-```python
-class MathEnvironment(TaskEnvironment):
-    def evaluate(self, sample, output):
-        try:
-            result = eval(output.final_answer)
-            correct = result == sample.ground_truth
-            return EnvironmentResult(
-                feedback=f"Result: {result}. {'✓' if correct else '✗'}",
-                ground_truth=sample.ground_truth
-            )
-        except:
-            return EnvironmentResult(
-                feedback="Invalid math expression",
-                ground_truth=sample.ground_truth
-            )
-```
-
----
-
-## Learn More
-
-- **[Integration Guide](../guides/integration.md)** - Add ACE to existing agents
-- **[Complete Guide](../guides/complete-guide.md)** - Deep dive into ACE concepts
-- **[API Reference](../api/index.md)** - Full class and method documentation
-
----
-
-## Troubleshooting
-
-**Import errors?**
-```bash
-pip install --upgrade ace-framework
-```
-
-**API key not working?**
-- Verify key is correct: `echo $OPENAI_API_KEY`
-- Try different model: `ACELiteLLM(model="gpt-3.5-turbo")`
-
-**Need help?**
-- [GitHub Issues](https://github.com/kayba-ai/agentic-context-engine/issues)
-- [Discord Community](https://discord.com/invite/mqCqH7sTyK)
-
----
-
-**Ready to build production agents?** Check out the [Integration Guide](../guides/integration.md) for browser automation, LangChain, and custom agent patterns.
+- [How ACE Works](../concepts/overview.md) — understand the three-role architecture
+- [The Skillbook](../concepts/skillbook.md) — how strategies are stored and evolve
+- [Full Pipeline Guide](../guides/full-pipeline.md) — build custom ACE pipelines
+- [Integrations](../integrations/index.md) — LangChain, Browser-Use, Claude Code
