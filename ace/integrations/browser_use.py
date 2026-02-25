@@ -306,14 +306,14 @@ class ACEAgent:
             output = (
                 history.final_result() if hasattr(history, "final_result") else ""
             ) or ""
-        except:
+        except (AttributeError, Exception):
             output = ""
 
         try:
             steps = (
                 history.number_of_steps() if hasattr(history, "number_of_steps") else 0
             )
-        except:
+        except (AttributeError, Exception):
             steps = 0
 
         # Extract rich trace data in CHRONOLOGICAL order
