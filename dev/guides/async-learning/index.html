@@ -10,27 +10,29 @@
       
       
       
-        <link rel="canonical" href="https://kayba-ai.github.io/agentic-context-engine/latest/">
+        <link rel="canonical" href="https://kayba-ai.github.io/agentic-context-engine/latest/guides/async-learning/">
       
       
+        <link rel="prev" href="../prompts/">
       
-        <link rel="next" href="getting-started/installation/">
+      
+        <link rel="next" href="../testing/">
       
       
         
       
       
-      <link rel="icon" href="assets/Kayba_logo_rounded.png">
+      <link rel="icon" href="../../assets/Kayba_logo_rounded.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.3">
     
     
 <title>ACE Documentation</title>
 
     
-      <link rel="stylesheet" href="assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
       
         
-        <link rel="stylesheet" href="assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -49,7 +51,7 @@
       
     
     
-    <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -74,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#ace-framework" class="md-skip">
+        <a href="#async-learning" class="md-skip">
           Skip to content
         </a>
       
@@ -92,9 +94,9 @@
 
 <header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="." title="ACE Documentation" class="md-header__button md-logo" aria-label="ACE Documentation" data-md-component="logo">
+    <a href="../.." title="ACE Documentation" class="md-header__button md-logo" aria-label="ACE Documentation" data-md-component="logo">
       
-  <img src="assets/Kayba_logo_rounded.png" alt="logo">
+  <img src="../../assets/Kayba_logo_rounded.png" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -111,7 +113,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Home
+              Async Learning
             
           </span>
         </div>
@@ -225,11 +227,9 @@
   
   
   
-    
   
-  
-    <li class="md-tabs__item md-tabs__item--active">
-      <a href="." class="md-tabs__link">
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
         
   
   
@@ -250,7 +250,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="getting-started/installation/" class="md-tabs__link">
+        <a href="../../getting-started/installation/" class="md-tabs__link">
           
   
   
@@ -270,7 +270,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="concepts/overview/" class="md-tabs__link">
+        <a href="../../concepts/overview/" class="md-tabs__link">
           
   
   
@@ -286,11 +286,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="guides/full-pipeline/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../full-pipeline/" class="md-tabs__link">
           
   
   
@@ -310,7 +312,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="pipeline/" class="md-tabs__link">
+        <a href="../../pipeline/" class="md-tabs__link">
           
   
   
@@ -330,7 +332,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="integrations/" class="md-tabs__link">
+        <a href="../../integrations/" class="md-tabs__link">
           
   
   
@@ -348,7 +350,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="api/" class="md-tabs__link">
+      <a href="../../api/" class="md-tabs__link">
         
   
   
@@ -383,9 +385,9 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="." title="ACE Documentation" class="md-nav__button md-logo" aria-label="ACE Documentation" data-md-component="logo">
+    <a href="../.." title="ACE Documentation" class="md-nav__button md-logo" aria-label="ACE Documentation" data-md-component="logo">
       
-  <img src="assets/Kayba_logo_rounded.png" alt="logo">
+  <img src="../../assets/Kayba_logo_rounded.png" alt="logo">
 
     </a>
     ACE Documentation
@@ -409,37 +411,10 @@
       
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Home
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="." class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
         
   
   
@@ -455,92 +430,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#the-learning-loop" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The Learning Loop
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#get-started-in-30-seconds" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Get Started in 30 Seconds
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#install" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Install
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#quick-links" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Quick Links
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#available-runners" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Available Runners
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paper" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paper
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -606,7 +495,7 @@
   
   
     <li class="md-nav__item">
-      <a href="getting-started/installation/" class="md-nav__link">
+      <a href="../../getting-started/installation/" class="md-nav__link">
         
   
   
@@ -634,7 +523,7 @@
   
   
     <li class="md-nav__item">
-      <a href="getting-started/quick-start/" class="md-nav__link">
+      <a href="../../getting-started/quick-start/" class="md-nav__link">
         
   
   
@@ -723,7 +612,7 @@
   
   
     <li class="md-nav__item">
-      <a href="concepts/overview/" class="md-nav__link">
+      <a href="../../concepts/overview/" class="md-nav__link">
         
   
   
@@ -751,7 +640,7 @@
   
   
     <li class="md-nav__item">
-      <a href="concepts/skillbook/" class="md-nav__link">
+      <a href="../../concepts/skillbook/" class="md-nav__link">
         
   
   
@@ -779,7 +668,7 @@
   
   
     <li class="md-nav__item">
-      <a href="concepts/roles/" class="md-nav__link">
+      <a href="../../concepts/roles/" class="md-nav__link">
         
   
   
@@ -807,7 +696,7 @@
   
   
     <li class="md-nav__item">
-      <a href="concepts/insight-levels/" class="md-nav__link">
+      <a href="../../concepts/insight-levels/" class="md-nav__link">
         
   
   
@@ -835,7 +724,7 @@
   
   
     <li class="md-nav__item">
-      <a href="concepts/updates/" class="md-nav__link">
+      <a href="../../concepts/updates/" class="md-nav__link">
         
   
   
@@ -867,28 +756,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
         
           
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
-        
-          
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
             
   
   
@@ -906,7 +798,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
@@ -924,7 +816,7 @@
   
   
     <li class="md-nav__item">
-      <a href="guides/full-pipeline/" class="md-nav__link">
+      <a href="../full-pipeline/" class="md-nav__link">
         
   
   
@@ -952,7 +844,7 @@
   
   
     <li class="md-nav__item">
-      <a href="guides/integration/" class="md-nav__link">
+      <a href="../integration/" class="md-nav__link">
         
   
   
@@ -980,7 +872,7 @@
   
   
     <li class="md-nav__item">
-      <a href="guides/prompts/" class="md-nav__link">
+      <a href="../prompts/" class="md-nav__link">
         
   
   
@@ -1005,10 +897,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="guides/async-learning/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Async Learning
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1024,6 +943,92 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architecture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#basic-usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Basic Usage
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#monitoring-progress" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Monitoring Progress
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#with-acelitellm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        With ACELiteLLM
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#why-this-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why This Architecture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-to-read-next" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What to Read Next
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1036,7 +1041,7 @@
   
   
     <li class="md-nav__item">
-      <a href="guides/testing/" class="md-nav__link">
+      <a href="../testing/" class="md-nav__link">
         
   
   
@@ -1125,7 +1130,7 @@
   
   
     <li class="md-nav__item">
-      <a href="pipeline/" class="md-nav__link">
+      <a href="../../pipeline/" class="md-nav__link">
         
   
   
@@ -1153,7 +1158,7 @@
   
   
     <li class="md-nav__item">
-      <a href="pipeline/quick-start/" class="md-nav__link">
+      <a href="../../pipeline/quick-start/" class="md-nav__link">
         
   
   
@@ -1181,7 +1186,7 @@
   
   
     <li class="md-nav__item">
-      <a href="pipeline/core-concepts/" class="md-nav__link">
+      <a href="../../pipeline/core-concepts/" class="md-nav__link">
         
   
   
@@ -1209,7 +1214,7 @@
   
   
     <li class="md-nav__item">
-      <a href="pipeline/execution/" class="md-nav__link">
+      <a href="../../pipeline/execution/" class="md-nav__link">
         
   
   
@@ -1237,7 +1242,7 @@
   
   
     <li class="md-nav__item">
-      <a href="pipeline/branching/" class="md-nav__link">
+      <a href="../../pipeline/branching/" class="md-nav__link">
         
   
   
@@ -1265,7 +1270,7 @@
   
   
     <li class="md-nav__item">
-      <a href="pipeline/error-handling/" class="md-nav__link">
+      <a href="../../pipeline/error-handling/" class="md-nav__link">
         
   
   
@@ -1293,7 +1298,7 @@
   
   
     <li class="md-nav__item">
-      <a href="pipeline/custom-steps/" class="md-nav__link">
+      <a href="../../pipeline/custom-steps/" class="md-nav__link">
         
   
   
@@ -1321,7 +1326,7 @@
   
   
     <li class="md-nav__item">
-      <a href="pipeline/api-reference/" class="md-nav__link">
+      <a href="../../pipeline/api-reference/" class="md-nav__link">
         
   
   
@@ -1410,7 +1415,7 @@
   
   
     <li class="md-nav__item">
-      <a href="integrations/" class="md-nav__link">
+      <a href="../../integrations/" class="md-nav__link">
         
   
   
@@ -1438,7 +1443,7 @@
   
   
     <li class="md-nav__item">
-      <a href="integrations/litellm/" class="md-nav__link">
+      <a href="../../integrations/litellm/" class="md-nav__link">
         
   
   
@@ -1466,7 +1471,7 @@
   
   
     <li class="md-nav__item">
-      <a href="integrations/langchain/" class="md-nav__link">
+      <a href="../../integrations/langchain/" class="md-nav__link">
         
   
   
@@ -1494,7 +1499,7 @@
   
   
     <li class="md-nav__item">
-      <a href="integrations/browser-use/" class="md-nav__link">
+      <a href="../../integrations/browser-use/" class="md-nav__link">
         
   
   
@@ -1522,7 +1527,7 @@
   
   
     <li class="md-nav__item">
-      <a href="integrations/claude-code/" class="md-nav__link">
+      <a href="../../integrations/claude-code/" class="md-nav__link">
         
   
   
@@ -1550,7 +1555,7 @@
   
   
     <li class="md-nav__item">
-      <a href="integrations/opik/" class="md-nav__link">
+      <a href="../../integrations/opik/" class="md-nav__link">
         
   
   
@@ -1585,7 +1590,7 @@
   
   
     <li class="md-nav__item">
-      <a href="api/" class="md-nav__link">
+      <a href="../../api/" class="md-nav__link">
         
   
   
@@ -1632,10 +1637,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#the-learning-loop" class="md-nav__link">
+  <a href="#architecture" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The Learning Loop
+        Architecture
       
     </span>
   </a>
@@ -1643,10 +1648,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#get-started-in-30-seconds" class="md-nav__link">
+  <a href="#basic-usage" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Get Started in 30 Seconds
+        Basic Usage
       
     </span>
   </a>
@@ -1654,10 +1659,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#install" class="md-nav__link">
+  <a href="#monitoring-progress" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Install
+        Monitoring Progress
       
     </span>
   </a>
@@ -1665,10 +1670,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#quick-links" class="md-nav__link">
+  <a href="#with-acelitellm" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Quick Links
+        With ACELiteLLM
       
     </span>
   </a>
@@ -1676,10 +1681,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#available-runners" class="md-nav__link">
+  <a href="#why-this-architecture" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Available Runners
+        Why This Architecture
       
     </span>
   </a>
@@ -1687,10 +1692,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#paper" class="md-nav__link">
+  <a href="#what-to-read-next" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Paper
+        What to Read Next
       
     </span>
   </a>
@@ -1717,104 +1722,96 @@
   
 
 
-<h1 id="ace-framework">ACE Framework<a class="headerlink" href="#ace-framework" title="Permanent link">&para;</a></h1>
-<p><strong>Agentic Context Engineering</strong> — a framework for self-improving language model agents.</p>
-<p>ACE enables AI agents to learn from their own execution feedback through three collaborative roles: <strong>Agent</strong>, <strong>Reflector</strong>, and <strong>SkillManager</strong>. Learned strategies accumulate in a <strong>Skillbook</strong> that makes every subsequent call smarter.</p>
-<h2 id="the-learning-loop">The Learning Loop<a class="headerlink" href="#the-learning-loop" title="Permanent link">&para;</a></h2>
+<h1 id="async-learning">Async Learning<a class="headerlink" href="#async-learning" title="Permanent link">&para;</a></h1>
+<p>By default, learning (Reflect, Tag, Update, Apply) runs synchronously after each sample. With async learning, the Agent returns immediately while learning continues in the background.</p>
+<h2 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>graph LR
-    S[Sample] --&gt; A[Agent]
-    A --&gt; E[Environment]
-    E --&gt;|feedback| R[Reflector]
-    R --&gt;|analyzes| SM[SkillManager]
-    SM --&gt;|updates| SK[Skillbook]
-    SK -.-&gt;|context| A</code></pre>
-<p>Each pass through the loop discovers new strategies, reinforces what works, and prunes what doesn't.</p>
-<h2 id="get-started-in-30-seconds">Get Started in 30 Seconds<a class="headerlink" href="#get-started-in-30-seconds" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next</span><span class="w"> </span><span class="kn">import</span> <span class="n">ACELiteLLM</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">answer</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">ask</span><span class="p">(</span><span class="s2">&quot;If all cats are animals, is Felix (a cat) an animal?&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">agent</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;learned.json&quot;</span><span class="p">)</span>
-</code></pre></div>
-<h2 id="install">Install<a class="headerlink" href="#install" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pip<span class="w"> </span>install<span class="w"> </span>ace-framework
-</code></pre></div>
-<h2 id="quick-links">Quick Links<a class="headerlink" href="#quick-links" title="Permanent link">&para;</a></h2>
-<div class="grid cards">
+    S1[Sample 1] --&gt; A[Agent]
+    S2[Sample 2] --&gt; A
+    S3[Sample 3] --&gt; A
+    A --&gt;|foreground| E[Environment]
+    E --&gt;|background| R1[Reflector 1]
+    E --&gt; R2[Reflector 2]
+    E --&gt; R3[Reflector 3]
+    R1 --&gt; Q[Queue]
+    R2 --&gt; Q
+    R3 --&gt; Q
+    Q --&gt;|serialized| SM[SkillManager]
+    SM --&gt; SK[Skillbook]</code></pre>
 <ul>
-<li>
-<p><strong>Getting Started</strong></p>
-<hr />
-<p>Install the framework and run your first self-improving agent.</p>
-<p><a href="getting-started/installation/"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13.22 19.03a.75.75 0 0 1 0-1.06L18.19 13H3.75a.75.75 0 0 1 0-1.5h14.44l-4.97-4.97a.749.749 0 0 1 .326-1.275.75.75 0 0 1 .734.215l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0"/></svg></span> Installation</a>
-<a href="getting-started/quick-start/"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13.22 19.03a.75.75 0 0 1 0-1.06L18.19 13H3.75a.75.75 0 0 1 0-1.5h14.44l-4.97-4.97a.749.749 0 0 1 .326-1.275.75.75 0 0 1 .734.215l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0"/></svg></span> Quick Start</a></p>
-</li>
-<li>
-<p><strong>Concepts</strong></p>
-<hr />
-<p>Understand the Skillbook, Roles, Insight Levels, and Update Operations.</p>
-<p><a href="concepts/overview/"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13.22 19.03a.75.75 0 0 1 0-1.06L18.19 13H3.75a.75.75 0 0 1 0-1.5h14.44l-4.97-4.97a.749.749 0 0 1 .326-1.275.75.75 0 0 1 .734.215l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0"/></svg></span> Overview</a></p>
-</li>
-<li>
-<p><strong>Guides</strong></p>
-<hr />
-<p>Build full pipelines, integrate with existing agents, tune prompts.</p>
-<p><a href="guides/full-pipeline/"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13.22 19.03a.75.75 0 0 1 0-1.06L18.19 13H3.75a.75.75 0 0 1 0-1.5h14.44l-4.97-4.97a.749.749 0 0 1 .326-1.275.75.75 0 0 1 .734.215l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0"/></svg></span> Full Pipeline</a>
-<a href="guides/integration/"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13.22 19.03a.75.75 0 0 1 0-1.06L18.19 13H3.75a.75.75 0 0 1 0-1.5h14.44l-4.97-4.97a.749.749 0 0 1 .326-1.275.75.75 0 0 1 .734.215l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0"/></svg></span> Integration Guide</a></p>
-</li>
-<li>
-<p><strong>Integrations</strong></p>
-<hr />
-<p>Ready-made runners for LiteLLM, LangChain, browser-use, and Claude Code.</p>
-<p><a href="integrations/"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13.22 19.03a.75.75 0 0 1 0-1.06L18.19 13H3.75a.75.75 0 0 1 0-1.5h14.44l-4.97-4.97a.749.749 0 0 1 .326-1.275.75.75 0 0 1 .734.215l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0"/></svg></span> Integrations Overview</a></p>
-</li>
+<li><strong>Reflectors</strong> run concurrently (safe — they only read the skillbook)</li>
+<li><strong>SkillManager</strong> runs sequentially (required — it writes to the skillbook)</li>
+<li>The Agent uses whatever skillbook state is available (eventual consistency)</li>
 </ul>
-</div>
-<h2 id="available-runners">Available Runners<a class="headerlink" href="#available-runners" title="Permanent link">&para;</a></h2>
+<h2 id="basic-usage">Basic Usage<a class="headerlink" href="#basic-usage" title="Permanent link">&para;</a></h2>
+<p>Pass <code>wait=False</code> to <code>run()</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next</span><span class="w"> </span><span class="kn">import</span> <span class="n">ACE</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">runner</span> <span class="o">=</span> <span class="n">ACE</span><span class="o">.</span><span class="n">from_roles</span><span class="p">(</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">agent</span><span class="o">=</span><span class="n">agent</span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">reflector</span><span class="o">=</span><span class="n">reflector</span><span class="p">,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">skill_manager</span><span class="o">=</span><span class="n">skill_manager</span><span class="p">,</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">environment</span><span class="o">=</span><span class="n">environment</span><span class="p">,</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="p">)</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="c1"># Agent returns fast — learning continues in background</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">results</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="n">epochs</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">wait</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="c1"># Use results immediately</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="c1"># Wait before saving</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="n">runner</span><span class="o">.</span><span class="n">wait_for_background</span><span class="p">()</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="n">runner</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;learned.json&quot;</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="monitoring-progress">Monitoring Progress<a class="headerlink" href="#monitoring-progress" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">stats</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">learning_stats</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="c1"># {&#39;active&#39;: 5, &#39;completed&#39;: 25}</span>
+</code></pre></div>
+<h2 id="with-acelitellm">With ACELiteLLM<a class="headerlink" href="#with-acelitellm" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next</span><span class="w"> </span><span class="kn">import</span> <span class="n">ACELiteLLM</span><span class="p">,</span> <span class="n">Sample</span><span class="p">,</span> <span class="n">SimpleEnvironment</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">)</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">samples</span> <span class="o">=</span> <span class="p">[</span><span class="n">Sample</span><span class="p">(</span><span class="n">question</span><span class="o">=</span><span class="s2">&quot;...&quot;</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">ground_truth</span><span class="o">=</span><span class="s2">&quot;...&quot;</span><span class="p">)]</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">results</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">learn</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="n">environment</span><span class="o">=</span><span class="n">SimpleEnvironment</span><span class="p">(),</span> <span class="n">wait</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="c1"># Agent is immediately available</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="n">answer</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">ask</span><span class="p">(</span><span class="s2">&quot;New question&quot;</span><span class="p">)</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="c1"># Wait when you need to save</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="n">agent</span><span class="o">.</span><span class="n">wait_for_background</span><span class="p">()</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="n">agent</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;learned.json&quot;</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="why-this-architecture">Why This Architecture<a class="headerlink" href="#why-this-architecture" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>Runner</th>
-<th>Framework</th>
-<th>Use Case</th>
+<th>Component</th>
+<th>Parallelizable?</th>
+<th>Reason</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><a href="integrations/litellm/"><code>ACELiteLLM</code></a></td>
-<td>LiteLLM (100+ providers)</td>
-<td>Simple self-improving agent</td>
+<td>Reflector</td>
+<td>Yes</td>
+<td>Only reads the skillbook, produces independent analysis</td>
 </tr>
 <tr>
-<td><a href="integrations/langchain/"><code>LangChain</code></a></td>
-<td>LangChain Runnables</td>
-<td>Wrap chains/agents with learning</td>
-</tr>
-<tr>
-<td><a href="integrations/browser-use/"><code>BrowserUse</code></a></td>
-<td>browser-use</td>
-<td>Browser automation with learning</td>
-</tr>
-<tr>
-<td><a href="integrations/claude-code/"><code>ClaudeCode</code></a></td>
-<td>Claude Code CLI</td>
-<td>Coding tasks with learning</td>
-</tr>
-<tr>
-<td><a href="guides/full-pipeline/"><code>ACE</code></a></td>
-<td>Full pipeline</td>
-<td>Agent + Reflector + SkillManager</td>
+<td>SkillManager</td>
+<td>No</td>
+<td>Writes to the skillbook, handles deduplication</td>
 </tr>
 </tbody>
 </table>
-<h2 id="paper">Paper<a class="headerlink" href="#paper" title="Permanent link">&para;</a></h2>
-<p>This framework implements the method from:</p>
-<blockquote>
-<p><em>Agentic Context Engineering: Evolving Contexts for Self-Improving Language Models</em>
-<a href="https://arxiv.org/abs/2510.04618">arXiv:2510.04618</a></p>
-</blockquote>
+<p>This gives ~3x faster learning when the Reflector LLM calls run concurrently.</p>
+<h2 id="what-to-read-next">What to Read Next<a class="headerlink" href="#what-to-read-next" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../full-pipeline/">Full Pipeline Guide</a> — synchronous pipeline setup</li>
+<li><a href="../testing/">Testing</a> — test async learning with MagicMock</li>
+</ul>
 
 
 
@@ -1872,10 +1869,10 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": ".", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.highlight", "search.share", "content.code.copy", "content.tabs.link"], "search": "assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.highlight", "search.share", "content.code.copy", "content.tabs.link"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
     
     
-      <script src="assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
       
     
   </body>

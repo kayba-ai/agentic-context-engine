@@ -61,6 +61,30 @@
          <lastmod>2026-02-25</lastmod>
     </url>
     <url>
+         <loc>https://kayba-ai.github.io/agentic-context-engine/latest/concepts/insight-levels/</loc>
+         <lastmod>2026-02-25</lastmod>
+    </url>
+    <url>
+         <loc>https://kayba-ai.github.io/agentic-context-engine/latest/concepts/overview/</loc>
+         <lastmod>2026-02-25</lastmod>
+    </url>
+    <url>
+         <loc>https://kayba-ai.github.io/agentic-context-engine/latest/concepts/roles/</loc>
+         <lastmod>2026-02-25</lastmod>
+    </url>
+    <url>
+         <loc>https://kayba-ai.github.io/agentic-context-engine/latest/concepts/skillbook/</loc>
+         <lastmod>2026-02-25</lastmod>
+    </url>
+    <url>
+         <loc>https://kayba-ai.github.io/agentic-context-engine/latest/concepts/updates/</loc>
+         <lastmod>2026-02-25</lastmod>
+    </url>
+    <url>
+         <loc>https://kayba-ai.github.io/agentic-context-engine/latest/getting-started/installation/</loc>
+         <lastmod>2026-02-25</lastmod>
+    </url>
+    <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/getting-started/quick-start/</loc>
          <lastmod>2026-02-25</lastmod>
     </url>
@@ -69,7 +93,15 @@
          <lastmod>2026-02-25</lastmod>
     </url>
     <url>
+         <loc>https://kayba-ai.github.io/agentic-context-engine/latest/guides/async-learning/</loc>
+         <lastmod>2026-02-25</lastmod>
+    </url>
+    <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/guides/complete-guide/</loc>
+         <lastmod>2026-02-25</lastmod>
+    </url>
+    <url>
+         <loc>https://kayba-ai.github.io/agentic-context-engine/latest/guides/full-pipeline/</loc>
          <lastmod>2026-02-25</lastmod>
     </url>
     <url>
@@ -82,6 +114,26 @@
     </url>
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/guides/testing/</loc>
+         <lastmod>2026-02-25</lastmod>
+    </url>
+    <url>
+         <loc>https://kayba-ai.github.io/agentic-context-engine/latest/integrations/</loc>
+         <lastmod>2026-02-25</lastmod>
+    </url>
+    <url>
+         <loc>https://kayba-ai.github.io/agentic-context-engine/latest/integrations/browser-use/</loc>
+         <lastmod>2026-02-25</lastmod>
+    </url>
+    <url>
+         <loc>https://kayba-ai.github.io/agentic-context-engine/latest/integrations/claude-code/</loc>
+         <lastmod>2026-02-25</lastmod>
+    </url>
+    <url>
+         <loc>https://kayba-ai.github.io/agentic-context-engine/latest/integrations/langchain/</loc>
+         <lastmod>2026-02-25</lastmod>
+    </url>
+    <url>
+         <loc>https://kayba-ai.github.io/agentic-context-engine/latest/integrations/litellm/</loc>
          <lastmod>2026-02-25</lastmod>
     </url>
     <url>

@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://kayba-ai.github.io/agentic-context-engine/latest/guides/prompts/">
+        <link rel="canonical" href="https://kayba-ai.github.io/agentic-context-engine/latest/integrations/litellm/">
       
       
-        <link rel="prev" href="../integration/">
+        <link rel="prev" href="../">
       
       
-        <link rel="next" href="../async-learning/">
+        <link rel="next" href="../langchain/">
       
       
         
@@ -76,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#prompt-engineering" class="md-skip">
+        <a href="#litellm-integration" class="md-skip">
           Skip to content
         </a>
       
@@ -113,7 +113,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Prompt Engineering
+              LiteLLM
             
           </span>
         </div>
@@ -286,13 +286,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../full-pipeline/" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../guides/full-pipeline/" class="md-tabs__link">
           
   
   
@@ -328,11 +326,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../integrations/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
           
   
   
@@ -756,31 +756,28 @@
       
   
   
-    
   
   
-  
     
     
     
     
-      
-        
-        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
         
           
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
             
   
   
@@ -798,7 +795,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
@@ -816,7 +813,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../full-pipeline/" class="md-nav__link">
+      <a href="../../guides/full-pipeline/" class="md-nav__link">
         
   
   
@@ -844,7 +841,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../integration/" class="md-nav__link">
+      <a href="../../guides/integration/" class="md-nav__link">
         
   
   
@@ -869,37 +866,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Prompt Engineering
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../guides/prompts/" class="md-nav__link">
         
   
   
@@ -915,142 +885,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#default-prompts" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Default Prompts
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#overriding-prompts" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Overriding Prompts
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#template-variables" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Template Variables
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Template Variables">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#agent-prompt" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Agent Prompt
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#reflector-prompt" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Reflector Prompt
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#skillmanager-prompt" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        SkillManager Prompt
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#custom-prompts" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Custom Prompts
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#formatting-skillbook-for-external-agents" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Formatting Skillbook for External Agents
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#troubleshooting" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Troubleshooting
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#what-to-read-next" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        What to Read Next
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1063,7 +897,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../async-learning/" class="md-nav__link">
+      <a href="../../guides/async-learning/" class="md-nav__link">
         
   
   
@@ -1091,7 +925,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../testing/" class="md-nav__link">
+      <a href="../../guides/testing/" class="md-nav__link">
         
   
   
@@ -1408,28 +1242,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
         
           
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
-        
-          
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
             
   
   
@@ -1447,7 +1284,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1465,7 +1302,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../integrations/" class="md-nav__link">
+      <a href="../" class="md-nav__link">
         
   
   
@@ -1490,10 +1327,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../integrations/litellm/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LiteLLM
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1509,6 +1373,181 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#quick-start" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick Start
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameters
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Parameters">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#from_model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        from_model()
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#methods" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Methods
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Methods">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ask" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ask()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#learn" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        learn()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#learn_from_feedback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        learn_from_feedback()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#learn_from_traces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        learn_from_traces()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lifecycle
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#using-a-cheaper-learning-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using a Cheaper Learning Model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deduplication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deduplication
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#supported-providers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Supported Providers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-to-read-next" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What to Read Next
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1521,7 +1560,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../integrations/langchain/" class="md-nav__link">
+      <a href="../langchain/" class="md-nav__link">
         
   
   
@@ -1549,7 +1588,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../integrations/browser-use/" class="md-nav__link">
+      <a href="../browser-use/" class="md-nav__link">
         
   
   
@@ -1577,7 +1616,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../integrations/claude-code/" class="md-nav__link">
+      <a href="../claude-code/" class="md-nav__link">
         
   
   
@@ -1605,7 +1644,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../integrations/opik/" class="md-nav__link">
+      <a href="../opik/" class="md-nav__link">
         
   
   
@@ -1687,10 +1726,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#default-prompts" class="md-nav__link">
+  <a href="#quick-start" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Default Prompts
+        Quick Start
       
     </span>
   </a>
@@ -1698,55 +1737,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#overriding-prompts" class="md-nav__link">
+  <a href="#parameters" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Overriding Prompts
+        Parameters
       
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#template-variables" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Template Variables
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Template Variables">
+    <nav class="md-nav" aria-label="Parameters">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#agent-prompt" class="md-nav__link">
+  <a href="#from_model" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Agent Prompt
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#reflector-prompt" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Reflector Prompt
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#skillmanager-prompt" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        SkillManager Prompt
+        from_model()
       
     </span>
   </a>
@@ -1759,10 +1765,82 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#custom-prompts" class="md-nav__link">
+  <a href="#methods" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Custom Prompts
+        Methods
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Methods">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ask" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ask()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#learn" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        learn()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#learn_from_feedback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        learn_from_feedback()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#learn_from_traces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        learn_from_traces()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lifecycle
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#using-a-cheaper-learning-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using a Cheaper Learning Model
       
     </span>
   </a>
@@ -1770,10 +1848,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#formatting-skillbook-for-external-agents" class="md-nav__link">
+  <a href="#deduplication" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Formatting Skillbook for External Agents
+        Deduplication
       
     </span>
   </a>
@@ -1781,10 +1859,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#troubleshooting" class="md-nav__link">
+  <a href="#supported-providers" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Troubleshooting
+        Supported Providers
       
     </span>
   </a>
@@ -1822,159 +1900,169 @@
   
 
 
-<h1 id="prompt-engineering">Prompt Engineering<a class="headerlink" href="#prompt-engineering" title="Permanent link">&para;</a></h1>
-<p>ACE uses specialized prompt templates for each role. The framework includes multiple prompt versions with different trade-offs.</p>
-<h2 id="default-prompts">Default Prompts<a class="headerlink" href="#default-prompts" title="Permanent link">&para;</a></h2>
-<p><code>ace_next</code> ships with v2.1 prompts built in. All three roles (<code>Agent</code>, <code>Reflector</code>, <code>SkillManager</code>) use them by default — no extra imports needed.</p>
-<div class="admonition tip">
-<p class="admonition-title">Recommendation</p>
-<p>The built-in v2.1 prompts work well out of the box. Only provide custom prompts when you need domain-specific instructions.</p>
-</div>
-<h2 id="overriding-prompts">Overriding Prompts<a class="headerlink" href="#overriding-prompts" title="Permanent link">&para;</a></h2>
-<p>Pass a <code>prompt_template</code> string to any role constructor:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span><span class="p">,</span> <span class="n">Reflector</span><span class="p">,</span> <span class="n">SkillManager</span><span class="p">,</span> <span class="n">LiteLLMClient</span>
+<h1 id="litellm-integration">LiteLLM Integration<a class="headerlink" href="#litellm-integration" title="Permanent link">&para;</a></h1>
+<p><code>ACELiteLLM</code> is the simplest way to get a self-improving agent. It bundles Agent, Reflector, SkillManager, and Skillbook into a single class with <code>ask()</code> and <code>learn()</code> methods.</p>
+<h2 id="quick-start">Quick Start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next</span><span class="w"> </span><span class="kn">import</span> <span class="n">ACELiteLLM</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">llm</span> <span class="o">=</span> <span class="n">LiteLLMClient</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">)</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">llm</span><span class="p">,</span> <span class="n">prompt_template</span><span class="o">=</span><span class="s2">&quot;Your custom agent prompt ...&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">reflector</span> <span class="o">=</span> <span class="n">Reflector</span><span class="p">(</span><span class="n">llm</span><span class="p">,</span> <span class="n">prompt_template</span><span class="o">=</span><span class="s2">&quot;Your custom reflector prompt ...&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">skill_manager</span> <span class="o">=</span> <span class="n">SkillManager</span><span class="p">(</span><span class="n">llm</span><span class="p">,</span> <span class="n">prompt_template</span><span class="o">=</span><span class="s2">&quot;Your custom skill manager prompt ...&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="c1"># Ask questions — learns patterns across them</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">answer</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">ask</span><span class="p">(</span><span class="s2">&quot;If all cats are animals, is Felix (a cat) an animal?&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="c1"># Save and reload</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">agent</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;learned.json&quot;</span><span class="p">)</span>
 </code></pre></div>
-<h2 id="template-variables">Template Variables<a class="headerlink" href="#template-variables" title="Permanent link">&para;</a></h2>
-<h3 id="agent-prompt">Agent Prompt<a class="headerlink" href="#agent-prompt" title="Permanent link">&para;</a></h3>
+<h2 id="parameters">Parameters<a class="headerlink" href="#parameters" title="Permanent link">&para;</a></h2>
+<h3 id="from_model">from_model()<a class="headerlink" href="#from_model" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
-<th>Variable</th>
+<th>Parameter</th>
+<th>Type</th>
+<th>Default</th>
 <th>Description</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>{skillbook}</code></td>
-<td>Current skillbook in TOON format</td>
+<td><code>model</code></td>
+<td><code>str</code></td>
+<td><code>"gpt-4o-mini"</code></td>
+<td>LiteLLM model identifier</td>
 </tr>
 <tr>
-<td><code>{question}</code></td>
-<td>The input question</td>
+<td><code>max_tokens</code></td>
+<td><code>int</code></td>
+<td><code>2048</code></td>
+<td>Max tokens for responses</td>
 </tr>
 <tr>
-<td><code>{context}</code></td>
-<td>Additional context</td>
+<td><code>temperature</code></td>
+<td><code>float</code></td>
+<td><code>0.0</code></td>
+<td>Sampling temperature</td>
 </tr>
 <tr>
-<td><code>{reflection}</code></td>
-<td>Optional reflection from a previous attempt</td>
+<td><code>api_key</code></td>
+<td><code>str</code></td>
+<td><code>None</code></td>
+<td>API key (or use env variable)</td>
+</tr>
+<tr>
+<td><code>base_url</code></td>
+<td><code>str</code></td>
+<td><code>None</code></td>
+<td>Custom API endpoint</td>
+</tr>
+<tr>
+<td><code>skillbook_path</code></td>
+<td><code>str</code></td>
+<td><code>None</code></td>
+<td>Path to load saved skillbook</td>
+</tr>
+<tr>
+<td><code>environment</code></td>
+<td><code>TaskEnvironment</code></td>
+<td><code>None</code></td>
+<td>Evaluation environment</td>
+</tr>
+<tr>
+<td><code>dedup_config</code></td>
+<td><code>DeduplicationConfig</code></td>
+<td><code>None</code></td>
+<td>Skill deduplication config</td>
+</tr>
+<tr>
+<td><code>is_learning</code></td>
+<td><code>bool</code></td>
+<td><code>True</code></td>
+<td>Enable/disable learning</td>
 </tr>
 </tbody>
 </table>
-<h3 id="reflector-prompt">Reflector Prompt<a class="headerlink" href="#reflector-prompt" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Variable</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>{skillbook}</code></td>
-<td>Current skillbook in TOON format</td>
-</tr>
-<tr>
-<td><code>{question}</code></td>
-<td>The original question</td>
-</tr>
-<tr>
-<td><code>{agent_output}</code></td>
-<td>The agent's response</td>
-</tr>
-<tr>
-<td><code>{ground_truth}</code></td>
-<td>Expected answer</td>
-</tr>
-<tr>
-<td><code>{feedback}</code></td>
-<td>Environment feedback</td>
-</tr>
-</tbody>
-</table>
-<h3 id="skillmanager-prompt">SkillManager Prompt<a class="headerlink" href="#skillmanager-prompt" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Variable</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>{skillbook}</code></td>
-<td>Current skillbook in TOON format</td>
-</tr>
-<tr>
-<td><code>{reflection}</code></td>
-<td>Reflector's analysis</td>
-</tr>
-<tr>
-<td><code>{question_context}</code></td>
-<td>Description of the task domain</td>
-</tr>
-<tr>
-<td><code>{progress}</code></td>
-<td>Current training progress</td>
-</tr>
-</tbody>
-</table>
-<h2 id="custom-prompts">Custom Prompts<a class="headerlink" href="#custom-prompts" title="Permanent link">&para;</a></h2>
-<p>You can provide your own prompt templates. They must include the required template variables:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">custom_agent_prompt</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="s2">Skillbook: </span><span class="si">{skillbook}</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="s2">Question: </span><span class="si">{question}</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="s2">Context: </span><span class="si">{context}</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="s2">Generate a JSON response with:</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="s2">- reasoning: Your step-by-step thought process</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="s2">- skill_ids: List of skillbook IDs you used</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="s2">- final_answer: Your answer</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="s2">&quot;&quot;&quot;</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">llm</span><span class="p">,</span> <span class="n">prompt_template</span><span class="o">=</span><span class="n">custom_agent_prompt</span><span class="p">)</span>
+<h2 id="methods">Methods<a class="headerlink" href="#methods" title="Permanent link">&para;</a></h2>
+<h3 id="ask">ask()<a class="headerlink" href="#ask" title="Permanent link">&para;</a></h3>
+<p>Direct agent call using the current skillbook:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">answer</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">ask</span><span class="p">(</span><span class="s2">&quot;Your question&quot;</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="s2">&quot;Optional context&quot;</span><span class="p">)</span>
 </code></pre></div>
-<h2 id="formatting-skillbook-for-external-agents">Formatting Skillbook for External Agents<a class="headerlink" href="#formatting-skillbook-for-external-agents" title="Permanent link">&para;</a></h2>
-<p>Integration runners inject the skillbook into external agent prompts using a wrapper function:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next</span><span class="w"> </span><span class="kn">import</span> <span class="n">wrap_skillbook_context</span>
+<h3 id="learn">learn()<a class="headerlink" href="#learn" title="Permanent link">&para;</a></h3>
+<p>Run the full ACE learning pipeline over samples:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sample</span><span class="p">,</span> <span class="n">SimpleEnvironment</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">context</span> <span class="o">=</span> <span class="n">wrap_skillbook_context</span><span class="p">(</span><span class="n">skillbook</span><span class="p">)</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Returns formatted strategies with usage instructions</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">samples</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">Sample</span><span class="p">(</span><span class="n">question</span><span class="o">=</span><span class="s2">&quot;What is 2+2?&quot;</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">ground_truth</span><span class="o">=</span><span class="s2">&quot;4&quot;</span><span class="p">),</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="p">]</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">results</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">learn</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="n">environment</span><span class="o">=</span><span class="n">SimpleEnvironment</span><span class="p">(),</span> <span class="n">epochs</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
 </code></pre></div>
-<h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Problem</th>
-<th>Solution</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>JSON parse failures</td>
-<td>Increase <code>max_tokens</code>, use Instructor, or try v2.1 prompts</td>
-</tr>
-<tr>
-<td>Empty skill_ids</td>
-<td>Agent not citing skills — check skillbook has content</td>
-</tr>
-<tr>
-<td>Poor answer quality</td>
-<td>Switch to v2.1 prompts or try a larger model</td>
-</tr>
-</tbody>
-</table>
+<h3 id="learn_from_feedback">learn_from_feedback()<a class="headerlink" href="#learn_from_feedback" title="Permanent link">&para;</a></h3>
+<p>Learn from the last <code>ask()</code> interaction:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">agent</span><span class="o">.</span><span class="n">ask</span><span class="p">(</span><span class="s2">&quot;What is the capital of France?&quot;</span><span class="p">)</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">agent</span><span class="o">.</span><span class="n">learn_from_feedback</span><span class="p">(</span><span class="n">feedback</span><span class="o">=</span><span class="s2">&quot;Correct!&quot;</span><span class="p">,</span> <span class="n">ground_truth</span><span class="o">=</span><span class="s2">&quot;Paris&quot;</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="learn_from_traces">learn_from_traces()<a class="headerlink" href="#learn_from_traces" title="Permanent link">&para;</a></h3>
+<p>Learn from pre-recorded execution traces:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">results</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">learn_from_traces</span><span class="p">(</span><span class="n">traces</span><span class="p">,</span> <span class="n">epochs</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="lifecycle">Lifecycle<a class="headerlink" href="#lifecycle" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">agent</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;path.json&quot;</span><span class="p">)</span>               <span class="c1"># Save skillbook</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">agent</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;path.json&quot;</span><span class="p">)</span>               <span class="c1"># Load skillbook</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">agent</span><span class="o">.</span><span class="n">enable_learning</span><span class="p">()</span>               <span class="c1"># Turn on learning</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">agent</span><span class="o">.</span><span class="n">disable_learning</span><span class="p">()</span>              <span class="c1"># Turn off learning</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="n">agent</span><span class="o">.</span><span class="n">wait_for_background</span><span class="p">()</span>           <span class="c1"># Wait for async learning</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="n">agent</span><span class="o">.</span><span class="n">learning_stats</span>                  <span class="c1"># Background progress</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="n">agent</span><span class="o">.</span><span class="n">skillbook</span>                       <span class="c1"># Current Skillbook</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="n">agent</span><span class="o">.</span><span class="n">get_strategies</span><span class="p">()</span>                <span class="c1"># Formatted strategies</span>
+</code></pre></div>
+<h2 id="using-a-cheaper-learning-model">Using a Cheaper Learning Model<a class="headerlink" href="#using-a-cheaper-learning-model" title="Permanent link">&para;</a></h2>
+<p>Use a strong model for the Agent and a cheaper one for learning:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next</span><span class="w"> </span><span class="kn">import</span> <span class="n">ACELiteLLM</span><span class="p">,</span> <span class="n">Agent</span><span class="p">,</span> <span class="n">Reflector</span><span class="p">,</span> <span class="n">SkillManager</span><span class="p">,</span> <span class="n">LiteLLMClient</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">agent_llm</span> <span class="o">=</span> <span class="n">LiteLLMClient</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">&quot;gpt-4o&quot;</span><span class="p">)</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">learning_llm</span> <span class="o">=</span> <span class="n">LiteLLMClient</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">)</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="n">ace</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="p">(</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    <span class="n">llm</span><span class="o">=</span><span class="n">agent_llm</span><span class="p">,</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>    <span class="n">agent</span><span class="o">=</span><span class="n">Agent</span><span class="p">(</span><span class="n">agent_llm</span><span class="p">),</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>    <span class="n">reflector</span><span class="o">=</span><span class="n">Reflector</span><span class="p">(</span><span class="n">learning_llm</span><span class="p">),</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>    <span class="n">skill_manager</span><span class="o">=</span><span class="n">SkillManager</span><span class="p">(</span><span class="n">learning_llm</span><span class="p">),</span>
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="p">)</span>
+</code></pre></div>
+<h2 id="deduplication">Deduplication<a class="headerlink" href="#deduplication" title="Permanent link">&para;</a></h2>
+<p>Prevent duplicate skills from accumulating:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next</span><span class="w"> </span><span class="kn">import</span> <span class="n">DeduplicationConfig</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="n">dedup_config</span><span class="o">=</span><span class="n">DeduplicationConfig</span><span class="p">(</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>        <span class="n">enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>        <span class="n">embedding_model</span><span class="o">=</span><span class="s2">&quot;text-embedding-3-small&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>        <span class="n">similarity_threshold</span><span class="o">=</span><span class="mf">0.85</span><span class="p">,</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>    <span class="p">),</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="p">)</span>
+</code></pre></div>
+<h2 id="supported-providers">Supported Providers<a class="headerlink" href="#supported-providers" title="Permanent link">&para;</a></h2>
+<p>Any model supported by <a href="https://docs.litellm.ai/">LiteLLM</a>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># OpenAI</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">)</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="c1"># Anthropic</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span><span class="s2">&quot;claude-sonnet-4-5-20250929&quot;</span><span class="p">)</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="c1"># Google</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span><span class="s2">&quot;gemini-pro&quot;</span><span class="p">)</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="c1"># Local (Ollama)</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span><span class="s2">&quot;ollama/llama2&quot;</span><span class="p">)</span>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="c1"># Custom endpoint</span>
+<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">,</span> <span class="n">base_url</span><span class="o">=</span><span class="s2">&quot;https://your-endpoint.com&quot;</span><span class="p">)</span>
+</code></pre></div>
 <h2 id="what-to-read-next">What to Read Next<a class="headerlink" href="#what-to-read-next" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="../full-pipeline/">Full Pipeline Guide</a> — use prompts in a complete pipeline</li>
-<li><a href="../../concepts/skillbook/">The Skillbook</a> — what goes into <code>{skillbook}</code></li>
+<li><a href="../../guides/full-pipeline/">Full Pipeline Guide</a> — for more control over the pipeline</li>
+<li><a href="../../guides/async-learning/">Async Learning</a> — background learning with <code>wait=False</code></li>
+<li><a href="../opik/">Opik Observability</a> — monitor costs and traces</li>
 </ul>
 
 
