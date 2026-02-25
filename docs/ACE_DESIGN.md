@@ -1209,13 +1209,13 @@ def learning_tail(
     dedup_interval: int = 10,
     checkpoint_dir: str | Path | None = None,
     checkpoint_interval: int = 10,
-) -> list:
+) -> list[StepProtocol]:
     """Return the standard ACE learning steps.
 
     Use this when building custom integrations that provide their own
     execute step(s) but want the standard learning pipeline.
     """
-    steps: list = [
+    steps: list[StepProtocol] = [
         ReflectStep(reflector),
         TagStep(skillbook),
         UpdateStep(skill_manager),
