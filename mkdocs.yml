@@ -46,12 +46,19 @@ extra:
 nav:
   - Home: index.md
   - Getting Started:
+    - Installation: getting-started/installation.md
     - Quick Start: getting-started/quick-start.md
-    - Setup Guide: getting-started/setup.md
+  - Concepts:
+    - How ACE Works: concepts/overview.md
+    - The Skillbook: concepts/skillbook.md
+    - Three Roles: concepts/roles.md
+    - Insight Levels: concepts/insight-levels.md
+    - Update Operations: concepts/updates.md
   - Guides:
-    - Complete ACE Guide: guides/complete-guide.md
-    - Integration Guide: guides/integration.md
+    - Full Pipeline: guides/full-pipeline.md
+    - Integration Pattern: guides/integration.md
     - Prompt Engineering: guides/prompts.md
+    - Async Learning: guides/async-learning.md
     - Testing: guides/testing.md
   - Pipeline Engine:
     - Overview: pipeline/index.md
@@ -63,6 +70,11 @@ nav:
     - Building Custom Steps: pipeline/custom-steps.md
     - API Reference: pipeline/api-reference.md
   - Integrations:
+    - Overview: integrations/index.md
+    - LiteLLM: integrations/litellm.md
+    - LangChain: integrations/langchain.md
+    - Browser-Use: integrations/browser-use.md
+    - Claude Code: integrations/claude-code.md
     - Opik Observability: integrations/opik.md
   - API Reference: api/index.md
 
