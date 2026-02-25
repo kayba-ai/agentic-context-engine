@@ -31,8 +31,6 @@ class SkillManager:
         llm: An LLM client that satisfies :class:`LLMClientLike`.
         prompt_template: Custom prompt template (defaults to
             :data:`SKILL_MANAGER_PROMPT`).
-        max_retries: Maximum validation retries (forwarded to the LLM
-            client if it supports it).
 
     Example::
 
@@ -95,13 +93,11 @@ class SkillManager:
         prompt = self.prompt_template.format(
             progress=progress,
             stats=json.dumps(skillbook.stats()),
-            reflection=json.dumps(
-                reflection_data, ensure_ascii=False, indent=2
-            ),
+            reflection=json.dumps(reflection_data, ensure_ascii=False, indent=2),
             skillbook=skillbook.as_prompt() or "(empty skillbook)",
             question_context=question_context,
         )
 
         return self.llm.complete_structured(
-            prompt, SkillManagerOutput, **kwargs
+            prompt, SkillManagerOutput, max_retries=self.max_retries, **kwargs
         )

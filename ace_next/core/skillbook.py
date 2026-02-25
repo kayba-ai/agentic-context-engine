@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import threading
 from dataclasses import asdict, dataclass, field, fields as dataclass_fields
 from datetime import datetime, timezone
 from pathlib import Path
@@ -211,6 +212,7 @@ class Skillbook:
         self._sections: Dict[str, List[str]] = {}
         self._next_id = 0
         self._similarity_decisions: Dict[FrozenSet[str], SimilarityDecision] = {}
+        self._lock = threading.RLock()
 
     def __repr__(self) -> str:
         return f"Skillbook(skills={len(self._skills)}, sections={list(self._sections.keys())})"
@@ -234,20 +236,21 @@ class Skillbook:
         evidence: Optional[str] = None,
         insight_source: Optional[Dict[str, Any]] = None,
     ) -> Skill:
-        skill_id = skill_id or self._generate_id(section)
-        metadata = metadata or {}
-        skill = Skill(
-            id=skill_id,
-            section=section,
-            content=content,
-            justification=justification,
-            evidence=evidence,
-            sources=[insight_source] if insight_source else [],
-        )
-        skill.apply_metadata(metadata)
-        self._skills[skill_id] = skill
-        self._sections.setdefault(section, []).append(skill_id)
-        return skill
+        with self._lock:
+            skill_id = skill_id or self._generate_id(section)
+            metadata = metadata or {}
+            skill = Skill(
+                id=skill_id,
+                section=section,
+                content=content,
+                justification=justification,
+                evidence=evidence,
+                sources=[insight_source] if insight_source else [],
+            )
+            skill.apply_metadata(metadata)
+            self._skills[skill_id] = skill
+            self._sections.setdefault(section, []).append(skill_id)
+            return skill
 
     def update_skill(
         self,
@@ -259,47 +262,48 @@ class Skillbook:
         evidence: Optional[str] = None,
         insight_source: Optional[Dict[str, Any]] = None,
     ) -> Optional[Skill]:
-        skill = self._skills.get(skill_id)
-        if skill is None:
-            return None
-        if content is not None:
-            skill.content = content
-        if justification is not None:
-            skill.justification = justification
-        if evidence is not None:
-            skill.evidence = evidence
-        if metadata:
-            skill.apply_metadata(metadata)
-        if insight_source is not None:
-            skill.sources.append(insight_source)
-        skill.updated_at = datetime.now(timezone.utc).isoformat()
-        return skill
+        with self._lock:
+            skill = self._skills.get(skill_id)
+            if skill is None:
+                return None
+            if content is not None:
+                skill.content = content
+            if justification is not None:
+                skill.justification = justification
+            if evidence is not None:
+                skill.evidence = evidence
+            if metadata:
+                skill.apply_metadata(metadata)
+            if insight_source is not None:
+                skill.sources.append(insight_source)
+            skill.updated_at = datetime.now(timezone.utc).isoformat()
+            return skill
 
-    def tag_skill(
-        self, skill_id: str, tag: str, increment: int = 1
-    ) -> Optional[Skill]:
-        skill = self._skills.get(skill_id)
-        if skill is None:
-            return None
-        skill.tag(tag, increment=increment)
-        return skill
+    def tag_skill(self, skill_id: str, tag: str, increment: int = 1) -> Optional[Skill]:
+        with self._lock:
+            skill = self._skills.get(skill_id)
+            if skill is None:
+                return None
+            skill.tag(tag, increment=increment)
+            return skill
 
     def remove_skill(self, skill_id: str, soft: bool = False) -> None:
-        skill = self._skills.get(skill_id)
-        if skill is None:
-            return
-        if soft:
-            skill.status = "invalid"
-            skill.updated_at = datetime.now(timezone.utc).isoformat()
-        else:
-            self._skills.pop(skill_id, None)
-            section_list = self._sections.get(skill.section)
-            if section_list:
-                self._sections[skill.section] = [
-                    sid for sid in section_list if sid != skill_id
-                ]
-                if not self._sections[skill.section]:
-                    del self._sections[skill.section]
+        with self._lock:
+            skill = self._skills.get(skill_id)
+            if skill is None:
+                return
+            if soft:
+                skill.status = "invalid"
+                skill.updated_at = datetime.now(timezone.utc).isoformat()
+            else:
+                self._skills.pop(skill_id, None)
+                section_list = self._sections.get(skill.section)
+                if section_list:
+                    self._sections[skill.section] = [
+                        sid for sid in section_list if sid != skill_id
+                    ]
+                    if not self._sections[skill.section]:
+                        del self._sections[skill.section]
 
     def get_skill(self, skill_id: str) -> Optional[Skill]:
         return self._skills.get(skill_id)
@@ -325,8 +329,9 @@ class Skillbook:
         skill_id_b: str,
         decision: SimilarityDecision,
     ) -> None:
-        pair_key = frozenset([skill_id_a, skill_id_b])
-        self._similarity_decisions[pair_key] = decision
+        with self._lock:
+            pair_key = frozenset([skill_id_a, skill_id_b])
+            self._similarity_decisions[pair_key] = decision
 
     def has_keep_decision(self, skill_id_a: str, skill_id_b: str) -> bool:
         decision = self.get_similarity_decision(skill_id_a, skill_id_b)
@@ -432,8 +437,9 @@ class Skillbook:
     # ------------------------------------------------------------------ #
 
     def apply_update(self, update: UpdateBatch) -> None:
-        for operation in update.operations:
-            self._apply_operation(operation)
+        with self._lock:
+            for operation in update.operations:
+                self._apply_operation(operation)
 
     def _apply_operation(self, operation: UpdateOperation) -> None:
         op_type = operation.type.upper()
