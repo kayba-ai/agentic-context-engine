@@ -57,6 +57,10 @@ class LLMCallStep:
         self.budget = budget
 
     def __call__(self, ctx: RRIterationContext) -> RRIterationContext:
+        if self.budget.exhausted:
+            logger.warning("Budget exhausted, returning empty response")
+            return ctx.replace(llm_response="")
+
         trimmed = trim_messages(list(ctx.messages), self.config.max_context_chars)
         response = self.llm.complete_messages(trimmed)
         response_text: str = response.text or ""
@@ -265,6 +269,14 @@ class CheckResultStep:
 # ---------------------------------------------------------------------------
 
 
+def _safe_float(value: Any, default: float = 0.0) -> float:
+    """Convert *value* to float, returning *default* on failure."""
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        return default
+
+
 def _parse_final_value(value: Any) -> Any:
     """Parse the value from FINAL() into a ReflectorOutput."""
     from ace_next.core.outputs import ExtractedLearning, ReflectorOutput, SkillTag
@@ -280,7 +292,7 @@ def _parse_final_value(value: Any) -> Any:
             extracted_learnings.append(
                 ExtractedLearning(
                     learning=learning.get("learning", ""),
-                    atomicity_score=float(learning.get("atomicity_score", 0.0)),
+                    atomicity_score=_safe_float(learning.get("atomicity_score", 0.0)),
                     evidence=learning.get("evidence", ""),
                 )
             )
