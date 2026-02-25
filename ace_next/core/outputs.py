@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .skillbook import UpdateBatch
 
@@ -84,7 +84,12 @@ class ReflectorOutput(BaseModel):
 
 
 class SkillManagerOutput(BaseModel):
-    """Output from the SkillManager role containing skillbook update operations."""
+    """Output from the SkillManager role containing skillbook update operations.
+
+    Accepts both nested ``{"update": {"reasoning": ..., "operations": [...]}}``
+    and the flat shape the LLM actually returns:
+    ``{"reasoning": ..., "operations": [...]}``.
+    """
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -94,3 +99,16 @@ class SkillManagerOutput(BaseModel):
     raw: Dict[str, Any] = Field(
         default_factory=dict, description="Raw LLM response data"
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _accept_flat_shape(cls, data: Any) -> Any:
+        """If the LLM returns {reasoning, operations, ...} without an 'update'
+        wrapper, nest it automatically so Pydantic can validate."""
+        if isinstance(data, dict) and "update" not in data and "operations" in data:
+            reasoning = data.pop("reasoning", "")
+            operations = data.pop("operations", [])
+            data["update"] = UpdateBatch.from_json(
+                {"reasoning": reasoning, "operations": operations}
+            )
+        return data

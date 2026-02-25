@@ -1,25 +1,50 @@
-"""LiteLLM client for unified access to 100+ LLM providers."""
+"""LiteLLM client for unified access to 100+ LLM providers.
+
+Self-contained integration — no imports from ``ace/``.  Satisfies the
+``LLMClientLike`` protocol used by Agent, Reflector, and SkillManager.
+"""
 
 from __future__ import annotations
 
-import json
-from typing import Any, Dict, List, Optional, Union
-from dataclasses import dataclass
 import asyncio
+import json
 import logging
+import re
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Type, TypeVar, Union
 
-from ..llm import LLMClient, LLMResponse
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
 try:
     import litellm
-    from litellm import completion, acompletion, Router
+    from litellm import Router, acompletion, completion
 
     LITELLM_AVAILABLE = True
 except ImportError:
     LITELLM_AVAILABLE = False
     logger.warning("LiteLLM not installed. Install with: pip install litellm")
+
+T = TypeVar("T", bound=BaseModel)
+
+
+# ---------------------------------------------------------------------------
+# LLMResponse — lightweight container for LLM outputs
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class LLMResponse:
+    """Container for LLM outputs."""
+
+    text: str
+    raw: Optional[Dict[str, Any]] = None
+
+
+# ---------------------------------------------------------------------------
+# LiteLLMConfig
+# ---------------------------------------------------------------------------
 
 
 @dataclass
@@ -51,56 +76,36 @@ class LiteLLMConfig:
     verbose: bool = False
 
     # Claude-specific parameter handling
-    # Anthropic API limitation: temperature and top_p cannot both be specified
     sampling_priority: str = "temperature"  # "temperature" | "top_p" | "top_k"
 
     # HTTP/SSL settings
-    extra_headers: Optional[Dict[str, str]] = None  # Custom HTTP headers
-    ssl_verify: Optional[Union[bool, str]] = None  # True/False or path to CA bundle
+    extra_headers: Optional[Dict[str, str]] = None
+    ssl_verify: Optional[Union[bool, str]] = None
 
     # Model-specific parameters (reasoning_effort, budget_tokens, etc.)
     extra_params: Optional[Dict[str, Any]] = None
 
 
-class LiteLLMClient(LLMClient):
-    """
-    Production LLM client using LiteLLM for unified access to multiple providers.
+# ---------------------------------------------------------------------------
+# LiteLLMClient
+# ---------------------------------------------------------------------------
 
-    Supports:
-    - OpenAI (GPT-3.5, GPT-4, etc.)
-    - Anthropic (Claude-2, Claude-3, etc.)
-    - Google (Gemini, PaLM)
-    - Cohere
-    - Azure OpenAI
-    - AWS Bedrock
-    - 100+ other providers
+
+class LiteLLMClient:
+    """Production LLM client using LiteLLM for unified access to multiple providers.
+
+    Supports OpenAI, Anthropic, Google, Cohere, Azure OpenAI, AWS Bedrock,
+    and 100+ other providers.
 
     Claude Parameter Handling:
-    Due to Anthropic API limitations, temperature and top_p cannot both be specified
-    for Claude models. This client automatically resolves parameter conflicts using
-    priority-based resolution following industry best practices:
+        Due to Anthropic API limitations, temperature and top_p cannot both be
+        specified for Claude models.  This client automatically resolves
+        conflicts using priority-based resolution.
 
-    - "temperature" (default): Temperature takes precedence, Anthropic-recommended
-    - "top_p": Nucleus sampling takes precedence, for advanced scenarios
-    - "top_k": Top-k sampling takes precedence, for advanced use only
+    Example::
 
-    Example:
-        >>> client = LiteLLMClient(model="gpt-4")
-        >>> response = client.complete("What is the capital of France?")
-
-        >>> # Using Claude with sampling priority
-        >>> from ace.llm_providers.litellm_client import LiteLLMConfig
-        >>> config = LiteLLMConfig(
-        ...     model="claude-3-sonnet-20240229",
-        ...     sampling_priority="temperature"
-        ... )
-        >>> client = LiteLLMClient(config=config)
-
-        >>> # Using with fallbacks
-        >>> client = LiteLLMClient(
-        ...     model="gpt-4",
-        ...     fallbacks=["claude-3-sonnet-20240229", "gpt-3.5-turbo"]
-        ... )
+        client = LiteLLMClient(model="gpt-4")
+        response = client.complete("What is the capital of France?")
     """
 
     def __init__(
@@ -115,29 +120,13 @@ class LiteLLMClient(LLMClient):
         config: Optional[LiteLLMConfig] = None,
         **kwargs: Any,
     ) -> None:
-        """
-        Initialize LiteLLM client.
-
-        Args:
-            model: Model identifier (e.g., "gpt-4", "claude-3-sonnet-20240229")
-            api_key: API key for the provider (can also use environment variables)
-            api_base: Base URL for API (for custom endpoints)
-            temperature: Sampling temperature (0.0 for deterministic)
-            max_tokens: Maximum tokens to generate
-            fallbacks: List of fallback models if primary fails
-            sampling_priority: Priority for Claude parameter resolution ("temperature", "top_p", "top_k")
-            config: Complete configuration object (overrides other params)
-            **kwargs: Additional provider-specific parameters
-        """
         if not LITELLM_AVAILABLE:
             raise ImportError(
                 "LiteLLM is not installed. Install with: pip install litellm"
             )
 
-        # Use provided config or create from parameters
         if config:
             self.config = config
-            # Use model from config if not provided as parameter
             if model is None:
                 model = config.model
         else:
@@ -145,7 +134,6 @@ class LiteLLMClient(LLMClient):
                 raise ValueError(
                     "Either 'model' parameter or 'config' with model must be provided"
                 )
-            # Separate known config fields from model-specific extra params
             config_fields = {
                 "api_version",
                 "top_p",
@@ -176,23 +164,20 @@ class LiteLLMClient(LLMClient):
                 **config_kwargs,
             )
 
-        super().__init__(model=model)
+        self.model = model
 
-        # Configure LiteLLM settings
         if self.config.verbose:
             litellm.set_verbose = True
 
-        # Set up router if fallbacks are configured
-        self.router: Optional[Any] = None  # Router type from litellm
+        self.router: Optional[Any] = None
         if self.config.fallbacks:
             self._setup_router()
 
+    # -- Router ---------------------------------------------------------------
+
     def _setup_router(self) -> None:
         """Set up router for load balancing and fallbacks."""
-        model_list = []
-
-        # Add primary model
-        model_list.append(
+        model_list = [
             {
                 "model_name": self.config.model,
                 "litellm_params": {
@@ -203,9 +188,7 @@ class LiteLLMClient(LLMClient):
                     "max_tokens": self.config.max_tokens,
                 },
             }
-        )
-
-        # Add fallback models
+        ]
         for fallback_model in self.config.fallbacks or []:
             model_list.append(
                 {
@@ -230,44 +213,27 @@ class LiteLLMClient(LLMClient):
             timeout=self.config.timeout,
         )
 
+    # -- Claude parameter resolution -----------------------------------------
+
     @staticmethod
     def _resolve_sampling_params(
         params: Dict[str, Any], model: str, sampling_priority: str = "temperature"
     ) -> Dict[str, Any]:
-        """
-        Single source of truth for parameter conflict resolution.
+        """Resolve Claude sampling-parameter conflicts.
 
         Anthropic API limitation: temperature and top_p cannot both be specified.
-        This follows industry best practices with clear priority rules.
-
-        Priority order (configurable):
-        1. temperature (default, Anthropic-recommended for most cases)
-        2. top_p (nucleus sampling, advanced scenarios)
-        3. top_k (advanced use only)
-
-        Args:
-            params: Parameters dictionary to resolve
-            model: Model name to check if Claude
-            sampling_priority: 'temperature' (default), 'top_p', or 'top_k'
-
-        Returns:
-            Clean parameters dict with conflicts resolved
-
-        Raises:
-            ValueError: If sampling_priority is invalid
         """
-        # Only apply to Claude models
         if "claude" not in model.lower():
             return params
 
         if sampling_priority not in ["temperature", "top_p", "top_k"]:
             raise ValueError(
-                f"Invalid sampling_priority: {sampling_priority}. Must be one of: temperature, top_p, top_k"
+                f"Invalid sampling_priority: {sampling_priority}. "
+                "Must be one of: temperature, top_p, top_k"
             )
 
         resolved = params.copy()
 
-        # Check which sampling params are present and not None
         has_temperature = (
             "temperature" in resolved and resolved["temperature"] is not None
         )
@@ -275,81 +241,58 @@ class LiteLLMClient(LLMClient):
         has_top_k = "top_k" in resolved and resolved["top_k"] is not None
 
         # Remove None parameters early
-        if "temperature" in resolved and resolved["temperature"] is None:
-            resolved.pop("temperature")
-        if "top_p" in resolved and resolved["top_p"] is None:
-            resolved.pop("top_p")
-        if "top_k" in resolved and resolved["top_k"] is None:
-            resolved.pop("top_k")
+        for key in ("temperature", "top_p", "top_k"):
+            if key in resolved and resolved[key] is None:
+                resolved.pop(key)
 
-        # Apply priority-based resolution
         if (
             sampling_priority == "temperature"
             and has_temperature
             and resolved["temperature"] > 0
         ):
-            # Non-zero temperature takes precedence - remove others
             resolved.pop("top_p", None)
             resolved.pop("top_k", None)
             if has_top_p or has_top_k:
                 logger.info(
-                    f"Claude model {model}: Using temperature={resolved['temperature']}, ignoring other sampling params"
+                    f"Claude model {model}: Using temperature={resolved['temperature']}, "
+                    "ignoring other sampling params"
                 )
-
         elif sampling_priority == "top_p" and has_top_p:
-            # top_p takes precedence - remove others
             resolved.pop("temperature", None)
             resolved.pop("top_k", None)
             if has_temperature or has_top_k:
                 logger.info(
-                    f"Claude model {model}: Using top_p={resolved['top_p']}, ignoring other sampling params"
+                    f"Claude model {model}: Using top_p={resolved['top_p']}, "
+                    "ignoring other sampling params"
                 )
-
         elif sampling_priority == "top_k" and has_top_k:
-            # top_k takes precedence - remove others
             resolved.pop("temperature", None)
             resolved.pop("top_p", None)
             if has_temperature or has_top_p:
                 logger.info(
-                    f"Claude model {model}: Using top_k={resolved['top_k']}, ignoring other sampling params"
+                    f"Claude model {model}: Using top_k={resolved['top_k']}, "
+                    "ignoring other sampling params"
                 )
-
         else:
-            # Fallback: use default priority (temperature > top_p > top_k)
-            # Special case: if temperature is 0, allow top_p to take precedence
+            # Fallback: default priority (temperature > top_p > top_k)
             if has_temperature and resolved["temperature"] > 0:
-                # Non-zero temperature takes precedence over everything
                 resolved.pop("top_p", None)
                 resolved.pop("top_k", None)
             elif has_top_p:
-                # top_p takes precedence over temperature=0 and top_k
                 resolved.pop("temperature", None)
                 resolved.pop("top_k", None)
             elif has_temperature:
-                # Only temperature (including 0), remove others
                 resolved.pop("top_p", None)
                 resolved.pop("top_k", None)
-            # If only top_k is set, keep it
 
         return resolved
+
+    # -- Call building --------------------------------------------------------
 
     def _build_call_params(
         self, messages: List[Dict[str, str]], **kwargs: Any
     ) -> Dict[str, Any]:
-        """Build the parameter dict for a litellm.completion() call.
-
-        Shared by :meth:`complete` and :meth:`complete_messages` so the
-        config-merging, sampling-resolution, credential and Opik logic
-        lives in one place.
-
-        Args:
-            messages: Chat messages to send to the model.
-            **kwargs: Runtime overrides (temperature, top_p, etc.).
-
-        Returns:
-            Dict ready to be unpacked into ``completion(**params)``.
-        """
-        # Merge config with runtime kwargs
+        """Build the parameter dict for a litellm.completion() call."""
         merged_params: Dict[str, Any] = {
             "model": self.config.model,
             "messages": messages,
@@ -357,43 +300,38 @@ class LiteLLMClient(LLMClient):
             "max_tokens": kwargs.get("max_tokens", self.config.max_tokens),
             "timeout": kwargs.get("timeout", self.config.timeout),
             "num_retries": kwargs.get("num_retries", self.config.max_retries),
-            "drop_params": True,  # Automatically drop unsupported parameters
+            "drop_params": True,
         }
 
-        # Add optional sampling parameters if provided
         if kwargs.get("top_p") is not None or self.config.top_p is not None:
             merged_params["top_p"] = kwargs.get("top_p", self.config.top_p)
         if kwargs.get("top_k") is not None:
             merged_params["top_k"] = kwargs.get("top_k")
 
-        # Apply single-point parameter resolution for Claude models
         call_params = self._resolve_sampling_params(
             merged_params, self.config.model, self.config.sampling_priority
         )
 
-        # Add API credentials
         if self.config.api_key:
             call_params["api_key"] = self.config.api_key
         if self.config.api_base:
             call_params["api_base"] = self.config.api_base
 
-        # Add HTTP/SSL settings
         if self.config.extra_headers:
             call_params["extra_headers"] = self.config.extra_headers
         if self.config.ssl_verify is not None:
             call_params["ssl_verify"] = self.config.ssl_verify
 
-        # Add extra_params from config (reasoning_effort, budget_tokens, etc.)
         if self.config.extra_params:
             call_params.update(self.config.extra_params)
 
-        # Add remaining kwargs (excluding ACE-specific and already-handled parameters)
-        ace_specific_params = {
+        # Forward remaining kwargs (excluding ACE-specific and handled params)
+        ace_specific = {
             "refinement_round",
             "max_refinement_rounds",
             "stream_thinking",
         }
-        handled_params = {
+        handled = {
             "temperature",
             "top_p",
             "top_k",
@@ -405,30 +343,22 @@ class LiteLLMClient(LLMClient):
             {
                 k: v
                 for k, v in kwargs.items()
-                if k not in call_params
-                and k not in ace_specific_params
-                and k not in handled_params
+                if k not in call_params and k not in ace_specific and k not in handled
             }
         )
 
         return call_params
 
+    # -- Completion methods ---------------------------------------------------
+
     def _call_completion(self, call_params: Dict[str, Any]) -> LLMResponse:
-        """Execute litellm.completion() and wrap the result.
-
-        Args:
-            call_params: Params built by :meth:`_build_call_params`.
-
-        Returns:
-            LLMResponse with text and metadata.
-        """
+        """Execute litellm.completion() and wrap the result."""
         if self.router:
             response = self.router.completion(**call_params)
         else:
             response = completion(**call_params)
 
         text = response.choices[0].message.content or ""
-
         metadata = {
             "model": response.model,
             "usage": response.usage.model_dump() if response.usage else None,
@@ -439,30 +369,18 @@ class LiteLLMClient(LLMClient):
             ),
             "provider": self._get_provider_from_model(response.model),
         }
-
         return LLMResponse(text=text, raw=metadata)
 
     def complete(
         self, prompt: str, system: Optional[str] = None, **kwargs: Any
     ) -> LLMResponse:
-        """
-        Generate completion for the given prompt.
-
-        Args:
-            prompt: Input prompt text
-            system: Optional system message to prepend to the conversation
-            **kwargs: Additional parameters to pass to the model
-
-        Returns:
-            LLMResponse containing the generated text and metadata
-        """
+        """Generate completion for the given prompt."""
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
 
         call_params = self._build_call_params(messages, **kwargs)
-
         try:
             return self._call_completion(call_params)
         except Exception as e:
@@ -472,48 +390,106 @@ class LiteLLMClient(LLMClient):
     def complete_messages(
         self, messages: List[Dict[str, str]], **kwargs: Any
     ) -> LLMResponse:
-        """Multi-turn completion that passes messages directly to LiteLLM.
-
-        Unlike the base-class default (which flattens messages into a single
-        string), this sends the structured message list to litellm.completion()
-        so multi-turn context is preserved correctly.
-
-        Args:
-            messages: List of ``{"role": ..., "content": ...}`` dicts.
-            **kwargs: Additional parameters forwarded to the model.
-
-        Returns:
-            LLMResponse containing the generated text and metadata.
-        """
+        """Multi-turn completion preserving structured message context."""
         call_params = self._build_call_params(messages, **kwargs)
-
         try:
             return self._call_completion(call_params)
         except Exception as e:
             logger.error(f"Error in LiteLLM multi-turn completion: {e}")
             raise
 
+    @staticmethod
+    def _extract_json(text: str) -> dict:
+        """Extract JSON from LLM response, handling markdown fences and preamble."""
+        text = text.strip()
+
+        # Strip markdown code fences
+        if text.startswith("```json"):
+            text = text[7:]
+        elif text.startswith("```"):
+            text = text[3:]
+        if text.endswith("```"):
+            text = text[:-3]
+        text = text.strip()
+
+        # Try direct parse first
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            pass
+
+        # Fallback: find the first top-level { ... } block
+        match = re.search(r"\{", text)
+        if match:
+            start = match.start()
+            depth = 0
+            in_string = False
+            escape = False
+            for i in range(start, len(text)):
+                ch = text[i]
+                if escape:
+                    escape = False
+                    continue
+                if ch == "\\":
+                    escape = True
+                    continue
+                if ch == '"' and not escape:
+                    in_string = not in_string
+                    continue
+                if in_string:
+                    continue
+                if ch == "{":
+                    depth += 1
+                elif ch == "}":
+                    depth -= 1
+                    if depth == 0:
+                        return json.loads(text[start : i + 1])
+
+        raise ValueError(
+            f"Could not extract JSON from LLM response: {text[:200]}..."
+        )
+
+    def complete_structured(
+        self,
+        prompt: str,
+        response_model: Type[T],
+        **kwargs: Any,
+    ) -> T:
+        """Structured output: call complete(), parse JSON, validate with Pydantic.
+
+        Handles markdown-fenced responses and retries on parse failure.
+        """
+        max_retries = kwargs.pop("max_retries", 3)
+        last_error: Exception | None = None
+
+        for attempt in range(max_retries):
+            response = self.complete(prompt, **kwargs)
+            try:
+                data = self._extract_json(response.text)
+                return response_model.model_validate(data)
+            except (json.JSONDecodeError, ValueError, Exception) as e:
+                last_error = e
+                logger.warning(
+                    "Structured parse attempt %d/%d failed: %s",
+                    attempt + 1,
+                    max_retries,
+                    e,
+                )
+
+        raise ValueError(
+            f"Failed to parse structured output after {max_retries} attempts: {last_error}"
+        )
+
     async def acomplete(
         self, prompt: str, system: Optional[str] = None, **kwargs: Any
     ) -> LLMResponse:
-        """
-        Async version of complete.
-
-        Args:
-            prompt: Input prompt text
-            system: Optional system message to prepend to the conversation
-            **kwargs: Additional parameters to pass to the model
-
-        Returns:
-            LLMResponse containing the generated text and metadata
-        """
+        """Async version of complete."""
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
 
         call_params = self._build_call_params(messages, **kwargs)
-
         try:
             if self.router:
                 response = await self.router.acompletion(**call_params)
@@ -521,7 +497,6 @@ class LiteLLMClient(LLMClient):
                 response = await acompletion(**call_params)
 
             text = response.choices[0].message.content or ""
-
             metadata = {
                 "model": response.model,
                 "usage": response.usage.model_dump() if response.usage else None,
@@ -532,26 +507,14 @@ class LiteLLMClient(LLMClient):
                 ),
                 "provider": self._get_provider_from_model(response.model),
             }
-
             return LLMResponse(text=text, raw=metadata)
-
         except Exception as e:
             logger.error(f"Error in LiteLLM async completion: {e}")
             raise
 
     def complete_with_stream(self, prompt: str, **kwargs: Any):
-        """
-        Generate completion with streaming support.
-
-        Args:
-            prompt: Input prompt text
-            **kwargs: Additional parameters to pass to the model
-
-        Yields:
-            Chunks of generated text
-        """
+        """Generate completion with streaming support."""
         messages = [{"role": "user", "content": prompt}]
-
         call_params = {
             "model": self.config.model,
             "messages": messages,
@@ -559,25 +522,23 @@ class LiteLLMClient(LLMClient):
             "max_tokens": kwargs.get("max_tokens", self.config.max_tokens),
             "stream": True,
         }
-
         if self.config.api_key:
             call_params["api_key"] = self.config.api_key
 
         try:
             response = completion(**call_params)
-
             for chunk in response:
                 if chunk.choices[0].delta.content:
                     yield chunk.choices[0].delta.content
-
         except Exception as e:
             logger.error(f"Error in LiteLLM streaming: {e}")
             raise
 
+    # -- Helpers --------------------------------------------------------------
+
     def _get_provider_from_model(self, model: str) -> str:
         """Infer provider from model name."""
         model_lower = model.lower()
-
         if "gpt" in model_lower or "openai" in model_lower:
             return "openai"
         elif "claude" in model_lower or "anthropic" in model_lower:
@@ -593,42 +554,21 @@ class LiteLLMClient(LLMClient):
 
     @classmethod
     def list_models(cls) -> List[str]:
-        """List all supported models."""
+        """List commonly supported models."""
         if not LITELLM_AVAILABLE:
             return []
-
-        # This returns a list of common models
-        # In practice, LiteLLM supports 100+ models
         return [
-            # OpenAI
             "gpt-4",
             "gpt-4-turbo-preview",
             "gpt-4o",
             "gpt-4o-mini",
             "gpt-3.5-turbo",
-            "gpt-3.5-turbo-16k",
-            # Anthropic
             "claude-3-opus-20240229",
             "claude-3-sonnet-20240229",
             "claude-3-haiku-20240307",
-            "claude-2.1",
-            "claude-2",
-            # Google
             "gemini-pro",
-            "gemini-pro-vision",
-            "palm-2",
-            # Cohere
             "command",
-            "command-light",
-            "command-nightly",
-            # Meta
             "llama-2-70b",
-            "llama-2-13b",
-            "llama-2-7b",
-            # Mistral
             "mistral-7b",
-            "mistral-medium",
             "mixtral-8x7b",
-            # Note: Many more models are supported
-            # See: https://docs.litellm.ai/docs/providers
         ]

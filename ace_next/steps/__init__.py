@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from pipeline.protocol import StepProtocol
+
 from ..protocols import (
     DeduplicationManagerLike,
     ReflectorLike,
@@ -17,6 +19,7 @@ from .checkpoint import CheckpointStep
 from .deduplicate import DeduplicateStep
 from .evaluate import EvaluateStep
 from .observability import ObservabilityStep
+from .opik import OPIK_AVAILABLE, OpikStep, register_opik_litellm_callback
 from .persist import PersistStep
 from .reflect import ReflectStep
 from .tag import TagStep
@@ -29,10 +32,13 @@ __all__ = [
     "DeduplicateStep",
     "EvaluateStep",
     "ObservabilityStep",
+    "OPIK_AVAILABLE",
+    "OpikStep",
     "PersistStep",
     "ReflectStep",
     "TagStep",
     "UpdateStep",
+    "register_opik_litellm_callback",
     "learning_tail",
 ]
 
@@ -46,7 +52,7 @@ def learning_tail(
     dedup_interval: int = 10,
     checkpoint_dir: str | Path | None = None,
     checkpoint_interval: int = 10,
-) -> list:
+) -> list[StepProtocol]:
     """Return the standard ACE learning steps.
 
     Use this when building custom integrations that provide their own
@@ -62,7 +68,7 @@ def learning_tail(
     with optional DeduplicateStep and CheckpointStep appended when
     the corresponding config is provided.
     """
-    steps: list = [
+    steps: list[StepProtocol] = [
         ReflectStep(reflector),
         TagStep(skillbook),
         UpdateStep(skill_manager),

@@ -30,7 +30,39 @@ from .protocols import (
     ReflectorLike,
     SkillManagerLike,
 )
-from .runners import ACE, ACERunner, TraceAnalyser
+from .integrations import (
+    BrowserExecuteStep,
+    BrowserResult,
+    BrowserToTrace,
+    ClaudeCodeExecuteStep,
+    ClaudeCodeResult,
+    ClaudeCodeToTrace,
+    LangChainExecuteStep,
+    LangChainResult,
+    LangChainToTrace,
+    wrap_skillbook_context,
+)
+from .providers import (
+    CLAUDE_CODE_CLI_AVAILABLE,
+    ClaudeCodeLLMClient,
+    ClaudeCodeLLMConfig,
+    InstructorClient,
+    LangChainLiteLLMClient,
+    LiteLLMClient,
+    LiteLLMConfig,
+    LLMResponse,
+    wrap_with_instructor,
+)
+from .runners import (
+    ACE,
+    ACELiteLLM,
+    ACERunner,
+    BrowserUse,
+    ClaudeCode,
+    LangChain,
+    TraceAnalyser,
+)
+from .steps.opik import OPIK_AVAILABLE, OpikStep, register_opik_litellm_callback
 
 __all__ = [
     # Context
@@ -68,8 +100,38 @@ __all__ = [
     # Deduplication
     "DeduplicationManager",
     "SimilarityDetector",
+    # Integration steps
+    "BrowserExecuteStep",
+    "BrowserResult",
+    "BrowserToTrace",
+    "ClaudeCodeExecuteStep",
+    "ClaudeCodeResult",
+    "ClaudeCodeToTrace",
+    "LangChainExecuteStep",
+    "LangChainResult",
+    "LangChainToTrace",
+    "wrap_skillbook_context",
+    # LLM providers
+    "LiteLLMClient",
+    "LiteLLMConfig",
+    "LLMResponse",
+    "InstructorClient",
+    "wrap_with_instructor",
+    "LangChainLiteLLMClient",
+    "ClaudeCodeLLMClient",
+    "ClaudeCodeLLMConfig",
+    "CLAUDE_CODE_CLI_AVAILABLE",
     # Runners
     "ACE",
     "ACERunner",
+    "BrowserUse",
+    "ClaudeCode",
+    "LangChain",
     "TraceAnalyser",
+    # Observability
+    "OpikStep",
+    "OPIK_AVAILABLE",
+    "register_opik_litellm_callback",
+    # Convenience wrapper
+    "ACELiteLLM",
 ]

@@ -21,7 +21,11 @@ Implemented in `ace_next/` (parallel to `ace/` for easy rollback). The package i
 | `ACE` runner | Done | `ace_next/runners/ace.py` |
 | Implementations (`Agent`, `Reflector`, `SkillManager`) | Done | `ace_next/implementations/` |
 | Deduplication (`DeduplicationManager`, `SimilarityDetector`) | Done | `ace_next/deduplication/` |
-| Integration runners | Not started | — |
+| Integration steps (`BrowserExecuteStep`, `LangChainExecuteStep`, `ClaudeCodeExecuteStep`) | Done | `ace_next/integrations/` |
+| Integration runners (`BrowserUse`, `LangChain`, `ClaudeCode`) | Done | `ace_next/runners/` |
+| Convenience `from_model()` on integration runners | Done | `ace_next/runners/browser_use.py`, `langchain.py`, `claude_code.py` |
+| `ACELiteLLM` convenience wrapper | Done | `ace_next/runners/litellm.py` |
+| LLM providers (`LiteLLMClient`, `InstructorClient`, `LangChainLiteLLMClient`, `ClaudeCodeLLMClient`) | Done | `ace_next/providers/` |
 
 ---
 
@@ -129,7 +133,7 @@ class SkillbookView:
 - **Runtime** — `AttributeError` if someone calls a write method anyway.
 - **Convention** — the underlying `_sb` is underscore-prefixed. Accessing it is a deliberate violation, not an accident.
 
-Steps that only **read** the skillbook (AgentStep, ReflectStep, UpdateStep, ObservabilityStep) access `ctx.skillbook` — the view. Steps that **write** the skillbook (TagStep, ApplyStep, DeduplicateStep, CheckpointStep) receive the real `Skillbook` via constructor injection and use `self.skillbook`.
+Steps that only **read** the skillbook (AgentStep, ReflectStep, UpdateStep, OpikStep) access `ctx.skillbook` — the view. Steps that **write** the skillbook (TagStep, ApplyStep, DeduplicateStep, CheckpointStep) receive the real `Skillbook` via constructor injection and use `self.skillbook`.
 
 ### ACEStepContext
 
@@ -198,7 +202,7 @@ class LLMClientLike(Protocol):
 
 `complete_structured` returns a validated Pydantic model instance. This is the key capability — implementations call `llm.complete_structured(prompt, AgentOutput)` and get back a typed, validated object. Any LLM client that provides both methods satisfies the protocol: `LiteLLMClient` wrapped with Instructor, a custom OpenAI wrapper, or a mock for testing.
 
-**Design decision:** The old `ace/roles.py` auto-wrapped LLM clients with Instructor if `complete_structured` was missing. In `ace_next`, this auto-wrapping is removed — callers must pass a pre-wrapped client. This eliminates the hidden dependency on `ace.llm_providers.instructor_client` and makes the requirement explicit.
+**Design decision:** The old `ace/roles.py` auto-wrapped LLM clients with Instructor if `complete_structured` was missing. In `ace_next`, this auto-wrapping is removed — callers must pass a pre-wrapped client (e.g. `wrap_with_instructor(LiteLLMClient(...))` from `ace_next.providers`). This makes the requirement explicit.
 
 ### Why protocols, not ABC
 
@@ -215,12 +219,22 @@ Protocols use structural typing (duck typing checked by mypy). A class satisfies
 ACERunner (shared infrastructure: epoch loop, delegates to Pipeline.run())
 ├── TraceAnalyser       — [Reflect → Tag → Update → Apply]; input = any trace object
 ├── ACE                 — [Agent → Evaluate → Reflect → Tag → Update → Apply]; input = Sample + Environment
-├── BrowserACE          — [BrowserExecute → Reflect → Tag → Update → Apply]; input = tasks
-├── LangChainACE        — [LangChainExecute → Reflect → Tag → Update → Apply]; input = chain inputs
-└── ClaudeCodeACE       — [ClaudeCodeExecute → Reflect → Tag → Update → Apply → Persist]; input = tasks
+├── BrowserUse          — [BrowserExecute → BrowserToTrace → Reflect → Tag → Update → Apply]; input = task strings
+├── LangChain           — [LangChainExecute → LangChainToTrace → Reflect → Tag → Update → Apply]; input = chain inputs
+└── ClaudeCode          — [ClaudeCodeExecute → ClaudeCodeToTrace → Reflect → Tag → Update → Apply]; input = task strings
+
+ACELiteLLM (standalone convenience wrapper — not an ACERunner subclass)
+├── ask()               — direct Agent call, no pipeline
+├── learn()             — delegates to lazy-init ACE runner
+├── learn_from_traces() — delegates to lazy-init TraceAnalyser
+└── learn_from_feedback()— manual single-shot learning from last ask()
 ```
 
-All compose a `Pipeline` rather than extending it. The pipeline is an implementation detail, not part of the public interface. Each subclass only overrides `run()` (public signature) and `_build_context()` (input mapping).
+All runners compose a `Pipeline` rather than extending it. The pipeline is an implementation detail, not part of the public interface. Each subclass only overrides `run()` (public signature) and `_build_context()` (input mapping).
+
+Integration runners (`BrowserUse`, `LangChain`, `ClaudeCode`) each provide two construction paths: `from_roles()` for pre-built role instances, and `from_model()` for auto-building roles from a model string. `ACELiteLLM` is a standalone class (not an `ACERunner` subclass) because it wraps two different runners and exposes a different API (`ask`, `learn`, `learn_from_traces`).
+
+Each integration runner uses two steps before the learning tail: (1) an **execute step** that produces an integration-specific result type (e.g. `BrowserResult`), and (2) a **ToTrace step** that converts that result into the standardised trace dict the learning tail expects. This separation keeps framework-specific logic in the execute step and trace formatting in the converter — each is independently testable.
 
 ---
 
@@ -367,9 +381,6 @@ class TraceAnalyser(ACERunner):
     """Analyse pre-recorded traces to build a skillbook."""
 
     @classmethod
-    def from_client(cls, client, *, skillbook=None, **kwargs) -> "TraceAnalyser": ...
-
-    @classmethod
     def from_roles(cls, *, reflector, skill_manager, skillbook=None, **kwargs) -> "TraceAnalyser": ...
 
     def run(
@@ -444,9 +455,6 @@ class ACE(ACERunner):
     """Live adaptive pipeline: Agent → Evaluate → Reflect → Tag → Update → Apply."""
 
     @classmethod
-    def from_client(cls, client, *, environment=None, skillbook=None, **kwargs) -> "ACE": ...
-
-    @classmethod
     def from_roles(cls, *, agent, reflector, skill_manager, environment=None, skillbook=None, **kwargs) -> "ACE": ...
 
     def run(
@@ -490,19 +498,9 @@ No instance state is modified — the runner stays reentrant.
 
 ## Factory Methods
 
-Both TraceAnalyser and ACE provide the same two factory patterns:
+All runners provide a `from_roles` factory that takes pre-built role instances. Integration runners (`BrowserUse`, `LangChain`, `ClaudeCode`) also provide a `from_model()` factory that auto-builds roles from a model string (see [High-Level Convenience API](#high-level-convenience-api)).
 
-### `from_client` — one LLM, zero boilerplate
-
-```python
-# TraceAnalyser: creates Reflector + SkillManager from the client
-analyser = TraceAnalyser.from_client(LiteLLMClient(model="gpt-4o-mini"))
-
-# ACE: creates Agent + Reflector + SkillManager from the client
-ace = ACE.from_client(LiteLLMClient(model="gpt-4o-mini"))
-```
-
-### `from_roles` — full control
+### `from_roles` — explicit construction
 
 ```python
 # TraceAnalyser: bring your own roles
@@ -518,7 +516,7 @@ ace = ACE.from_roles(
     reflector=Reflector(llm),
     skill_manager=SkillManager(llm),
     skillbook=existing_skillbook,
-    dedup_manager=dedup_manager(similarity_threshold=0.85),
+    dedup_manager=DeduplicationManager(DeduplicationConfig(similarity_threshold=0.85)),
 )
 ```
 
@@ -527,7 +525,6 @@ ace = ACE.from_roles(
 | Parameter | Default | Description |
 |---|---|---|
 | `skillbook` | `Skillbook()` | Starting skillbook (empty if not provided) |
-| `max_refinement_rounds` | `1` | Reflector iteration depth |
 | `dedup_manager` | `None` | Appends a `DeduplicateStep` to the pipeline |
 | `dedup_interval` | `10` | Deduplication frequency (samples between runs) |
 | `checkpoint_dir` | `None` | Appends a `CheckpointStep` to the pipeline |
@@ -591,14 +588,14 @@ Reusable step implementations live in `ace_next/steps/`. Each is a single class 
 | **ApplyStep** | `skill_manager_output` | `skillbook` (real) | — | Applies update batch to skillbook | 1 |
 | **DeduplicateStep** | `global_sample_index` | `manager` (DeduplicationManagerLike), `skillbook` (real) | — | Consolidates similar skills | 1 |
 | **CheckpointStep** | `global_sample_index` | `skillbook` (real) | — | Saves skillbook to disk | 1 |
-| **ObservabilityStep** | `skillbook` | — | — | Logs metrics to Opik | 1 |
+| **OpikStep** | `skillbook` | `project_name`, `tags`, `register_litellm_callback` | — | Logs pipeline traces to Opik | 1 |
 | **PersistStep** | `skillbook` | `target_path` | — | Writes skillbook to CLAUDE.md or similar | 1 |
 
 **Requires vs Injected:** `Requires` lists context fields read by the step — validated by the pipeline engine at construction time. The `skillbook` field on the context is a `SkillbookView` (read-only). Steps that **write** to the skillbook (TagStep, ApplyStep, DeduplicateStep, CheckpointStep) receive the real `Skillbook` via constructor injection — marked as "(real)" in the table. These injected dependencies are not tracked by `requires`/`provides`.
 
 **`trace` as the universal learning input:** The learning tail's *entry point* (ReflectStep) requires only `trace` and `skillbook` from the context — subsequent steps in the tail chain off ReflectStep's output (`reflection`). In the standard ACE pipeline, `EvaluateStep` bundles the structured fields (`sample`, `agent_output`, and optionally environment feedback) into a `trace` dict. In TraceAnalyser, `_build_context` places the raw trace directly. In integrations, the execute step provides `trace` from its framework's native output. This means the learning tail is agnostic to trace format — `ReflectStep` passes `ctx.trace` to the Reflector, which is responsible for making sense of whatever it receives.
 
-Steps with `provides = —` are pure side-effect steps (`provides = frozenset()`). They mutate shared state (skillbook) or write to external systems (disk, Opik) but add no new fields to the context.
+Steps with `provides = —` are pure side-effect steps (`provides = frozenset()`). They mutate shared state (skillbook) or write to external systems (disk, Opik) but add no new fields to the context. `OpikStep` is not included in `learning_tail()` — users append it explicitly to keep observability decoupled from core learning.
 
 ### AgentStep
 
@@ -822,28 +819,46 @@ Key points:
 - **Placement:** Appended after ApplyStep by the factory when `checkpoint_dir` is provided. When `async_boundary` is set, checkpoints happen in the background tail.
 - **`max_workers` not set** — inherits default of 1 from the pipeline engine, which is correct (disk writes should be serialised).
 
-### ObservabilityStep
+### OpikStep
 
 ```python
-class ObservabilityStep:
+class OpikStep:
     requires = frozenset({"skillbook"})
     provides = frozenset()
 
-    def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
-        metrics = {"skill_count": len(ctx.skillbook)}
-        if ctx.reflection:
-            metrics["key_insight"] = ctx.reflection.key_insight
-            metrics["learnings_count"] = len(ctx.reflection.extracted_learnings)
-        if ctx.skill_manager_output:
-            metrics["operations_count"] = len(ctx.skill_manager_output.operations)
-        if ctx.trace:
-            metrics["trace_type"] = type(ctx.trace).__name__
-        # Log to Opik
-        ...
-        return ctx
+    def __init__(
+        self,
+        project_name: str = "ace-framework",
+        tags: list[str] | None = None,
+        register_litellm_callback: bool = True,
+    ) -> None: ...
 ```
 
-Optional side-effect step — logs metrics to Opik. Only requires `skillbook` (always present). Reads other context fields (`reflection`, `skill_manager_output`, `trace`) optionally — they may or may not be populated depending on the pipeline shape. This lets the same step work in both ACE and TraceAnalyser pipelines without breaking `requires` validation. Appended to the pipeline when Opik is installed.
+Explicit, opt-in observability step — creates an Opik trace per sample with pipeline metadata, agent output, reflection insights, and skill manager operations. Optionally registers the LiteLLM `OpikLogger` callback for per-LLM-call token/cost tracking (`register_litellm_callback=True` by default).
+
+Only requires `skillbook` (always present). Reads other context fields (`reflection`, `skill_manager_output`, `trace`, `agent_output`) with guards — they may or may not be populated depending on pipeline shape. Gracefully degrades to a no-op when Opik is not installed or `OPIK_DISABLED=true`.
+
+**Not wired into `learning_tail()`.** Users append it explicitly:
+
+```python
+from ace_next.steps import OpikStep, learning_tail
+
+# Append to a custom pipeline
+steps = [
+    MyExecuteStep(agent),
+    MyToTrace(),
+    *learning_tail(reflector, skill_manager, skillbook),
+    OpikStep(project_name="my-project"),
+]
+
+# Or to a runner's pipeline
+runner = BrowserUse.from_roles(browser_llm=llm, reflector=r, skill_manager=sm)
+runner.pipeline.then(OpikStep())
+
+# LLM-level token tracking only (no pipeline traces)
+from ace_next import register_opik_litellm_callback
+register_opik_litellm_callback()
+```
 
 ### PersistStep
 
@@ -861,7 +876,7 @@ class PersistStep:
         return ctx
 ```
 
-Integration-specific side-effect step — writes the current skillbook to an external file (e.g., `CLAUDE.md` for Claude Code). Used by `ClaudeCodeACE` to persist learned strategies into the project's instruction file after each learning cycle. Unlike `CheckpointStep` (which saves the full skillbook JSON at intervals), `PersistStep` runs on every sample and writes in the target format expected by the integration. Receives the real `Skillbook` via constructor injection.
+Integration-specific side-effect step — writes the current skillbook to an external file (e.g., `CLAUDE.md` for Claude Code). Used by `ClaudeCode` runner to persist learned strategies into the project's instruction file after each learning cycle. Unlike `CheckpointStep` (which saves the full skillbook JSON at intervals), `PersistStep` runs on every sample and writes in the target format expected by the integration. Receives the real `Skillbook` via constructor injection.
 
 ---
 
@@ -1023,103 +1038,160 @@ ace = ACE.from_roles(
 
 ## Integration Pattern
 
-External frameworks (browser-use, LangChain, Claude Code) integrate by providing **execute steps** that compose into an `ACERunner`. No separate pipeline classes per integration — just steps that plug into the standard runner infrastructure.
+External frameworks (browser-use, LangChain, Claude Code) integrate via composable pipeline steps in `ace_next/integrations/`. Each integration provides three things:
 
-### Core idea: integrations are sub-pipelines
+1. **Result type** — an integration-specific dataclass (e.g. `BrowserResult`, `ClaudeCodeResult`)
+2. **Execute step** — INJECT skillbook context + EXECUTE the framework, writes the result to `ctx.trace`
+3. **ToTrace step** — converts the integration-specific result into the standardised trace dict that `ReflectStep` expects
 
-An integration provides the "execute" part. The "learn" part is always the same. The runner composes them:
+Runners in `ace_next/runners/` compose these steps with `learning_tail()`.
+
+### Core idea: execute → convert → learn
+
+Each integration defines its own input/output format. A converter step acts as a compatibility layer between the integration-specific result and the learning tail's standardised trace dict.
 
 ```
-Standard ACE:      [Agent → Evaluate]      → [Reflect → Tag → Update → Apply]
-                    ╰── execute (built-in) ╯   ╰──────── learn (shared) ──────╯
-                         provides: trace ──────► requires: trace  (skillbook set by _build_context)
+Standard ACE:      [Agent → Evaluate]                          → [Reflect → Tag → Update → Apply]
+                    ╰── execute (built-in) ──╯                    ╰──────── learn (shared) ──────╯
+                         provides: trace (dict) ─────────────────► requires: trace
 
-Browser-use:       [BrowserExecute]         → [Reflect → Tag → Update → Apply]
-                    ╰── execute (integration)╯  ╰──────── learn (shared) ──────╯
-                         provides: trace ──────► requires: trace  (skillbook set by _build_context)
+Browser-use:       [BrowserExecute] → [BrowserToTrace]         → [Reflect → Tag → Update → Apply]
+                    ╰── execute ────╯   ╰── convert ──╯           ╰──────── learn (shared) ──────╯
+                    provides: trace      rewrites trace             requires: trace
+                    (BrowserResult)      (BrowserResult → dict)
 
-TraceAnalyser:     [_build_context]         → [Reflect → Tag → Update → Apply]
-                    ╰── sets ctx.trace ─────╯   ╰──────── learn (shared) ──────╯
+TraceAnalyser:     [_build_context]                            → [Reflect → Tag → Update → Apply]
+                    ╰── sets ctx.trace (raw object) ───────╯      ╰──────── learn (shared) ──────╯
 ```
 
-Each integration provides one or more execute steps. These steps `provide` at minimum `{"trace"}` — the same field that `EvaluateStep` produces in the standard ACE pipeline. This is the contract that the learning tail (`ReflectStep`) requires.
+The execute step writes an integration-specific result type to `ctx.trace`. The ToTrace step reads that result and rewrites `ctx.trace` with a standardised dict. The learning tail only ever sees the dict.
 
-### Execute step contract
+### Two-step contract
 
-Every integration execute step must provide `trace`:
+Every integration provides two steps that chain together:
+
+**Step 1 — Execute step** (INJECT + EXECUTE):
 
 ```python
 class SomeExecuteStep:
-    requires = frozenset({"sample", "skillbook"})       # minimum
-    provides = frozenset({"trace"})                      # minimum — feeds the learning tail
+    requires = frozenset({"sample", "skillbook"})
+    provides = frozenset({"trace"})
 
     def __init__(self, framework_client) -> None:
         self.framework_client = framework_client
 
     def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
-        # Run framework using ctx.skillbook (SkillbookView), build trace from result
-        ...
-        return ctx.replace(trace=...)
+        task = ctx.sample                               # raw input (string, dict, etc.)
+        enhanced = self._inject(task, ctx.skillbook)    # prepend skillbook context
+        result = self.framework_client.run(enhanced)    # framework-specific execution
+        return ctx.replace(trace=SomeResult(...))       # integration-specific result type
 ```
 
-Example — browser-use:
+**Step 2 — ToTrace step** (convert to standardised dict):
+
+```python
+class SomeToTrace:
+    requires = frozenset({"trace"})
+    provides = frozenset({"trace"})         # overwrites trace with standardised dict
+
+    def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
+        r: SomeResult = ctx.trace
+        trace = {
+            "question": r.task,
+            "reasoning": r.execution_trace,     # integration-specific formatting
+            "answer": r.output,
+            "skill_ids": r.cited_skill_ids,
+            "feedback": f"Task {'succeeded' if r.success else 'failed'}",
+            "ground_truth": None,
+        }
+        return ctx.replace(trace=trace)
+```
+
+The standardised trace dict keys match what `ReflectStep` expects: `question`, `reasoning`, `answer`, `skill_ids`, `feedback`, `ground_truth`.
+
+### Why two steps instead of one
+
+Splitting execute from trace conversion gives three benefits:
+
+1. **Independent testability** — test the execute step with a mock framework without worrying about trace format; test the ToTrace step with a fixture result without running a real framework.
+2. **Reusability** — the execute step can be used standalone (without learning) to get framework-specific results. The ToTrace step can be swapped for a custom converter.
+3. **Separation of concerns** — framework interaction logic stays in the execute step; trace formatting stays in the converter. Neither knows about the other's internals.
+
+### Result types
+
+Each integration defines its own result dataclass:
+
+| Integration | Result type | Key fields |
+|---|---|---|
+| Browser-use | `BrowserResult` | `task`, `success`, `output`, `error`, `steps_count`, `duration_seconds`, `cited_skill_ids`, `chronological_steps`, `raw_history` |
+| Claude Code | `ClaudeCodeResult` | `task`, `success`, `output`, `execution_trace`, `returncode`, `error` |
+| LangChain | `LangChainResult` | `task`, `output`, `result_type` (simple/agent/langgraph/error), `success`, `error`, `intermediate_steps`, `messages`, `raw_result` |
+
+### Example — browser-use execute step
 
 ```python
 class BrowserExecuteStep:
     requires = frozenset({"sample", "skillbook"})
     provides = frozenset({"trace"})
 
-    def __init__(self, browser_agent) -> None:
-        self.browser_agent = browser_agent
+    def __init__(self, browser_llm, browser=None, **agent_kwargs) -> None:
+        self.browser_llm = browser_llm
+        self.browser = browser
+        self.agent_kwargs = agent_kwargs
 
     async def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
-        # Inject skillbook context into the browser agent
-        skillbook_context = ctx.skillbook.as_prompt()  # SkillbookView (read-only)
+        task: str = ctx.sample      # raw task string, not a Sample object
 
-        # Execute with framework
-        history = await self.browser_agent.run(
-            task=ctx.sample.question,
-            additional_context=skillbook_context,
+        # INJECT — prepend skillbook context
+        enhanced_task = self._inject(task, ctx.skillbook)
+
+        # EXECUTE — run browser-use agent
+        agent = Agent(task=enhanced_task, llm=self.browser_llm, **self.agent_kwargs)
+        history = await agent.run()
+
+        # Build integration-specific result
+        result = BrowserResult(
+            task=task, success=True, output=history.final_result(),
+            steps_count=history.number_of_steps(),
+            chronological_steps=..., raw_history=history,
         )
-
-        # Pass the raw history as the trace — the Reflector analyses it directly
-        return ctx.replace(trace=history)
+        return ctx.replace(trace=result)
 ```
 
 ### Composing into a runner
 
-Integrations compose their execute step(s) with the shared learning tail and pass the result to `ACERunner`:
+Runners compose execute step + ToTrace step + learning tail:
 
 ```python
-class BrowserACE(ACERunner):
-    """Browser-use integration runner."""
+class BrowserUse(ACERunner):
+    """Browser-use agent with ACE learning pipeline."""
 
     @classmethod
-    def from_client(cls, browser_agent, ace_client, *, skillbook=None, **kwargs):
+    def from_roles(cls, *, browser_llm, reflector, skill_manager,
+                   skillbook=None, **kwargs):
         skillbook = skillbook or Skillbook()
         steps = [
-            BrowserExecuteStep(browser_agent),
-            *learning_tail(Reflector(ace_client), SkillManager(ace_client), skillbook, **kwargs),
+            BrowserExecuteStep(browser_llm),
+            BrowserToTrace(),
+            *learning_tail(reflector, skill_manager, skillbook, **kwargs),
         ]
         return cls(pipeline=Pipeline(steps), skillbook=skillbook)
 
-    def run(self, tasks, *, epochs=1, wait=True, **kwargs):
-        samples = [Sample(question=t) if isinstance(t, str) else t for t in tasks]
-        return self._run(samples, epochs=epochs, wait=wait)
+    def run(self, tasks, epochs=1, *, wait=True):
+        return self._run(tasks, epochs=epochs, wait=wait)
 
-    def _build_context(self, sample, *, epoch, total_epochs, index, total, global_sample_index):
+    def _build_context(self, task, *, epoch, total_epochs, index, total,
+                       global_sample_index, **_):
         return ACEStepContext(
-            sample=sample,
+            sample=task,    # raw string — not wrapped in Sample
             skillbook=SkillbookView(self.skillbook),
-            epoch=epoch,
-            total_epochs=total_epochs,
-            step_index=index,
-            total_steps=total,
+            epoch=epoch, total_epochs=total_epochs,
+            step_index=index, total_steps=total,
             global_sample_index=global_sample_index,
         )
 ```
 
-The pattern is the same for every integration: subclass `ACERunner`, provide a factory that wires the execute step(s) + learning tail, override `run()` with the integration-specific signature, and implement `_build_context()`.
+The pattern is the same for every integration: subclass `ACERunner`, compose `[ExecuteStep, ToTrace, *learning_tail()]` in the factory, accept raw inputs (strings, dicts) in `run()`, and map them to `ACEStepContext` in `_build_context()`. No `Sample` wrapping — the raw input goes directly on `ctx.sample`.
 
 ### `learning_tail()` — reusable learning steps
 
@@ -1137,13 +1209,13 @@ def learning_tail(
     dedup_interval: int = 10,
     checkpoint_dir: str | Path | None = None,
     checkpoint_interval: int = 10,
-) -> list:
+) -> list[StepProtocol]:
     """Return the standard ACE learning steps.
 
     Use this when building custom integrations that provide their own
     execute step(s) but want the standard learning pipeline.
     """
-    steps: list = [
+    steps: list[StepProtocol] = [
         ReflectStep(reflector),
         TagStep(skillbook),
         UpdateStep(skill_manager),
@@ -1159,13 +1231,14 @@ def learning_tail(
 Integration factories become shorter and less error-prone:
 
 ```python
-class BrowserACE(ACERunner):
+class BrowserUse(ACERunner):
     @classmethod
-    def from_client(cls, browser_agent, ace_client, *, skillbook=None, **kwargs):
+    def from_roles(cls, *, browser_llm, reflector, skill_manager, skillbook=None, **kwargs):
         skillbook = skillbook or Skillbook()
         steps = [
-            BrowserExecuteStep(browser_agent),
-            *learning_tail(Reflector(ace_client), SkillManager(ace_client), skillbook, **kwargs),
+            BrowserExecuteStep(browser_llm),
+            BrowserToTrace(),
+            *learning_tail(reflector, skill_manager, skillbook, **kwargs),
         ]
         return cls(pipeline=Pipeline(steps), skillbook=skillbook)
 ```
@@ -1193,7 +1266,10 @@ Integrations also support offline learning. When an integration records executio
 histories = [await agent.run(task) for task in tasks]
 
 # Feed raw histories directly — Reflector analyses them as-is
-analyser = TraceAnalyser.from_client(llm_client)
+analyser = TraceAnalyser.from_roles(
+    reflector=Reflector(llm_client),
+    skill_manager=SkillManager(llm_client),
+)
 analyser.run(histories, epochs=2)
 analyser.save("browser_expert.json")
 ```
@@ -1211,72 +1287,134 @@ Both update the same skillbook. A common workflow: TraceAnalyser builds an initi
 
 ---
 
-## High-Level Integration Wrappers
+## High-Level Convenience API
 
-The user-facing wrappers (ACELiteLLM, ACEAgent, ACELangChain) remain as convenience classes. Internally, they lazy-init and cache the appropriate runner. Since runners are reentrant (no per-call instance state), caching is safe.
+Integration runners provide two construction paths directly on the class — no separate wrapper classes needed:
+
+1. **`from_roles()`** — accepts pre-built role instances (Reflector, SkillManager, etc.)
+2. **`from_model()`** — accepts a model string and auto-builds roles internally
+
+This keeps the API surface minimal: one class per integration, two ways to construct it.
+
+```python
+# Explicit construction — bring your own roles
+runner = BrowserUse.from_roles(
+    browser_llm=browser_llm,
+    reflector=Reflector(llm),
+    skill_manager=SkillManager(llm),
+)
+
+# Convenience construction — just specify the model
+runner = BrowserUse.from_model(browser_llm, ace_model="gpt-4o-mini")
+
+# Both return the same BrowserUse instance with the same API
+results = runner.run(["Find top HN post", "Check weather in NYC"])
+runner.save("browser_expert.json")
+```
+
+### `from_model()` on integration runners
+
+Each integration runner's `from_model()` builds a `LiteLLMClient`, wraps it in `Reflector` and `SkillManager`, and delegates to `from_roles()`:
+
+```python
+class BrowserUse(ACERunner):
+    @classmethod
+    def from_model(cls, browser_llm, *, ace_model="gpt-4o-mini",
+                   ace_max_tokens=2048, ace_llm=None, **kwargs) -> BrowserUse:
+        if ace_llm is None:
+            from ..providers import LiteLLMClient
+            ace_llm = LiteLLMClient(model=ace_model, max_tokens=ace_max_tokens)
+        return cls.from_roles(
+            browser_llm=browser_llm,
+            reflector=Reflector(ace_llm),
+            skill_manager=SkillManager(ace_llm),
+            **kwargs,
+        )
+```
+
+The same pattern applies to `LangChain.from_model(runnable, ...)` and `ClaudeCode.from_model(working_dir=..., ...)`. Providers are imported lazily inside `from_model()` to avoid hard dependencies on `litellm` at import time.
+
+### Additional convenience on `from_roles()`
+
+Integration runners also accept `skillbook_path` and `dedup_config` on `from_roles()` for common resolution patterns:
+
+```python
+runner = BrowserUse.from_roles(
+    browser_llm=browser_llm,
+    reflector=reflector,
+    skill_manager=skill_manager,
+    skillbook_path="browser_expert.json",   # loads skillbook from file
+    dedup_config=DeduplicationConfig(similarity_threshold=0.85),  # builds DeduplicationManager
+)
+```
+
+### Convenience lifecycle methods on runners
+
+All integration runners provide:
+
+- `get_strategies() -> str` — formatted skillbook strategies for display
+- Backward-compat aliases: `save_skillbook`, `load_skillbook`, `wait_for_learning`
+
+These are defined directly on the runner class, not on a separate wrapper.
+
+### `ACELiteLLM` — standalone convenience wrapper
+
+`ACELiteLLM` is the only standalone wrapper class (not an `ACERunner` subclass). It exists because it wraps two different runners (`ACE` and `TraceAnalyser`) and exposes a fundamentally different API (`ask`, `learn`, `learn_from_traces`, `learn_from_feedback`).
 
 ```python
 class ACELiteLLM:
-    def __init__(self, llm, skillbook, *, environment=None, ...):
-        self.agent = Agent(llm, ...)
-        self.reflector = Reflector(llm, ...)
-        self.skill_manager = SkillManager(llm, ...)
-        self.skillbook = skillbook
+    def __init__(self, llm, *, skillbook=None, environment=None, ...):
+        self.agent = Agent(llm)
+        self.reflector = Reflector(llm)
+        self.skill_manager = SkillManager(llm)
+        self._skillbook = skillbook or Skillbook()
         self.environment = environment
-        self._ace: ACE | None = None
-        self._analyser: TraceAnalyser | None = None
+        self._ace: ACE | None = None          # lazy-init
+        self._analyser: TraceAnalyser | None = None  # lazy-init
 
-    def _get_ace(self) -> ACE:
-        if self._ace is None:
-            self._ace = ACE.from_roles(
-                agent=self.agent,
-                reflector=self.reflector,
-                skill_manager=self.skill_manager,
-                skillbook=self.skillbook,
-                environment=self.environment,
-            )
-        return self._ace
+    @classmethod
+    def from_model(cls, model="gpt-4o-mini", *, max_tokens=2048,
+                   temperature=0.0, **kwargs) -> ACELiteLLM:
+        """Build from a model string."""
+        llm = LiteLLMClient(model=model, max_tokens=max_tokens, temperature=temperature)
+        return cls(llm, **kwargs)
 
-    def _get_analyser(self) -> TraceAnalyser:
-        if self._analyser is None:
-            self._analyser = TraceAnalyser.from_roles(
-                reflector=self.reflector,
-                skill_manager=self.skill_manager,
-                skillbook=self.skillbook,
-            )
-        return self._analyser
+    def ask(self, question, context="") -> str:
+        """Direct Agent call — no pipeline. Stores interaction for learn_from_feedback()."""
+        output = self.agent.generate(question=question, context=context, skillbook=self._skillbook)
+        self._last_interaction = (question, output)
+        return output.final_answer
 
-    def ask(self, question) -> str:
-        """Use current skillbook to answer."""
-        ...
+    def learn(self, samples, environment=None, epochs=1, *, wait=True):
+        """Delegate to lazy-init ACE runner."""
+        return self._get_ace(environment).run(samples, epochs=epochs, wait=wait)
 
-    def learn(self, samples, epochs=1, wait=True):
-        """Delegate to ACE. Environment is set at construction time."""
-        return self._get_ace().run(samples, epochs=epochs, wait=wait)
-
-    def learn_from_traces(self, traces, epochs=1, wait=True):
-        """Delegate to TraceAnalyser."""
+    def learn_from_traces(self, traces, epochs=1, *, wait=True):
+        """Delegate to lazy-init TraceAnalyser."""
         return self._get_analyser().run(traces, epochs=epochs, wait=wait)
 
+    def learn_from_feedback(self, feedback, ground_truth=None) -> bool:
+        """Manual single-shot learning from last ask() call."""
+        ...
 
-class ACEAgent:
-    """Browser-use convenience wrapper. Delegates to BrowserACE."""
-
-    def __init__(self, browser_agent, ace_client, **kwargs):
-        self.runner = BrowserACE.from_client(
-            browser_agent, ace_client, **kwargs
-        )
-
-    async def run(self, task):
-        results = self.runner.run([task])
-        return results[0]
-
-    @property
-    def skillbook(self):
-        return self.runner.skillbook
+    def load(self, path):
+        """Load skillbook — invalidates cached runners (stale refs)."""
+        self._skillbook = Skillbook.load_from_file(path)
+        self._ace = None
+        self._analyser = None
 ```
 
-Each wrapper is a thin facade over an `ACERunner` subclass. The runner owns the pipeline, the skillbook, and the epoch loop.
+Runners are cached and invalidated on `load()` (new skillbook object means stale references). Since runners are reentrant (no per-call instance state), caching is safe.
+
+### Why not separate wrapper classes
+
+The original design had separate wrapper classes (`ACEAgent`, `ACELangChain`, `ACEClaudeCode`) that delegated to the corresponding runners. This was rejected because:
+
+- **Two classes for one concept** — users must understand both `BrowserUse` (the runner) and `ACEAgent` (the wrapper), and choose which to use.
+- **Thin delegation** — the wrappers only added `from_model()` and a few lifecycle helpers, all of which fit naturally on the runner itself.
+- **No added value** — the runner already manages the pipeline, skillbook, and epoch loop. Adding a wrapper just adds indirection.
+
+The exception is `ACELiteLLM`, which is genuinely different: it wraps two runners, has `ask()` (direct Agent call, no pipeline), and has `learn_from_feedback()` (manual single-shot learning). These don't map to any single runner's API.
 
 ---
 
@@ -1321,31 +1459,32 @@ ace_next/
     apply.py                ← ApplyStep
     deduplicate.py          ← DeduplicateStep
     checkpoint.py           ← CheckpointStep
-    observability.py        ← ObservabilityStep
+    observability.py        ← ObservabilityStep (logger.info)
+    opik.py                 ← OpikStep
     persist.py              ← PersistStep
   runners/                    ← Runner classes (compose Pipeline, manage epoch loop)
-    __init__.py               ← Re-exports ACERunner, TraceAnalyser, ACE
+    __init__.py               ← Re-exports ACERunner, TraceAnalyser, ACE, BrowserUse, LangChain, ClaudeCode, ACELiteLLM
     base.py                   ← ACERunner base class
     trace_analyser.py         ← TraceAnalyser (learning tail only)
     ace.py                    ← ACE (full adaptive pipeline)
-  integrations/             ← (not started)
-    browser_use/
-      runner.py             ← BrowserACE (ACERunner subclass)
-      steps/
-        execute.py          ← BrowserExecuteStep
-    langchain/
-      runner.py             ← LangChainACE (ACERunner subclass)
-      steps/
-        execute.py          ← LangChainExecuteStep
-    claude_code/
-      runner.py             ← ClaudeCodeACE (ACERunner subclass)
-      steps/
-        execute.py          ← ClaudeCodeExecuteStep
-    litellm.py              ← ACELiteLLM (high-level wrapper)
-    base.py                 ← wrap_skillbook_context (unchanged)
+    browser_use.py            ← BrowserUse runner (from_roles + from_model)
+    langchain.py              ← LangChain runner (from_roles + from_model)
+    claude_code.py            ← ClaudeCode runner (from_roles + from_model)
+    litellm.py                ← ACELiteLLM convenience wrapper (ask + learn + learn_from_traces)
+  integrations/               ← Integration steps (execute + result type + trace converter)
+    __init__.py               ← Exports steps, result types, ToTrace converters, wrap_skillbook_context
+    browser_use.py            ← BrowserExecuteStep, BrowserResult, BrowserToTrace
+    langchain.py              ← LangChainExecuteStep, LangChainResult, LangChainToTrace
+    claude_code.py            ← ClaudeCodeExecuteStep, ClaudeCodeResult, ClaudeCodeToTrace
+  providers/                  ← LLM client wrappers (not pipeline steps)
+    __init__.py               ← Exports LiteLLMClient, InstructorClient, etc.
+    litellm.py                ← LiteLLMClient, LiteLLMConfig, LLMResponse
+    instructor.py             ← InstructorClient, wrap_with_instructor
+    langchain.py              ← LangChainLiteLLMClient (optional: langchain-litellm)
+    claude_code.py            ← ClaudeCodeLLMClient, ClaudeCodeLLMConfig (optional: claude CLI)
 ```
 
-Each integration provides: (1) an execute step and (2) an `ACERunner` subclass that composes the step with the learning tail. For offline analysis, raw trace objects are passed directly to TraceAnalyser. No separate pipeline classes.
+Each integration provides: (1) an execute step, (2) a result type, and (3) a ToTrace converter step. Runners in `ace_next/runners/` compose these with `learning_tail()`. For offline analysis, raw trace objects are passed directly to TraceAnalyser.
 
 ### What moves where
 
@@ -1364,12 +1503,17 @@ Each integration provides: (1) an execute step and (2) an `ACERunner` subclass t
 | New | `ace_next/steps/apply.py` | ApplyStep (split from UpdateStep) |
 | New | `ace_next/steps/deduplicate.py` | DeduplicateStep (extracted from SkillManager) |
 | New | `ace_next/steps/checkpoint.py` | CheckpointStep |
-| New | `ace_next/steps/observability.py` | ObservabilityStep |
+| New | `ace_next/steps/observability.py` | ObservabilityStep (logger.info) |
+| New | `ace_next/steps/opik.py` | OpikStep (Opik trace logging) |
 | New | `ace_next/steps/persist.py` | PersistStep |
-| New | `ace_next/runners/` | ACERunner, TraceAnalyser, ACE |
-| `ace/integrations/browser_use.py` | `ace_next/integrations/browser_use/` | Split into runner + steps |
-| `ace/integrations/langchain.py` | `ace_next/integrations/langchain/` | Split into runner + steps |
-| `ace/integrations/claude_code.py` | `ace_next/integrations/claude_code/` | Split into runner + steps |
+| New | `ace_next/runners/` | ACERunner, TraceAnalyser, ACE, BrowserUse, LangChain, ClaudeCode |
+| `ace/integrations/browser_use.py` | `ace_next/integrations/browser_use.py` + `ace_next/runners/browser_use.py` | Split into execute step + result type + ToTrace converter + runner |
+| `ace/integrations/langchain.py` | `ace_next/integrations/langchain.py` + `ace_next/runners/langchain.py` | Split into execute step + result type + ToTrace converter + runner |
+| `ace/integrations/claude_code.py` | `ace_next/integrations/claude_code.py` + `ace_next/runners/claude_code.py` | Split into execute step + result type + ToTrace converter + runner |
+| `ace/llm_providers/litellm_client.py` | `ace_next/providers/litellm.py` | Self-contained: `LiteLLMClient`, `LiteLLMConfig`, `LLMResponse` (no ABC) |
+| `ace/llm_providers/instructor_client.py` | `ace_next/providers/instructor.py` | Self-contained: `InstructorClient`, `wrap_with_instructor` |
+| `ace/llm_providers/langchain_client.py` | `ace_next/providers/langchain.py` | Self-contained: `LangChainLiteLLMClient` (no ABC) |
+| `ace/llm_providers/claude_code_client.py` | `ace_next/providers/claude_code.py` | Self-contained: `ClaudeCodeLLMClient`, `ClaudeCodeLLMConfig` (no ABC) |
 
 ---
 
@@ -1426,9 +1570,7 @@ Follows the pipeline engine's error model without additions.
 ### TraceAnalyser — learn from browser-use history
 
 ```python
-from ace_next import TraceAnalyser
-from ace.llm_providers.litellm_client import LiteLLMClient
-from ace.llm_providers.instructor_client import wrap_with_instructor
+from ace_next import TraceAnalyser, Reflector, SkillManager, LiteLLMClient, wrap_with_instructor
 
 llm = wrap_with_instructor(LiteLLMClient(model="gpt-4o-mini"))
 
@@ -1449,7 +1591,7 @@ traces = [
 ]
 
 # Analyse — raw traces go directly to the Reflector via ctx.trace
-analyser = TraceAnalyser.from_client(llm)
+analyser = TraceAnalyser.from_roles(reflector=Reflector(llm), skill_manager=SkillManager(llm))
 results = analyser.run(traces, epochs=2)
 analyser.save("travel_agent.json")
 ```
@@ -1457,9 +1599,8 @@ analyser.save("travel_agent.json")
 ### ACE — live Q&A training
 
 ```python
-from ace_next import ACE, Sample, SimpleEnvironment
-from ace.llm_providers.litellm_client import LiteLLMClient
-from ace.llm_providers.instructor_client import wrap_with_instructor
+from ace_next import ACE, Sample, SimpleEnvironment, Agent, Reflector, SkillManager
+from ace_next import LiteLLMClient, wrap_with_instructor
 
 llm = wrap_with_instructor(LiteLLMClient(model="gpt-4o-mini"))
 
@@ -1469,7 +1610,12 @@ samples = [
 ]
 
 # Environment provided at construction — EvaluateStep uses it to generate feedback
-ace = ACE.from_client(llm, environment=SimpleEnvironment())
+ace = ACE.from_roles(
+    agent=Agent(llm),
+    reflector=Reflector(llm),
+    skill_manager=SkillManager(llm),
+    environment=SimpleEnvironment(),
+)
 results = ace.run(samples, epochs=3)
 ace.save("geography.json")
 ```
@@ -1479,7 +1625,11 @@ ace.save("geography.json")
 ```python
 # No environment — trace still contains agent output + ground truth
 # The Reflector learns from ground-truth comparison directly
-ace = ACE.from_client(llm)
+ace = ACE.from_roles(
+    agent=Agent(llm),
+    reflector=Reflector(llm),
+    skill_manager=SkillManager(llm),
+)
 results = ace.run(samples, epochs=3)
 ```
 
@@ -1489,7 +1639,7 @@ results = ace.run(samples, epochs=3)
 # Any Iterable works with epochs=1 (consumed once, not replayed)
 samples = load_samples_from_csv("eval_set.csv")  # returns a list or generator
 
-ace = ACE.from_client(llm)
+ace = ACE.from_roles(agent=Agent(llm), reflector=Reflector(llm), skill_manager=SkillManager(llm))
 results = ace.run(samples, epochs=1)
 ```
 
@@ -1516,24 +1666,84 @@ results = ace.run(samples, epochs=3)
 ### Integration — browser-use runner
 
 ```python
-from ace_next.integrations.browser_use import BrowserACE
-from browser_use import Agent as BrowserAgent
+from ace_next import BrowserUse, Reflector, SkillManager, LiteLLMClient
+from langchain_openai import ChatOpenAI
 
-browser_agent = BrowserAgent(llm=ChatOpenAI(model="gpt-4o"))
-runner = BrowserACE.from_client(
-    browser_agent,
-    ace_client=llm,  # Must satisfy LLMClientLike (complete + complete_structured)
+llm = LiteLLMClient(model="gpt-4o-mini")
+browser_llm = ChatOpenAI(model="gpt-4o")
+
+# Explicit construction — bring your own roles
+runner = BrowserUse.from_roles(
+    browser_llm=browser_llm,
+    reflector=Reflector(llm),
+    skill_manager=SkillManager(llm),
 )
+
+# Or convenience construction — just specify the model
+runner = BrowserUse.from_model(browser_llm, ace_model="gpt-4o-mini")
 
 # Live execution + learning
 results = runner.run(["Find top HN post", "Check weather in Tokyo"])
 runner.save("browser_expert.json")
 ```
 
+### Integration — LangChain runner (from_model)
+
+```python
+from ace_next import LangChain
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+
+chain = ChatPromptTemplate.from_template("Answer: {input}") | ChatOpenAI(model="gpt-4o")
+
+# One-liner construction
+runner = LangChain.from_model(chain, ace_model="gpt-4o-mini")
+results = runner.run([{"input": "What is ACE?"}, {"input": "Explain skillbooks"}])
+runner.save("chain_expert.json")
+```
+
+### Integration — Claude Code runner (from_model)
+
+```python
+from ace_next import ClaudeCode
+
+runner = ClaudeCode.from_model(working_dir="./my_project", ace_model="gpt-4o-mini")
+results = runner.run(["Add unit tests for utils.py", "Refactor the auth module"])
+runner.save("code_expert.json")
+```
+
+### ACELiteLLM — conversational agent with learning
+
+```python
+from ace_next import ACELiteLLM, SimpleEnvironment, Sample
+
+ace = ACELiteLLM.from_model("gpt-4o-mini")
+
+# Direct Q&A (no pipeline)
+answer = ace.ask("What is the capital of France?")
+
+# Batch learning (delegates to ACE runner)
+samples = [
+    Sample(question="Capital of France?", ground_truth="Paris"),
+    Sample(question="Largest ocean?", ground_truth="Pacific"),
+]
+ace.learn(samples, environment=SimpleEnvironment(), epochs=3)
+
+# Manual feedback learning from last ask()
+ace.ask("What is 2+2?")
+ace.learn_from_feedback("The answer should be 4", ground_truth="4")
+
+ace.save("learned.json")
+```
+
 ### Fire-and-forget — get results while learning continues
 
 ```python
-ace = ACE.from_client(llm)
+ace = ACE.from_roles(
+    agent=Agent(llm),
+    reflector=Reflector(llm),
+    skill_manager=SkillManager(llm),
+)
 
 # wait=False: returns after foreground steps (Agent + Evaluate)
 # Background learning (Reflect → Tag → Update → Apply) continues
@@ -1556,14 +1766,27 @@ ace.save("learned.json")
 
 ```python
 from ace_next import TraceAnalyser, ACE, Skillbook
+from ace_next.implementations import Agent, Reflector, SkillManager
+
+reflector = Reflector(llm)
+skill_manager = SkillManager(llm)
 
 # Phase 1: build skillbook from historical traces
-analyser = TraceAnalyser.from_client(llm, skillbook=Skillbook())
+skillbook = Skillbook()
+analyser = TraceAnalyser.from_roles(
+    reflector=reflector,
+    skill_manager=skill_manager,
+    skillbook=skillbook,
+)
 analyser.run(historical_traces, epochs=3)
-skillbook = analyser.skillbook
 
-# Phase 2: deploy with live learning
-ace = ACE.from_client(llm, skillbook=skillbook)
+# Phase 2: deploy with live learning (reuse the evolved skillbook)
+ace = ACE.from_roles(
+    agent=Agent(llm),
+    reflector=reflector,
+    skill_manager=skill_manager,
+    skillbook=skillbook,
+)
 ace.run(live_samples, epochs=1)
 ace.save("production.json")
 ```
@@ -1578,7 +1801,7 @@ Issues acknowledged but deferred from this version of the spec.
 `_run()` eagerly materializes the full iterable into a list of `ACEStepContext` objects before passing them to `Pipeline.run()`. For a large generator with `epochs=1`, the entire input gets buffered into memory. True streaming would require the pipeline to accept an iterator and process items one-at-a-time (e.g., `for ctx in contexts: pipeline.run_one(ctx)`), or an async iterator pattern with `asyncio.as_completed`. This is a deliberate simplification — batch materialization keeps the epoch loop and error handling straightforward. Revisit if memory pressure from large single-pass runs becomes a real problem.
 
 **Builder API for custom pipelines (speculative):**
-The current API offers two extremes: factory methods (`from_client`, `from_roles`) that hide the pipeline entirely, and manual `Pipeline([...])` construction that requires understanding `ACEStepContext`, `SkillbookView`, step contracts, and `ACERunner` subclassing. Users who want to insert a custom step between Reflect and Update, or swap the execute head while keeping the learning tail, fall into a gap where neither approach serves them well.
+The current API offers two extremes: factory methods (`from_roles`) that hide the pipeline entirely, and manual `Pipeline([...])` construction that requires understanding `ACEStepContext`, `SkillbookView`, step contracts, and `ACERunner` subclassing. Users who want to insert a custom step between Reflect and Update, or swap the execute head while keeping the learning tail, fall into a gap where neither approach serves them well.
 
 One possible direction is a builder API that would bridge this gap:
 
@@ -1631,7 +1854,7 @@ A `@dataclass Trace` with typed fields (`task`, `output`, `feedback`, `reasoning
 Making ReflectStep and UpdateStep polymorphic over input type was considered. Rejected — steps always receive `StepContext` with the same named fields. The runner (via `_build_context`) is responsible for building the context correctly. Steps do not need to know whether the data came from a raw trace or from live execution.
 
 **Observability in the runner:**
-Keeping observability logic in `ACERunner._track_observability_data()` was considered. Rejected — it mixes concerns. A dedicated `ObservabilityStep` is independently testable, optional, and composable.
+Keeping observability logic in `ACERunner._track_observability_data()` was considered. Rejected — it mixes concerns. A dedicated `OpikStep` is independently testable, optional, and composable. It is not wired into `learning_tail()` — users append it explicitly to avoid coupling observability into the core pipeline.
 
 **Custom AsyncLearningPipeline:**
 The legacy `ace/async_learning.py` implements a manual thread pool with reflector and skill manager queues. Rejected — the pipeline engine's `async_boundary` and `max_workers` provide the same functionality with less code and consistent semantics.
@@ -1649,16 +1872,19 @@ Storing the real `Skillbook` as a field on `ACEStepContext` was the initial desi
 Keeping ReflectStep as both reflection and tagging, and UpdateStep as both generation and application was considered. Rejected — each combination mixes a pure function (LLM call producing output) with a side effect (skillbook mutation). Splitting them means pure steps can be tested without a skillbook, side-effect steps can be tested without an LLM, and concerns are cleanly separated.
 
 **Instructor auto-wrapping in implementations:**
-The old `ace/roles.py` auto-wraps LLM clients with Instructor if `complete_structured` is missing (duck-typing check + fallback). Rejected for `ace_next` — auto-wrapping creates a hidden dependency on `ace.llm_providers.instructor_client` and masks what the implementation actually requires. In `ace_next`, `LLMClientLike` explicitly requires both `complete()` and `complete_structured()`. Callers wrap their LLM clients before passing them in. This makes the requirement visible at the call site and keeps implementations dependency-free.
+The old `ace/roles.py` auto-wraps LLM clients with Instructor if `complete_structured` is missing (duck-typing check + fallback). Rejected for `ace_next` — auto-wrapping masks what the implementation actually requires. In `ace_next`, `LLMClientLike` explicitly requires both `complete()` and `complete_structured()`. Callers wrap their LLM clients before passing them in (e.g. `wrap_with_instructor(LiteLLMClient(...))` from `ace_next.providers`). This makes the requirement visible at the call site and keeps implementations dependency-free.
 
 **Recursive Reflector:**
 The old `ace/reflector/` subsystem supports recursive mode where the Reflector iterates multiple times to deepen analysis. Rejected for the initial `ace_next` implementation — recursive mode pulls in significant additional complexity (iteration control, convergence detection, intermediate result accumulation) for marginal benefit on most workloads. The `Reflector` class implements SIMPLE mode only (single-pass reflection). Recursive mode can be added later as an opt-in capability without changing the `ReflectorLike` protocol.
 
 **Observability decorator on implementations:**
-The old `ace/roles.py` uses `@maybe_track()` decorators for Opik tracing on every role method. Rejected — `ObservabilityStep` already handles metrics at the pipeline level with full visibility into all context fields. Adding per-method decorators would double-count and create coupling between implementations and the observability system.
+The old `ace/roles.py` uses `@maybe_track()` decorators for Opik tracing on every role method. Rejected — `OpikStep` handles metrics at the pipeline level with full visibility into all context fields. Adding per-method decorators would double-count and create coupling between implementations and the observability system.
 
 **Deduplication inside SkillManager:**
 The old `ace/roles.py` SkillManager integrates with `DeduplicationManager` directly — calling `get_similarity_report()` before the LLM call and `apply_operations_from_response()` after. Rejected for `ace_next` — deduplication is now a separate `DeduplicateStep` in the pipeline. This is cleaner separation: the SkillManager role only produces `SkillManagerOutput`, and deduplication runs at a configurable interval as an independent pipeline step. The step takes a `DeduplicationManagerLike` protocol, keeping it decoupled from the concrete implementation.
 
 **Shared `ace_next/features.py` module:**
 Creating a centralized feature detection module (like `ace/features.py`) for optional dependency checks was considered. Rejected — the only code that needs feature detection is `deduplication/detector.py`, which uses a local `_has(module)` helper with `importlib.import_module`. A shared module would add a file for a single 4-line function. If more code needs feature detection in the future, the helper can be promoted to a shared location.
+
+**Separate wrapper classes for integration runners:**
+Having separate convenience classes (`ACEAgent`, `ACELangChain`, `ACEClaudeCode`) that wrap the corresponding runners was the initial design. Each wrapper eagerly built a runner via `from_roles()` and delegated all calls to it. Rejected — the wrappers only added `from_model()` and a few lifecycle helpers (`get_strategies()`, backward-compat aliases), all of which fit naturally as methods on the runner class itself. Two classes for one concept forces users to understand both and choose which to use, while the runner already manages the pipeline, skillbook, and epoch loop. Instead, `from_model()` and convenience methods are defined directly on `BrowserUse`, `LangChain`, and `ClaudeCode`. The exception is `ACELiteLLM`, which is genuinely different: it wraps two runners (`ACE` and `TraceAnalyser`), has `ask()` (direct Agent call, no pipeline), and has `learn_from_feedback()` (manual single-shot learning). These don't map to any single runner's API.

@@ -24,6 +24,5 @@ class AgentStep:
             question=ctx.sample.question,
             context=ctx.sample.context,
             skillbook=ctx.skillbook,
-            sample=ctx.sample,
         )
         return ctx.replace(agent_output=agent_output)
