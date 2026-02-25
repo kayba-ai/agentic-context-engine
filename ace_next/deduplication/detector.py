@@ -41,9 +41,7 @@ class SimilarityDetector:
             return self._embed_litellm(text)
         return self._embed_st(text)
 
-    def compute_embeddings_batch(
-        self, texts: List[str]
-    ) -> List[Optional[List[float]]]:
+    def compute_embeddings_batch(self, texts: List[str]) -> List[Optional[List[float]]]:
         """Compute embeddings for multiple texts (more efficient)."""
         if not texts:
             return []
@@ -70,23 +68,17 @@ class SimilarityDetector:
             logger.warning("Failed to compute embedding via LiteLLM: %s", e)
             return None
 
-    def _embed_batch_litellm(
-        self, texts: List[str]
-    ) -> List[Optional[List[float]]]:
+    def _embed_batch_litellm(self, texts: List[str]) -> List[Optional[List[float]]]:
         if not _has("litellm"):
             logger.warning("LiteLLM not available for embeddings")
             return [None] * len(texts)
         try:
             import litellm
 
-            response = litellm.embedding(
-                model=self.config.embedding_model, input=texts
-            )
+            response = litellm.embedding(model=self.config.embedding_model, input=texts)
             return [item["embedding"] for item in response.data]
         except Exception as e:
-            logger.warning(
-                "Failed to compute batch embeddings via LiteLLM: %s", e
-            )
+            logger.warning("Failed to compute batch embeddings via LiteLLM: %s", e)
             return [None] * len(texts)
 
     # ------------------------------------------------------------------
@@ -95,9 +87,7 @@ class SimilarityDetector:
 
     def _embed_st(self, text: str) -> Optional[List[float]]:
         if not _has("sentence_transformers"):
-            logger.warning(
-                "sentence-transformers not available for embeddings"
-            )
+            logger.warning("sentence-transformers not available for embeddings")
             return None
         try:
             model = self._get_st_model()
@@ -109,13 +99,9 @@ class SimilarityDetector:
             )
             return None
 
-    def _embed_batch_st(
-        self, texts: List[str]
-    ) -> List[Optional[List[float]]]:
+    def _embed_batch_st(self, texts: List[str]) -> List[Optional[List[float]]]:
         if not _has("sentence_transformers"):
-            logger.warning(
-                "sentence-transformers not available for embeddings"
-            )
+            logger.warning("sentence-transformers not available for embeddings")
             return [None] * len(texts)
         try:
             model = self._get_st_model()
@@ -123,8 +109,7 @@ class SimilarityDetector:
             return [emb.tolist() for emb in embeddings]
         except Exception as e:
             logger.warning(
-                "Failed to compute batch embeddings via "
-                "sentence-transformers: %s",
+                "Failed to compute batch embeddings via " "sentence-transformers: %s",
                 e,
             )
             return [None] * len(texts)
@@ -234,9 +219,7 @@ class SimilarityDetector:
                     continue
                 if skillbook.has_keep_decision(skill_a.id, skill_b.id):
                     continue
-                sim = self.cosine_similarity(
-                    skill_a.embedding, skill_b.embedding
-                )
+                sim = self.cosine_similarity(skill_a.embedding, skill_b.embedding)
                 if sim >= threshold:
                     pairs.append((skill_a, skill_b, sim))
         return pairs

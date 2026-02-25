@@ -75,9 +75,7 @@ def learning_tail(
         ApplyStep(skillbook),
     ]
     if dedup_manager:
-        steps.append(
-            DeduplicateStep(dedup_manager, skillbook, interval=dedup_interval)
-        )
+        steps.append(DeduplicateStep(dedup_manager, skillbook, interval=dedup_interval))
     if checkpoint_dir:
         steps.append(
             CheckpointStep(checkpoint_dir, skillbook, interval=checkpoint_interval)

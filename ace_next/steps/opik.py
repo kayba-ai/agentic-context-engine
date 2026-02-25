@@ -56,8 +56,7 @@ def register_opik_litellm_callback(
 
         opik_logger = OpikLogger(project_name=project_name)
         already = any(
-            getattr(cb, "__class__", None)
-            and cb.__class__.__name__.lower() == "opik"
+            getattr(cb, "__class__", None) and cb.__class__.__name__.lower() == "opik"
             for cb in getattr(litellm, "callbacks", [])
         )
         if not already:

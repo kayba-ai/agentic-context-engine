@@ -65,11 +65,14 @@ Each skill shows its success rate based on helpful/harmful feedback:
 
 _CURRENT_DATE = datetime.now().strftime("%Y-%m-%d")
 
-AGENT_PROMPT = """\
+AGENT_PROMPT = (
+    """\
 # Identity and Metadata
 You are ACE Agent v2.1, an expert problem-solving agent.
 Prompt Version: 2.1.0
-Current Date: """ + _CURRENT_DATE + """
+Current Date: """
+    + _CURRENT_DATE
+    + """
 Mode: Strategic Problem Solving with Skillbook Application
 
 ## Core Mission
@@ -210,6 +213,7 @@ If JSON generation fails:
 
 Begin response with `{{` and end with `}}`
 """
+)
 
 
 # ---------------------------------------------------------------------------
