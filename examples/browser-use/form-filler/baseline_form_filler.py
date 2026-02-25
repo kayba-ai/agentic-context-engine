@@ -83,7 +83,7 @@ ERROR: <reason>"""
                 if "history" in locals() and hasattr(history, "number_of_steps")
                 else 0
             )
-        except:
+        except Exception:
             steps = 25  # max_steps if we can't determine
         return {"status": "ERROR", "steps": steps, "error": "Timeout", "success": False}
     except Exception as e:
@@ -94,14 +94,14 @@ ERROR: <reason>"""
                 if "history" in locals() and hasattr(history, "number_of_steps")
                 else 0
             )
-        except:
+        except Exception:
             steps = 0
         return {"status": "ERROR", "steps": steps, "error": str(e), "success": False}
     finally:
         if browser:
             try:
                 await browser.stop()
-            except:
+            except Exception:
                 pass
 
 

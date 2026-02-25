@@ -150,7 +150,7 @@ class BrowserUseEnvironment(TaskEnvironment):
             is_successful = result.is_successful()
             has_errors = result.has_errors()
             number_of_steps = result.number_of_steps()
-        except:
+        except Exception:
             print("ERROR GETTING MODEL OUTPUTS: ", e)
             print("TYPE OF RESULT: ", type(result))
             print("RESULT: ", result)
@@ -240,7 +240,7 @@ class BrowserUseEnvironment(TaskEnvironment):
                         if hasattr(history, "number_of_steps")
                         else 25
                     )
-            except:
+            except Exception:
                 pass
             return {
                 "is_done": False,
@@ -259,7 +259,7 @@ class BrowserUseEnvironment(TaskEnvironment):
                         if hasattr(history, "number_of_steps")
                         else 0
                     )
-            except:
+            except Exception:
                 pass
             return {
                 "is_done": False,
@@ -273,7 +273,7 @@ class BrowserUseEnvironment(TaskEnvironment):
             if browser:
                 try:
                     await browser.stop()
-                except:
+                except Exception:
                     pass
 
     def _get_token_usage(self, trace_id: str = None) -> tuple[int, int, int, int]:
@@ -394,7 +394,7 @@ def main(task_file: str = "task2_form.txt"):
     try:
         configure_opik(project_name="ace-browser-use")
         print("📊 Opik observability enabled")
-    except:
+    except Exception:
         print("📊 Opik not available, continuing without observability")
 
     print("\n🤖 ACE Browser Agent (WITH ACE)")

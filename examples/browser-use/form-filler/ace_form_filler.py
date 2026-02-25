@@ -136,7 +136,7 @@ ERROR: <reason>"""
                     if "history" in locals() and hasattr(history, "number_of_steps")
                     else 0
                 )
-            except:
+            except Exception:
                 steps = 25  # max_steps if we can't determine
             return {"status": "ERROR", "steps": steps, "error": "Timeout"}
         except Exception as e:
@@ -147,14 +147,14 @@ ERROR: <reason>"""
                     if "history" in locals() and hasattr(history, "number_of_steps")
                     else 0
                 )
-            except:
+            except Exception:
                 steps = 0
             return {"status": "ERROR", "steps": steps, "error": str(e)}
         finally:
             if browser:
                 try:
                     await browser.stop()
-                except:
+                except Exception:
                     pass
 
 
@@ -165,7 +165,7 @@ def main():
     try:
         configure_opik(project_name="ace-browser-form-filler")
         print("📊 Opik observability enabled")
-    except:
+    except Exception:
         print("📊 Opik not available, continuing without observability")
 
     print("\n🚀 ACE + Browser-Use Form Filler")

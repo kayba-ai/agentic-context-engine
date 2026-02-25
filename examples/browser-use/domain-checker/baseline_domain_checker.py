@@ -188,7 +188,7 @@ async def check_domain(domain: str, headless: bool = True):
                     actual_steps = len(history.action_names())
                 else:
                     actual_steps = 0  # Unknown - don't make up numbers
-            except:
+            except Exception:
                 actual_steps = 0  # Can't determine actual steps
 
             # Add timeout steps to actual steps
@@ -213,7 +213,7 @@ async def check_domain(domain: str, headless: bool = True):
                     steps = len(history.action_names())
                 else:
                     steps = 0
-            except:
+            except Exception:
                 steps = 0
 
             total_steps += steps
@@ -276,7 +276,7 @@ async def check_domain(domain: str, headless: bool = True):
             if browser:
                 try:
                     await browser.stop()
-                except:
+                except Exception:
                     pass
 
     # All retries failed - use accumulated tokens from all attempts

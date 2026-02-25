@@ -362,7 +362,7 @@ async def check_single_domain(agent: ACEAgent, domain: str) -> dict:
                     actual_steps = len(history.action_names())
                 else:
                     actual_steps = 0  # Unknown - don't make up numbers
-            except:
+            except Exception:
                 actual_steps = 0  # Can't determine actual steps
 
             steps = actual_steps + timeout_steps
@@ -388,7 +388,7 @@ async def check_single_domain(agent: ACEAgent, domain: str) -> dict:
                     steps = len(history.action_names())
                 else:
                     steps = 0
-            except:
+            except Exception:
                 steps = 0
 
             total_steps += steps
@@ -478,7 +478,7 @@ async def main():
     try:
         configure_opik(project_name="ace-domain-checker")
         print("📊 Opik observability enabled")
-    except:
+    except Exception:
         print("📊 Opik not available, continuing without observability")
 
     print("\n🔍 ACE + Browser-Use Domain Checker")

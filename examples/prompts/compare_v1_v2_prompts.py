@@ -44,7 +44,7 @@ class ComparisonEnvironment(TaskEnvironment):
             expected = float(sample.ground_truth)
             actual = float(agent_output.final_answer)
             correct = abs(expected - actual) < 0.0001
-        except:
+        except Exception:
             # Fall back to text comparison
             correct = sample.ground_truth.lower() in agent_output.final_answer.lower()
 
