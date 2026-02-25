@@ -496,13 +496,14 @@ class Skillbook:
         return "\n".join(parts)
 
     def stats(self) -> Dict[str, object]:
+        active = self.skills()
         return {
             "sections": len(self._sections),
-            "skills": len(self._skills),
+            "skills": len(active),
             "tags": {
-                "helpful": sum(s.helpful for s in self._skills.values()),
-                "harmful": sum(s.harmful for s in self._skills.values()),
-                "neutral": sum(s.neutral for s in self._skills.values()),
+                "helpful": sum(s.helpful for s in active),
+                "harmful": sum(s.harmful for s in active),
+                "neutral": sum(s.neutral for s in active),
             },
         }
 
