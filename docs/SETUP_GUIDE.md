@@ -23,9 +23,13 @@ python --version  # Should show 3.12
 pip install ace-framework
 
 # With optional features
-pip install ace-framework[observability]  # Opik monitoring + cost tracking
-pip install ace-framework[browser-use]    # Browser automation
+pip install ace-framework[instructor]     # Structured outputs (Instructor)
 pip install ace-framework[langchain]      # LangChain integration
+pip install ace-framework[browser-use]    # Browser automation
+pip install ace-framework[claude-code]    # Claude Code CLI integration
+pip install ace-framework[observability]  # Opik monitoring + cost tracking
+pip install ace-framework[deduplication]  # Skill deduplication (embeddings)
+pip install ace-framework[transformers]   # Local model support
 pip install ace-framework[all]            # All features
 ```
 

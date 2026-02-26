@@ -406,7 +406,7 @@ class TestBackwardsCompatibility:
 
     def test_can_check_availability(self):
         """Should be able to check LANGCHAIN_AVAILABLE flag."""
-        from ace import LANGCHAIN_AVAILABLE as flag
+        from ace.integrations import LANGCHAIN_AVAILABLE as flag
 
         assert flag is True
 
