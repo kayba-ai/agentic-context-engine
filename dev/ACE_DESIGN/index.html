@@ -2735,6 +2735,11 @@
 <td>Done</td>
 <td><code>ace_next/providers/</code></td>
 </tr>
+<tr>
+<td>Recursive Reflector</td>
+<td>Done</td>
+<td><code>ace_next/rr/</code> (SubRunner base in <code>ace_next/core/</code>)</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -2982,8 +2987,13 @@
 <a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>├── learn()             — delegates to lazy-init ACE runner
 <a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>├── learn_from_traces() — delegates to lazy-init TraceAnalyser
 <a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>└── learn_from_feedback()— manual single-shot learning from last ask()
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>RRStep (SubRunner — composable iterative step)
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>├── __call__()          — StepProtocol entry; can be placed in any runner&#39;s pipeline
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>├── reflect()           — ReflectorLike entry; standalone use
+<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a>└── run_loop()          — SubRunner loop driver; inner Pipeline([LLMCall, ExtractCode, SandboxExec, CheckResult])
 </code></pre></div>
-<p>All runners compose a <code>Pipeline</code> rather than extending it. The pipeline is an implementation detail, not part of the public interface. Each subclass only overrides <code>run()</code> (public signature) and <code>_build_context()</code> (input mapping).</p>
+<p>All runners compose a <code>Pipeline</code> rather than extending it. <code>RRStep</code> extends <code>SubRunner</code> (from <code>ace_next/core/sub_runner.py</code>) and can be used as a step in any runner's pipeline — it is a black box that satisfies <code>StepProtocol</code>. The pipeline is an implementation detail, not part of the public interface. Each subclass only overrides <code>run()</code> (public signature) and <code>_build_context()</code> (input mapping).</p>
 <p>Integration runners (<code>BrowserUse</code>, <code>LangChain</code>, <code>ClaudeCode</code>) each provide two construction paths: <code>from_roles()</code> for pre-built role instances, and <code>from_model()</code> for auto-building roles from a model string. <code>ACELiteLLM</code> is a standalone class (not an <code>ACERunner</code> subclass) because it wraps two different runners and exposes a different API (<code>ask</code>, <code>learn</code>, <code>learn_from_traces</code>).</p>
 <p>Each integration runner uses two steps before the learning tail: (1) an <strong>execute step</strong> that produces an integration-specific result type (e.g. <code>BrowserResult</code>), and (2) a <strong>ToTrace step</strong> that converts that result into the standardised trace dict the learning tail expects. This separation keeps framework-specific logic in the execute step and trace formatting in the converter — each is independently testable.</p>
 <hr />
