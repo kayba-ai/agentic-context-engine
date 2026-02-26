@@ -52,6 +52,7 @@ def learning_tail(
     dedup_interval: int = 10,
     checkpoint_dir: str | Path | None = None,
     checkpoint_interval: int = 10,
+    extra_steps: list[StepProtocol] | None = None,
 ) -> list[StepProtocol]:
     """Return the standard ACE learning steps.
 
@@ -66,7 +67,8 @@ def learning_tail(
     The returned list is always:
         [ReflectStep, TagStep, UpdateStep, ApplyStep]
     with optional DeduplicateStep and CheckpointStep appended when
-    the corresponding config is provided.
+    the corresponding config is provided, followed by any
+    ``extra_steps`` (e.g. ``OpikStep``).
     """
     steps: list[StepProtocol] = [
         ReflectStep(reflector),
@@ -80,4 +82,6 @@ def learning_tail(
         steps.append(
             CheckpointStep(checkpoint_dir, skillbook, interval=checkpoint_interval)
         )
+    if extra_steps:
+        steps.extend(extra_steps)
     return steps
