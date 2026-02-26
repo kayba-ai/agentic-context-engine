@@ -191,9 +191,15 @@ class Agent:
         if hasattr(llm, "complete_structured"):
             self.llm = llm
         else:
-            from .llm_providers.instructor_client import wrap_with_instructor
+            from .llm_providers.instructor_client import (
+                INSTRUCTOR_AVAILABLE,
+                wrap_with_instructor,
+            )
 
-            self.llm = wrap_with_instructor(llm, max_retries=max_retries)  # type: ignore[assignment]
+            if INSTRUCTOR_AVAILABLE:
+                self.llm = wrap_with_instructor(llm, max_retries=max_retries)  # type: ignore[assignment]
+            else:
+                self.llm = llm
 
         self.prompt_template = prompt_template
         self.max_retries = max_retries
@@ -575,9 +581,15 @@ class Reflector:
         if hasattr(llm, "complete_structured"):
             self.llm = llm
         else:
-            from .llm_providers.instructor_client import wrap_with_instructor
+            from .llm_providers.instructor_client import (
+                INSTRUCTOR_AVAILABLE,
+                wrap_with_instructor,
+            )
 
-            self.llm = wrap_with_instructor(llm, max_retries=max_retries)  # type: ignore[assignment]
+            if INSTRUCTOR_AVAILABLE:
+                self.llm = wrap_with_instructor(llm, max_retries=max_retries)  # type: ignore[assignment]
+            else:
+                self.llm = llm
 
         self.prompt_template = prompt_template
         self.mode = mode
@@ -802,9 +814,15 @@ class SkillManager:
         if hasattr(llm, "complete_structured"):
             self.llm = llm
         else:
-            from .llm_providers.instructor_client import wrap_with_instructor
+            from .llm_providers.instructor_client import (
+                INSTRUCTOR_AVAILABLE,
+                wrap_with_instructor,
+            )
 
-            self.llm = wrap_with_instructor(llm, max_retries=max_retries)  # type: ignore[assignment]
+            if INSTRUCTOR_AVAILABLE:
+                self.llm = wrap_with_instructor(llm, max_retries=max_retries)  # type: ignore[assignment]
+            else:
+                self.llm = llm
 
         self.prompt_template = prompt_template
         self.max_retries = max_retries

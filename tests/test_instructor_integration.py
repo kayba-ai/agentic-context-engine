@@ -11,6 +11,12 @@ from unittest.mock import Mock, patch
 import pytest
 from pydantic import BaseModel, ValidationError
 
+from ace.llm_providers.instructor_client import INSTRUCTOR_AVAILABLE
+
+pytestmark = pytest.mark.skipif(
+    not INSTRUCTOR_AVAILABLE, reason="instructor not installed"
+)
+
 from ace import Agent, Reflector, SkillManager, Skillbook
 from ace.llm import LLMClient, LLMResponse
 from ace.roles import AgentOutput, ReflectorOutput, SkillManagerOutput, SkillTag
