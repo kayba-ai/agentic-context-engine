@@ -12,9 +12,14 @@ from .litellm_client import LiteLLMClient
 
 logger = logging.getLogger(__name__)
 
-# Instructor is a core dependency - always available
-import instructor
 from litellm import completion
+
+try:
+    import instructor
+
+    INSTRUCTOR_AVAILABLE = True
+except ImportError:
+    INSTRUCTOR_AVAILABLE = False
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -51,7 +56,7 @@ class InstructorClient:
     def __init__(
         self,
         llm: LLMClient,
-        mode=instructor.Mode.MD_JSON,
+        mode=None,
         max_retries: int = 3,
     ):
         """
@@ -63,9 +68,14 @@ class InstructorClient:
                    MD_JSON works with all models including local ones; use Mode.JSON for OpenAI structured outputs
             max_retries: Maximum validation retries
         """
+        if not INSTRUCTOR_AVAILABLE:
+            raise ImportError(
+                "instructor is required for InstructorClient. "
+                "Install it with: pip install ace-framework[instructor]"
+            )
 
         self.llm = llm
-        self.mode = mode
+        self.mode = mode if mode is not None else instructor.Mode.MD_JSON
         self.max_retries = max_retries
 
         # Patch LiteLLM completion function with Instructor
@@ -212,7 +222,7 @@ class InstructorClient:
 
 
 def wrap_with_instructor(
-    llm: LLMClient, mode=instructor.Mode.MD_JSON, max_retries: int = 3
+    llm: LLMClient, mode=None, max_retries: int = 3
 ) -> InstructorClient:
     """
     Convenience function to wrap an LLM client with Instructor capabilities.

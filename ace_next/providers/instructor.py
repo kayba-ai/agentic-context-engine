@@ -16,8 +16,14 @@ from .litellm import LiteLLMClient, LLMResponse
 
 logger = logging.getLogger(__name__)
 
-import instructor
 from litellm import completion
+
+try:
+    import instructor
+
+    INSTRUCTOR_AVAILABLE = True
+except ImportError:
+    INSTRUCTOR_AVAILABLE = False
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -43,11 +49,17 @@ class InstructorClient:
     def __init__(
         self,
         llm: Any,
-        mode: Any = instructor.Mode.MD_JSON,
+        mode: Any = None,
         max_retries: int = 3,
     ) -> None:
+        if not INSTRUCTOR_AVAILABLE:
+            raise ImportError(
+                "instructor is required for InstructorClient. "
+                "Install it with: pip install ace-framework[instructor]"
+            )
+
         self.llm = llm
-        self.mode = mode
+        self.mode = mode if mode is not None else instructor.Mode.MD_JSON
         self.max_retries = max_retries
 
         # Patch LiteLLM completion function with Instructor
@@ -156,7 +168,7 @@ class InstructorClient:
 
 def wrap_with_instructor(
     llm: Any,
-    mode: Any = instructor.Mode.MD_JSON,
+    mode: Any = None,
     max_retries: int = 3,
 ) -> InstructorClient:
     """Convenience wrapper to add Instructor capabilities to an LLM client.

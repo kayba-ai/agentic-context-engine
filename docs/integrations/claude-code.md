@@ -13,6 +13,12 @@ results = runner.run("Add unit tests for utils.py")
 runner.save("coding_expert.json")
 ```
 
+## Installation
+
+```bash
+pip install ace-framework[claude-code]
+```
+
 ## Prerequisites
 
 - Claude Code CLI installed and authenticated

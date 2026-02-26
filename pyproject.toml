@@ -41,13 +41,21 @@ classifiers = [
 dependencies = [
     "litellm>=1.78.0",
     "pydantic>=2.0.0",
-    "python-dotenv>=1.0.0",
     "python-toon>=0.1.0",
-    "tenacity>=8.0.0",
-    "instructor>=1.0.0",
 ]
 
 [project.optional-dependencies]
+claude-code = [
+    "python-dotenv>=1.0.0",
+    "tenacity>=8.0.0",
+]
+instructor = [
+    "instructor>=1.0.0",
+]
+deduplication = [
+    "numpy>=1.24.0",
+    "sentence-transformers>=2.2.0",
+]
 browser-use = [
     "browser-use>=0.9.0",
 ]
@@ -66,6 +74,11 @@ transformers = [
     "accelerate>=0.20.0",
 ]
 all = [
+    "python-dotenv>=1.0.0",
+    "tenacity>=8.0.0",
+    "instructor>=1.0.0",
+    "numpy>=1.24.0",
+    "sentence-transformers>=2.2.0",
     "browser-use>=0.9.0",
     "opik>=1.8.0",
     "langchain-openai>=0.3.35",
@@ -111,7 +124,7 @@ demos = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["ace", "ace.*"]
+include = ["ace", "ace.*", "ace_next", "ace_next.*", "pipeline", "pipeline.*"]
 
 [tool.setuptools.package-data]
 ace = ["py.typed"]
@@ -154,6 +167,8 @@ addopts = [
     "--strict-markers",
     "--tb=short",
     "--cov=ace",
+    "--cov=ace_next",
+    "--cov=pipeline",
     "--cov-report=term-missing",
     "--cov-report=html",
     "--cov-fail-under=25",

@@ -14,8 +14,8 @@ When changes to code alter architecture, add new modules, change public APIs, re
 
 ### Project Structure
 - `ace/` — core library (skillbook, roles, adapters, integrations, observability)
-- `ace_next/` — pipeline-based rewrite (see `docs/ACE_DESIGN.md`)
-- `pipeline/` — generic pipeline engine (see `docs/PIPELINE_DESIGN.md`)
+- `ace_next/` — pipeline-based rewrite built on top of `pipeline/` (see `docs/ACE_DESIGN.md`)
+- `pipeline/` — generic pipeline engine that `ace_next` is built on (see `docs/PIPELINE_DESIGN.md`)
 - `tests/` — unit/integration tests (pytest + unittest)
 - `examples/` — runnable demos grouped by integration
 - `benchmarks/`, `scripts/` — research/evaluation tooling (not shipped to PyPI)
