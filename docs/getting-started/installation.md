@@ -11,10 +11,14 @@
 === "With extras"
 
     ```bash
-    pip install ace-framework[all]           # All optional features
-    pip install ace-framework[observability] # Opik monitoring + cost tracking
-    pip install ace-framework[langchain]     # LangChain integration
-    pip install ace-framework[transformers]  # Local model support
+    pip install ace-framework[all]            # All optional features
+    pip install ace-framework[instructor]     # Structured outputs (Instructor)
+    pip install ace-framework[langchain]      # LangChain integration
+    pip install ace-framework[browser-use]    # Browser automation
+    pip install ace-framework[claude-code]    # Claude Code CLI integration
+    pip install ace-framework[observability]  # Opik monitoring + cost tracking
+    pip install ace-framework[deduplication]  # Skill deduplication (embeddings)
+    pip install ace-framework[transformers]   # Local model support
     ```
 
 ## For Contributors

@@ -244,6 +244,8 @@ Operations: `ADD`, `UPDATE`, `TAG`, `REMOVE`. See [Update Operations](../concept
 
 ### DeduplicationConfig
 
+**Requires:** `pip install ace-framework[deduplication]`
+
 ```python
 from ace_next import DeduplicationConfig
 
@@ -291,7 +293,9 @@ Supports all [LiteLLM providers](https://docs.litellm.ai/) (OpenAI, Anthropic, G
 
 ### InstructorClient
 
-Wraps any LLM client with Pydantic validation for more reliable structured outputs:
+Wraps any LLM client with Pydantic validation for more reliable structured outputs.
+
+**Requires:** `pip install ace-framework[instructor]`
 
 ```python
 from ace_next import InstructorClient, LiteLLMClient

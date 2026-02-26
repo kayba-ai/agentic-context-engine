@@ -5,8 +5,7 @@ The `BrowserUse` runner wraps [browser-use](https://github.com/browser-use/brows
 ## Installation
 
 ```bash
-pip install browser-use
-pip install ace-framework
+pip install ace-framework[browser-use]
 ```
 
 ## Quick Start
