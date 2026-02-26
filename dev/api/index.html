@@ -2559,6 +2559,7 @@
 </code></pre></div>
 <p>Operations: <code>ADD</code>, <code>UPDATE</code>, <code>TAG</code>, <code>REMOVE</code>. See <a href="../concepts/updates/">Update Operations</a>.</p>
 <h3 id="deduplicationconfig">DeduplicationConfig<a class="headerlink" href="#deduplicationconfig" title="Permanent link">&para;</a></h3>
+<p><strong>Requires:</strong> <code>pip install ace-framework[deduplication]</code></p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next</span><span class="w"> </span><span class="kn">import</span> <span class="n">DeduplicationConfig</span>
 <a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>
 <a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="n">config</span> <span class="o">=</span> <span class="n">DeduplicationConfig</span><span class="p">(</span>
@@ -2591,7 +2592,8 @@
 </code></pre></div>
 <p>Supports all <a href="https://docs.litellm.ai/">LiteLLM providers</a> (OpenAI, Anthropic, Google, Ollama, etc.).</p>
 <h3 id="instructorclient">InstructorClient<a class="headerlink" href="#instructorclient" title="Permanent link">&para;</a></h3>
-<p>Wraps any LLM client with Pydantic validation for more reliable structured outputs:</p>
+<p>Wraps any LLM client with Pydantic validation for more reliable structured outputs.</p>
+<p><strong>Requires:</strong> <code>pip install ace-framework[instructor]</code></p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next</span><span class="w"> </span><span class="kn">import</span> <span class="n">InstructorClient</span><span class="p">,</span> <span class="n">LiteLLMClient</span>
 <a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>
 <a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="n">client</span> <span class="o">=</span> <span class="n">InstructorClient</span><span class="p">(</span><span class="n">LiteLLMClient</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">&quot;ollama/gemma3:1b&quot;</span><span class="p">))</span>
