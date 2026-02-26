@@ -19,7 +19,7 @@ from ace_next import LiteLLMClient
 llm = LiteLLMClient(model="gpt-4o-mini")
 ```
 
-For robust JSON parsing with small models, wrap with Instructor:
+For robust JSON parsing with small models, wrap with Instructor (requires `pip install ace-framework[instructor]`):
 
 ```python
 from ace_next import LiteLLMClient, wrap_with_instructor
@@ -162,7 +162,7 @@ This creates:
 
 ## Deduplication
 
-Prevent duplicate skills from accumulating:
+Prevent duplicate skills from accumulating (requires `pip install ace-framework[deduplication]`):
 
 ```python
 from ace_next import DeduplicationConfig, DeduplicationManager
