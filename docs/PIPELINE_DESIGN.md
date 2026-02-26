@@ -258,70 +258,6 @@ In practice, branches that write disjoint fields (e.g. Reflect writes `reflectio
 
 ---
 
-## SubRunner — iterative step with inner pipeline
-
-A `SubRunner` is a step that runs a `Pipeline` in a loop. Each iteration executes the inner pipeline once, checks a termination predicate, and either returns a result or accumulates state for the next iteration.
-
-```
-┌─ SubRunner ─────────────────────────────────────────────┐
-│                                                         │
-│  initial_context ──► [ inner Pipeline ] ──► done? ──►   │  ← return result
-│        ▲                                     │ no       │
-│        └──── accumulate ◄────────────────────┘          │
-│                                                         │
-└─────────────────────────────────────────────────────────┘
-```
-
-From the outer pipeline's perspective, a `SubRunner` is a black box — it satisfies `StepProtocol` with its own `requires` and `provides`. The iteration, inner pipeline, and inner context are invisible.
-
-**Template methods** (subclass implements these):
-
-| Method | Purpose |
-|---|---|
-| `_build_inner_pipeline()` | Return the `Pipeline` to execute once per iteration |
-| `_build_initial_context()` | Return the `StepContext` for the first iteration |
-| `_is_done(ctx)` | Termination predicate — return `True` to stop |
-| `_extract_result(ctx)` | Pull the final result from the terminal context |
-| `_accumulate(ctx)` | Build next iteration's context from the current one |
-| `_on_timeout(ctx, iteration)` | Called when `max_iterations` reached without termination |
-
-**Generic usage:**
-
-```python
-from pipeline import SubRunner, Pipeline, StepContext
-
-class RefineStep(SubRunner):
-    requires = frozenset({"draft"})
-    provides = frozenset({"refined"})
-
-    def _build_inner_pipeline(self, **kw):
-        return Pipeline([ScoreStep(), ImproveStep()])
-
-    def _build_initial_context(self, **kw):
-        return RefineContext(text=kw["draft"])
-
-    def _is_done(self, ctx):
-        return ctx.score >= 0.9
-
-    def _extract_result(self, ctx):
-        return ctx.text
-
-    def _accumulate(self, ctx):
-        return ctx.replace(iteration=ctx.iteration + 1)
-
-    def __call__(self, ctx):
-        result = self.run_loop(draft=ctx.metadata["draft"])
-        return ctx.replace(metadata={**ctx.metadata, "refined": result})
-```
-
-**Canonical example:** `RRStep` in `ace_next/rr/` — the Recursive Reflector's REPL loop. It builds a `Pipeline([LLMCallStep, ExtractCodeStep, SandboxExecStep, CheckResultStep])` and iterates until the LLM calls `FINAL()` or the iteration budget is exhausted.
-
-| Concept | Pattern | Context isolation | State communication |
-|---|---|---|---|
-| SubRunner | iterative loop + inner pipeline | inherits parent context | via inner StepContext subclass |
-
----
-
 ## Async Behavior
 
 "Async" means three different things in this framework, operating at different levels. It is important to keep them separate — they solve different problems.
@@ -549,7 +485,6 @@ Retry logic is the responsibility of individual steps, not the pipeline.
 | `Pipeline` | ordered step list for one input | `workers=N` across inputs | via `StepContext` |
 | `Branch` | parallel pipeline list | always parallel internally | copy + merge of `StepContext` |
 | `Pipeline` as a `Step` | reuse / nesting | inherits parent context | via `StepContext` |
-| `SubRunner` | iterative loop + inner pipeline | always sync (inner pipeline) | via inner `StepContext` subclass |
 
 ---
 
