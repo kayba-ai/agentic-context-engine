@@ -21,8 +21,8 @@ from __future__ import annotations
 import abc
 from typing import Any
 
-from .context import StepContext
-from .pipeline import Pipeline
+from pipeline.context import StepContext
+from pipeline.pipeline import Pipeline
 
 
 class SubRunner(abc.ABC):

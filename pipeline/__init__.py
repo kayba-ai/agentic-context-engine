@@ -6,7 +6,6 @@ Public surface::
         Pipeline,
         Branch,
         MergeStrategy,
-        SubRunner,
         StepProtocol,
         StepContext,
         SampleResult,
@@ -21,13 +20,11 @@ from .context import StepContext
 from .errors import BranchError, PipelineConfigError, PipelineOrderError
 from .pipeline import Pipeline
 from .protocol import SampleResult, StepProtocol
-from .sub_runner import SubRunner
 
 __all__ = [
     "Pipeline",
     "Branch",
     "MergeStrategy",
-    "SubRunner",
     "StepProtocol",
     "StepContext",
     "SampleResult",

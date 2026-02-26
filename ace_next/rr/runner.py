@@ -1,6 +1,6 @@
 """RRStep — Recursive Reflector as a pipeline step (SubRunner pattern).
 
-Extends :class:`~pipeline.sub_runner.SubRunner` to implement the
+Extends :class:`~ace_next.core.sub_runner.SubRunner` to implement the
 iterative REPL loop.  Uses a Pipeline internally for per-iteration step
 execution and exposes itself as a StepProtocol step for seamless
 composition into the ACE pipeline.
@@ -13,7 +13,8 @@ from typing import Any, Optional, TYPE_CHECKING
 
 from pipeline import Pipeline
 from pipeline.context import StepContext
-from pipeline.sub_runner import SubRunner
+
+from ace_next.core.sub_runner import SubRunner
 
 from ace.reflector.config import RecursiveConfig
 from ace.reflector.prompts_rr_v3 import REFLECTOR_RECURSIVE_V3_PROMPT

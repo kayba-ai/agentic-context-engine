@@ -7,7 +7,8 @@ from types import MappingProxyType
 
 import pytest
 
-from pipeline import Pipeline, StepContext, StepProtocol, SubRunner
+from pipeline import Pipeline, StepContext, StepProtocol
+from ace_next.core import SubRunner
 
 
 # ---------------------------------------------------------------------------
