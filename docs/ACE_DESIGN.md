@@ -26,7 +26,7 @@ Implemented in `ace_next/` (parallel to `ace/` for easy rollback). The package i
 | Convenience `from_model()` on integration runners | Done | `ace_next/runners/browser_use.py`, `langchain.py`, `claude_code.py` |
 | `ACELiteLLM` convenience wrapper | Done | `ace_next/runners/litellm.py` |
 | LLM providers (`LiteLLMClient`, `InstructorClient`, `LangChainLiteLLMClient`, `ClaudeCodeLLMClient`) | Done | `ace_next/providers/` |
-| Recursive Reflector (SubRunner) | Done | `ace_next/rr/` |
+| Recursive Reflector | Done | `ace_next/rr/` (SubRunner base in `ace_next/core/`) |
 
 ---
 
@@ -236,7 +236,7 @@ RRStep (SubRunner — composable iterative step)
 └── run_loop()          — SubRunner loop driver; inner Pipeline([LLMCall, ExtractCode, SandboxExec, CheckResult])
 ```
 
-All runners compose a `Pipeline` rather than extending it. `RRStep` extends `SubRunner` (from `pipeline/sub_runner.py`) and can be used as a step in any runner's pipeline — it is a black box that satisfies `StepProtocol`. The pipeline is an implementation detail, not part of the public interface. Each subclass only overrides `run()` (public signature) and `_build_context()` (input mapping).
+All runners compose a `Pipeline` rather than extending it. `RRStep` extends `SubRunner` (from `ace_next/core/sub_runner.py`) and can be used as a step in any runner's pipeline — it is a black box that satisfies `StepProtocol`. The pipeline is an implementation detail, not part of the public interface. Each subclass only overrides `run()` (public signature) and `_build_context()` (input mapping).
 
 Integration runners (`BrowserUse`, `LangChain`, `ClaudeCode`) each provide two construction paths: `from_roles()` for pre-built role instances, and `from_model()` for auto-building roles from a model string. `ACELiteLLM` is a standalone class (not an `ACERunner` subclass) because it wraps two different runners and exposes a different API (`ask`, `learn`, `learn_from_traces`).
 
