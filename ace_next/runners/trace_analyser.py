@@ -73,8 +73,9 @@ class TraceAnalyser(ACERunner):
             dedup_interval=dedup_interval,
             checkpoint_dir=checkpoint_dir,
             checkpoint_interval=checkpoint_interval,
-            extra_steps=extra_steps,
         )
+        if extra_steps:
+            steps.extend(extra_steps)
         return cls(pipeline=Pipeline(steps), skillbook=skillbook)
 
     def run(
