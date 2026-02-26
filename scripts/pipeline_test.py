@@ -3,10 +3,18 @@ from dotenv import load_dotenv
 
 from ace import (
     OfflineACE,
-    AgentStep, EvaluateStep, ReflectStep, UpdateStep,
-    Step, StepContext,
-    Agent, Reflector, SkillManager,
-    Skillbook, Sample, SimpleEnvironment,
+    AgentStep,
+    EvaluateStep,
+    ReflectStep,
+    UpdateStep,
+    Step,
+    StepContext,
+    Agent,
+    Reflector,
+    SkillManager,
+    Skillbook,
+    Sample,
+    SimpleEnvironment,
 )
 from ace.llm_providers import LiteLLMClient
 from ace.prompt_manager import PromptManager
@@ -17,15 +25,20 @@ load_dotenv()
 # Optional: define a custom step — just needs __call__(ctx) -> ctx
 # ---------------------------------------------------------------------------
 
+
 class LogStep:
     """Prints a one-liner after evaluation, before reflection."""
+
     requires = frozenset({"environment_result"})
     provides = frozenset()
 
     def __call__(self, ctx: StepContext) -> StepContext:
-        feedback = ctx.environment_result.feedback[:70] if ctx.environment_result else "—"
+        feedback = (
+            ctx.environment_result.feedback[:70] if ctx.environment_result else "—"
+        )
         print(f"  [{ctx.step_index}/{ctx.total_steps}] {feedback}")
         return ctx
+
 
 # ---------------------------------------------------------------------------
 # Wire up the LLM and the three ACE roles
@@ -34,10 +47,10 @@ class LogStep:
 llm = LiteLLMClient(model="bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0")
 prompt_mgr = PromptManager()
 
-skillbook    = Skillbook()
-agent        = Agent(llm,         prompt_template=prompt_mgr.get_agent_prompt())
-reflector    = Reflector(llm,     prompt_template=prompt_mgr.get_reflector_prompt())
-skill_mgr    = SkillManager(llm,  prompt_template=prompt_mgr.get_skill_manager_prompt())
+skillbook = Skillbook()
+agent = Agent(llm, prompt_template=prompt_mgr.get_agent_prompt())
+reflector = Reflector(llm, prompt_template=prompt_mgr.get_reflector_prompt())
+skill_mgr = SkillManager(llm, prompt_template=prompt_mgr.get_skill_manager_prompt())
 
 # ---------------------------------------------------------------------------
 # Build the pipeline — inject a custom step between Evaluate and Reflect
@@ -47,7 +60,7 @@ pipeline = OfflineACE(
     steps=[
         AgentStep(agent),
         EvaluateStep(),
-        LogStep(),               # <-- custom: any callable(ctx) -> ctx works here
+        LogStep(),  # <-- custom: any callable(ctx) -> ctx works here
         ReflectStep(reflector),
         UpdateStep(skill_mgr),
     ],

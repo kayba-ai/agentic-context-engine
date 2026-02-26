@@ -109,9 +109,7 @@ def load_ace_results(file_path: str) -> List[Dict[str, Any]]:
         raise ValueError("Unable to find results in JSON file")
 
 
-def reconstruct_step_results(
-    results_data: List[Dict[str, Any]]
-) -> List[ACEStepResult]:
+def reconstruct_step_results(results_data: List[Dict[str, Any]]) -> List[ACEStepResult]:
     """Reconstruct ACEStepResult objects from JSON data."""
     step_results = []
 

@@ -31,7 +31,15 @@ from ace.skillbook import Skillbook
 # ---------------------------------------------------------------------------
 
 RESULTS_DIR = PROJECT_ROOT / "results" / "variance_experiment"
-BUDGETS = ["budget-500", "budget-1000", "budget-2000", "budget-3000", "budget-5000", "budget-10000", "no-budget"]
+BUDGETS = [
+    "budget-500",
+    "budget-1000",
+    "budget-2000",
+    "budget-3000",
+    "budget-5000",
+    "budget-10000",
+    "no-budget",
+]
 BUDGET_ORDER = BUDGETS  # display order
 SIMILARITY_THRESHOLD = 0.7  # matching dedup threshold used during generation
 MIN_RUNS_FOR_STABLE = 3  # skill must appear in >= this many runs to be "stable"
@@ -48,6 +56,7 @@ def get_valid_runs(budget: str) -> list[int]:
 # ---------------------------------------------------------------------------
 # Step 1: Load data
 # ---------------------------------------------------------------------------
+
 
 def load_all_data() -> dict:
     """Load all skillbooks and run_info files.
@@ -83,6 +92,7 @@ def load_all_data() -> dict:
 # Step 2: Identify median runs
 # ---------------------------------------------------------------------------
 
+
 def identify_median_runs(data: dict) -> dict[str, int]:
     """For each budget, pick the run closest to mean TOON tokens."""
     median_runs = {}
@@ -96,16 +106,21 @@ def identify_median_runs(data: dict) -> dict[str, int]:
             toon_tokens[run_num] = len(prompt) // 4  # rough estimate
         mean_toon = sum(toon_tokens.values()) / len(toon_tokens)
         # Pick run closest to mean
-        closest_run = min(toon_tokens.keys(), key=lambda r: abs(toon_tokens[r] - mean_toon))
+        closest_run = min(
+            toon_tokens.keys(), key=lambda r: abs(toon_tokens[r] - mean_toon)
+        )
         median_runs[budget] = closest_run
-        print(f"  {budget}: median run = run_{closest_run} "
-              f"(TOON ~{toon_tokens[closest_run]}, mean ~{mean_toon:.0f})")
+        print(
+            f"  {budget}: median run = run_{closest_run} "
+            f"(TOON ~{toon_tokens[closest_run]}, mean ~{mean_toon:.0f})"
+        )
     return median_runs
 
 
 # ---------------------------------------------------------------------------
 # Step 3: Cross-budget section analysis (Part 1)
 # ---------------------------------------------------------------------------
+
 
 def cross_budget_section_analysis(data: dict) -> dict:
     """Analyze section presence across budgets.
@@ -167,12 +182,20 @@ def print_section_heatmap(analysis: dict):
 
     # Column headers
     short_names = {
-        "budget-500": "500", "budget-1000": "1000", "budget-2000": "2000",
-        "budget-3000": "3000", "budget-5000": "5000", "budget-10000": "10000",
+        "budget-500": "500",
+        "budget-1000": "1000",
+        "budget-2000": "2000",
+        "budget-3000": "3000",
+        "budget-5000": "5000",
+        "budget-10000": "10000",
         "no-budget": "None",
     }
 
-    header = f"{'Section':<35} " + " ".join(f"{short_names[b]:>5}" for b in BUDGET_ORDER) + "  Category"
+    header = (
+        f"{'Section':<35} "
+        + " ".join(f"{short_names[b]:>5}" for b in BUDGET_ORDER)
+        + "  Category"
+    )
     print(header)
     print("-" * len(header))
 
@@ -236,8 +259,11 @@ def compute_skill_embedding_similarity(
 
         if not all_texts:
             results[budget] = {
-                "total_skills": 0, "stable_skills": 0, "stability_pct": 0.0,
-                "clusters": [], "unique_skills_per_run": {},
+                "total_skills": 0,
+                "stable_skills": 0,
+                "stability_pct": 0.0,
+                "clusters": [],
+                "unique_skills_per_run": {},
             }
             continue
 
@@ -250,7 +276,9 @@ def compute_skill_embedding_similarity(
             skill.embedding = embeddings[i]
 
         # Greedy clustering: assign each skill to first matching cluster
-        clusters = []  # each: {"representative_idx": int, "members": [(idx, similarity)]}
+        clusters = (
+            []
+        )  # each: {"representative_idx": int, "members": [(idx, similarity)]}
         assigned = set()
 
         for i in range(len(all_skills)):
@@ -291,7 +319,7 @@ def compute_skill_embedding_similarity(
             # Pick representative: longest content or highest helpful count
             rep_idx = max(
                 [idx for idx, _ in members],
-                key=lambda i: (all_skills[i][1].helpful, len(all_skills[i][1].content))
+                key=lambda i: (all_skills[i][1].helpful, len(all_skills[i][1].content)),
             )
             rep_run, rep_skill = all_skills[rep_idx]
 
@@ -314,12 +342,16 @@ def compute_skill_embedding_similarity(
             "total_skills": total_skills,
             "n_clusters": n_clusters,
             "stable_skills": stable_skill_count,
-            "stability_pct": (stable_skill_count / n_clusters * 100) if n_clusters > 0 else 0.0,
+            "stability_pct": (
+                (stable_skill_count / n_clusters * 100) if n_clusters > 0 else 0.0
+            ),
             "clusters": enriched_clusters,
         }
 
-        print(f"    {total_skills} skills -> {n_clusters} clusters, "
-              f"{stable_skill_count} stable ({results[budget]['stability_pct']:.1f}%)")
+        print(
+            f"    {total_skills} skills -> {n_clusters} clusters, "
+            f"{stable_skill_count} stable ({results[budget]['stability_pct']:.1f}%)"
+        )
 
     return results
 
@@ -327,6 +359,7 @@ def compute_skill_embedding_similarity(
 # ---------------------------------------------------------------------------
 # Step 5: Build consensus skillbooks (Part 3 prep)
 # ---------------------------------------------------------------------------
+
 
 def build_consensus_skillbooks(
     data: dict, embedding_results: dict[str, dict]
@@ -341,7 +374,9 @@ def build_consensus_skillbooks(
         result = embedding_results[budget]
         sb = Skillbook()
 
-        stable_clusters = [c for c in result["clusters"] if c["run_coverage"] >= MIN_RUNS_FOR_STABLE]
+        stable_clusters = [
+            c for c in result["clusters"] if c["run_coverage"] >= MIN_RUNS_FOR_STABLE
+        ]
 
         for cluster in stable_clusters:
             rep = cluster["representative"]
@@ -363,8 +398,10 @@ def build_consensus_skillbooks(
             )
 
         consensus[budget] = sb
-        print(f"  {budget}: {len(stable_clusters)} consensus skills "
-              f"(from {result['n_clusters']} total clusters)")
+        print(
+            f"  {budget}: {len(stable_clusters)} consensus skills "
+            f"(from {result['n_clusters']} total clusters)"
+        )
 
     return consensus
 
@@ -387,6 +424,7 @@ def save_consensus_skillbooks(consensus: dict[str, Skillbook]):
 # ---------------------------------------------------------------------------
 # Step 6: Output summary tables
 # ---------------------------------------------------------------------------
+
 
 def print_summary_table(
     data: dict,
@@ -417,13 +455,16 @@ def print_summary_table(
 
         # Averages
         avg_skills = sum(len(r["skillbook"].skills()) for r in runs.values()) / n_runs
-        avg_sections = sum(
-            len(set(s.section for s in r["skillbook"].skills()))
-            for r in runs.values()
-        ) / n_runs
-        avg_toon = sum(
-            len(r["skillbook"].as_prompt()) // 4 for r in runs.values()
-        ) / n_runs
+        avg_sections = (
+            sum(
+                len(set(s.section for s in r["skillbook"].skills()))
+                for r in runs.values()
+            )
+            / n_runs
+        )
+        avg_toon = (
+            sum(len(r["skillbook"].as_prompt()) // 4 for r in runs.values()) / n_runs
+        )
 
         emb = embedding_results[budget]
         n_clusters = emb["n_clusters"]
@@ -464,7 +505,9 @@ def print_stability_breakdown(embedding_results: dict[str, dict]):
             pct = coverage_counts[cov] / emb["n_clusters"] * 100
             bar = "█" * int(pct / 2)
             label = "STABLE" if cov >= MIN_RUNS_FOR_STABLE else "stochastic"
-            print(f"    {cov}/{n_runs} runs: {coverage_counts[cov]:>3} clusters ({pct:>5.1f}%) {bar} [{label}]")
+            print(
+                f"    {cov}/{n_runs} runs: {coverage_counts[cov]:>3} clusters ({pct:>5.1f}%) {bar} [{label}]"
+            )
 
 
 def print_median_run_details(data: dict, median_runs: dict[str, int]):
@@ -483,8 +526,10 @@ def print_median_run_details(data: dict, median_runs: dict[str, int]):
         md_chars = len(run_data["md"])
 
         short = budget.replace("budget-", "").replace("no-budget", "None")
-        print(f"  {short}: run_{med} — {n_skills} skills, {n_sections} sections, "
-              f"~{toon} TOON tokens, {md_chars} MD chars")
+        print(
+            f"  {short}: run_{med} — {n_skills} skills, {n_sections} sections, "
+            f"~{toon} TOON tokens, {md_chars} MD chars"
+        )
 
 
 def print_consensus_details(consensus: dict[str, Skillbook]):
@@ -501,8 +546,10 @@ def print_consensus_details(consensus: dict[str, Skillbook]):
         md_chars = len(str(sb))
 
         short = budget.replace("budget-", "").replace("no-budget", "None")
-        print(f"  {short}: {n_skills} skills, {n_sections} sections, "
-              f"~{toon} TOON tokens, {md_chars} MD chars")
+        print(
+            f"  {short}: {n_skills} skills, {n_sections} sections, "
+            f"~{toon} TOON tokens, {md_chars} MD chars"
+        )
 
 
 def print_core_fringe_sections(section_analysis: dict):
@@ -528,6 +575,7 @@ def print_core_fringe_sections(section_analysis: dict):
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
 
 def main():
     print("=" * 100)
@@ -557,8 +605,10 @@ def main():
     print("\n[3/6] Cross-budget section analysis...")
     section_analysis = cross_budget_section_analysis(data)
     print(f"  {len(section_analysis['all_sections'])} unique sections found")
-    print(f"  {len(section_analysis['core_sections'])} core, "
-          f"{len(section_analysis['fringe_sections'])} fringe")
+    print(
+        f"  {len(section_analysis['core_sections'])} core, "
+        f"{len(section_analysis['fringe_sections'])} fringe"
+    )
 
     # Step 4: Within-budget consistency
     print("\n[4/6] Within-budget consistency (embeddings)...")
@@ -573,8 +623,9 @@ def main():
     save_consensus_skillbooks(consensus)
 
     # Print all tables
-    print_summary_table(data, median_runs, section_analysis,
-                        embedding_results, consensus)
+    print_summary_table(
+        data, median_runs, section_analysis, embedding_results, consensus
+    )
     print_section_heatmap(section_analysis)
     print_stability_breakdown(embedding_results)
     print_median_run_details(data, median_runs)

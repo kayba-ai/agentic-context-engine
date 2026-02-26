@@ -1125,7 +1125,11 @@ def capture_reflector_inputs(args: argparse.Namespace) -> None:
 
         try:
             result, simulation = run_single_task_traced(
-                task, skillbook, args, phase="capture", trial=0,
+                task,
+                skillbook,
+                args,
+                phase="capture",
+                trial=0,
             )
 
             # Build trace — identical to run_ace_training() lines 822–857
@@ -1199,7 +1203,10 @@ def replay_reflector_inputs(args: argparse.Namespace) -> None:
     trained skillbook.
     """
     from ace.prompt_manager import PromptManager
-    from ace.reflector.prompt_registry import ALL_PROMPT_VERSION_NAMES, get_prompt_template
+    from ace.reflector.prompt_registry import (
+        ALL_PROMPT_VERSION_NAMES,
+        get_prompt_template,
+    )
 
     input_dir = Path(args.replay_reflector_inputs)
     if not input_dir.exists():
@@ -1221,7 +1228,9 @@ def replay_reflector_inputs(args: argparse.Namespace) -> None:
         with open(tf) as f:
             inputs.append(json.load(f))
 
-    print(f"\n🔄 Replaying {len(inputs)} reflector inputs through {len(ALL_PROMPT_VERSION_NAMES)} prompt versions")
+    print(
+        f"\n🔄 Replaying {len(inputs)} reflector inputs through {len(ALL_PROMPT_VERSION_NAMES)} prompt versions"
+    )
 
     reflector_model = getattr(args, "reflector_model", None) or args.model
     reflector_client = create_llm_client(args, model=reflector_model)
@@ -1278,7 +1287,9 @@ def replay_reflector_inputs(args: argparse.Namespace) -> None:
 
                 skillbook.apply_update(skill_manager_output.update)
 
-                print(f"    [{i + 1}/{len(inputs)}] {task_id} ✓ ({len(skillbook.skills())} skills)")
+                print(
+                    f"    [{i + 1}/{len(inputs)}] {task_id} ✓ ({len(skillbook.skills())} skills)"
+                )
 
             except Exception as e:
                 print(f"    [{i + 1}/{len(inputs)}] {task_id} ERROR: {e}")
@@ -1595,7 +1606,9 @@ def _run_prompt_sweep(args: argparse.Namespace) -> None:
             "metrics": results["metrics"],
             "tasks_evaluated": results["tasks_evaluated"],
         }
-    sweep_file = output_dir / f"tau_{args.domain}_{original_config_name}_sweep_{timestamp}.json"
+    sweep_file = (
+        output_dir / f"tau_{args.domain}_{original_config_name}_sweep_{timestamp}.json"
+    )
     with open(sweep_file, "w") as f:
         json.dump(sweep_summary, f, indent=2)
     print(f"\n💾 Sweep results saved to: {sweep_file}")
@@ -1607,9 +1620,7 @@ def main() -> None:
 
     # Capture mode: save reflector inputs and exit
     if getattr(args, "capture_reflector_inputs", None):
-        setup_opik_tracing(
-            args.domain, args.model, getattr(args, "opik_project", None)
-        )
+        setup_opik_tracing(args.domain, args.model, getattr(args, "opik_project", None))
         capture_reflector_inputs(args)
         return
 

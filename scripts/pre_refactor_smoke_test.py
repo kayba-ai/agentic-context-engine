@@ -79,7 +79,9 @@ check("add skill", len(sb.skills()) == 1)
 check("skill lookup", sb.get_skill("test-001") is not None)
 check("skill content", sb.get_skill("test-001").content == "Always write tests first")
 
-sb.add_skill(section="testing", content="Use mocks for external calls", skill_id="test-002")
+sb.add_skill(
+    section="testing", content="Use mocks for external calls", skill_id="test-002"
+)
 check("two skills", len(sb.skills()) == 2)
 
 sb.tag_skill("test-001", "helpful")
@@ -102,7 +104,10 @@ with tempfile.NamedTemporaryFile(suffix=".json", delete=False, mode="w") as f:
 sb.save_to_file(tmp_path)
 loaded = Skillbook.load_from_file(tmp_path)
 check("save/load round-trip", len(loaded.skills()) == 1)
-check("loaded content matches", loaded.get_skill("test-001").content == "Always write tests first")
+check(
+    "loaded content matches",
+    loaded.get_skill("test-001").content == "Always write tests first",
+)
 Path(tmp_path).unlink()
 
 
@@ -110,13 +115,19 @@ Path(tmp_path).unlink()
 
 section("UpdateOperation & UpdateBatch")
 
-op_add = UpdateOperation(type="ADD", section="general", content="Be concise", skill_id="new-001")
+op_add = UpdateOperation(
+    type="ADD", section="general", content="Be concise", skill_id="new-001"
+)
 check("create ADD op", op_add.type == "ADD")
 
-op_update = UpdateOperation(type="UPDATE", section="testing", skill_id="test-001", content="Updated")
+op_update = UpdateOperation(
+    type="UPDATE", section="testing", skill_id="test-001", content="Updated"
+)
 check("create UPDATE op", op_update.type == "UPDATE")
 
-op_tag = UpdateOperation(type="TAG", section="testing", skill_id="test-001", metadata={"helpful": 1})
+op_tag = UpdateOperation(
+    type="TAG", section="testing", skill_id="test-001", metadata={"helpful": 1}
+)
 check("create TAG op", op_tag.type == "TAG")
 
 op_remove = UpdateOperation(type="REMOVE", section="testing", skill_id="test-001")
@@ -126,13 +137,17 @@ batch = UpdateBatch(reasoning="test batch", operations=[op_add, op_tag])
 check("batch creation", len(batch.operations) == 2)
 
 # from_json
-op_from_json = UpdateOperation.from_json({"type": "ADD", "section": "s", "content": "c"})
+op_from_json = UpdateOperation.from_json(
+    {"type": "ADD", "section": "s", "content": "c"}
+)
 check("UpdateOperation.from_json", op_from_json.type == "ADD")
 
-batch_from_json = UpdateBatch.from_json({
-    "reasoning": "r",
-    "operations": [{"type": "ADD", "section": "s", "content": "c"}],
-})
+batch_from_json = UpdateBatch.from_json(
+    {
+        "reasoning": "r",
+        "operations": [{"type": "ADD", "section": "s", "content": "c"}],
+    }
+)
 check("UpdateBatch.from_json", len(batch_from_json.operations) == 1)
 
 # Apply batch to skillbook
@@ -191,11 +206,15 @@ agent = Agent(llm)
 check("Agent created", agent is not None)
 check("Agent has llm", agent.llm is not None)
 
-llm.queue(json.dumps({
-    "reasoning": "2+2 is basic arithmetic",
-    "final_answer": "4",
-    "skill_ids": [],
-}))
+llm.queue(
+    json.dumps(
+        {
+            "reasoning": "2+2 is basic arithmetic",
+            "final_answer": "4",
+            "skill_ids": [],
+        }
+    )
+)
 sb_for_roles = Skillbook()
 out = agent.generate(question="What is 2+2?", context="", skillbook=sb_for_roles)
 check("Agent.generate returns AgentOutput", isinstance(out, AgentOutput))
@@ -215,18 +234,26 @@ llm2 = DummyLLMClient()
 reflector = Reflector(llm2)
 check("Reflector created", reflector is not None)
 
-llm2.queue(json.dumps({
-    "reasoning": "The agent got the right answer",
-    "error_identification": "",
-    "root_cause_analysis": "",
-    "correct_approach": "Basic arithmetic",
-    "key_insight": "Simple addition works",
-    "extracted_learnings": [
-        {"learning": "Always verify arithmetic", "atomicity_score": 0.9,
-         "evidence": "2+2=4", "justification": "fundamental"}
-    ],
-    "skill_tags": [],
-}))
+llm2.queue(
+    json.dumps(
+        {
+            "reasoning": "The agent got the right answer",
+            "error_identification": "",
+            "root_cause_analysis": "",
+            "correct_approach": "Basic arithmetic",
+            "key_insight": "Simple addition works",
+            "extracted_learnings": [
+                {
+                    "learning": "Always verify arithmetic",
+                    "atomicity_score": 0.9,
+                    "evidence": "2+2=4",
+                    "justification": "fundamental",
+                }
+            ],
+            "skill_tags": [],
+        }
+    )
+)
 ref_out = reflector.reflect(
     question="What is 2+2?",
     agent_output=out,
@@ -243,22 +270,33 @@ llm3 = DummyLLMClient()
 skill_mgr = SkillManager(llm3)
 check("SkillManager created", skill_mgr is not None)
 
-llm3.queue(json.dumps({
-    "update": {
-        "reasoning": "Add arithmetic verification skill",
-        "operations": [
-            {"type": "ADD", "skill_id": "arith-001", "section": "math",
-             "content": "Verify arithmetic"}
-        ]
-    }
-}))
+llm3.queue(
+    json.dumps(
+        {
+            "update": {
+                "reasoning": "Add arithmetic verification skill",
+                "operations": [
+                    {
+                        "type": "ADD",
+                        "skill_id": "arith-001",
+                        "section": "math",
+                        "content": "Verify arithmetic",
+                    }
+                ],
+            }
+        }
+    )
+)
 sm_result = skill_mgr.update_skills(
     reflection=ref_out,
     skillbook=sb_for_roles,
     question_context="Math problems",
     progress="1/1 correct",
 )
-check("SkillManager.update_skills returns SkillManagerOutput", isinstance(sm_result, SkillManagerOutput))
+check(
+    "SkillManager.update_skills returns SkillManagerOutput",
+    isinstance(sm_result, SkillManagerOutput),
+)
 check("SkillManager produced ops", len(sm_result.update.operations) >= 1)
 
 
@@ -305,23 +343,31 @@ samples = [
 
 # Queue responses for 2 samples × 1 epoch: agent + reflector + skill_manager each
 for q, a in [("2+2", "4"), ("France", "Paris")]:
-    llm_full.queue(json.dumps({
-        "reasoning": f"Thinking about {q}",
-        "final_answer": a,
-        "skill_ids": [],
-    }))
-    llm_full.queue(json.dumps({
-        "reasoning": "Good answer",
-        "error_identification": "",
-        "root_cause_analysis": "",
-        "correct_approach": "Direct recall",
-        "key_insight": f"Know the answer to {q}",
-        "extracted_learnings": [],
-        "skill_tags": [],
-    }))
-    llm_full.queue(json.dumps({
-        "update": {"reasoning": "no changes needed", "operations": []}
-    }))
+    llm_full.queue(
+        json.dumps(
+            {
+                "reasoning": f"Thinking about {q}",
+                "final_answer": a,
+                "skill_ids": [],
+            }
+        )
+    )
+    llm_full.queue(
+        json.dumps(
+            {
+                "reasoning": "Good answer",
+                "error_identification": "",
+                "root_cause_analysis": "",
+                "correct_approach": "Direct recall",
+                "key_insight": f"Know the answer to {q}",
+                "extracted_learnings": [],
+                "skill_tags": [],
+            }
+        )
+    )
+    llm_full.queue(
+        json.dumps({"update": {"reasoning": "no changes needed", "operations": []}})
+    )
 
 results = adapter.run(samples, env, epochs=1)
 check("OfflineACE.run returned results", len(results) == 2)
@@ -347,27 +393,31 @@ online = OnlineACE(
 )
 check("OnlineACE created", online is not None)
 
-llm_online.queue(json.dumps({
-    "reasoning": "thinking",
-    "final_answer": "4",
-    "skill_ids": [],
-}))
-llm_online.queue(json.dumps({
-    "reasoning": "correct",
-    "error_identification": "",
-    "root_cause_analysis": "",
-    "correct_approach": "arithmetic",
-    "key_insight": "addition",
-    "extracted_learnings": [],
-    "skill_tags": [],
-}))
-llm_online.queue(json.dumps({
-    "update": {"reasoning": "no changes", "operations": []}
-}))
-
-online_results = online.run(
-    [Sample(question="2+2?", ground_truth="4")], env
+llm_online.queue(
+    json.dumps(
+        {
+            "reasoning": "thinking",
+            "final_answer": "4",
+            "skill_ids": [],
+        }
+    )
 )
+llm_online.queue(
+    json.dumps(
+        {
+            "reasoning": "correct",
+            "error_identification": "",
+            "root_cause_analysis": "",
+            "correct_approach": "arithmetic",
+            "key_insight": "addition",
+            "extracted_learnings": [],
+            "skill_tags": [],
+        }
+    )
+)
+llm_online.queue(json.dumps({"update": {"reasoning": "no changes", "operations": []}}))
+
+online_results = online.run([Sample(question="2+2?", ground_truth="4")], env)
 check("OnlineACE.run returned results", len(online_results) == 1)
 
 
@@ -382,10 +432,15 @@ agent_prompt = pm.get_agent_prompt()
 check("agent prompt is string", isinstance(agent_prompt, str) and len(agent_prompt) > 0)
 
 reflector_prompt = pm.get_reflector_prompt()
-check("reflector prompt is string", isinstance(reflector_prompt, str) and len(reflector_prompt) > 0)
+check(
+    "reflector prompt is string",
+    isinstance(reflector_prompt, str) and len(reflector_prompt) > 0,
+)
 
 sm_prompt = pm.get_skill_manager_prompt()
-check("skill_manager prompt is string", isinstance(sm_prompt, str) and len(sm_prompt) > 0)
+check(
+    "skill_manager prompt is string", isinstance(sm_prompt, str) and len(sm_prompt) > 0
+)
 
 versions = pm.list_available_versions()
 check("list_available_versions non-empty", len(versions) >= 1)
@@ -400,7 +455,9 @@ check("default config created", dedup_cfg.enabled is True)
 check("default threshold", dedup_cfg.similarity_threshold == 0.85)
 
 custom_cfg = DeduplicationConfig(similarity_threshold=0.7, enabled=False)
-check("custom config", custom_cfg.similarity_threshold == 0.7 and not custom_cfg.enabled)
+check(
+    "custom config", custom_cfg.similarity_threshold == 0.7 and not custom_cfg.enabled
+)
 
 
 # ── 11. Feature Flags ────────────────────────────────────────
