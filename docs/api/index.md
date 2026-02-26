@@ -301,6 +301,78 @@ client = InstructorClient(LiteLLMClient(model="ollama/gemma3:1b"))
 
 ---
 
+## Patterns
+
+### SubRunner
+
+Abstract base class for steps that run an internal `Pipeline` in a loop. Satisfies `StepProtocol` — can be placed directly in any pipeline.
+
+```python
+from ace_next.core import SubRunner
+```
+
+Subclasses implement five template methods plus `__call__`:
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `_build_inner_pipeline` | `(**kwargs) -> Pipeline` | Return the step sequence for one iteration |
+| `_build_initial_context` | `(**kwargs) -> StepContext` | Return the context for the first iteration |
+| `_is_done` | `(ctx) -> bool` | Return `True` when the loop should stop |
+| `_extract_result` | `(ctx) -> Any` | Pull the final result from the terminal context |
+| `_accumulate` | `(ctx) -> StepContext` | Build the next iteration's context from the current one |
+| `_on_timeout` | `(last_ctx, iteration, **kwargs) -> Any` | Called when `max_iterations` is reached. Default raises `RuntimeError`. |
+| `run_loop` | `(**kwargs) -> Any` | Execute the loop (called by `__call__`, also usable standalone) |
+| `__call__` | `(ctx) -> StepContext` | `StepProtocol` entry point — map outer context to `run_loop` result |
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `max_iterations` | `int` | `20` | Maximum loop iterations before `_on_timeout` fires |
+
+**Example:**
+
+```python
+from ace_next.core import SubRunner
+from pipeline import Pipeline, StepContext
+
+class RefineRunner(SubRunner):
+    requires = frozenset({"draft"})
+    provides = frozenset({"refined"})
+
+    def __init__(self, scorer, improver, threshold=0.9):
+        super().__init__(max_iterations=10)
+        self.scorer = scorer
+        self.improver = improver
+        self.threshold = threshold
+
+    def _build_inner_pipeline(self, **kw):
+        return Pipeline([ScoreStep(self.scorer), ImproveStep(self.improver)])
+
+    def _build_initial_context(self, **kw):
+        return RefineContext(text=kw["draft"])
+
+    def _is_done(self, ctx):
+        return ctx.score >= self.threshold
+
+    def _extract_result(self, ctx):
+        return ctx.text
+
+    def _accumulate(self, ctx):
+        return ctx.replace(iteration=ctx.iteration + 1)
+
+    def _on_timeout(self, last_ctx, iteration, **kwargs):
+        return last_ctx.text  # best effort
+
+    def __call__(self, ctx):
+        result = self.run_loop(draft=ctx.metadata["draft"])
+        return ctx.replace(metadata=MappingProxyType({**ctx.metadata, "refined": result}))
+```
+
+**Canonical implementation:** `RRStep` in `ace_next/rr/` — the Recursive Reflector's REPL loop.
+
+See [Building Custom Steps](../pipeline/custom-steps.md) for the full guide.
+
+---
+
 ## Observability
 
 ### OpikStep
