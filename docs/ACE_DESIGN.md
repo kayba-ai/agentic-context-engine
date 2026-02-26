@@ -535,29 +535,33 @@ ace = ACE.from_roles(
 | `dedup_interval` | `10` | Deduplication frequency (samples between runs) |
 | `checkpoint_dir` | `None` | Appends a `CheckpointStep` to the pipeline |
 | `checkpoint_interval` | `10` | Checkpoint frequency (samples between saves) |
+| `extra_steps` | `None` | Additional steps appended after the learning tail (e.g. `OpikStep`) |
 
-Checkpoint and deduplication are configured at construction time. The factory conditionally appends the corresponding steps to the pipeline tail. Both classes follow the same pattern — ACE prepends its execute steps:
+Checkpoint and deduplication are configured at construction time. The factory conditionally appends the corresponding steps to the pipeline tail. `extra_steps` are appended last — after dedup and checkpoint. Both classes follow the same pattern — ACE prepends its execute steps:
 
 ```python
 # TraceAnalyser — learning tail only
 @classmethod
 def from_roles(cls, *, reflector, skill_manager, skillbook=None,
                dedup_manager=None, dedup_interval=10,
-               checkpoint_dir=None, checkpoint_interval=10, **kwargs):
+               checkpoint_dir=None, checkpoint_interval=10,
+               extra_steps=None):
     skillbook = skillbook or Skillbook()
     steps = learning_tail(
         reflector, skill_manager, skillbook,
         dedup_manager=dedup_manager, dedup_interval=dedup_interval,
         checkpoint_dir=checkpoint_dir, checkpoint_interval=checkpoint_interval,
-        **kwargs,
     )
+    if extra_steps:
+        steps.extend(extra_steps)
     return cls(pipeline=Pipeline(steps), skillbook=skillbook)
 
 # ACE — execute head + learning tail
 @classmethod
 def from_roles(cls, *, agent, reflector, skill_manager, environment=None,
                skillbook=None, dedup_manager=None, dedup_interval=10,
-               checkpoint_dir=None, checkpoint_interval=10, **kwargs):
+               checkpoint_dir=None, checkpoint_interval=10,
+               extra_steps=None):
     skillbook = skillbook or Skillbook()
     steps = [
         AgentStep(agent),
@@ -566,9 +570,10 @@ def from_roles(cls, *, agent, reflector, skill_manager, environment=None,
             reflector, skill_manager, skillbook,
             dedup_manager=dedup_manager, dedup_interval=dedup_interval,
             checkpoint_dir=checkpoint_dir, checkpoint_interval=checkpoint_interval,
-            **kwargs,
         ),
     ]
+    if extra_steps:
+        steps.extend(extra_steps)
     return cls(pipeline=Pipeline(steps), skillbook=skillbook)
 ```
 
@@ -594,7 +599,7 @@ Reusable step implementations live in `ace_next/steps/`. Each is a single class 
 | **ApplyStep** | `skill_manager_output` | `skillbook` (real) | — | Applies update batch to skillbook | 1 |
 | **DeduplicateStep** | `global_sample_index` | `manager` (DeduplicationManagerLike), `skillbook` (real) | — | Consolidates similar skills | 1 |
 | **CheckpointStep** | `global_sample_index` | `skillbook` (real) | — | Saves skillbook to disk | 1 |
-| **OpikStep** | `skillbook` | `project_name`, `tags`, `register_litellm_callback` | — | Logs pipeline traces to Opik | 1 |
+| **OpikStep** | `skillbook` | `project_name`, `tags` | — | Logs pipeline traces to Opik | 1 |
 | **PersistStep** | `skillbook` | `target_path` | — | Writes skillbook to CLAUDE.md or similar | 1 |
 
 **Requires vs Injected:** `Requires` lists context fields read by the step — validated by the pipeline engine at construction time. The `skillbook` field on the context is a `SkillbookView` (read-only). Steps that **write** to the skillbook (TagStep, ApplyStep, DeduplicateStep, CheckpointStep) receive the real `Skillbook` via constructor injection — marked as "(real)" in the table. These injected dependencies are not tracked by `requires`/`provides`.
@@ -836,15 +841,14 @@ class OpikStep:
         self,
         project_name: str = "ace-framework",
         tags: list[str] | None = None,
-        register_litellm_callback: bool = True,
     ) -> None: ...
 ```
 
-Explicit, opt-in observability step — creates an Opik trace per sample with pipeline metadata, agent output, reflection insights, and skill manager operations. Optionally registers the LiteLLM `OpikLogger` callback for per-LLM-call token/cost tracking (`register_litellm_callback=True` by default).
+Explicit, opt-in observability step — creates an Opik trace per sample with pipeline metadata, agent output, reflection insights, and skill manager operations. **Does NOT register the LiteLLM callback** — call `register_opik_litellm_callback()` separately if you also want per-LLM-call token/cost tracking. Two independent tracing modes: (1) pipeline step (this class) — client-agnostic, reads `ACEStepContext` fields; (2) LiteLLM callback (`register_opik_litellm_callback`) — LiteLLM-specific, registers `OpikLogger` on `litellm.callbacks`.
 
 Only requires `skillbook` (always present). Reads other context fields (`reflection`, `skill_manager_output`, `trace`, `agent_output`) with guards — they may or may not be populated depending on pipeline shape. Gracefully degrades to a no-op when Opik is not installed or `OPIK_DISABLED=true`.
 
-**Not wired into `learning_tail()`.** Users append it explicitly:
+**Not wired into `learning_tail()`.** Users append it via `extra_steps` on `from_roles()`, or manually after calling `learning_tail()`:
 
 ```python
 from ace_next.steps import OpikStep, learning_tail
@@ -857,9 +861,12 @@ steps = [
     OpikStep(project_name="my-project"),
 ]
 
-# Or to a runner's pipeline
-runner = BrowserUse.from_roles(browser_llm=llm, reflector=r, skill_manager=sm)
-runner.pipeline.then(OpikStep())
+# Via from_roles() extra_steps parameter
+ace = ACE.from_roles(agent=a, reflector=r, skill_manager=sm,
+                     extra_steps=[OpikStep(project_name="my-project")])
+
+# Via ACELiteLLM (explicit opt-in — enables both pipeline + LiteLLM tracing)
+ace = ACELiteLLM.from_model("gpt-4o-mini", opik=True, opik_project="my-project")
 
 # LLM-level token tracking only (no pipeline traces)
 from ace_next import register_opik_litellm_callback
@@ -1369,7 +1376,8 @@ These are defined directly on the runner class, not on a separate wrapper.
 
 ```python
 class ACELiteLLM:
-    def __init__(self, llm, *, skillbook=None, environment=None, ...):
+    def __init__(self, llm, *, skillbook=None, environment=None,
+                 opik=False, opik_project="ace-framework", opik_tags=None, ...):
         self.agent = Agent(llm)
         self.reflector = Reflector(llm)
         self.skill_manager = SkillManager(llm)
@@ -1378,18 +1386,41 @@ class ACELiteLLM:
         self._ace: ACE | None = None          # lazy-init
         self._analyser: TraceAnalyser | None = None  # lazy-init
 
+        # Opik observability (explicit opt-in)
+        self._opik_step = None
+        if opik:
+            self._opik_step = OpikStep(project_name=opik_project, tags=opik_tags)
+            register_opik_litellm_callback(project_name=opik_project)
+
     @classmethod
     def from_model(cls, model="gpt-4o-mini", *, max_tokens=2048,
-                   temperature=0.0, **kwargs) -> ACELiteLLM:
+                   temperature=0.0, opik=False, opik_project="ace-framework",
+                   opik_tags=None, **kwargs) -> ACELiteLLM:
         """Build from a model string."""
         llm = LiteLLMClient(model=model, max_tokens=max_tokens, temperature=temperature)
-        return cls(llm, **kwargs)
+        return cls(llm, opik=opik, opik_project=opik_project, opik_tags=opik_tags, **kwargs)
+
+    def _get_extra_steps(self):
+        """Return extra pipeline steps (e.g. OpikStep) or None."""
+        if self._opik_step is not None:
+            return [self._opik_step]
+        return None
+
+    def _get_ace(self, environment=None):
+        """Return (or build) cached ACE runner. Passes extra_steps."""
+        ...
+        self._ace = ACE.from_roles(..., extra_steps=self._get_extra_steps())
+        ...
+
+    def _get_analyser(self):
+        """Return (or build) cached TraceAnalyser. Passes extra_steps."""
+        ...
+        self._analyser = TraceAnalyser.from_roles(..., extra_steps=self._get_extra_steps())
+        ...
 
     def ask(self, question, context="") -> str:
         """Direct Agent call — no pipeline. Stores interaction for learn_from_feedback()."""
-        output = self.agent.generate(question=question, context=context, skillbook=self._skillbook)
-        self._last_interaction = (question, output)
-        return output.final_answer
+        ...
 
     def learn(self, samples, environment=None, epochs=1, *, wait=True):
         """Delegate to lazy-init ACE runner."""
@@ -1409,6 +1440,8 @@ class ACELiteLLM:
         self._ace = None
         self._analyser = None
 ```
+
+When `opik=True`, `ACELiteLLM` creates an `OpikStep` (pipeline-level per-sample tracing) and calls `register_opik_litellm_callback()` (LiteLLM per-call token/cost tracking). Both tracing modes are activated together because the runner knows it's LiteLLM-backed. The `OpikStep` is passed to the runners via `extra_steps` on `from_roles()`.
 
 Runners are cached and invalidated on `load()` (new skillbook object means stale references). Since runners are reentrant (no per-call instance state), caching is safe.
 
@@ -1740,6 +1773,15 @@ ace.ask("What is 2+2?")
 ace.learn_from_feedback("The answer should be 4", ground_truth="4")
 
 ace.save("learned.json")
+
+# With Opik observability (explicit opt-in)
+ace = ACELiteLLM.from_model("gpt-4o-mini", opik=True, opik_project="my-project")
+
+# With Recursive Reflector + Opik
+from ace_next import RRStep, RRConfig, LiteLLMClient
+llm = LiteLLMClient(model="gpt-4o-mini")
+rr = RRStep(llm, config=RRConfig(max_iterations=10))
+ace = ACELiteLLM(llm, reflector=rr, opik=True)
 ```
 
 ### Fire-and-forget — get results while learning continues
@@ -1880,8 +1922,8 @@ Keeping ReflectStep as both reflection and tagging, and UpdateStep as both gener
 **Instructor auto-wrapping in implementations:**
 The old `ace/roles.py` auto-wrapped LLM clients with Instructor if `complete_structured` was missing (duck-typing check + fallback). This has since been updated: `ace/roles.py` now checks `INSTRUCTOR_AVAILABLE` and gracefully falls back to the raw LLM if the `instructor` package is not installed (it is an optional dependency via `pip install ace-framework[instructor]`). Rejected for `ace_next` — auto-wrapping masks what the implementation actually requires. In `ace_next`, `LLMClientLike` explicitly requires both `complete()` and `complete_structured()`. Callers wrap their LLM clients before passing them in (e.g. `wrap_with_instructor(LiteLLMClient(...))` from `ace_next.providers`). This makes the requirement visible at the call site and keeps implementations dependency-free.
 
-**Recursive Reflector:**
-The old `ace/reflector/` subsystem supports recursive mode where the Reflector iterates multiple times to deepen analysis. Rejected for the initial `ace_next` implementation — recursive mode pulls in significant additional complexity (iteration control, convergence detection, intermediate result accumulation) for marginal benefit on most workloads. The `Reflector` class implements SIMPLE mode only (single-pass reflection). Recursive mode can be added later as an opt-in capability without changing the `ReflectorLike` protocol.
+**Recursive Reflector (initial rejection, now implemented):**
+The old `ace/reflector/` subsystem supports recursive mode where the Reflector iterates multiple times to deepen analysis. Initially rejected for `ace_next` due to complexity. Now implemented as `RRStep` in `ace_next/rr/` — a `SubRunner`-based step that runs an iterative REPL loop (LLM call → extract code → sandbox exec → check result). `RRStep` satisfies both `StepProtocol` (composable in any pipeline) and `ReflectorLike` (usable as a drop-in reflector, e.g. `ACELiteLLM(llm, reflector=rr)`). Exported from `ace_next` as `RRStep` and `RRConfig`.
 
 **Observability decorator on implementations:**
 The old `ace/roles.py` uses `@maybe_track()` decorators for Opik tracing on every role method. Rejected — `OpikStep` handles metrics at the pipeline level with full visibility into all context fields. Adding per-method decorators would double-count and create coupling between implementations and the observability system.
