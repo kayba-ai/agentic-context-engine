@@ -28,6 +28,14 @@ from ace_next.core.outputs import ExtractedLearning, ReflectorOutput
 from .context import RRIterationContext
 from .steps import LLMCallStep, ExtractCodeStep, SandboxExecStep, CheckResultStep
 
+try:
+    import opik as _opik
+
+    _OPIK_AVAILABLE = True
+except ImportError:
+    _opik = None  # type: ignore[assignment]
+    _OPIK_AVAILABLE = False
+
 if TYPE_CHECKING:
     from ace_next.core.outputs import AgentOutput
 
@@ -72,6 +80,43 @@ class RRStep(SubRunner):
         self.config = cfg
         self.prompt_template = prompt_template
         self.subagent_llm = subagent_llm
+
+    # ------------------------------------------------------------------
+    # Loop override — per-iteration Opik spans
+    # ------------------------------------------------------------------
+
+    def run_loop(self, **kwargs: Any) -> Any:
+        """Execute the iterative loop with per-iteration Opik spans."""
+        pipe = self._build_inner_pipeline(**kwargs)
+        ctx = self._build_initial_context(**kwargs)
+
+        for i in range(self.max_iterations):
+            ctx = pipe(ctx)
+            rr_ctx: RRIterationContext = ctx  # type: ignore[assignment]
+
+            if _OPIK_AVAILABLE:
+                try:
+                    from opik import opik_context
+
+                    exec_result = rr_ctx.exec_result
+                    opik_context.update_current_span(
+                        metadata={
+                            f"iteration_{i}": {
+                                "code": rr_ctx.code,
+                                "stdout": getattr(exec_result, "stdout", None) if exec_result else None,
+                                "stderr": getattr(exec_result, "stderr", None) if exec_result else None,
+                                "terminated": rr_ctx.terminated,
+                            }
+                        },
+                    )
+                except Exception:
+                    pass
+
+            if self._is_done(ctx):
+                return self._extract_result(ctx)
+            ctx = self._accumulate(ctx)
+
+        return self._on_timeout(ctx, self.max_iterations, **kwargs)
 
     # ------------------------------------------------------------------
     # SubRunner template methods
