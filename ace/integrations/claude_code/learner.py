@@ -33,21 +33,39 @@ import tempfile
 from pathlib import Path
 from typing import List, Optional, Any
 
-from dotenv import load_dotenv
-from tenacity import (
-    retry,
-    stop_after_attempt,
-    wait_exponential,
-)
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    load_dotenv = None  # type: ignore[assignment]
+
+try:
+    from tenacity import (
+        retry,
+        stop_after_attempt,
+        wait_exponential,
+    )
+except ImportError:
+    # Fallback: no-op retry decorator when tenacity is not installed
+    def retry(**kwargs):  # type: ignore[misc]
+        def decorator(func):
+            return func
+        return decorator
+
+    def stop_after_attempt(n):  # type: ignore[misc]
+        return n
+
+    def wait_exponential(**kwargs):  # type: ignore[misc]
+        return None
 
 # Load .env file from ~/.ace/.env or current directory
-_env_paths = [
-    Path.home() / ".ace" / ".env",
-    Path.cwd() / ".env",
-]
-for _env_path in _env_paths:
-    if _env_path.exists():
-        load_dotenv(_env_path)
+if load_dotenv is not None:
+    _env_paths = [
+        Path.home() / ".ace" / ".env",
+        Path.cwd() / ".env",
+    ]
+    for _env_path in _env_paths:
+        if _env_path.exists():
+            load_dotenv(_env_path)
         break
 
 from ...skillbook import Skillbook
