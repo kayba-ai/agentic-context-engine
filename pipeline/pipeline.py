@@ -43,6 +43,7 @@ def _get_class_executor(step_cls: type) -> ThreadPoolExecutor:
 # Pipeline
 # ---------------------------------------------------------------------------
 
+
 class Pipeline:
     """Ordered sequence of steps.  Satisfies StepProtocol — can be nested.
 

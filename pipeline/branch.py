@@ -25,6 +25,7 @@ class MergeStrategy(Enum):
 # Built-in merge functions
 # ---------------------------------------------------------------------------
 
+
 def _merge_raise_on_conflict(ctxs: list[StepContext]) -> StepContext:
     """Raise if any two branches wrote different values for the same field.
 
@@ -108,6 +109,7 @@ _BUILTIN_MERGES: dict[MergeStrategy, Callable] = {
 # ---------------------------------------------------------------------------
 # Branch
 # ---------------------------------------------------------------------------
+
 
 class Branch:
     """Runs multiple pipelines in parallel, then merges their outputs.
