@@ -754,7 +754,7 @@ class TestBackwardsCompatibility:
 
     def test_can_check_availability(self):
         """Should check browser-use availability."""
-        from ace import BROWSER_USE_AVAILABLE as imported_available
+        from ace.integrations import BROWSER_USE_AVAILABLE as imported_available
 
         assert imported_available is True
 
