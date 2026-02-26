@@ -1,0 +1,492 @@
+{
+  "budget-10000_run_1": {
+    "type": "individual",
+    "budget": "budget-10000",
+    "sections": 15,
+    "skills": 61,
+    "md_chars": 21847,
+    "md_tokens_est": 5461,
+    "md_tokens_tiktoken": 4256,
+    "run": 1
+  },
+  "budget-10000_run_2": {
+    "type": "individual",
+    "budget": "budget-10000",
+    "sections": 9,
+    "skills": 50,
+    "md_chars": 24752,
+    "md_tokens_est": 6188,
+    "md_tokens_tiktoken": 4732,
+    "run": 2
+  },
+  "budget-10000_run_3": {
+    "type": "individual",
+    "budget": "budget-10000",
+    "sections": 14,
+    "skills": 49,
+    "md_chars": 21552,
+    "md_tokens_est": 5388,
+    "md_tokens_tiktoken": 4212,
+    "run": 3
+  },
+  "budget-10000_run_4": {
+    "type": "individual",
+    "budget": "budget-10000",
+    "sections": 6,
+    "skills": 52,
+    "md_chars": 22115,
+    "md_tokens_est": 5528,
+    "md_tokens_tiktoken": 4201,
+    "run": 4
+  },
+  "budget-10000_run_5": {
+    "type": "individual",
+    "budget": "budget-10000",
+    "sections": 17,
+    "skills": 64,
+    "md_chars": 20722,
+    "md_tokens_est": 5180,
+    "md_tokens_tiktoken": 3893,
+    "run": 5
+  },
+  "budget-1000_run_1": {
+    "type": "individual",
+    "budget": "budget-1000",
+    "sections": 13,
+    "skills": 44,
+    "md_chars": 18758,
+    "md_tokens_est": 4689,
+    "md_tokens_tiktoken": 3690,
+    "run": 1
+  },
+  "budget-1000_run_2": {
+    "type": "individual",
+    "budget": "budget-1000",
+    "sections": 9,
+    "skills": 26,
+    "md_chars": 13306,
+    "md_tokens_est": 3326,
+    "md_tokens_tiktoken": 2608,
+    "run": 2
+  },
+  "budget-1000_run_3": {
+    "type": "individual",
+    "budget": "budget-1000",
+    "sections": 10,
+    "skills": 34,
+    "md_chars": 16125,
+    "md_tokens_est": 4031,
+    "md_tokens_tiktoken": 3211,
+    "run": 3
+  },
+  "budget-1000_run_4": {
+    "type": "individual",
+    "budget": "budget-1000",
+    "sections": 7,
+    "skills": 35,
+    "md_chars": 16393,
+    "md_tokens_est": 4098,
+    "md_tokens_tiktoken": 3169,
+    "run": 4
+  },
+  "budget-1000_run_5": {
+    "type": "individual",
+    "budget": "budget-1000",
+    "sections": 8,
+    "skills": 26,
+    "md_chars": 12050,
+    "md_tokens_est": 3012,
+    "md_tokens_tiktoken": 2290,
+    "run": 5
+  },
+  "budget-2000_run_1": {
+    "type": "individual",
+    "budget": "budget-2000",
+    "sections": 9,
+    "skills": 32,
+    "md_chars": 15300,
+    "md_tokens_est": 3825,
+    "md_tokens_tiktoken": 2989,
+    "run": 1
+  },
+  "budget-2000_run_2": {
+    "type": "individual",
+    "budget": "budget-2000",
+    "sections": 19,
+    "skills": 36,
+    "md_chars": 15083,
+    "md_tokens_est": 3770,
+    "md_tokens_tiktoken": 2842,
+    "run": 2
+  },
+  "budget-2000_run_3": {
+    "type": "individual",
+    "budget": "budget-2000",
+    "sections": 6,
+    "skills": 38,
+    "md_chars": 17821,
+    "md_tokens_est": 4455,
+    "md_tokens_tiktoken": 3542,
+    "run": 3
+  },
+  "budget-2000_run_4": {
+    "type": "individual",
+    "budget": "budget-2000",
+    "sections": 9,
+    "skills": 43,
+    "md_chars": 18413,
+    "md_tokens_est": 4603,
+    "md_tokens_tiktoken": 3475,
+    "run": 4
+  },
+  "budget-2000_run_5": {
+    "type": "individual",
+    "budget": "budget-2000",
+    "sections": 6,
+    "skills": 43,
+    "md_chars": 17609,
+    "md_tokens_est": 4402,
+    "md_tokens_tiktoken": 3449,
+    "run": 5
+  },
+  "budget-3000_run_1": {
+    "type": "individual",
+    "budget": "budget-3000",
+    "sections": 13,
+    "skills": 41,
+    "md_chars": 16314,
+    "md_tokens_est": 4078,
+    "md_tokens_tiktoken": 3171,
+    "run": 1
+  },
+  "budget-3000_run_2": {
+    "type": "individual",
+    "budget": "budget-3000",
+    "sections": 13,
+    "skills": 44,
+    "md_chars": 19398,
+    "md_tokens_est": 4849,
+    "md_tokens_tiktoken": 3749,
+    "run": 2
+  },
+  "budget-3000_run_3": {
+    "type": "individual",
+    "budget": "budget-3000",
+    "sections": 8,
+    "skills": 38,
+    "md_chars": 16090,
+    "md_tokens_est": 4022,
+    "md_tokens_tiktoken": 3251,
+    "run": 3
+  },
+  "budget-3000_run_4": {
+    "type": "individual",
+    "budget": "budget-3000",
+    "sections": 16,
+    "skills": 52,
+    "md_chars": 21974,
+    "md_tokens_est": 5493,
+    "md_tokens_tiktoken": 4270,
+    "run": 4
+  },
+  "budget-3000_run_5": {
+    "type": "individual",
+    "budget": "budget-3000",
+    "sections": 13,
+    "skills": 40,
+    "md_chars": 18218,
+    "md_tokens_est": 4554,
+    "md_tokens_tiktoken": 3558,
+    "run": 5
+  },
+  "budget-5000_run_1": {
+    "type": "individual",
+    "budget": "budget-5000",
+    "sections": 11,
+    "skills": 32,
+    "md_chars": 17362,
+    "md_tokens_est": 4340,
+    "md_tokens_tiktoken": 3377,
+    "run": 1
+  },
+  "budget-5000_run_2": {
+    "type": "individual",
+    "budget": "budget-5000",
+    "sections": 7,
+    "skills": 50,
+    "md_chars": 19416,
+    "md_tokens_est": 4854,
+    "md_tokens_tiktoken": 3911,
+    "run": 2
+  },
+  "budget-5000_run_3": {
+    "type": "individual",
+    "budget": "budget-5000",
+    "sections": 6,
+    "skills": 54,
+    "md_chars": 13161,
+    "md_tokens_est": 3290,
+    "md_tokens_tiktoken": 2687,
+    "run": 3
+  },
+  "budget-5000_run_4": {
+    "type": "individual",
+    "budget": "budget-5000",
+    "sections": 11,
+    "skills": 54,
+    "md_chars": 21321,
+    "md_tokens_est": 5330,
+    "md_tokens_tiktoken": 4242,
+    "run": 4
+  },
+  "budget-5000_run_5": {
+    "type": "individual",
+    "budget": "budget-5000",
+    "sections": 10,
+    "skills": 44,
+    "md_chars": 20106,
+    "md_tokens_est": 5026,
+    "md_tokens_tiktoken": 3859,
+    "run": 5
+  },
+  "budget-500_run_1": {
+    "type": "individual",
+    "budget": "budget-500",
+    "sections": 9,
+    "skills": 20,
+    "md_chars": 12157,
+    "md_tokens_est": 3039,
+    "md_tokens_tiktoken": 2404,
+    "run": 1
+  },
+  "budget-500_run_2": {
+    "type": "individual",
+    "budget": "budget-500",
+    "sections": 12,
+    "skills": 25,
+    "md_chars": 16827,
+    "md_tokens_est": 4206,
+    "md_tokens_tiktoken": 3323,
+    "run": 2
+  },
+  "budget-500_run_3": {
+    "type": "individual",
+    "budget": "budget-500",
+    "sections": 12,
+    "skills": 25,
+    "md_chars": 12196,
+    "md_tokens_est": 3049,
+    "md_tokens_tiktoken": 2469,
+    "run": 3
+  },
+  "budget-500_run_4": {
+    "type": "individual",
+    "budget": "budget-500",
+    "sections": 6,
+    "skills": 17,
+    "md_chars": 9994,
+    "md_tokens_est": 2498,
+    "md_tokens_tiktoken": 1935,
+    "run": 4
+  },
+  "budget-500_run_5": {
+    "type": "individual",
+    "budget": "budget-500",
+    "sections": 11,
+    "skills": 23,
+    "md_chars": 11387,
+    "md_tokens_est": 2846,
+    "md_tokens_tiktoken": 2160,
+    "run": 5
+  },
+  "consensus_budget-1000": {
+    "type": "consensus",
+    "budget": "budget-1000",
+    "sections": 9,
+    "skills": 20,
+    "md_chars": 4802,
+    "md_tokens_est": 1200,
+    "md_tokens_tiktoken": 1047,
+    "raw_skills": 25,
+    "raw_md_tokens": 2299
+  },
+  "consensus_budget-10000": {
+    "type": "consensus",
+    "budget": "budget-10000",
+    "sections": 11,
+    "skills": 17,
+    "md_chars": 4636,
+    "md_tokens_est": 1159,
+    "md_tokens_tiktoken": 981,
+    "raw_skills": 30,
+    "raw_md_tokens": 2414
+  },
+  "consensus_budget-2000": {
+    "type": "consensus",
+    "budget": "budget-2000",
+    "sections": 9,
+    "skills": 17,
+    "md_chars": 4919,
+    "md_tokens_est": 1229,
+    "md_tokens_tiktoken": 1007,
+    "raw_skills": 22,
+    "raw_md_tokens": 1918
+  },
+  "consensus_budget-3000": {
+    "type": "consensus",
+    "budget": "budget-3000",
+    "sections": 13,
+    "skills": 19,
+    "md_chars": 4787,
+    "md_tokens_est": 1196,
+    "md_tokens_tiktoken": 1030,
+    "raw_skills": 20,
+    "raw_md_tokens": 1763
+  },
+  "consensus_budget-500": {
+    "type": "consensus",
+    "budget": "budget-500",
+    "sections": 8,
+    "skills": 14,
+    "md_chars": 4491,
+    "md_tokens_est": 1122,
+    "md_tokens_tiktoken": 957,
+    "raw_skills": 16,
+    "raw_md_tokens": 1724
+  },
+  "consensus_budget-5000": {
+    "type": "consensus",
+    "budget": "budget-5000",
+    "sections": 15,
+    "skills": 23,
+    "md_chars": 5805,
+    "md_tokens_est": 1451,
+    "md_tokens_tiktoken": 1273,
+    "raw_skills": 28,
+    "raw_md_tokens": 2264
+  },
+  "consensus_no-budget": {
+    "type": "consensus",
+    "budget": "no-budget",
+    "sections": 7,
+    "skills": 21,
+    "md_chars": 4962,
+    "md_tokens_est": 1240,
+    "md_tokens_tiktoken": 1059,
+    "raw_skills": 23,
+    "raw_md_tokens": 1909
+  },
+  "median_budget-1000": {
+    "type": "median",
+    "budget": "budget-1000",
+    "sections": 8,
+    "skills": 26,
+    "md_chars": 12050,
+    "md_tokens_est": 3012,
+    "md_tokens_tiktoken": 2290
+  },
+  "median_budget-10000": {
+    "type": "median",
+    "budget": "budget-10000",
+    "sections": 17,
+    "skills": 64,
+    "md_chars": 20722,
+    "md_tokens_est": 5180,
+    "md_tokens_tiktoken": 3893
+  },
+  "median_budget-2000": {
+    "type": "median",
+    "budget": "budget-2000",
+    "sections": 19,
+    "skills": 36,
+    "md_chars": 15083,
+    "md_tokens_est": 3770,
+    "md_tokens_tiktoken": 2842
+  },
+  "median_budget-3000": {
+    "type": "median",
+    "budget": "budget-3000",
+    "sections": 13,
+    "skills": 41,
+    "md_chars": 16314,
+    "md_tokens_est": 4078,
+    "md_tokens_tiktoken": 3171
+  },
+  "median_budget-500": {
+    "type": "median",
+    "budget": "budget-500",
+    "sections": 6,
+    "skills": 17,
+    "md_chars": 9994,
+    "md_tokens_est": 2498,
+    "md_tokens_tiktoken": 1935
+  },
+  "median_budget-5000": {
+    "type": "median",
+    "budget": "budget-5000",
+    "sections": 6,
+    "skills": 54,
+    "md_chars": 13161,
+    "md_tokens_est": 3290,
+    "md_tokens_tiktoken": 2687
+  },
+  "median_no-budget": {
+    "type": "median",
+    "budget": "no-budget",
+    "sections": 10,
+    "skills": 42,
+    "md_chars": 15238,
+    "md_tokens_est": 3809,
+    "md_tokens_tiktoken": 2901
+  },
+  "no-budget_run_1": {
+    "type": "individual",
+    "budget": "no-budget",
+    "sections": 14,
+    "skills": 71,
+    "md_chars": 26860,
+    "md_tokens_est": 6715,
+    "md_tokens_tiktoken": 5220,
+    "run": 1
+  },
+  "no-budget_run_2": {
+    "type": "individual",
+    "budget": "no-budget",
+    "sections": 20,
+    "skills": 55,
+    "md_chars": 24376,
+    "md_tokens_est": 6094,
+    "md_tokens_tiktoken": 4676,
+    "run": 2
+  },
+  "no-budget_run_3": {
+    "type": "individual",
+    "budget": "no-budget",
+    "sections": 12,
+    "skills": 42,
+    "md_chars": 20761,
+    "md_tokens_est": 5190,
+    "md_tokens_tiktoken": 3987,
+    "run": 3
+  },
+  "no-budget_run_4": {
+    "type": "individual",
+    "budget": "no-budget",
+    "sections": 12,
+    "skills": 48,
+    "md_chars": 20788,
+    "md_tokens_est": 5197,
+    "md_tokens_tiktoken": 3998,
+    "run": 4
+  },
+  "no-budget_run_5": {
+    "type": "individual",
+    "budget": "no-budget",
+    "sections": 10,
+    "skills": 42,
+    "md_chars": 15238,
+    "md_tokens_est": 3809,
+    "md_tokens_tiktoken": 2901,
+    "run": 5
+  }
+}

@@ -922,6 +922,414 @@ def plot_section_timeline(run: RunHistory, title: str | None = None) -> plt.Figu
     return fig
 
 
+def plot_churn_analysis(experiment: Experiment) -> plt.Figure:
+    """Scatter (next_id vs final count) + bar (churn rate by budget)."""
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+    # Scatter: next_id vs final skill count
+    ax = axes[0]
+    for group in experiment.budget_groups:
+        color = _color(group.budget_label)
+        for run in group.runs:
+            if not run.metrics:
+                continue
+            final_nid = run.next_ids[-1] if run.next_ids else 0
+            final_sk = run.metrics[-1].skill_count
+            ax.scatter(final_nid, final_sk, color=color, s=40, alpha=0.7)
+    lim = max(ax.get_xlim()[1], ax.get_ylim()[1])
+    ax.plot([0, lim], [0, lim], "k--", alpha=0.3, label="No churn")
+    ax.set_xlabel("next_id (total skills ever created)")
+    ax.set_ylabel("Final skill count (surviving)")
+    ax.set_title("Churn: Skills Created vs Surviving")
+    ax.legend(fontsize=8)
+    ax.grid(True, alpha=0.3)
+
+    # Bar chart: churn rate per budget
+    ax = axes[1]
+    labels = []
+    rates = []
+    stds = []
+    colors = []
+    for group in experiment.budget_groups:
+        run_rates = []
+        for run in group.runs:
+            if not run.next_ids or not run.metrics:
+                continue
+            nid = run.next_ids[-1]
+            sk = run.metrics[-1].skill_count
+            run_rates.append((nid - sk) / nid if nid > 0 else 0)
+        labels.append(group.budget_label)
+        rates.append(np.mean(run_rates) if run_rates else 0)
+        stds.append(np.std(run_rates) if run_rates else 0)
+        colors.append(_color(group.budget_label))
+
+    ax.bar(range(len(labels)), rates, yerr=stds, color=colors, capsize=4)
+    ax.set_xticks(range(len(labels)))
+    ax.set_xticklabels(labels, rotation=45, ha="right", fontsize=8)
+    ax.set_ylabel("Churn rate (removed / created)")
+    ax.set_title("Skill Churn Rate by Budget")
+    ax.grid(True, alpha=0.3)
+
+    fig.tight_layout()
+    return fig
+
+
+def plot_lifespan_distributions(experiment: Experiment) -> plt.Figure:
+    """2x4 grid of lifespan histograms, one per budget."""
+    fig, axes = plt.subplots(2, 4, figsize=(18, 8), squeeze=False, sharey=True)
+
+    for idx, group in enumerate(experiment.budget_groups):
+        ax = axes[idx // 4][idx % 4]
+        all_spans = []
+        for run in group.runs:
+            all_spans.extend(skill_lifespans(run))
+        if all_spans:
+            ax.hist(
+                all_spans,
+                bins=range(0, NUM_TRACES + 1),
+                color=_color(group.budget_label),
+                alpha=0.7,
+            )
+        ax.set_title(group.budget_label, fontsize=10)
+        ax.set_xlabel("Lifespan (traces)")
+        if idx % 4 == 0:
+            ax.set_ylabel("Count")
+        ax.grid(True, alpha=0.3)
+
+    for idx in range(len(experiment.budget_groups), 8):
+        axes[idx // 4][idx % 4].set_visible(False)
+
+    fig.suptitle(
+        "Skill Lifespan Distributions (removed skills only)",
+        fontsize=14,
+        fontweight="bold",
+        y=1.01,
+    )
+    fig.tight_layout()
+    return fig
+
+
+def plot_section_timelines(experiment: Experiment) -> plt.Figure:
+    """2x4 grid of horizontal bar charts (run 1 per budget)."""
+    fig, axes = plt.subplots(2, 4, figsize=(20, 10), squeeze=False, sharex=True)
+
+    for idx, group in enumerate(experiment.budget_groups):
+        ax = axes[idx // 4][idx % 4]
+        if not group.runs:
+            continue
+        run = group.runs[0]
+        first = section_first_appearance(run)
+        sizes = section_sizes_over_time(run)
+        sections_sorted = sorted(first.keys(), key=lambda s: first[s])
+
+        for i, sec in enumerate(sections_sorted):
+            start = first[sec]
+            sz = sizes.get(sec, [])
+            end = start
+            for t in range(len(sz) - 1, -1, -1):
+                if sz[t] > 0:
+                    end = t
+                    break
+            ax.barh(
+                i,
+                end - start + 1,
+                left=start,
+                height=0.6,
+                color=_color(group.budget_label),
+                alpha=0.7,
+            )
+
+        ax.set_yticks(range(len(sections_sorted)))
+        ax.set_yticklabels(sections_sorted, fontsize=6)
+        ax.set_xlabel("Trace")
+        ax.set_title(f"{group.budget_label} (run 1)", fontsize=10)
+        ax.grid(True, alpha=0.3, axis="x")
+
+    for idx in range(len(experiment.budget_groups), 8):
+        axes[idx // 4][idx % 4].set_visible(False)
+
+    fig.suptitle(
+        "Section Appearance Timelines",
+        fontsize=14,
+        fontweight="bold",
+        y=1.01,
+    )
+    fig.tight_layout()
+    return fig
+
+
+def plot_section_heatmap(run: RunHistory) -> plt.Figure:
+    """Imshow heatmap of section sizes over time for a single run."""
+    sizes = section_sizes_over_time(run)
+    sections = sorted(sizes.keys())
+    mat = np.array([sizes[s] for s in sections])
+
+    fig, ax = plt.subplots(figsize=(14, max(4, len(sections) * 0.4)))
+    im = ax.imshow(mat, aspect="auto", cmap="YlOrRd", interpolation="nearest")
+    ax.set_yticks(range(len(sections)))
+    ax.set_yticklabels(sections, fontsize=8)
+    ax.set_xlabel("Trace")
+    ax.set_title(f"Section Sizes \u2014 {run.budget_label}/run_{run.run_num}")
+    fig.colorbar(im, ax=ax, label="Skills in section")
+    fig.tight_layout()
+    return fig
+
+
+def plot_cluster_coverage(experiment: Experiment) -> plt.Figure:
+    """2x4 grid of bar charts showing KMeans cluster run coverage."""
+    fig, axes = plt.subplots(2, 4, figsize=(18, 8), squeeze=False, sharey=True)
+
+    for idx, group in enumerate(experiment.budget_groups):
+        ax = axes[idx // 4][idx % 4]
+        result = cluster_final_skills(group, n_clusters=10)
+        if "error" in result:
+            ax.text(
+                0.5,
+                0.5,
+                result["error"],
+                ha="center",
+                va="center",
+                transform=ax.transAxes,
+            )
+            ax.set_title(group.budget_label)
+            continue
+
+        clusters = result["clusters"]
+        coverage = [c["run_coverage"] for c in clusters]
+        colors_bar = [
+            _color(group.budget_label) if c >= 0.6 else "#d1d5db"
+            for c in coverage
+        ]
+
+        ax.bar(range(len(clusters)), coverage, color=colors_bar)
+        ax.axhline(
+            0.6, color="red", linestyle="--", alpha=0.5, label="Core threshold"
+        )
+        ax.set_xlabel("Cluster")
+        if idx % 4 == 0:
+            ax.set_ylabel("Run coverage")
+        ax.set_title(
+            f"{group.budget_label} ({result['core_clusters']} core)",
+            fontsize=10,
+        )
+        ax.set_ylim(0, 1.1)
+        ax.grid(True, alpha=0.3)
+
+    for idx in range(len(experiment.budget_groups), 8):
+        axes[idx // 4][idx % 4].set_visible(False)
+
+    fig.suptitle(
+        "Skill Cluster Run Coverage (KMeans k=10)",
+        fontsize=14,
+        fontweight="bold",
+        y=1.01,
+    )
+    fig.tight_layout()
+    return fig
+
+
+def plot_budget_saturation(experiment: Experiment) -> plt.Figure:
+    """1x3 panels: skills, TOON tokens, sections vs budget (log x-axis)."""
+    fig, axes = plt.subplots(1, 3, figsize=(16, 5))
+
+    for ax, fn, ylabel in [
+        (axes[0], skill_counts, "Final Skills"),
+        (axes[1], toon_token_counts, "Final TOON Tokens"),
+        (axes[2], section_counts, "Final Sections"),
+    ]:
+        budget_vals = []
+        means = []
+        stds = []
+        colors = []
+        for group in experiment.budget_groups:
+            vals = [fn(r)[-1] for r in group.runs if r.metrics]
+            bv = group.budget_value if group.budget_value is not None else 20000
+            budget_vals.append(bv)
+            means.append(np.mean(vals))
+            stds.append(np.std(vals))
+            colors.append(_color(group.budget_label))
+
+        ax.errorbar(budget_vals, means, yerr=stds, fmt="o-", capsize=4)
+        for bv, m, c in zip(budget_vals, means, colors):
+            ax.scatter([bv], [m], color=c, s=60, zorder=5)
+        ax.set_xscale("log")
+        ax.set_xlabel("Token Budget")
+        ax.set_ylabel(ylabel)
+        ax.set_title(ylabel)
+        if means:
+            ax.annotate(
+                "no-budget",
+                (20000, means[-1]),
+                textcoords="offset points",
+                xytext=(0, 10),
+                ha="center",
+                fontsize=8,
+            )
+        ax.grid(True, alpha=0.3)
+
+    fig.suptitle("Budget Saturation", fontsize=14, fontweight="bold", y=1.02)
+    fig.tight_layout()
+    return fig
+
+
+def plot_compression_distribution(experiment_dir: Path) -> plt.Figure:
+    """1x3 panels: skills, tokens, compression % (raw -> opus -> consensus)."""
+    comp_metrics_data = load_compression_metrics(experiment_dir)
+    comp_dist_data = compression_distribution(experiment_dir)
+
+    budget_vals = []
+    for budget in BUDGET_ORDER:
+        bv = 20000 if budget == "no-budget" else int(budget.split("-")[1])
+        budget_vals.append(bv)
+
+    fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+
+    # Panel 1: Skills
+    ax = axes[0]
+    raw_sk = [comp_dist_data[b]["raw_skills_mean"] for b in BUDGET_ORDER]
+    raw_sk_std = [comp_dist_data[b]["raw_skills_std"] for b in BUDGET_ORDER]
+    opus_sk = [comp_dist_data[b]["skills_mean"] for b in BUDGET_ORDER]
+    opus_sk_std = [comp_dist_data[b]["skills_std"] for b in BUDGET_ORDER]
+    cons_sk = [
+        comp_metrics_data.get(f"consensus_{b}", {}).get("skills", 0)
+        for b in BUDGET_ORDER
+    ]
+
+    ax.errorbar(
+        budget_vals, raw_sk, yerr=raw_sk_std, fmt="o-", capsize=4,
+        label="Raw (uncompressed)", color="#9ca3af",
+    )
+    ax.errorbar(
+        budget_vals, opus_sk, yerr=opus_sk_std, fmt="o-", capsize=4,
+        label="Opus (individual)", color="#2563eb",
+    )
+    ax.plot(
+        budget_vals, cons_sk, "s--", color="#dc2626",
+        label="Opus (consensus)", markersize=7,
+    )
+    ax.set_xscale("log")
+    ax.set_xlabel("Token Budget")
+    ax.set_ylabel("Skills")
+    ax.set_title("Skill Counts")
+    ax.legend(fontsize=7)
+    ax.grid(True, alpha=0.3)
+
+    # Panel 2: MD Tokens
+    ax = axes[1]
+    raw_toks = [comp_dist_data[b]["raw_md_tokens_mean"] for b in BUDGET_ORDER]
+    raw_toks_std = [comp_dist_data[b]["raw_md_tokens_std"] for b in BUDGET_ORDER]
+    opus_toks = [comp_dist_data[b]["md_tokens_tiktoken_mean"] for b in BUDGET_ORDER]
+    opus_toks_std = [comp_dist_data[b]["md_tokens_tiktoken_std"] for b in BUDGET_ORDER]
+    cons_toks = [
+        comp_metrics_data.get(f"consensus_{b}", {}).get("md_tokens_tiktoken", 0)
+        for b in BUDGET_ORDER
+    ]
+
+    ax.errorbar(
+        budget_vals, raw_toks, yerr=raw_toks_std, fmt="o-", capsize=4,
+        label="Raw (uncompressed)", color="#9ca3af",
+    )
+    ax.errorbar(
+        budget_vals, opus_toks, yerr=opus_toks_std, fmt="o-", capsize=4,
+        label="Opus (individual)", color="#2563eb",
+    )
+    ax.plot(
+        budget_vals, cons_toks, "s--", color="#dc2626",
+        label="Opus (consensus)", markersize=7,
+    )
+    ax.set_xscale("log")
+    ax.set_xlabel("Token Budget")
+    ax.set_ylabel("Tiktoken Tokens")
+    ax.set_title("MD Token Counts")
+    ax.legend(fontsize=7)
+    ax.grid(True, alpha=0.3)
+
+    # Panel 3: Compression %
+    ax = axes[2]
+    comp_pcts = [comp_dist_data[b]["compression_pct_mean"] for b in BUDGET_ORDER]
+    comp_pcts_std = [comp_dist_data[b]["compression_pct_std"] for b in BUDGET_ORDER]
+
+    cons_comp = []
+    for b in BUDGET_ORDER:
+        c = comp_metrics_data.get(f"consensus_{b}", {})
+        raw = c.get("raw_md_tokens", 0)
+        opus = c.get("md_tokens_tiktoken", 0)
+        cons_comp.append(opus / raw * 100 if raw > 0 else 0)
+
+    ax.errorbar(
+        budget_vals, comp_pcts, yerr=comp_pcts_std, fmt="o-", capsize=4,
+        label="Individual runs (mean \u00b1 std)", color="#2563eb",
+    )
+    ax.plot(
+        budget_vals, cons_comp, "s--", color="#dc2626",
+        label="Consensus", markersize=7,
+    )
+    ax.axhline(45, color="#9ca3af", linestyle="--", alpha=0.5, label="~45% average")
+    ax.set_xscale("log")
+    ax.set_xlabel("Token Budget")
+    ax.set_ylabel("Compression %")
+    ax.set_title("Opus Compression Ratio (compressed/raw)")
+    ax.set_ylim(0, 70)
+    ax.legend(fontsize=7)
+    ax.grid(True, alpha=0.3)
+
+    fig.suptitle(
+        "Opus Compression: Individual Runs vs Consensus",
+        fontsize=14,
+        fontweight="bold",
+        y=1.02,
+    )
+    fig.tight_layout()
+    return fig
+
+
+def format_embedding_overlap_text(experiment: Experiment) -> str:
+    """Format per-budget embedding NN cosine similarity stats as markdown."""
+    lines = []
+    for group in experiment.budget_groups:
+        stats = cross_run_embedding_overlap(group)
+        lines.append(
+            f"- **{group.budget_label}**: mean NN cosine "
+            f"{stats['overall_mean_nn']:.3f} \u00b1 {stats['overall_std_nn']:.3f}"
+        )
+        for p in stats["pairs"]:
+            lines.append(
+                f"  - run_{p['run_i']} \u2194 run_{p['run_j']}: "
+                f"{p['mean_nn']:.3f}"
+            )
+    return "\n".join(lines)
+
+
+def format_compression_table(experiment_dir: Path) -> str:
+    """Format raw -> opus compression table as markdown."""
+    import pandas as pd
+
+    comp_metrics_data = load_compression_metrics(experiment_dir)
+    comp_dist_data = compression_distribution(experiment_dir)
+
+    rows = []
+    for budget in BUDGET_ORDER:
+        d = comp_dist_data.get(budget)
+        if not d:
+            continue
+        ckey = f"consensus_{budget}"
+        c = comp_metrics_data.get(ckey, {})
+        rows.append(
+            {
+                "Budget": budget,
+                "Raw Skills": f"{d['raw_skills_mean']:.1f} \u00b1 {d['raw_skills_std']:.1f}",
+                "Raw MD Tokens": f"{d['raw_md_tokens_mean']:.0f} \u00b1 {d['raw_md_tokens_std']:.0f}",
+                "Opus Skills": f"{d['skills_mean']:.1f} \u00b1 {d['skills_std']:.1f}",
+                "Opus MD Tokens": f"{d['md_tokens_tiktoken_mean']:.0f} \u00b1 {d['md_tokens_tiktoken_std']:.0f}",
+                "Compression %": f"{d['compression_pct_mean']:.1f}% \u00b1 {d['compression_pct_std']:.1f}%",
+                "Consensus Skills": c.get("skills", ""),
+                "Consensus Tokens": c.get("md_tokens_tiktoken", ""),
+            }
+        )
+
+    df = pd.DataFrame(rows)
+    return df.to_markdown(index=False)
+
 
 # ---------------------------------------------------------------------------
 # Report generation
