@@ -221,6 +221,13 @@ class CheckResultStep:
         # --- Normal continuation: feed output back ---
         max_output = self.config.max_output_chars
         output_parts: list[str] = []
+
+        # Iteration progress header
+        next_iter = ctx.iteration + 1
+        iter_header = f"[Iteration {next_iter}/{self.config.max_iterations}]"
+        if next_iter >= self.config.max_iterations - 2:
+            iter_header += " (approaching limit — finalize soon)"
+
         if result and result.stdout:
             output_parts.append(
                 f"stdout:\n{_truncate_output(result.stdout, max_output)}"
@@ -235,7 +242,7 @@ class CheckResultStep:
         return ctx.replace(
             feedback_messages=(
                 {"role": "assistant", "content": response_text},
-                {"role": "user", "content": f"Output:\n{output_message}"},
+                {"role": "user", "content": f"{iter_header}\nOutput:\n{output_message}"},
             ),
         )
 
