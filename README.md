@@ -14,6 +14,8 @@
 
 ⭐ Star this repo if you find it useful!
 
+> **🚀 ACE v2 is coming.** We're rebuilding the framework from the ground up — a cleaner architecture, a modular pipeline engine, first-class async support, and a dramatically simpler API. Everything you love about ACE, refined and supercharged. Follow the progress in [`ace_next/`](ace_next/) and [`pipeline/`](pipeline/), or join the [Discord](https://discord.gg/mqCqH7sTyK) to stay in the loop.
+
 ---
 
 ## What is ACE?
@@ -182,16 +184,14 @@ flowchart LR
 
 ## Documentation
 
-- [Quick Start Guide](docs/QUICK_START.md) - Get running in 5 minutes
-- [Setup Guide](docs/SETUP_GUIDE.md) - Installation, configuration, providers
-- [Integration Guide](docs/INTEGRATION_GUIDE.md) - Add ACE to existing agents
-- [API Reference](docs/API_REFERENCE.md) - Complete API documentation
-- [Complete Guide to ACE](docs/COMPLETE_GUIDE_TO_ACE.md) - Deep dive into concepts
-- [Prompt Engineering](docs/PROMPT_ENGINEERING.md) - Advanced prompt techniques
-- [Insight Source Tracing](docs/INSIGHT_SOURCES.md) - Track skill provenance and query origins
-- [Agentic System Prompting](examples/agentic-system-prompting/README.md) - Automatically generate prompt improvements from past traces
+**📖 [docs.kayba.ai](https://kayba-ai.github.io/agentic-context-engine/latest/)** — Full documentation with guides, API reference, and examples.
+
+Quick links:
+- [Quick Start Guide](https://kayba-ai.github.io/agentic-context-engine/latest/getting-started/quickstart/) - Get running in 5 minutes
+- [Setup Guide](https://kayba-ai.github.io/agentic-context-engine/latest/getting-started/setup/) - Installation, configuration, providers
+- [Integration Guide](https://kayba-ai.github.io/agentic-context-engine/latest/integrations/browser-use/) - Add ACE to existing agents
+- [API Reference](https://kayba-ai.github.io/agentic-context-engine/latest/api/) - Complete API documentation
 - [Examples](examples/) - Ready-to-run code examples
-- [Benchmarks](benchmarks/README.md) - Evaluate ACE performance
 - [Changelog](CHANGELOG.md) - Recent changes
 
 ---

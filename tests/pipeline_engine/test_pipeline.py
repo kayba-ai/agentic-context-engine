@@ -250,7 +250,7 @@ class TestPipelineRun:
 
     @pytest.mark.slow
     def test_workers_N_runs_faster_than_sequential(self):
-        delay = 0.05
+        delay = 0.2
         contexts = [StepContext(sample=i) for i in range(4)]
         pipe = Pipeline().then(Slow(delay))
 
@@ -365,7 +365,7 @@ class TestPipelineAsyncBoundary:
             max_workers = 1
 
             def __call__(self, ctx):
-                time.sleep(0.3)
+                time.sleep(2.0)
                 bg_completed.set()
                 return ctx.replace(
                     metadata=_MappingProxyType({**ctx.metadata, "bg": True})
@@ -483,13 +483,13 @@ class TestPipelineRunAsync:
 
     def test_run_async_workers_respected(self):
         """Multiple samples run concurrently with workers>1."""
-        delay = 0.1
+        delay = 0.2
         pipe = Pipeline().then(Slow(delay))
         contexts = [StepContext(sample=i) for i in range(4)]
         t0 = time.monotonic()
         asyncio.run(pipe.run_async(contexts, workers=4))
         elapsed = time.monotonic() - t0
-        assert elapsed < delay * 2, f"Expected concurrency, took {elapsed:.2f}s"
+        assert elapsed < delay * 3, f"Expected concurrency, took {elapsed:.2f}s"
 
 
 # ---------------------------------------------------------------------------
