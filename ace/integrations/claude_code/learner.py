@@ -49,6 +49,7 @@ except ImportError:
     def retry(**kwargs):  # type: ignore[misc]
         def decorator(func):
             return func
+
         return decorator
 
     def stop_after_attempt(n):  # type: ignore[misc]
@@ -56,6 +57,7 @@ except ImportError:
 
     def wait_exponential(**kwargs):  # type: ignore[misc]
         return None
+
 
 # Load .env file from ~/.ace/.env or current directory
 if load_dotenv is not None:
