@@ -1,0 +1,1083 @@
+"""Skillbook history analysis for variance experiment results.
+
+Provides data loading, diffing, metrics, cross-run convergence analysis,
+embedding-based clustering, plotting utilities, and automated report
+generation for the 7-budget × 5-run × 25-snapshot experiment.
+
+Usage (from scripts/ directory):
+    from analysis.skillbook_history import load_experiment
+    exp = load_experiment(Path("../results/variance_experiment"))
+"""
+
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass, field
+from enum import Enum
+from pathlib import Path
+from typing import Any, Callable, Sequence
+
+import matplotlib.pyplot as plt
+import numpy as np
+import tiktoken
+
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+NUM_TRACES = 25
+
+BUDGET_ORDER = [
+    "budget-500",
+    "budget-1000",
+    "budget-2000",
+    "budget-3000",
+    "budget-5000",
+    "budget-10000",
+    "no-budget",
+]
+
+BUDGET_COLORS: dict[str, str] = {
+    "budget-500": "#dc2626",
+    "budget-1000": "#ea580c",
+    "budget-2000": "#ca8a04",
+    "budget-3000": "#16a34a",
+    "budget-5000": "#2563eb",
+    "budget-10000": "#7c3aed",
+    "no-budget": "#6b7280",
+}
+
+BUDGET_VALUES: dict[str, int | None] = {
+    "budget-500": 500,
+    "budget-1000": 1000,
+    "budget-2000": 2000,
+    "budget-3000": 3000,
+    "budget-5000": 5000,
+    "budget-10000": 10000,
+    "no-budget": None,
+}
+
+_enc = tiktoken.encoding_for_model("gpt-4")
+
+
+def _tok(text: str) -> int:
+    return len(_enc.encode(text))
+
+
+# ---------------------------------------------------------------------------
+# Topic mapping: 207 raw section names → 18 canonical topics
+# ---------------------------------------------------------------------------
+
+TOPIC_MAP: dict[str, str] = {
+    # Core domain
+    "cancellation": "cancellation",
+    "compensation": "compensation", "delay": "compensation",
+    "modification": "modification", "passenger": "modification", "cabin": "modification",
+    "reservation": "reservation", "booking": "reservation", "conflict": "reservation",
+    "flight": "flight_search", "search": "flight_search", "destination": "flight_search", "return": "flight_search",
+    "payment": "payment", "refund": "payment",
+    "pricing": "pricing", "cost": "pricing", "financial": "pricing", "calculation": "pricing", "calculations": "pricing",
+    "baggage": "baggage", "membership": "baggage",
+    "insurance": "insurance",
+    # Process
+    "escalation": "escalation", "handoff": "escalation", "transfer": "escalation", "triage": "escalation",
+    "confirmation": "confirmation", "consent": "confirmation", "preference": "confirmation",
+    "policy": "policy", "constraint": "policy", "eligibility": "policy", "boundary": "policy", "authorization": "policy", "technical": "policy", "airline": "policy",
+    "tool": "tool_usage", "tools": "tool_usage", "transaction": "tool_usage", "execution": "tool_usage", "action": "tool_usage", "interaction": "tool_usage", "api": "tool_usage",
+    "customer": "customer_comms", "communication": "customer_comms", "user": "customer_comms", "message": "customer_comms", "capability": "customer_comms", "clarification": "customer_comms",
+    "data": "data_retrieval", "information": "data_retrieval", "discovery": "data_retrieval",
+    "workflow": "workflow", "task": "workflow",
+    "decision": "decision_support", "option": "decision_support", "alternative": "decision_support", "alternatives": "decision_support", "problem": "decision_support",
+    "temporal": "temporal", "date": "temporal",
+}
+
+
+def section_to_topic(section_name: str) -> str:
+    """Map a raw section name to its canonical topic via prefix lookup."""
+    prefix = section_name.split("_")[0] if "_" in section_name else section_name
+    return TOPIC_MAP.get(prefix, prefix)
+
+
+# ---------------------------------------------------------------------------
+# Data classes
+# ---------------------------------------------------------------------------
+
+
+class DeltaType(Enum):
+    ADD = "ADD"
+    UPDATE = "UPDATE"
+    REMOVE = "REMOVE"
+
+
+@dataclass
+class SkillRecord:
+    """Lightweight representation of a single skill (no embedding)."""
+
+    id: str
+    section: str
+    content: str
+    justification: str | None = None
+    evidence: str | None = None
+    created_at: str = ""
+    updated_at: str = ""
+
+
+@dataclass
+class SkillDelta:
+    delta_type: DeltaType
+    skill_id: str
+    trace_index: int
+    section: str
+    old_content: str | None = None
+    new_content: str | None = None
+
+
+@dataclass
+class SnapshotMetrics:
+    trace_index: int
+    skill_count: int
+    section_count: int
+    section_names: list[str]
+    next_id: int
+    toon_tokens: int
+    injection_tokens: int
+    avg_content_len: float
+    avg_justification_len: float
+    avg_evidence_len: float
+
+
+@dataclass
+class RunHistory:
+    budget_label: str
+    run_num: int
+    run_dir: Path
+    snapshots: list[dict[str, SkillRecord]] = field(default_factory=list)
+    metrics: list[SnapshotMetrics] = field(default_factory=list)
+    deltas: list[SkillDelta] = field(default_factory=list)
+    run_info: dict[str, Any] = field(default_factory=dict)
+    next_ids: list[int] = field(default_factory=list)
+
+
+@dataclass
+class BudgetGroup:
+    budget_label: str
+    budget_value: int | None
+    runs: list[RunHistory] = field(default_factory=list)
+
+    def mean_metric(self, fn: Callable[[RunHistory], Sequence[float]]) -> np.ndarray:
+        """Mean of a per-run metric (each fn(run) returns a sequence)."""
+        arrays = [np.array(fn(r)) for r in self.runs]
+        return np.mean(arrays, axis=0)
+
+    def std_metric(self, fn: Callable[[RunHistory], Sequence[float]]) -> np.ndarray:
+        arrays = [np.array(fn(r)) for r in self.runs]
+        return np.std(arrays, axis=0)
+
+
+@dataclass
+class Experiment:
+    budget_groups: list[BudgetGroup] = field(default_factory=list)
+    experiment_dir: Path = field(default_factory=Path)
+
+    def get_budget(self, label: str) -> BudgetGroup | None:
+        for g in self.budget_groups:
+            if g.budget_label == label:
+                return g
+        return None
+
+    @property
+    def labels(self) -> list[str]:
+        return [g.budget_label for g in self.budget_groups]
+
+
+# ---------------------------------------------------------------------------
+# Loading pipeline
+# ---------------------------------------------------------------------------
+
+
+def load_snapshot_raw(path: Path, skip_embeddings: bool = True) -> dict[str, Any]:
+    """Parse a skillbook JSON file, optionally stripping embeddings."""
+    with open(path, "r", encoding="utf-8") as f:
+        raw = json.load(f)
+    if skip_embeddings:
+        for skill in raw.get("skills", {}).values():
+            skill["embedding"] = None
+    return raw
+
+
+def parse_skills(raw: dict[str, Any]) -> dict[str, SkillRecord]:
+    """Extract lightweight SkillRecords from raw JSON dict."""
+    records: dict[str, SkillRecord] = {}
+    for sid, s in raw.get("skills", {}).items():
+        if s.get("status", "active") != "active":
+            continue
+        records[sid] = SkillRecord(
+            id=sid,
+            section=s.get("section", ""),
+            content=s.get("content", ""),
+            justification=s.get("justification"),
+            evidence=s.get("evidence"),
+            created_at=s.get("created_at", ""),
+            updated_at=s.get("updated_at", ""),
+        )
+    return records
+
+
+def compute_snapshot_metrics(
+    skills: dict[str, SkillRecord],
+    next_id: int,
+    trace_index: int,
+    run_info_trace: dict[str, Any] | None = None,
+) -> SnapshotMetrics:
+    """Compute metrics for a snapshot.  Uses run_info_trace for token counts
+    (already computed during the experiment) and falls back to recomputing."""
+    sections = sorted({s.section for s in skills.values()})
+    content_lens = [len(s.content) for s in skills.values()]
+    just_lens = [len(s.justification) for s in skills.values() if s.justification]
+    ev_lens = [len(s.evidence) for s in skills.values() if s.evidence]
+
+    if run_info_trace:
+        toon_tok = run_info_trace.get("toon_tokens", 0)
+        inj_tok = run_info_trace.get("injection_tokens", 0)
+    else:
+        toon_tok = 0
+        inj_tok = 0
+
+    return SnapshotMetrics(
+        trace_index=trace_index,
+        skill_count=len(skills),
+        section_count=len(sections),
+        section_names=sections,
+        next_id=next_id,
+        toon_tokens=toon_tok,
+        injection_tokens=inj_tok,
+        avg_content_len=np.mean(content_lens) if content_lens else 0.0,
+        avg_justification_len=np.mean(just_lens) if just_lens else 0.0,
+        avg_evidence_len=np.mean(ev_lens) if ev_lens else 0.0,
+    )
+
+
+def diff_snapshots(
+    prev: dict[str, SkillRecord],
+    curr: dict[str, SkillRecord],
+    trace_index: int,
+) -> list[SkillDelta]:
+    """Diff consecutive snapshots → list of SkillDeltas."""
+    deltas: list[SkillDelta] = []
+    prev_ids = set(prev.keys())
+    curr_ids = set(curr.keys())
+
+    for sid in curr_ids - prev_ids:
+        deltas.append(
+            SkillDelta(
+                delta_type=DeltaType.ADD,
+                skill_id=sid,
+                trace_index=trace_index,
+                section=curr[sid].section,
+                new_content=curr[sid].content,
+            )
+        )
+    for sid in prev_ids - curr_ids:
+        deltas.append(
+            SkillDelta(
+                delta_type=DeltaType.REMOVE,
+                skill_id=sid,
+                trace_index=trace_index,
+                section=prev[sid].section,
+                old_content=prev[sid].content,
+            )
+        )
+    for sid in prev_ids & curr_ids:
+        if prev[sid].content != curr[sid].content:
+            deltas.append(
+                SkillDelta(
+                    delta_type=DeltaType.UPDATE,
+                    skill_id=sid,
+                    trace_index=trace_index,
+                    section=curr[sid].section,
+                    old_content=prev[sid].content,
+                    new_content=curr[sid].content,
+                )
+            )
+    return deltas
+
+
+def load_run(run_dir: Path, budget_label: str, run_num: int) -> RunHistory:
+    """Load all snapshots + run_info for a single run."""
+    history = RunHistory(
+        budget_label=budget_label, run_num=run_num, run_dir=run_dir
+    )
+
+    # Load run_info.json
+    info_path = run_dir / "run_info.json"
+    if info_path.exists():
+        with open(info_path) as f:
+            history.run_info = json.load(f)
+
+    traces_info = history.run_info.get("traces", [])
+
+    # Load snapshots
+    snap_paths = sorted(run_dir.glob("skillbook_*.json"))
+    for i, path in enumerate(snap_paths):
+        raw = load_snapshot_raw(path)
+        skills = parse_skills(raw)
+        history.snapshots.append(skills)
+        history.next_ids.append(raw.get("next_id", 0))
+
+        trace_info = traces_info[i] if i < len(traces_info) else None
+        metrics = compute_snapshot_metrics(
+            skills, raw.get("next_id", 0), i, trace_info
+        )
+        history.metrics.append(metrics)
+
+    # Compute deltas between consecutive snapshots
+    for i in range(1, len(history.snapshots)):
+        deltas = diff_snapshots(history.snapshots[i - 1], history.snapshots[i], i)
+        history.deltas.extend(deltas)
+
+    # Also record initial snapshot as ADDs
+    if history.snapshots:
+        for sid, skill in history.snapshots[0].items():
+            history.deltas.append(
+                SkillDelta(
+                    delta_type=DeltaType.ADD,
+                    skill_id=sid,
+                    trace_index=0,
+                    section=skill.section,
+                    new_content=skill.content,
+                )
+            )
+
+    return history
+
+
+def load_budget_group(budget_dir: Path, budget_label: str) -> BudgetGroup:
+    """Load all runs for a single budget level."""
+    group = BudgetGroup(
+        budget_label=budget_label,
+        budget_value=BUDGET_VALUES.get(budget_label),
+    )
+    run_dirs = sorted(budget_dir.glob("run_*"))
+    for rd in run_dirs:
+        run_num = int(rd.name.split("_")[1])
+        group.runs.append(load_run(rd, budget_label, run_num))
+    return group
+
+
+def load_experiment(
+    experiment_dir: Path, budgets: list[str] | None = None
+) -> Experiment:
+    """Load the full experiment.  *budgets* filters to specific labels."""
+    exp = Experiment(experiment_dir=experiment_dir)
+    labels = budgets or BUDGET_ORDER
+    for label in labels:
+        bd = experiment_dir / label
+        if bd.is_dir():
+            exp.budget_groups.append(load_budget_group(bd, label))
+    return exp
+
+
+def load_compression_metrics(
+    experiment_dir: Path,
+) -> dict[str, dict[str, Any]]:
+    """Load Opus compression metrics from ``opus_compressed/compression_metrics.json``.
+
+    Returns the raw dict keyed by entry name (e.g. ``"budget-500_run_1"``,
+    ``"consensus_budget-500"``).  Each value contains ``type``, ``budget``,
+    ``sections``, ``skills``, ``md_chars``, ``md_tokens_tiktoken``, and
+    optionally ``run``.
+    """
+    path = experiment_dir / "opus_compressed" / "compression_metrics.json"
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def compression_distribution(
+    experiment_dir: Path,
+) -> dict[str, dict[str, float]]:
+    """Return mean ± std of compression metrics per budget (individual runs only).
+
+    Includes both compressed (Opus) metrics and raw (uncompressed) metrics from
+    the source ``skills_final.md`` files.  Also computes compression percentage
+    (``compression_pct``) per run.
+
+    Returns ``{budget: {metric_mean, metric_std, ...}}`` where metrics include:
+
+    * Opus-compressed: ``skills``, ``md_chars``, ``md_tokens_tiktoken``
+    * Raw source: ``raw_skills``, ``raw_md_tokens``
+    * Ratio: ``compression_pct`` (opus_tokens / raw_tokens * 100)
+    """
+    import re
+    import statistics as _st
+
+    try:
+        import tiktoken
+        _enc = tiktoken.encoding_for_model("gpt-4")
+    except ImportError:
+        _enc = None
+
+    metrics = load_compression_metrics(experiment_dir)
+    by_budget: dict[str, list[dict]] = {}
+    for entry in metrics.values():
+        if entry["type"] != "individual":
+            continue
+        by_budget.setdefault(entry["budget"], []).append(entry)
+
+    # Enrich each entry with raw source metrics
+    for budget, entries in by_budget.items():
+        for entry in entries:
+            src = experiment_dir / budget / f"run_{entry['run']}" / "skills_final.md"
+            if src.exists():
+                text = src.read_text(encoding="utf-8")
+                entry["raw_skills"] = len(re.findall(r"^- ", text, re.MULTILINE))
+                if _enc is not None:
+                    raw_toks = len(_enc.encode(text))
+                    entry["raw_md_tokens"] = raw_toks
+                    opus_toks = entry["md_tokens_tiktoken"]
+                    entry["compression_pct"] = (opus_toks / raw_toks * 100) if raw_toks > 0 else 0.0
+
+    result: dict[str, dict[str, float]] = {}
+    keys = ["sections", "skills", "md_chars", "md_tokens_tiktoken"]
+    if _enc is not None:
+        keys += ["raw_skills", "raw_md_tokens", "compression_pct"]
+    else:
+        keys += ["raw_skills"]
+
+    for budget in BUDGET_ORDER:
+        entries = by_budget.get(budget, [])
+        if not entries:
+            continue
+        n = len(entries)
+        for key in keys:
+            vals = [e[key] for e in entries if key in e]
+            if not vals:
+                continue
+            result.setdefault(budget, {})[f"{key}_mean"] = _st.mean(vals)
+            result[budget][f"{key}_std"] = _st.stdev(vals) if len(vals) > 1 else 0.0
+        result[budget]["n"] = n
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Per-run metric extractors  (return list[int|float] of length NUM_TRACES)
+# ---------------------------------------------------------------------------
+
+
+def skill_counts(run: RunHistory) -> list[int]:
+    return [m.skill_count for m in run.metrics]
+
+
+def section_counts(run: RunHistory) -> list[int]:
+    return [m.section_count for m in run.metrics]
+
+
+def toon_token_counts(run: RunHistory) -> list[int]:
+    return [m.toon_tokens for m in run.metrics]
+
+
+def next_id_counts(run: RunHistory) -> list[int]:
+    return run.next_ids
+
+
+def tokens_per_skill(run: RunHistory) -> list[float]:
+    out: list[float] = []
+    for m in run.metrics:
+        out.append(m.toon_tokens / m.skill_count if m.skill_count else 0.0)
+    return out
+
+
+def avg_content_lengths(run: RunHistory) -> list[float]:
+    return [m.avg_content_len for m in run.metrics]
+
+
+# ---------------------------------------------------------------------------
+# Skill lifecycle analysis
+# ---------------------------------------------------------------------------
+
+
+def delta_counts_by_trace(run: RunHistory) -> dict[DeltaType, np.ndarray]:
+    """Count ADD/UPDATE/REMOVE deltas at each trace index."""
+    counts = {dt: np.zeros(NUM_TRACES) for dt in DeltaType}
+    for d in run.deltas:
+        if d.trace_index < NUM_TRACES:
+            counts[d.delta_type][d.trace_index] += 1
+    return counts
+
+
+def skill_survival(run: RunHistory) -> dict[int, float]:
+    """For skills added at each trace_index, what fraction survives to the final snapshot?"""
+    if not run.snapshots:
+        return {}
+    final_ids = set(run.snapshots[-1].keys())
+    added_at: dict[int, list[str]] = {}
+    for d in run.deltas:
+        if d.delta_type == DeltaType.ADD:
+            added_at.setdefault(d.trace_index, []).append(d.skill_id)
+    result: dict[int, float] = {}
+    for ti, sids in sorted(added_at.items()):
+        surviving = sum(1 for s in sids if s in final_ids)
+        result[ti] = surviving / len(sids) if sids else 0.0
+    return result
+
+
+def skill_lifespans(run: RunHistory) -> list[int]:
+    """Lifespan of each skill that was added and later removed (in trace steps)."""
+    add_trace: dict[str, int] = {}
+    remove_trace: dict[str, int] = {}
+    for d in run.deltas:
+        if d.delta_type == DeltaType.ADD:
+            add_trace.setdefault(d.skill_id, d.trace_index)
+        elif d.delta_type == DeltaType.REMOVE:
+            remove_trace[d.skill_id] = d.trace_index
+    spans: list[int] = []
+    for sid, added in add_trace.items():
+        if sid in remove_trace:
+            spans.append(remove_trace[sid] - added)
+    return spans
+
+
+def churn_per_trace(run: RunHistory) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """(adds, removes, net_change) arrays of length NUM_TRACES."""
+    adds = np.zeros(NUM_TRACES)
+    removes = np.zeros(NUM_TRACES)
+    for d in run.deltas:
+        if d.trace_index < NUM_TRACES:
+            if d.delta_type == DeltaType.ADD:
+                adds[d.trace_index] += 1
+            elif d.delta_type == DeltaType.REMOVE:
+                removes[d.trace_index] += 1
+    return adds, removes, adds - removes
+
+
+# ---------------------------------------------------------------------------
+# Section evolution
+# ---------------------------------------------------------------------------
+
+
+def section_first_appearance(run: RunHistory) -> dict[str, int]:
+    """Section name → first trace_index where it appears."""
+    first: dict[str, int] = {}
+    for i, m in enumerate(run.metrics):
+        for s in m.section_names:
+            if s not in first:
+                first[s] = i
+    return first
+
+
+def section_sizes_over_time(run: RunHistory) -> dict[str, list[int]]:
+    """Section name → list[int(NUM_TRACES)] of skill counts in that section."""
+    all_sections: set[str] = set()
+    for snap in run.snapshots:
+        for skill in snap.values():
+            all_sections.add(skill.section)
+
+    result: dict[str, list[int]] = {s: [] for s in sorted(all_sections)}
+    for snap in run.snapshots:
+        sec_counts: dict[str, int] = {}
+        for skill in snap.values():
+            sec_counts[skill.section] = sec_counts.get(skill.section, 0) + 1
+        for s in result:
+            result[s].append(sec_counts.get(s, 0))
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Cross-run convergence
+# ---------------------------------------------------------------------------
+
+
+
+
+def _section_names_to_topics(section_names: Sequence[str]) -> set[str]:
+    """Map a list of raw section names to the set of canonical topics."""
+    return {section_to_topic(s) for s in section_names}
+
+
+# ---------------------------------------------------------------------------
+# Embedding analysis (lazy — only loads final snapshots)
+# ---------------------------------------------------------------------------
+
+
+def load_final_embeddings(run: RunHistory) -> dict[str, np.ndarray]:
+    """Load embeddings from the last skillbook snapshot file."""
+    snap_paths = sorted(run.run_dir.glob("skillbook_*.json"))
+    if not snap_paths:
+        return {}
+    with open(snap_paths[-1]) as f:
+        raw = json.load(f)
+    embeddings: dict[str, np.ndarray] = {}
+    for sid, s in raw.get("skills", {}).items():
+        emb = s.get("embedding")
+        if emb:
+            embeddings[sid] = np.array(emb, dtype=np.float32)
+    return embeddings
+
+
+def cosine_similarity_matrix(
+    a: np.ndarray, b: np.ndarray
+) -> np.ndarray:
+    """Cosine similarity between rows of A (m,d) and B (n,d) → (m,n)."""
+    a_norm = a / (np.linalg.norm(a, axis=1, keepdims=True) + 1e-10)
+    b_norm = b / (np.linalg.norm(b, axis=1, keepdims=True) + 1e-10)
+    return a_norm @ b_norm.T
+
+
+def cross_run_embedding_overlap(
+    group: BudgetGroup,
+) -> dict[str, Any]:
+    """Pairwise nearest-neighbor similarity stats across runs."""
+    embs = []
+    for run in group.runs:
+        embs.append(load_final_embeddings(run))
+
+    n = len(embs)
+    pair_stats: list[dict[str, float]] = []
+    for i in range(n):
+        if not embs[i]:
+            continue
+        ids_i = list(embs[i].keys())
+        mat_i = np.stack([embs[i][k] for k in ids_i])
+        for j in range(i + 1, n):
+            if not embs[j]:
+                continue
+            ids_j = list(embs[j].keys())
+            mat_j = np.stack([embs[j][k] for k in ids_j])
+            sim = cosine_similarity_matrix(mat_i, mat_j)
+            nn_i_to_j = sim.max(axis=1)
+            nn_j_to_i = sim.max(axis=0)
+            pair_stats.append(
+                {
+                    "run_i": group.runs[i].run_num,
+                    "run_j": group.runs[j].run_num,
+                    "mean_nn_i_to_j": float(nn_i_to_j.mean()),
+                    "mean_nn_j_to_i": float(nn_j_to_i.mean()),
+                    "mean_nn": float(
+                        (nn_i_to_j.mean() + nn_j_to_i.mean()) / 2
+                    ),
+                    "median_nn": float(
+                        np.median(np.concatenate([nn_i_to_j, nn_j_to_i]))
+                    ),
+                }
+            )
+    overall_nn = [p["mean_nn"] for p in pair_stats]
+    return {
+        "pairs": pair_stats,
+        "overall_mean_nn": float(np.mean(overall_nn)) if overall_nn else 0.0,
+        "overall_std_nn": float(np.std(overall_nn)) if overall_nn else 0.0,
+    }
+
+
+def cluster_final_skills(
+    group: BudgetGroup, n_clusters: int = 10
+) -> dict[str, Any]:
+    """KMeans cluster all final-snapshot skills across runs.
+
+    Returns cluster labels, core clusters (present in majority of runs),
+    and per-cluster run coverage.
+    """
+    from sklearn.cluster import KMeans
+
+    all_embs: list[np.ndarray] = []
+    all_run_ids: list[int] = []
+    all_skill_ids: list[str] = []
+
+    for run in group.runs:
+        emb = load_final_embeddings(run)
+        for sid, vec in emb.items():
+            all_embs.append(vec)
+            all_run_ids.append(run.run_num)
+            all_skill_ids.append(sid)
+
+    if len(all_embs) < n_clusters:
+        return {"error": "too few skills for clustering", "n_skills": len(all_embs)}
+
+    X = np.stack(all_embs)
+    km = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
+    labels = km.fit_predict(X)
+
+    # Per-cluster: which runs contribute
+    n_runs = len(group.runs)
+    cluster_info: list[dict[str, Any]] = []
+    for c in range(n_clusters):
+        mask = labels == c
+        runs_in_cluster = set(np.array(all_run_ids)[mask].tolist())
+        cluster_info.append(
+            {
+                "cluster": c,
+                "size": int(mask.sum()),
+                "runs_present": sorted(runs_in_cluster),
+                "run_coverage": len(runs_in_cluster) / n_runs,
+            }
+        )
+
+    core = [ci for ci in cluster_info if ci["run_coverage"] >= 0.6]
+    return {
+        "n_clusters": n_clusters,
+        "total_skills": len(all_embs),
+        "clusters": cluster_info,
+        "core_clusters": len(core),
+        "labels": labels.tolist(),
+        "skill_ids": all_skill_ids,
+        "run_ids": all_run_ids,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Cross-budget comparison
+# ---------------------------------------------------------------------------
+
+
+def budget_comparison_table(
+    experiment: Experiment,
+    metric_fn: Callable[[RunHistory], Sequence[float]],
+    final_only: bool = True,
+) -> dict[str, dict[str, float]]:
+    """Compute mean/std of a metric across runs for each budget.
+
+    If final_only=True, uses only the last value of each run's metric.
+    Otherwise, uses all values (returns mean of means).
+    """
+    table: dict[str, dict[str, float]] = {}
+    for group in experiment.budget_groups:
+        vals: list[float] = []
+        for run in group.runs:
+            seq = metric_fn(run)
+            if not seq:
+                continue
+            vals.append(float(seq[-1]) if final_only else float(np.mean(seq)))
+        table[group.budget_label] = {
+            "mean": float(np.mean(vals)) if vals else 0.0,
+            "std": float(np.std(vals)) if vals else 0.0,
+            "min": float(np.min(vals)) if vals else 0.0,
+            "max": float(np.max(vals)) if vals else 0.0,
+            "n": len(vals),
+        }
+    return table
+
+
+# ---------------------------------------------------------------------------
+# Plotting utilities
+# ---------------------------------------------------------------------------
+
+
+def _color(label: str) -> str:
+    return BUDGET_COLORS.get(label, "#333333")
+
+
+def plot_growth_curves(
+    experiment: Experiment,
+    metric_fn: Callable[[RunHistory], Sequence[float]] = skill_counts,
+    ylabel: str = "Skills",
+    title: str = "Skill Growth",
+) -> plt.Figure:
+    """Per-budget panels (2×4 grid) showing individual runs + mean±std."""
+    groups = experiment.budget_groups
+    ncols = 4
+    nrows = (len(groups) + ncols - 1) // ncols
+    fig, axes = plt.subplots(
+        nrows, ncols, figsize=(18, 4.5 * nrows), squeeze=False, sharey=True
+    )
+
+    x = np.arange(NUM_TRACES)
+    for idx, group in enumerate(groups):
+        ax = axes[idx // ncols][idx % ncols]
+        color = _color(group.budget_label)
+        arrays = [np.array(metric_fn(r)) for r in group.runs]
+        for arr in arrays:
+            ax.plot(x[: len(arr)], arr, color=color, alpha=0.25, linewidth=1)
+        if arrays:
+            mean = np.mean(arrays, axis=0)
+            std = np.std(arrays, axis=0)
+            ax.plot(x[: len(mean)], mean, color=color, linewidth=2)
+            ax.fill_between(
+                x[: len(mean)], mean - std, mean + std, color=color, alpha=0.15
+            )
+        ax.set_title(group.budget_label, fontsize=10)
+        ax.set_xlabel("Trace")
+        if idx % ncols == 0:
+            ax.set_ylabel(ylabel)
+        ax.grid(True, alpha=0.3)
+
+    # Hide unused axes
+    for idx in range(len(groups), nrows * ncols):
+        axes[idx // ncols][idx % ncols].set_visible(False)
+
+    fig.suptitle(title, fontsize=14, fontweight="bold", y=1.01)
+    fig.tight_layout()
+    return fig
+
+
+def plot_cross_budget_overlay(
+    experiment: Experiment,
+    metric_fn: Callable[[RunHistory], Sequence[float]] = skill_counts,
+    ylabel: str = "Skills",
+    title: str = "Cross-Budget Overlay",
+) -> plt.Figure:
+    """Single panel: mean±std for each budget overlaid."""
+    fig, ax = plt.subplots(figsize=(10, 5))
+    x = np.arange(NUM_TRACES)
+    for group in experiment.budget_groups:
+        color = _color(group.budget_label)
+        arrays = [np.array(metric_fn(r)) for r in group.runs]
+        if not arrays:
+            continue
+        mean = np.mean(arrays, axis=0)
+        std = np.std(arrays, axis=0)
+        ax.plot(x[: len(mean)], mean, color=color, linewidth=2, label=group.budget_label)
+        ax.fill_between(
+            x[: len(mean)], mean - std, mean + std, color=color, alpha=0.1
+        )
+    ax.set_xlabel("Trace")
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
+    ax.legend(fontsize=8)
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    return fig
+
+
+def plot_delta_bars(
+    run: RunHistory,
+    title: str | None = None,
+) -> plt.Figure:
+    """Stacked bars: ADD/UPDATE/REMOVE per trace for one run."""
+    counts = delta_counts_by_trace(run)
+    x = np.arange(NUM_TRACES)
+    fig, ax = plt.subplots(figsize=(12, 4))
+
+    ax.bar(x, counts[DeltaType.ADD], color="#16a34a", label="ADD")
+    ax.bar(
+        x,
+        counts[DeltaType.UPDATE],
+        bottom=counts[DeltaType.ADD],
+        color="#2563eb",
+        label="UPDATE",
+    )
+    ax.bar(
+        x,
+        -counts[DeltaType.REMOVE],
+        color="#dc2626",
+        label="REMOVE",
+    )
+    ax.axhline(0, color="black", linewidth=0.5)
+    ax.set_xlabel("Trace")
+    ax.set_ylabel("Deltas")
+    ax.set_title(title or f"Deltas — {run.budget_label}/run_{run.run_num}")
+    ax.legend(fontsize=8)
+    ax.grid(True, alpha=0.3, axis="y")
+    fig.tight_layout()
+    return fig
+
+
+def plot_survival_curve(experiment: Experiment) -> plt.Figure:
+    """Survival curves: fraction of skills surviving vs. trace added."""
+    fig, ax = plt.subplots(figsize=(10, 5))
+    for group in experiment.budget_groups:
+        color = _color(group.budget_label)
+        all_surv: list[dict[int, float]] = [skill_survival(r) for r in group.runs]
+        # Collect per-trace-index across runs
+        max_t = max((max(s.keys()) for s in all_surv if s), default=0)
+        mean_surv = np.zeros(max_t + 1)
+        cnt = np.zeros(max_t + 1)
+        for s_dict in all_surv:
+            for t, v in s_dict.items():
+                mean_surv[t] += v
+                cnt[t] += 1
+        mask = cnt > 0
+        mean_surv[mask] /= cnt[mask]
+        x_vals = np.where(mask)[0]
+        ax.plot(x_vals, mean_surv[x_vals], color=color, linewidth=2, label=group.budget_label)
+    ax.set_xlabel("Trace where skill was added")
+    ax.set_ylabel("Fraction surviving to final")
+    ax.set_title("Skill Survival by Cohort")
+    ax.legend(fontsize=8)
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    return fig
+
+
+def plot_section_timeline(run: RunHistory, title: str | None = None) -> plt.Figure:
+    """Horizontal bar chart: section first appearance and lifetime."""
+    first = section_first_appearance(run)
+    sizes = section_sizes_over_time(run)
+    sections_sorted = sorted(first.keys(), key=lambda s: first[s])
+
+    fig, ax = plt.subplots(figsize=(12, max(4, len(sections_sorted) * 0.4)))
+    for i, sec in enumerate(sections_sorted):
+        start = first[sec]
+        # Find last trace where section has skills
+        sz = sizes.get(sec, [])
+        end = start
+        for t in range(len(sz) - 1, -1, -1):
+            if sz[t] > 0:
+                end = t
+                break
+        ax.barh(i, end - start + 1, left=start, height=0.6, color=_color(run.budget_label), alpha=0.7)
+    ax.set_yticks(range(len(sections_sorted)))
+    ax.set_yticklabels(sections_sorted, fontsize=8)
+    ax.set_xlabel("Trace")
+    ax.set_title(title or f"Section Timeline — {run.budget_label}/run_{run.run_num}")
+    ax.grid(True, alpha=0.3, axis="x")
+    fig.tight_layout()
+    return fig
+
+
+
+# ---------------------------------------------------------------------------
+# Report generation
+# ---------------------------------------------------------------------------
+
+
+def generate_report(
+    experiment: Experiment,
+    output_dir: Path,
+) -> Path:
+    """Generate SKILLBOOK_HISTORY_ANALYSIS.md with computed values and figures."""
+    import pandas as pd
+
+    figures_dir = output_dir / "figures"
+    figures_dir.mkdir(parents=True, exist_ok=True)
+
+    # Save figures
+    fig_files: dict[str, str] = {}
+
+    fig = plot_growth_curves(experiment, skill_counts, "Skills", "Skill Growth per Budget")
+    fig.savefig(figures_dir / "growth_skills.png", dpi=150, bbox_inches="tight")
+    fig_files["growth_skills"] = "figures/growth_skills.png"
+    plt.close(fig)
+
+    fig = plot_cross_budget_overlay(experiment, skill_counts, "Skills", "Skills — Cross-Budget")
+    fig.savefig(figures_dir / "overlay_skills.png", dpi=150, bbox_inches="tight")
+    fig_files["overlay_skills"] = "figures/overlay_skills.png"
+    plt.close(fig)
+
+    fig = plot_cross_budget_overlay(experiment, toon_token_counts, "TOON Tokens", "TOON Tokens — Cross-Budget")
+    fig.savefig(figures_dir / "overlay_toon.png", dpi=150, bbox_inches="tight")
+    fig_files["overlay_toon"] = "figures/overlay_toon.png"
+    plt.close(fig)
+
+    fig = plot_cross_budget_overlay(experiment, section_counts, "Sections", "Sections — Cross-Budget")
+    fig.savefig(figures_dir / "overlay_sections.png", dpi=150, bbox_inches="tight")
+    fig_files["overlay_sections"] = "figures/overlay_sections.png"
+    plt.close(fig)
+
+    # Delta bars for a representative budget (budget-3000 run 1)
+    rep = experiment.get_budget("budget-3000")
+    if rep and rep.runs:
+        fig = plot_delta_bars(rep.runs[0])
+        fig.savefig(figures_dir / "deltas_representative.png", dpi=150, bbox_inches="tight")
+        fig_files["deltas"] = "figures/deltas_representative.png"
+        plt.close(fig)
+
+    fig = plot_survival_curve(experiment)
+    fig.savefig(figures_dir / "survival.png", dpi=150, bbox_inches="tight")
+    fig_files["survival"] = "figures/survival.png"
+    plt.close(fig)
+
+    fig = plot_cross_budget_overlay(experiment, tokens_per_skill, "Tokens/Skill", "Conciseness — Cross-Budget")
+    fig.savefig(figures_dir / "conciseness.png", dpi=150, bbox_inches="tight")
+    fig_files["conciseness"] = "figures/conciseness.png"
+    plt.close(fig)
+
+    # Summary table
+    rows: list[dict[str, Any]] = []
+    for group in experiment.budget_groups:
+        sk = budget_comparison_table(
+            Experiment(budget_groups=[group], experiment_dir=experiment.experiment_dir),
+            skill_counts,
+        )[group.budget_label]
+        tt = budget_comparison_table(
+            Experiment(budget_groups=[group], experiment_dir=experiment.experiment_dir),
+            toon_token_counts,
+        )[group.budget_label]
+        sc = budget_comparison_table(
+            Experiment(budget_groups=[group], experiment_dir=experiment.experiment_dir),
+            section_counts,
+        )[group.budget_label]
+        ni = budget_comparison_table(
+            Experiment(budget_groups=[group], experiment_dir=experiment.experiment_dir),
+            next_id_counts,
+        )[group.budget_label]
+
+        # Churn
+        total_adds = []
+        total_removes = []
+        for run in group.runs:
+            a, r, _ = churn_per_trace(run)
+            total_adds.append(float(a.sum()))
+            total_removes.append(float(r.sum()))
+
+        rows.append(
+            {
+                "Budget": group.budget_label,
+                "Skills (mean)": f"{sk['mean']:.1f}",
+                "Skills (std)": f"{sk['std']:.1f}",
+                "Sections (mean)": f"{sc['mean']:.1f}",
+                "TOON (mean)": f"{tt['mean']:.0f}",
+                "next_id (mean)": f"{ni['mean']:.0f}",
+                "Total ADDs (mean)": f"{np.mean(total_adds):.0f}",
+                "Total REMOVEs (mean)": f"{np.mean(total_removes):.0f}",
+            }
+        )
+
+    df = pd.DataFrame(rows)
+    table_md = df.to_markdown(index=False)
+
+    # Build report
+    delta_img = (
+        f"![Delta Events]({fig_files['deltas']})"
+        if "deltas" in fig_files
+        else "*(No representative budget found)*"
+    )
+
+    report = f"""\
+# Skillbook History Analysis
+
+Analysis of skillbook evolution across the variance experiment:
+7 budget levels x 5 runs x 25 traces = 875 snapshots.
+
+## Experiment Setup
+
+- **Model**: Claude Haiku 4.5 (Bedrock)
+- **Budgets**: 500, 1000, 2000, 3000, 5000, 10000, unlimited
+- **Runs per budget**: 5
+- **Traces per run**: 25
+- **Dedup threshold**: 0.7
+
+## Summary Table
+
+{table_md}
+
+## 1. Growth Curves
+
+How skills accumulate over the 25-trace sequence.
+
+![Skill Growth]({fig_files['growth_skills']})
+
+![Skills Overlay]({fig_files['overlay_skills']})
+
+![TOON Tokens Overlay]({fig_files['overlay_toon']})
+
+![Sections Overlay]({fig_files['overlay_sections']})
+
+## 2. Skill Lifecycle
+
+ADD/UPDATE/REMOVE events and skill survival analysis.
+
+{delta_img}
+
+![Survival Curves]({fig_files['survival']})
+
+## 3. Conciseness
+
+Token efficiency per skill over time.
+
+![Conciseness]({fig_files['conciseness']})
+
+---
+*Generated by `scripts/analysis/skillbook_history.py`*
+"""
+
+    out_path = output_dir / "SKILLBOOK_HISTORY_ANALYSIS.md"
+    out_path.write_text(report, encoding="utf-8")
+    return out_path
