@@ -168,7 +168,7 @@ class TestNoTokenBudgetInPrompt:
 #     sm = SkillManager(llm)
 #
 #   Variant B — with token_budget:
-#     sm = SkillManager(llm, token_budget=80000)
+#     sm = SkillManager(llm, token_budget=4000)
 #
 #   Compare final skillbook sizes and stats between A and B.
 # ---------------------------------------------------------------------------
@@ -188,5 +188,5 @@ def _extract_stats_from_prompt(prompt: str) -> str:
     for line in prompt.splitlines():
         stripped = line.strip()
         if stripped.startswith("Stats:"):
-            return stripped[len("Stats:"):].strip()
+            return stripped[len("Stats:") :].strip()
     raise ValueError("Could not find 'Stats:' line in prompt")

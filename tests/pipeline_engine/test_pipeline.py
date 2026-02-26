@@ -210,14 +210,24 @@ class TestPipelineRun:
         assert results[0].error is None
 
     def test_multi_step_chain(self):
-        results = Pipeline().then(SetA()).then(SetB()).then(SetC()).run([StepContext(sample="s")])
+        results = (
+            Pipeline()
+            .then(SetA())
+            .then(SetB())
+            .then(SetC())
+            .run([StepContext(sample="s")])
+        )
         out = results[0].output
         assert out.metadata["a"] == 1
         assert out.metadata["b"] == 2
         assert out.metadata["c"] == 4
 
     def test_multiple_samples(self):
-        results = Pipeline().then(SetA()).run([StepContext(sample=s) for s in ("s1", "s2", "s3")])
+        results = (
+            Pipeline()
+            .then(SetA())
+            .run([StepContext(sample=s) for s in ("s1", "s2", "s3")])
+        )
         assert len(results) == 3
         assert all(r.output.metadata["a"] == 1 for r in results)
 
@@ -231,7 +241,11 @@ class TestPipelineRun:
         assert results[0].output.sample == "s"
 
     def test_run_returns_sample_result_list(self):
-        results = Pipeline().then(Noop()).run([StepContext(sample="a"), StepContext(sample="b")])
+        results = (
+            Pipeline()
+            .then(Noop())
+            .run([StepContext(sample="a"), StepContext(sample="b")])
+        )
         assert all(isinstance(r, SampleResult) for r in results)
 
     @pytest.mark.slow
@@ -289,8 +303,10 @@ class TestPipelineRunErrors:
                 return ctx
 
         FailFirst.call_count = 0
-        results = Pipeline().then(FailFirst()).run(
-            [StepContext(sample=s) for s in ("ok1", "bad", "ok2")]
+        results = (
+            Pipeline()
+            .then(FailFirst())
+            .run([StepContext(sample=s) for s in ("ok1", "bad", "ok2")])
         )
         assert len(results) == 3
         errors = [r for r in results if r.error is not None]
@@ -314,7 +330,12 @@ class TestPipelineRunErrors:
             def __call__(self, ctx):
                 raise ValueError("fail")
 
-        results = Pipeline().then(FirstStep()).then(FailingStep()).run([StepContext(sample="s")])
+        results = (
+            Pipeline()
+            .then(FirstStep())
+            .then(FailingStep())
+            .run([StepContext(sample="s")])
+        )
         assert results[0].failed_at == "FailingStep"
 
 
@@ -426,7 +447,9 @@ class TestPipelineAsyncBoundary:
 
         # SerialStep has max_workers=1; two samples must not interleave
         pipe = Pipeline().then(TriggerBoundary()).then(SerialStep())
-        results = pipe.run([StepContext(sample="x"), StepContext(sample="y")], workers=2)
+        results = pipe.run(
+            [StepContext(sample="x"), StepContext(sample="y")], workers=2
+        )
         pipe.wait_for_background(timeout=5.0)
 
         log = SerialStep._log
@@ -528,7 +551,9 @@ class TestPipelineContractWithSubclass:
 
             def __call__(self, ctx):
                 return ctx.replace(
-                    metadata=MappingProxyType({**ctx.metadata, "result": ctx.agent_output})
+                    metadata=MappingProxyType(
+                        {**ctx.metadata, "result": ctx.agent_output}
+                    )
                 )
 
         # Correct order works

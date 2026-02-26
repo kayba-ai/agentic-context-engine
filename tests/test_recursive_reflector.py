@@ -473,8 +473,7 @@ class TestPrematureFinalRejected(unittest.TestCase):
                 call_count[0] += 1
                 if call_count[0] == 1:
                     # First call: immediately calls FINAL (premature)
-                    return LLMResponse(
-                        text="""```python
+                    return LLMResponse(text="""```python
 print(f"Question: {traces['question'][:100]}")
 FINAL({
     "reasoning": "Premature analysis",
@@ -485,14 +484,12 @@ FINAL({
     "extracted_learnings": [],
     "skill_tags": []
 })
-```"""
-                    )
+```""")
                 else:
                     # Second call: should see rejection message, now does proper analysis
                     last_msg = messages[-1]["content"]
                     assert "before exploring the data" in last_msg
-                    return LLMResponse(
-                        text="""```python
+                    return LLMResponse(text="""```python
 FINAL({
     "reasoning": "After reading actual data, the weather app was built correctly.",
     "error_identification": "none",
@@ -504,8 +501,7 @@ FINAL({
     ],
     "skill_tags": []
 })
-```"""
-                    )
+```""")
 
         llm = TwoShotLLMClient()
         reflector = RecursiveReflector(llm, config=RecursiveConfig(max_iterations=5))
@@ -590,8 +586,7 @@ class TestFinalRejectedAfterExecutionError(unittest.TestCase):
                 elif call_count[0] == 2:
                     # Iteration 1: code that triggers an error before FINAL
                     # Using undefined_variable triggers NameError which sets result.success=False
-                    return LLMResponse(
-                        text="""```python
+                    return LLMResponse(text="""```python
 # This will cause a NameError
 x = undefined_variable
 FINAL({
@@ -603,8 +598,7 @@ FINAL({
     "extracted_learnings": [],
     "skill_tags": []
 })
-```"""
-                    )
+```""")
                 else:
                     # Iteration 2+: should see rejection message, provide proper fix
                     last_msg = messages[-1]["content"]
@@ -612,8 +606,7 @@ FINAL({
                     assert (
                         "error" in last_msg.lower() or "Error" in last_msg
                     ), f"Expected 'error' in message: {last_msg[:200]}"
-                    return LLMResponse(
-                        text="""```python
+                    return LLMResponse(text="""```python
 FINAL({
     "reasoning": "After fixing the error, analysis is complete.",
     "error_identification": "none",
@@ -623,8 +616,7 @@ FINAL({
     "extracted_learnings": [],
     "skill_tags": []
 })
-```"""
-                    )
+```""")
 
         llm = ErrorThenFixLLMClient()
         reflector = RecursiveReflector(llm, config=RecursiveConfig(max_iterations=5))
@@ -773,8 +765,7 @@ class TestLLMQueryLimitInReflector(unittest.TestCase):
                     )
                 elif self._repl_call == 2:
                     # Iteration 1: llm_query calls + FINAL
-                    return LLMResponse(
-                        text="""```python
+                    return LLMResponse(text="""```python
 results = []
 for i in range(5):
     r = llm_query(f"Sub-query {i}")
@@ -788,8 +779,7 @@ FINAL({
     "extracted_learnings": [],
     "skill_tags": []
 })
-```"""
-                    )
+```""")
                 else:
                     return LLMResponse(text="```python\nprint('done')\n```")
 
@@ -1573,8 +1563,7 @@ class TestEmptyLLMResponse(unittest.TestCase):
                     )
                 else:
                     # Third call: FINAL
-                    return LLMResponse(
-                        text="""```python
+                    return LLMResponse(text="""```python
 FINAL({
     "reasoning": "Recovered from empty response.",
     "error_identification": "none",
@@ -1584,8 +1573,7 @@ FINAL({
     "extracted_learnings": [],
     "skill_tags": []
 })
-```"""
-                    )
+```""")
 
         llm = NoneFirstLLMClient()
         reflector = RecursiveReflector(llm, config=RecursiveConfig(max_iterations=5))

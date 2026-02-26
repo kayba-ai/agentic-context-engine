@@ -176,7 +176,9 @@ print(f"  requires = {pipe.requires}   ← external inputs the caller must provi
 print(f"  provides = {pipe.provides}   ← everything the pipeline writes")
 print()
 
-results = pipe.run([StepContext(sample="hello world"), StepContext(sample="pipeline engine demo")])
+results = pipe.run(
+    [StepContext(sample="hello world"), StepContext(sample="pipeline engine demo")]
+)
 show(results)
 
 # %% [markdown]
@@ -321,7 +323,9 @@ print(f"   branch_1.agent_output = {out.metadata['branch_1'].agent_output!r}")
 
 # %%
 print("All samples fail:\n")
-results = Pipeline().then(Tokenize()).then(Boom()).run([StepContext(sample="good luck")])
+results = (
+    Pipeline().then(Tokenize()).then(Boom()).run([StepContext(sample="good luck")])
+)
 show(results)
 
 # %%
@@ -338,8 +342,11 @@ class MaybeBoom:
         return ctx
 
 
-results = Pipeline().then(Tokenize()).then(MaybeBoom()).run(
-    [StepContext(sample=s) for s in ("ok", "bad input", "fine")]
+results = (
+    Pipeline()
+    .then(Tokenize())
+    .then(MaybeBoom())
+    .run([StepContext(sample=s) for s in ("ok", "bad input", "fine")])
 )
 show(results)
 
@@ -381,7 +388,9 @@ class SlowScore:
 pipe = Pipeline().then(Tokenize()).then(SlowScore())
 
 t0 = time.monotonic()
-results = pipe.run([StepContext(sample="fast return"), StepContext(sample="also fast")], workers=2)
+results = pipe.run(
+    [StepContext(sample="fast return"), StepContext(sample="also fast")], workers=2
+)
 elapsed = time.monotonic() - t0
 
 print(f"\nrun() returned in {elapsed:.3f}s — background still scoring\n")

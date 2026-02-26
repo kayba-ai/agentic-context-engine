@@ -207,16 +207,14 @@ class TestReflector(unittest.TestCase):
         """Test reflector tags skills as helpful."""
         skill = self.skillbook.add_skill("math", "Show your work", skill_id="b1")
 
-        self.mock_llm.set_response(
-            """
+        self.mock_llm.set_response("""
         {
             "reasoning": "Good use of step-by-step approach", "error_identification": "", "root_cause_analysis": "", "correct_approach": "", "key_insight": "",
             "skill_tags": [
                 {"id": "b1", "tag": "helpful"}
             ]
         }
-        """
-        )
+        """)
 
         reflector = Reflector(self.mock_llm)
         agent_output = AgentOutput(
@@ -242,16 +240,14 @@ class TestReflector(unittest.TestCase):
         """Test reflector tags skills as harmful."""
         skill = self.skillbook.add_skill("math", "Skip showing work", skill_id="b_bad")
 
-        self.mock_llm.set_response(
-            """
+        self.mock_llm.set_response("""
         {
             "reasoning": "Skipping work led to error", "error_identification": "", "root_cause_analysis": "", "correct_approach": "", "key_insight": "",
             "skill_tags": [
                 {"id": "b_bad", "tag": "harmful"}
             ]
         }
-        """
-        )
+        """)
 
         reflector = Reflector(self.mock_llm)
         agent_output = AgentOutput(
@@ -308,8 +304,7 @@ class TestSkillManager(unittest.TestCase):
 
     def test_update_skills_basic_add_operation(self):
         """Test basic skill management with ADD operation."""
-        self.mock_llm.set_response(
-            """
+        self.mock_llm.set_response("""
         {
             "update": {
                 "reasoning": "Need to add verification strategy",
@@ -322,8 +317,7 @@ class TestSkillManager(unittest.TestCase):
                 ]
             }
         }
-        """
-        )
+        """)
 
         skill_manager = SkillManager(self.mock_llm)
         reflection = ReflectorOutput(
@@ -355,8 +349,7 @@ class TestSkillManager(unittest.TestCase):
         """Test TAG operation updates skill metadata."""
         skill = self.skillbook.add_skill("math", "Show your work", skill_id="b1")
 
-        self.mock_llm.set_response(
-            """
+        self.mock_llm.set_response("""
         {
             "update": {
                 "reasoning": "Skill b1 was helpful",
@@ -370,8 +363,7 @@ class TestSkillManager(unittest.TestCase):
                 ]
             }
         }
-        """
-        )
+        """)
 
         skill_manager = SkillManager(self.mock_llm)
         reflection = ReflectorOutput(
@@ -399,8 +391,7 @@ class TestSkillManager(unittest.TestCase):
 
     def test_update_skills_multiple_operations(self):
         """Test multiple operations in one update batch."""
-        self.mock_llm.set_response(
-            """
+        self.mock_llm.set_response("""
         {
             "update": {
                 "reasoning": "Add new strategy and tag existing one",
@@ -419,8 +410,7 @@ class TestSkillManager(unittest.TestCase):
                 ]
             }
         }
-        """
-        )
+        """)
 
         skill_manager = SkillManager(self.mock_llm)
         reflection = ReflectorOutput(
@@ -446,16 +436,14 @@ class TestSkillManager(unittest.TestCase):
 
     def test_update_skills_empty_operations(self):
         """Test skill management with no operations needed."""
-        self.mock_llm.set_response(
-            """
+        self.mock_llm.set_response("""
         {
             "update": {
                 "reasoning": "Skillbook is already sufficient",
                 "operations": []
             }
         }
-        """
-        )
+        """)
 
         skill_manager = SkillManager(self.mock_llm)
         reflection = ReflectorOutput(

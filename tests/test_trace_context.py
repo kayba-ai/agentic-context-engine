@@ -609,8 +609,7 @@ class TestEnableSubagentFalse(unittest.TestCase):
 
         # Mock LLM that generates code calling ask_llm, then FINAL
         mock_llm = MagicMock()
-        mock_llm.complete_messages.return_value = MagicMock(
-            text="""```python
+        mock_llm.complete_messages.return_value = MagicMock(text="""```python
 result = ask_llm("What happened?", "some context")
 FINAL({
     "reasoning": result,
@@ -621,8 +620,7 @@ FINAL({
     "extracted_learnings": [],
     "skill_tags": []
 })
-```"""
-        )
+```""")
 
         config = RecursiveConfig(enable_subagent=False, max_iterations=3)
         reflector = RecursiveReflector(mock_llm, config=config)

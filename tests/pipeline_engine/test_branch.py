@@ -1268,7 +1268,9 @@ class TestBranchViaRun:
             Pipeline().then(WriteX()),
             Pipeline().then(WriteY()),
         )
-        results = asyncio.run(pipe.run_async([TestContext(sample="s1"), TestContext(sample="s2")]))
+        results = asyncio.run(
+            pipe.run_async([TestContext(sample="s1"), TestContext(sample="s2")])
+        )
         assert len(results) == 2
         assert all(r.error is None for r in results)
 

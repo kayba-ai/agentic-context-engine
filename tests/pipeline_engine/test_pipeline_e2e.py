@@ -399,7 +399,9 @@ class TestAsyncStepsInPipeline:
             def __call__(self, ctx: E2EContext) -> E2EContext:
                 return ctx.replace(environment_result={"score": 1.0})
 
-        results = Pipeline().then(AsyncAgent()).then(SyncEval()).run([E2EContext(sample="s")])
+        results = (
+            Pipeline().then(AsyncAgent()).then(SyncEval()).run([E2EContext(sample="s")])
+        )
         assert results[0].output.agent_output == "async"
         assert results[0].output.environment_result["score"] == 1.0
 

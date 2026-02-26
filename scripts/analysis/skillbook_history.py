@@ -71,24 +71,68 @@ def _tok(text: str) -> int:
 TOPIC_MAP: dict[str, str] = {
     # Core domain
     "cancellation": "cancellation",
-    "compensation": "compensation", "delay": "compensation",
-    "modification": "modification", "passenger": "modification", "cabin": "modification",
-    "reservation": "reservation", "booking": "reservation", "conflict": "reservation",
-    "flight": "flight_search", "search": "flight_search", "destination": "flight_search", "return": "flight_search",
-    "payment": "payment", "refund": "payment",
-    "pricing": "pricing", "cost": "pricing", "financial": "pricing", "calculation": "pricing", "calculations": "pricing",
-    "baggage": "baggage", "membership": "baggage",
+    "compensation": "compensation",
+    "delay": "compensation",
+    "modification": "modification",
+    "passenger": "modification",
+    "cabin": "modification",
+    "reservation": "reservation",
+    "booking": "reservation",
+    "conflict": "reservation",
+    "flight": "flight_search",
+    "search": "flight_search",
+    "destination": "flight_search",
+    "return": "flight_search",
+    "payment": "payment",
+    "refund": "payment",
+    "pricing": "pricing",
+    "cost": "pricing",
+    "financial": "pricing",
+    "calculation": "pricing",
+    "calculations": "pricing",
+    "baggage": "baggage",
+    "membership": "baggage",
     "insurance": "insurance",
     # Process
-    "escalation": "escalation", "handoff": "escalation", "transfer": "escalation", "triage": "escalation",
-    "confirmation": "confirmation", "consent": "confirmation", "preference": "confirmation",
-    "policy": "policy", "constraint": "policy", "eligibility": "policy", "boundary": "policy", "authorization": "policy", "technical": "policy", "airline": "policy",
-    "tool": "tool_usage", "tools": "tool_usage", "transaction": "tool_usage", "execution": "tool_usage", "action": "tool_usage", "interaction": "tool_usage", "api": "tool_usage",
-    "customer": "customer_comms", "communication": "customer_comms", "user": "customer_comms", "message": "customer_comms", "capability": "customer_comms", "clarification": "customer_comms",
-    "data": "data_retrieval", "information": "data_retrieval", "discovery": "data_retrieval",
-    "workflow": "workflow", "task": "workflow",
-    "decision": "decision_support", "option": "decision_support", "alternative": "decision_support", "alternatives": "decision_support", "problem": "decision_support",
-    "temporal": "temporal", "date": "temporal",
+    "escalation": "escalation",
+    "handoff": "escalation",
+    "transfer": "escalation",
+    "triage": "escalation",
+    "confirmation": "confirmation",
+    "consent": "confirmation",
+    "preference": "confirmation",
+    "policy": "policy",
+    "constraint": "policy",
+    "eligibility": "policy",
+    "boundary": "policy",
+    "authorization": "policy",
+    "technical": "policy",
+    "airline": "policy",
+    "tool": "tool_usage",
+    "tools": "tool_usage",
+    "transaction": "tool_usage",
+    "execution": "tool_usage",
+    "action": "tool_usage",
+    "interaction": "tool_usage",
+    "api": "tool_usage",
+    "customer": "customer_comms",
+    "communication": "customer_comms",
+    "user": "customer_comms",
+    "message": "customer_comms",
+    "capability": "customer_comms",
+    "clarification": "customer_comms",
+    "data": "data_retrieval",
+    "information": "data_retrieval",
+    "discovery": "data_retrieval",
+    "workflow": "workflow",
+    "task": "workflow",
+    "decision": "decision_support",
+    "option": "decision_support",
+    "alternative": "decision_support",
+    "alternatives": "decision_support",
+    "problem": "decision_support",
+    "temporal": "temporal",
+    "date": "temporal",
 }
 
 
@@ -304,9 +348,7 @@ def diff_snapshots(
 
 def load_run(run_dir: Path, budget_label: str, run_num: int) -> RunHistory:
     """Load all snapshots + run_info for a single run."""
-    history = RunHistory(
-        budget_label=budget_label, run_num=run_num, run_dir=run_dir
-    )
+    history = RunHistory(budget_label=budget_label, run_num=run_num, run_dir=run_dir)
 
     # Load run_info.json
     info_path = run_dir / "run_info.json"
@@ -325,9 +367,7 @@ def load_run(run_dir: Path, budget_label: str, run_num: int) -> RunHistory:
         history.next_ids.append(raw.get("next_id", 0))
 
         trace_info = traces_info[i] if i < len(traces_info) else None
-        metrics = compute_snapshot_metrics(
-            skills, raw.get("next_id", 0), i, trace_info
-        )
+        metrics = compute_snapshot_metrics(skills, raw.get("next_id", 0), i, trace_info)
         history.metrics.append(metrics)
 
     # Compute deltas between consecutive snapshots
@@ -412,6 +452,7 @@ def compression_distribution(
 
     try:
         import tiktoken
+
         _enc = tiktoken.encoding_for_model("gpt-4")
     except ImportError:
         _enc = None
@@ -434,7 +475,9 @@ def compression_distribution(
                     raw_toks = len(_enc.encode(text))
                     entry["raw_md_tokens"] = raw_toks
                     opus_toks = entry["md_tokens_tiktoken"]
-                    entry["compression_pct"] = (opus_toks / raw_toks * 100) if raw_toks > 0 else 0.0
+                    entry["compression_pct"] = (
+                        (opus_toks / raw_toks * 100) if raw_toks > 0 else 0.0
+                    )
 
     result: dict[str, dict[str, float]] = {}
     keys = ["sections", "skills", "md_chars", "md_tokens_tiktoken"]
@@ -586,8 +629,6 @@ def section_sizes_over_time(run: RunHistory) -> dict[str, list[int]]:
 # ---------------------------------------------------------------------------
 
 
-
-
 def _section_names_to_topics(section_names: Sequence[str]) -> set[str]:
     """Map a list of raw section names to the set of canonical topics."""
     return {section_to_topic(s) for s in section_names}
@@ -613,9 +654,7 @@ def load_final_embeddings(run: RunHistory) -> dict[str, np.ndarray]:
     return embeddings
 
 
-def cosine_similarity_matrix(
-    a: np.ndarray, b: np.ndarray
-) -> np.ndarray:
+def cosine_similarity_matrix(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     """Cosine similarity between rows of A (m,d) and B (n,d) → (m,n)."""
     a_norm = a / (np.linalg.norm(a, axis=1, keepdims=True) + 1e-10)
     b_norm = b / (np.linalg.norm(b, axis=1, keepdims=True) + 1e-10)
@@ -651,9 +690,7 @@ def cross_run_embedding_overlap(
                     "run_j": group.runs[j].run_num,
                     "mean_nn_i_to_j": float(nn_i_to_j.mean()),
                     "mean_nn_j_to_i": float(nn_j_to_i.mean()),
-                    "mean_nn": float(
-                        (nn_i_to_j.mean() + nn_j_to_i.mean()) / 2
-                    ),
+                    "mean_nn": float((nn_i_to_j.mean() + nn_j_to_i.mean()) / 2),
                     "median_nn": float(
                         np.median(np.concatenate([nn_i_to_j, nn_j_to_i]))
                     ),
@@ -667,9 +704,7 @@ def cross_run_embedding_overlap(
     }
 
 
-def cluster_final_skills(
-    group: BudgetGroup, n_clusters: int = 10
-) -> dict[str, Any]:
+def cluster_final_skills(group: BudgetGroup, n_clusters: int = 10) -> dict[str, Any]:
     """KMeans cluster all final-snapshot skills across runs.
 
     Returns cluster labels, core clusters (present in majority of runs),
@@ -823,10 +858,10 @@ def plot_cross_budget_overlay(
             continue
         mean = np.mean(arrays, axis=0)
         std = np.std(arrays, axis=0)
-        ax.plot(x[: len(mean)], mean, color=color, linewidth=2, label=group.budget_label)
-        ax.fill_between(
-            x[: len(mean)], mean - std, mean + std, color=color, alpha=0.1
+        ax.plot(
+            x[: len(mean)], mean, color=color, linewidth=2, label=group.budget_label
         )
+        ax.fill_between(x[: len(mean)], mean - std, mean + std, color=color, alpha=0.1)
     ax.set_xlabel("Trace")
     ax.set_ylabel(ylabel)
     ax.set_title(title)
@@ -886,7 +921,13 @@ def plot_survival_curve(experiment: Experiment) -> plt.Figure:
         mask = cnt > 0
         mean_surv[mask] /= cnt[mask]
         x_vals = np.where(mask)[0]
-        ax.plot(x_vals, mean_surv[x_vals], color=color, linewidth=2, label=group.budget_label)
+        ax.plot(
+            x_vals,
+            mean_surv[x_vals],
+            color=color,
+            linewidth=2,
+            label=group.budget_label,
+        )
     ax.set_xlabel("Trace where skill was added")
     ax.set_ylabel("Fraction surviving to final")
     ax.set_title("Skill Survival by Cohort")
@@ -912,7 +953,14 @@ def plot_section_timeline(run: RunHistory, title: str | None = None) -> plt.Figu
             if sz[t] > 0:
                 end = t
                 break
-        ax.barh(i, end - start + 1, left=start, height=0.6, color=_color(run.budget_label), alpha=0.7)
+        ax.barh(
+            i,
+            end - start + 1,
+            left=start,
+            height=0.6,
+            color=_color(run.budget_label),
+            alpha=0.7,
+        )
     ax.set_yticks(range(len(sections_sorted)))
     ax.set_yticklabels(sections_sorted, fontsize=8)
     ax.set_xlabel("Trace")
@@ -1097,14 +1145,11 @@ def plot_cluster_coverage(experiment: Experiment) -> plt.Figure:
         clusters = result["clusters"]
         coverage = [c["run_coverage"] for c in clusters]
         colors_bar = [
-            _color(group.budget_label) if c >= 0.6 else "#d1d5db"
-            for c in coverage
+            _color(group.budget_label) if c >= 0.6 else "#d1d5db" for c in coverage
         ]
 
         ax.bar(range(len(clusters)), coverage, color=colors_bar)
-        ax.axhline(
-            0.6, color="red", linestyle="--", alpha=0.5, label="Core threshold"
-        )
+        ax.axhline(0.6, color="red", linestyle="--", alpha=0.5, label="Core threshold")
         ax.set_xlabel("Cluster")
         if idx % 4 == 0:
             ax.set_ylabel("Run coverage")
@@ -1196,16 +1241,30 @@ def plot_compression_distribution(experiment_dir: Path) -> plt.Figure:
     ]
 
     ax.errorbar(
-        budget_vals, raw_sk, yerr=raw_sk_std, fmt="o-", capsize=4,
-        label="Raw (uncompressed)", color="#9ca3af",
+        budget_vals,
+        raw_sk,
+        yerr=raw_sk_std,
+        fmt="o-",
+        capsize=4,
+        label="Raw (uncompressed)",
+        color="#9ca3af",
     )
     ax.errorbar(
-        budget_vals, opus_sk, yerr=opus_sk_std, fmt="o-", capsize=4,
-        label="Opus (individual)", color="#2563eb",
+        budget_vals,
+        opus_sk,
+        yerr=opus_sk_std,
+        fmt="o-",
+        capsize=4,
+        label="Opus (individual)",
+        color="#2563eb",
     )
     ax.plot(
-        budget_vals, cons_sk, "s--", color="#dc2626",
-        label="Opus (consensus)", markersize=7,
+        budget_vals,
+        cons_sk,
+        "s--",
+        color="#dc2626",
+        label="Opus (consensus)",
+        markersize=7,
     )
     ax.set_xscale("log")
     ax.set_xlabel("Token Budget")
@@ -1226,16 +1285,30 @@ def plot_compression_distribution(experiment_dir: Path) -> plt.Figure:
     ]
 
     ax.errorbar(
-        budget_vals, raw_toks, yerr=raw_toks_std, fmt="o-", capsize=4,
-        label="Raw (uncompressed)", color="#9ca3af",
+        budget_vals,
+        raw_toks,
+        yerr=raw_toks_std,
+        fmt="o-",
+        capsize=4,
+        label="Raw (uncompressed)",
+        color="#9ca3af",
     )
     ax.errorbar(
-        budget_vals, opus_toks, yerr=opus_toks_std, fmt="o-", capsize=4,
-        label="Opus (individual)", color="#2563eb",
+        budget_vals,
+        opus_toks,
+        yerr=opus_toks_std,
+        fmt="o-",
+        capsize=4,
+        label="Opus (individual)",
+        color="#2563eb",
     )
     ax.plot(
-        budget_vals, cons_toks, "s--", color="#dc2626",
-        label="Opus (consensus)", markersize=7,
+        budget_vals,
+        cons_toks,
+        "s--",
+        color="#dc2626",
+        label="Opus (consensus)",
+        markersize=7,
     )
     ax.set_xscale("log")
     ax.set_xlabel("Token Budget")
@@ -1257,12 +1330,21 @@ def plot_compression_distribution(experiment_dir: Path) -> plt.Figure:
         cons_comp.append(opus / raw * 100 if raw > 0 else 0)
 
     ax.errorbar(
-        budget_vals, comp_pcts, yerr=comp_pcts_std, fmt="o-", capsize=4,
-        label="Individual runs (mean \u00b1 std)", color="#2563eb",
+        budget_vals,
+        comp_pcts,
+        yerr=comp_pcts_std,
+        fmt="o-",
+        capsize=4,
+        label="Individual runs (mean \u00b1 std)",
+        color="#2563eb",
     )
     ax.plot(
-        budget_vals, cons_comp, "s--", color="#dc2626",
-        label="Consensus", markersize=7,
+        budget_vals,
+        cons_comp,
+        "s--",
+        color="#dc2626",
+        label="Consensus",
+        markersize=7,
     )
     ax.axhline(45, color="#9ca3af", linestyle="--", alpha=0.5, label="~45% average")
     ax.set_xscale("log")
@@ -1294,8 +1376,7 @@ def format_embedding_overlap_text(experiment: Experiment) -> str:
         )
         for p in stats["pairs"]:
             lines.append(
-                f"  - run_{p['run_i']} \u2194 run_{p['run_j']}: "
-                f"{p['mean_nn']:.3f}"
+                f"  - run_{p['run_i']} \u2194 run_{p['run_j']}: " f"{p['mean_nn']:.3f}"
             )
     return "\n".join(lines)
 
@@ -1349,31 +1430,42 @@ def generate_report(
     # Save figures
     fig_files: dict[str, str] = {}
 
-    fig = plot_growth_curves(experiment, skill_counts, "Skills", "Skill Growth per Budget")
+    # --- 1. Growth curves ---
+    fig = plot_growth_curves(
+        experiment, skill_counts, "Skills", "Skill Growth per Budget"
+    )
     fig.savefig(figures_dir / "growth_skills.png", dpi=150, bbox_inches="tight")
     fig_files["growth_skills"] = "figures/growth_skills.png"
     plt.close(fig)
 
-    fig = plot_cross_budget_overlay(experiment, skill_counts, "Skills", "Skills — Cross-Budget")
+    fig = plot_cross_budget_overlay(
+        experiment, skill_counts, "Skills", "Skills \u2014 Cross-Budget"
+    )
     fig.savefig(figures_dir / "overlay_skills.png", dpi=150, bbox_inches="tight")
     fig_files["overlay_skills"] = "figures/overlay_skills.png"
     plt.close(fig)
 
-    fig = plot_cross_budget_overlay(experiment, toon_token_counts, "TOON Tokens", "TOON Tokens — Cross-Budget")
+    fig = plot_cross_budget_overlay(
+        experiment, toon_token_counts, "TOON Tokens", "TOON Tokens \u2014 Cross-Budget"
+    )
     fig.savefig(figures_dir / "overlay_toon.png", dpi=150, bbox_inches="tight")
     fig_files["overlay_toon"] = "figures/overlay_toon.png"
     plt.close(fig)
 
-    fig = plot_cross_budget_overlay(experiment, section_counts, "Sections", "Sections — Cross-Budget")
+    fig = plot_cross_budget_overlay(
+        experiment, section_counts, "Sections", "Sections \u2014 Cross-Budget"
+    )
     fig.savefig(figures_dir / "overlay_sections.png", dpi=150, bbox_inches="tight")
     fig_files["overlay_sections"] = "figures/overlay_sections.png"
     plt.close(fig)
 
-    # Delta bars for a representative budget (budget-3000 run 1)
+    # --- 2. Skill lifecycle ---
     rep = experiment.get_budget("budget-3000")
     if rep and rep.runs:
         fig = plot_delta_bars(rep.runs[0])
-        fig.savefig(figures_dir / "deltas_representative.png", dpi=150, bbox_inches="tight")
+        fig.savefig(
+            figures_dir / "deltas_representative.png", dpi=150, bbox_inches="tight"
+        )
         fig_files["deltas"] = "figures/deltas_representative.png"
         plt.close(fig)
 
@@ -1382,10 +1474,71 @@ def generate_report(
     fig_files["survival"] = "figures/survival.png"
     plt.close(fig)
 
-    fig = plot_cross_budget_overlay(experiment, tokens_per_skill, "Tokens/Skill", "Conciseness — Cross-Budget")
+    fig = plot_churn_analysis(experiment)
+    fig.savefig(figures_dir / "churn.png", dpi=150, bbox_inches="tight")
+    fig_files["churn"] = "figures/churn.png"
+    plt.close(fig)
+
+    fig = plot_lifespan_distributions(experiment)
+    fig.savefig(figures_dir / "lifespans.png", dpi=150, bbox_inches="tight")
+    fig_files["lifespans"] = "figures/lifespans.png"
+    plt.close(fig)
+
+    # --- 3. Section evolution ---
+    fig = plot_section_timelines(experiment)
+    fig.savefig(figures_dir / "section_timelines.png", dpi=150, bbox_inches="tight")
+    fig_files["section_timelines"] = "figures/section_timelines.png"
+    plt.close(fig)
+
+    if rep and rep.runs:
+        fig = plot_section_heatmap(rep.runs[0])
+        fig.savefig(figures_dir / "section_heatmap.png", dpi=150, bbox_inches="tight")
+        fig_files["section_heatmap"] = "figures/section_heatmap.png"
+        plt.close(fig)
+
+    # --- 4. Cross-run convergence (optional) ---
+    try:
+        embedding_text = format_embedding_overlap_text(experiment)
+    except Exception:
+        embedding_text = None
+
+    try:
+        fig = plot_cluster_coverage(experiment)
+        fig.savefig(figures_dir / "cluster_coverage.png", dpi=150, bbox_inches="tight")
+        fig_files["cluster_coverage"] = "figures/cluster_coverage.png"
+        plt.close(fig)
+    except Exception:
+        pass
+
+    # --- 5. Conciseness ---
+    fig = plot_cross_budget_overlay(
+        experiment, tokens_per_skill, "Tokens/Skill", "Conciseness \u2014 Cross-Budget"
+    )
     fig.savefig(figures_dir / "conciseness.png", dpi=150, bbox_inches="tight")
     fig_files["conciseness"] = "figures/conciseness.png"
     plt.close(fig)
+
+    # --- 6. Budget saturation ---
+    fig = plot_budget_saturation(experiment)
+    fig.savefig(figures_dir / "saturation.png", dpi=150, bbox_inches="tight")
+    fig_files["saturation"] = "figures/saturation.png"
+    plt.close(fig)
+
+    # --- 7. Opus compression (optional) ---
+    try:
+        compression_table_text = format_compression_table(experiment.experiment_dir)
+    except Exception:
+        compression_table_text = None
+
+    try:
+        fig = plot_compression_distribution(experiment.experiment_dir)
+        fig.savefig(
+            figures_dir / "compression_distribution.png", dpi=150, bbox_inches="tight"
+        )
+        fig_files["compression_distribution"] = "figures/compression_distribution.png"
+        plt.close(fig)
+    except Exception:
+        pass
 
     # Summary table
     rows: list[dict[str, Any]] = []
@@ -1431,11 +1584,52 @@ def generate_report(
     df = pd.DataFrame(rows)
     table_md = df.to_markdown(index=False)
 
-    # Build report
+    # Build markdown section fragments
     delta_img = (
         f"![Delta Events]({fig_files['deltas']})"
         if "deltas" in fig_files
         else "*(No representative budget found)*"
+    )
+    churn_img = (
+        f"\n![Churn Analysis]({fig_files['churn']})" if "churn" in fig_files else ""
+    )
+    lifespans_img = (
+        f"\n![Lifespan Distributions]({fig_files['lifespans']})"
+        if "lifespans" in fig_files
+        else ""
+    )
+    section_timelines_img = (
+        f"![Section Timelines]({fig_files['section_timelines']})"
+        if "section_timelines" in fig_files
+        else ""
+    )
+    section_heatmap_img = (
+        f"\n![Section Heatmap]({fig_files['section_heatmap']})"
+        if "section_heatmap" in fig_files
+        else ""
+    )
+    embedding_section = (
+        embedding_text if embedding_text else "*(Embeddings not available)*"
+    )
+    cluster_img = (
+        f"\n![Cluster Coverage]({fig_files['cluster_coverage']})"
+        if "cluster_coverage" in fig_files
+        else "\n*(Embeddings not available)*"
+    )
+    saturation_img = (
+        f"\n![Budget Saturation]({fig_files['saturation']})"
+        if "saturation" in fig_files
+        else ""
+    )
+    compression_table_section = (
+        compression_table_text
+        if compression_table_text
+        else "*(Compression metrics not available)*"
+    )
+    compression_dist_img = (
+        f"\n![Compression Distribution]({fig_files['compression_distribution']})"
+        if "compression_distribution" in fig_files
+        else "\n*(Compression metrics not available)*"
     )
 
     report = f"""\
@@ -1475,12 +1669,46 @@ ADD/UPDATE/REMOVE events and skill survival analysis.
 {delta_img}
 
 ![Survival Curves]({fig_files['survival']})
+{churn_img}
+{lifespans_img}
 
-## 3. Conciseness
+## 3. Section Evolution
+
+When do sections first appear? How do their sizes change over time?
+
+{section_timelines_img}
+{section_heatmap_img}
+
+## 4. Cross-Run Convergence
+
+Do independent runs converge on similar skill structures?
+
+### Embedding Nearest-Neighbor Overlap
+
+{embedding_section}
+
+### Skill Clustering (KMeans k=10)
+{cluster_img}
+
+## 5. Conciseness
 
 Token efficiency per skill over time.
 
 ![Conciseness]({fig_files['conciseness']})
+
+## 6. Cross-Budget Summary
+
+Final metrics across all budgets.
+
+{table_md}
+{saturation_img}
+
+## 7. Opus Compression
+
+Raw skillbook vs Opus-compressed individual runs vs consensus.
+
+{compression_table_section}
+{compression_dist_img}
 
 ---
 *Generated by `scripts/analysis/skillbook_history.py`*

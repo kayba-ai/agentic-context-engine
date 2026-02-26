@@ -53,12 +53,10 @@ class TestTraceSandbox(unittest.TestCase):
     def test_trace_methods(self):
         """Test that trace methods work in sandbox."""
         sandbox = TraceSandbox(trace=self.trace, llm_query_fn=None)
-        result = sandbox.execute(
-            """
+        result = sandbox.execute("""
 step = trace.get_step(0)
 print(f"Action: {step.action}")
-"""
-        )
+""")
 
         self.assertIn("Action: search", result.stdout)
         self.assertTrue(result.success)
@@ -74,12 +72,10 @@ print(f"Action: {step.action}")
     def test_final_stops_execution(self):
         """Test that FINAL() stops execution immediately."""
         sandbox = TraceSandbox(trace=self.trace, llm_query_fn=None)
-        result = sandbox.execute(
-            """
+        result = sandbox.execute("""
 FINAL("first value")
 FINAL("second value")  # Should not be reached
-"""
-        )
+""")
 
         self.assertEqual(result.final_value, "first value")
 
@@ -118,8 +114,7 @@ FINAL("second value")  # Should not be reached
     def test_safe_builtins_available(self):
         """Test that safe builtins are available."""
         sandbox = TraceSandbox(trace=self.trace, llm_query_fn=None)
-        result = sandbox.execute(
-            """
+        result = sandbox.execute("""
 # Test various safe builtins
 nums = list(range(5))
 print(f"len: {len(nums)}")
@@ -131,8 +126,7 @@ print(f"str: {str(42)}")
 print(f"int: {int('42')}")
 print(f"bool: {bool(1)}")
 print(f"isinstance: {isinstance(nums, list)}")
-"""
-        )
+""")
 
         self.assertIn("len: 5", result.stdout)
         self.assertIn("sum: 10", result.stdout)
@@ -145,34 +139,28 @@ print(f"isinstance: {isinstance(nums, list)}")
     def test_json_module_available(self):
         """Test that json module is available in sandbox."""
         sandbox = TraceSandbox(trace=self.trace, llm_query_fn=None)
-        result = sandbox.execute(
-            """
+        result = sandbox.execute("""
 import json  # This is not actually an import - json is pre-injected
 data = json.dumps({"key": "value"})
 print(data)
-"""
-        )
+""")
 
         # json is pre-injected, not imported, so this should fail
         # The import statement itself won't work, but json is in namespace
         sandbox2 = TraceSandbox(trace=self.trace, llm_query_fn=None)
-        result2 = sandbox2.execute(
-            """
+        result2 = sandbox2.execute("""
 data = json.dumps({"key": "value"})
 print(data)
-"""
-        )
+""")
         self.assertIn('{"key": "value"}', result2.stdout)
 
     def test_re_module_available(self):
         """Test that re module is available in sandbox."""
         sandbox = TraceSandbox(trace=self.trace, llm_query_fn=None)
-        result = sandbox.execute(
-            """
+        result = sandbox.execute("""
 matches = re.findall(r'Step \\d+', "Step 1, Step 2, Step 3")
 print(matches)
-"""
-        )
+""")
 
         self.assertIn("Step 1", result.stdout)
         self.assertIn("Step 2", result.stdout)
@@ -182,8 +170,7 @@ print(matches)
     def test_collections_module_available(self):
         """Test that collections module is available in sandbox."""
         sandbox = TraceSandbox(trace=self.trace, llm_query_fn=None)
-        result = sandbox.execute(
-            """
+        result = sandbox.execute("""
 # Test Counter
 counter = collections.Counter(['a', 'b', 'a', 'c', 'a'])
 print(f"Counter: {counter.most_common(2)}")
@@ -197,8 +184,7 @@ print(f"defaultdict: {dict(dd)}")
 dq = collections.deque([1, 2, 3], maxlen=3)
 dq.append(4)
 print(f"deque: {list(dq)}")
-"""
-        )
+""")
 
         self.assertIn("Counter: [('a', 3)", result.stdout)
         self.assertIn("defaultdict: {'key': ['value']}", result.stdout)
@@ -208,8 +194,7 @@ print(f"deque: {list(dq)}")
     def test_datetime_module_available(self):
         """Test that datetime module is available in sandbox."""
         sandbox = TraceSandbox(trace=self.trace, llm_query_fn=None)
-        result = sandbox.execute(
-            """
+        result = sandbox.execute("""
 # Test datetime (direct construction - sandbox restricts time-based methods)
 dt = datetime(2024, 1, 15, 10, 30, 0)
 print(f"datetime value: {dt.year}-{dt.month}-{dt.day}")
@@ -231,8 +216,7 @@ print(f"time is time: {isinstance(t, time)}")
 # Test timezone
 utc = timezone.utc
 print(f"timezone: {utc}")
-"""
-        )
+""")
 
         self.assertIn("datetime is datetime: True", result.stdout)
         self.assertIn("datetime value: 2024-1-15", result.stdout)
@@ -249,12 +233,10 @@ print(f"timezone: {utc}")
             return f"Response to: {prompt[:20]}..."
 
         sandbox = TraceSandbox(trace=self.trace, llm_query_fn=mock_llm_query)
-        result = sandbox.execute(
-            """
+        result = sandbox.execute("""
 response = llm_query("What is the meaning of life?")
 print(response)
-"""
-        )
+""")
 
         self.assertIn("Response to: What is the meaning", result.stdout)
         self.assertTrue(result.success)
@@ -262,12 +244,10 @@ print(response)
     def test_llm_query_disabled(self):
         """Test that llm_query returns stub when not provided."""
         sandbox = TraceSandbox(trace=self.trace, llm_query_fn=None)
-        result = sandbox.execute(
-            """
+        result = sandbox.execute("""
 response = llm_query("test prompt")
 print(response)
-"""
-        )
+""")
 
         self.assertIn("llm_query disabled", result.stdout)
         self.assertTrue(result.success)
@@ -278,12 +258,10 @@ print(response)
         sandbox.inject("my_var", 42)
         sandbox.inject("my_list", [1, 2, 3])
 
-        result = sandbox.execute(
-            """
+        result = sandbox.execute("""
 print(f"my_var: {my_var}")
 print(f"my_list: {my_list}")
-"""
-        )
+""")
 
         self.assertIn("my_var: 42", result.stdout)
         self.assertIn("my_list: [1, 2, 3]", result.stdout)
@@ -301,14 +279,12 @@ print(f"my_list: {my_list}")
     def test_try_except_in_code(self):
         """Test that try/except works in sandbox code."""
         sandbox = TraceSandbox(trace=self.trace, llm_query_fn=None)
-        result = sandbox.execute(
-            """
+        result = sandbox.execute("""
 try:
     x = 1 / 0
 except ZeroDivisionError:
     print("Caught division by zero")
-"""
-        )
+""")
 
         self.assertIn("Caught division by zero", result.stdout)
         self.assertTrue(result.success)
@@ -339,14 +315,12 @@ except ZeroDivisionError:
     def test_no_trace(self):
         """Test that sandbox works without a trace."""
         sandbox = TraceSandbox(trace=None, llm_query_fn=None)
-        result = sandbox.execute(
-            """
+        result = sandbox.execute("""
 if trace is None:
     print("No trace available")
 else:
     print("Trace exists")
-"""
-        )
+""")
 
         self.assertIn("No trace available", result.stdout)
         self.assertTrue(result.success)
@@ -616,12 +590,10 @@ class TestSubAgentLLM(unittest.TestCase):
         sandbox = TraceSandbox(trace=self.trace, llm_query_fn=None)
         sandbox.inject("ask_llm", ask_llm)
 
-        result = sandbox.execute(
-            """
+        result = sandbox.execute("""
 insight = ask_llm("What happened?", "Error: timeout after 30s")
 print(f"Got insight: {insight[:30]}")
-"""
-        )
+""")
 
         self.assertIn("Got insight:", result.stdout)
         self.assertTrue(result.success)
@@ -641,15 +613,13 @@ print(f"Got insight: {insight[:30]}")
         sandbox = TraceSandbox(trace=self.trace, llm_query_fn=None)
         sandbox.inject("ask_llm", ask_llm)
 
-        result = sandbox.execute(
-            """
+        result = sandbox.execute("""
 # Extract trace data and ask about it
 step = trace.get_step(0)
 context = f"Action: {step.action}, Observation: {step.observation}"
 insight = ask_llm("Is this result good?", context)
 print(f"Insight: {insight}")
-"""
-        )
+""")
 
         self.assertIn("Insight:", result.stdout)
         self.assertIn("5 results", result.stdout)
@@ -670,14 +640,12 @@ print(f"Insight: {insight}")
         sandbox = TraceSandbox(trace=self.trace, llm_query_fn=None)
         sandbox.inject("ask_llm", ask_llm)
 
-        result = sandbox.execute(
-            """
+        result = sandbox.execute("""
 results = []
 for i in range(5):
     results.append(ask_llm(f"Question {i}", "context"))
 print(results)
-"""
-        )
+""")
 
         self.assertIn("Max 2 sub-agent calls exceeded", result.stdout)
         self.assertTrue(result.success)
@@ -764,12 +732,10 @@ class TestFinalVarFunction(unittest.TestCase):
     def test_final_var_basic(self):
         """Test FINAL_VAR with an existing variable."""
         sandbox = TraceSandbox(trace=self.trace, llm_query_fn=None)
-        sandbox.execute(
-            """
+        sandbox.execute("""
 result = {"reasoning": "test", "key_insight": "works"}
 FINAL_VAR("result")
-"""
-        )
+""")
 
         self.assertTrue(sandbox.final_called)
         self.assertEqual(sandbox.final_value["reasoning"], "test")
@@ -790,12 +756,10 @@ FINAL_VAR("result")
         sandbox2 = TraceSandbox(trace=self.trace, llm_query_fn=None)
 
         sandbox1.execute('FINAL({"value": 42})')
-        sandbox2.execute(
-            """
+        sandbox2.execute("""
 data = {"value": 42}
 FINAL_VAR("data")
-"""
-        )
+""")
 
         self.assertEqual(sandbox1.final_value, sandbox2.final_value)
 
