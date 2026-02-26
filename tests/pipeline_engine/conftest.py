@@ -141,7 +141,7 @@ class SlowBoundaryStep:
     max_workers = 1
 
     def __call__(self, ctx: StepContext) -> StepContext:
-        time.sleep(10.0)  # intentionally slow
+        time.sleep(2.0)  # intentionally slow
         return ctx.replace(metadata=MappingProxyType({**ctx.metadata, "slow_bg": True}))
 
 
