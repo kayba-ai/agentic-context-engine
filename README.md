@@ -184,7 +184,7 @@ flowchart LR
 
 ## Documentation
 
-[Kayba Documentation](https://kayba-ai.github.io/agentic-context-engine/latest/)** - Full documentation with guides, API reference, and examples.
+- [Kayba Documentation](https://kayba-ai.github.io/agentic-context-engine/latest/) - Full documentation with guides, API reference, and examples
 
 Quick links:
 - [Quick Start Guide](https://kayba-ai.github.io/agentic-context-engine/latest/getting-started/quickstart/) - Get running in 5 minutes
