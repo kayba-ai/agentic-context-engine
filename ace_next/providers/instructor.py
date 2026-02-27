@@ -63,9 +63,9 @@ class InstructorClient:
         self.max_retries = max_retries
 
         # Patch LiteLLM completion function with Instructor
-        self.client = instructor.from_litellm(completion, mode=mode)
+        self.client = instructor.from_litellm(completion, mode=self.mode)
         logger.info(
-            f"Initialized InstructorClient with mode={mode}, max_retries={max_retries}"
+            f"Initialized InstructorClient with mode={self.mode}, max_retries={max_retries}"
         )
 
     def complete(
