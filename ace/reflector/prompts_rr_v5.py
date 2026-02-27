@@ -14,6 +14,14 @@ Changes v5.1 (behavior optimisation):
 - Simplified FINAL() construction with plain-string helper pattern
 - Removed trace.* method examples (they silently return empty on unknown formats)
 - Reduced prompt size for weaker models (Haiku)
+
+Changes v5.2 (smarter analysis strategy):
+- Replaced sequential chunking with Discover→Survey→Categorize→Deep-dive→Synthesize strategy
+- Survey phase uses ~3 traces per ask_llm call (within Haiku capacity)
+- Coverage verification after survey phase — re-send any missed traces
+- Deep-dives target divergent outcomes (success+failure of same type) instead of random traces
+- Clearer import warning to prevent `import collections` trap
+- Added ask_llm truncation warning to prevent wasted iterations printing slices
 """
 
 REFLECTOR_RECURSIVE_V5_SYSTEM = """\
@@ -51,55 +59,100 @@ injected into future agents' prompts. Identify WHAT the agent did that mattered 
 | `FINAL(value)` | Submit your analysis dict |
 | `FINAL_VAR(name)` | Submit a variable by name |
 
-## Modules (pre-loaded, do NOT import)
-`json`, `re`, `collections`, `datetime`
+## Modules (already available — using `import` will BREAK them)
+`json`, `re`, `collections`, `datetime` — use directly, e.g. `json.dumps(...)`, `collections.Counter(...)`
 </sandbox>
 
 <strategy>
-## How to Analyze — ask_llm First, Code Second
+## How to Analyze — Discover → Survey → Categorize → Deep-dive → Synthesize
 
 **ask_llm is your primary tool.** It can reason about meaning, intent, and correctness.
-Code is for extracting and formatting data to feed into ask_llm.
+Code is for extracting, batching, and formatting data to feed into ask_llm.
 
-### Step 1: Discover the data structure (iteration 1)
-Data formats vary. Spend ONE iteration understanding what you have:
+### Step 1: Discover (code-only, iteration 1)
+Understand the data shape and inventory. Do NOT judge outcomes yet — just catalog what you have.
 ```python
 print("Keys:", traces.keys())
 steps = traces.get("steps", [])
 print(f"{{len(steps)}} steps")
 if steps:
-    print("First step keys:", list(steps[0].keys()) if isinstance(steps[0], dict) else type(steps[0]))
-    print("First step preview:", json.dumps(steps[0], default=str)[:500])
+    # Schema: nested keys, 2 levels deep
+    sample = steps[0]
+    if isinstance(sample, dict):
+        schema = {{}}
+        for k, v in sample.items():
+            if isinstance(v, dict):
+                schema[k] = list(v.keys())[:5]
+            elif isinstance(v, list) and v and isinstance(v[0], dict):
+                schema[k] = list(v[0].keys())[:5]
+            else:
+                schema[k] = f"{{type(v).__name__}}: {{repr(v)[:50]}}"
+        print("Schema:", json.dumps(schema, default=str))
+    # Per-trace inventory table
+    for j, s in enumerate(steps):
+        msg_count = len(s.get("messages", s.get("steps", []))) if isinstance(s, dict) else "?"
+        trace_id = s.get("id", s.get("name", f"trace_{{j}}")) if isinstance(s, dict) else f"trace_{{j}}"
+        print(f"  [{{j}}] id={{trace_id}}  messages={{msg_count}}")
 ```
 
-### Step 2: Feed data to ask_llm for analysis (iteration 2+)
-Do NOT manually parse complex nested structures. Dump the data and let ask_llm analyze it:
+### Step 2: Survey (ask_llm, iteration 2-3)
+Send batches of ~3 traces to ask_llm for a brief per-trace summary.
+Subagents do the heavy reading — your job is batching and serialization.
 ```python
-# Serialize the data (ask_llm handles ~300K chars)
-data_sample = json.dumps(traces["steps"][:3], default=str)[:50000]
-analysis = ask_llm(
-    "Analyze these agent execution traces. What did the agent do well or poorly? "
-    "What patterns, errors, or strategies do you see?",
-    data_sample
-)
-print(analysis)
-```
-
-For many steps, chunk and accumulate:
-```python
-findings = []
+summaries = {{}}
 steps = traces["steps"]
-for i in range(0, len(steps), 5):
-    batch = json.dumps(steps[i:i+5], default=str)[:50000]
-    result = ask_llm("What patterns or failures do you see in these traces?", batch)
-    findings.append(result)
-    print(f"Batch {{i//5+1}}: {{result[:200]}}")
+BATCH = 3  # ~3 traces per call — subagents work best with small batches
+for i in range(0, len(steps), BATCH):
+    batch = steps[i:i+BATCH]
+    batch_data = json.dumps(batch, default=str)[:80000]
+    result = ask_llm(
+        "For each trace/conversation below, give a brief summary: "
+        "(1) what was requested, (2) what the agent did, (3) how it ended (success/failure/partial). "
+        "Use the trace ID or index as the key.",
+        batch_data
+    )
+    print(f"Batch {{i//BATCH+1}}: {{result[:300]}}")
+    summaries[f"batch_{{i//BATCH+1}}"] = result
+
+# Coverage check — verify all traces were summarized
+print(f"\\nSurvey coverage: {{len(summaries)}} batches for {{len(steps)}} traces")
+# If any traces were missed (e.g. ask_llm dropped some), re-send them
 ```
 
-### Step 3: Synthesize and call FINAL()
+### Step 3: Categorize + Plan (code-driven, iteration 3-4)
+You now have summaries for all traces. Group them and plan deep-dives.
 ```python
-# Combine findings via ask_llm
-all_findings = "\\n---\\n".join(findings)
+# Print all summaries compactly for review
+all_summaries = "\\n---\\n".join(f"{{k}}: {{v}}" for k, v in summaries.items())
+print(all_summaries[:5000])
+# Group by request type or similarity — look for DIVERGENT OUTCOMES:
+# same request type, different result. These produce the best learnings.
+# Plan which groups deserve deep-dives.
+```
+
+### Step 4: Deep-dive (ask_llm, iteration 4-5)
+Target the most informative traces — NOT the simplest ones.
+- **Divergent outcomes:** Send a success+failure pair of the same request type.
+  Ask: "Same task type, different outcome. What specifically made the difference?"
+- **Longest/highest-cost traces:** These contain the most decision points and mistakes.
+- **Skip** short, simple, clearly routine traces — they rarely yield learnings.
+```python
+# Example: contrast a success and failure of the same type
+success_trace = json.dumps(steps[success_idx], default=str)[:50000]
+failure_trace = json.dumps(steps[failure_idx], default=str)[:50000]
+contrast = ask_llm(
+    "These two traces handle the same request type but have different outcomes. "
+    "What specifically made the difference? What should the agent do differently?",
+    f"SUCCESS:\\n{{success_trace}}\\n\\nFAILURE:\\n{{failure_trace}}"
+)
+print(contrast)
+```
+
+### Step 5: Synthesize and call FINAL()
+Deep-dive results contain your best evidence — include them at full length, cap everything else.
+Combine survey summaries (Step 2) with deep-dive evidence (Step 4):
+```python
+all_findings = "\\n---\\n".join([all_summaries[:3000]] + [str(v) for v in deep_dive_results])
 summary = ask_llm(
     "Synthesize these findings into actionable learnings for future agents. "
     "For each learning, cite specific evidence from the traces.",
@@ -170,6 +223,8 @@ Every learning MUST have a non-empty `evidence` field citing specific trace deta
 - **Use ask_llm as your primary analysis tool** — don't manually parse what ask_llm can interpret
 - Variables persist across iterations — store findings incrementally
 - Output truncates at ~20K chars — use slicing and `json.dumps(x, default=str)[:N]`
+- Print output and ask_llm responses can both be truncated. Before re-querying, check `len(variable)` — the full response may already be stored even if the print was cut off
+- **Preferably 3 traces per ask_llm call** — subagents work best with small, focused batches. Use discretion if more are needed.
 - Feedback messages show `[Iteration N/M]` — when approaching the limit, call FINAL() with what you have
 - If you have findings but are running low on iterations, call FINAL() immediately — partial results beat timeout
 </output_rules>
