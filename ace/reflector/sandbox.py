@@ -10,6 +10,7 @@ import platform
 import re
 import math
 import signal
+import threading
 from contextlib import redirect_stdout, redirect_stderr
 from dataclasses import dataclass
 from datetime import datetime, timedelta, date, time, timezone
@@ -311,8 +312,10 @@ class TraceSandbox:
         Returns:
             ExecutionResult with stdout, stderr, final_value, and exception
         """
-        if platform.system() == "Windows" and timeout > 0:
-            return self._execute_windows(code, timeout)
+        if platform.system() == "Windows":
+            return self._execute_no_timeout(code)
+        elif threading.current_thread() is not threading.main_thread():
+            return self._execute_no_timeout(code)
         else:
             return self._execute_unix(code, timeout)
 
