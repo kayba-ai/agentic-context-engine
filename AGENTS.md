@@ -4,6 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Guidelines
 
+### Core Code Protection
+**Do NOT modify core modules (`ace/`, `ace_next/core/`, `pipeline/`) without explicit user approval.** Before proposing any change to these directories:
+1. Read the relevant design docs (`docs/ACE_DESIGN.md`, `docs/PIPELINE_DESIGN.md`) thoroughly.
+2. Evaluate whether the change is truly required or if it can be achieved outside the core (e.g., in an integration, step, or example).
+3. Clearly explain the proposed change and its justification to the user **before** making any edits.
+4. Wait for the user to explicitly accept before proceeding.
+
 ### Documentation Maintenance
 Before working on code in `ace/` or `ace_next/`, read `docs/ACE_DESIGN.md` to understand the current architecture.
 Before working on code in `pipeline/` or `ace_next/core/`, read `docs/PIPELINE_DESIGN.md` to understand the pipeline engine.
@@ -68,15 +75,3 @@ Key design docs:
 | `ACELangChain` | LangChain | Wrap chains/agents with learning |
 | `ACEAgent` | browser-use | Browser automation with learning |
 | `ACEClaudeCode` | Claude Code CLI | Coding tasks with learning |
-
-## ACE Learned Strategies
-
-<!-- ACE:START - Do not edit manually -->
-skills[6	]{id	section	content	helpful	harmful	neutral}:
-  claude_code_transcripts-00001	claude_code_transcripts	Filter 'progress' and 'queue-operation' entry types from transcripts	1	0	0
-  cli_debugging-00002	cli_debugging	Log subprocess stdout/stderr before retrying failed CLI commands	2	0	0
-  cli_input_limits-00003	cli_input_limits	Use --lines flag to limit transcript size for CLI prompt limits	2	0	0
-  transcript_compression-00004	transcript_compression	"Return minimal entries with only {type, content} fields, discarding all metadata"	2	0	0
-  transcript_compression-00005	transcript_compression	"Use head+tail truncation for tool results: 500 chars start, 200 chars end"	1	0	0
-  transcript_compression-00006	transcript_compression	Filter 'thinking' blocks from nested content arrays, not just entry types	1	0	0
-<!-- ACE:END -->
