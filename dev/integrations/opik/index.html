@@ -1607,10 +1607,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#graceful-degradation" class="md-nav__link">
+  <a href="#error-handling" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Graceful Degradation
+        Error Handling
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting-opikconfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting: ~/.opik.config
       
     </span>
   </a>
@@ -1825,10 +1836,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#graceful-degradation" class="md-nav__link">
+  <a href="#error-handling" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Graceful Degradation
+        Error Handling
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting-opikconfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting: ~/.opik.config
       
     </span>
   </a>
@@ -1889,45 +1911,55 @@
 
 
 <h1 id="opik-observability">Opik Observability<a class="headerlink" href="#opik-observability" title="Permanent link">&para;</a></h1>
-<p>ACE integrates with <a href="https://github.com/comet-ml/opik">Opik</a> for tracing, cost tracking, and performance monitoring. Opik is added as an explicit pipeline step — append <code>OpikStep</code> to any pipeline to log traces automatically.</p>
+<p>ACE integrates with <a href="https://github.com/comet-ml/opik">Opik</a> for tracing, cost tracking, and performance monitoring. All Opik tracing is <strong>explicit opt-in</strong> — it is never auto-enabled just because the package is installed.</p>
+<p>Two independent tracing modes:</p>
+<ol>
+<li><strong>Pipeline step</strong> (<code>OpikStep</code>) — client-agnostic, logs one Opik trace per sample with ACE context fields.</li>
+<li><strong>LiteLLM callback</strong> (<code>register_opik_litellm_callback</code>) — LiteLLM-specific, tracks per-LLM-call tokens and costs.</li>
+</ol>
 <h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>ace-framework<span class="o">[</span>observability<span class="o">]</span>
 </code></pre></div>
 <h2 id="quick-start">Quick Start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">ACE</span><span class="p">,</span> <span class="n">OpikStep</span><span class="p">,</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">Agent</span><span class="p">,</span> <span class="n">Reflector</span><span class="p">,</span> <span class="n">SkillManager</span><span class="p">,</span> <span class="n">Skillbook</span><span class="p">,</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">LiteLLMClient</span><span class="p">,</span> <span class="n">SimpleEnvironment</span><span class="p">,</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="p">)</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="c1"># Option 1: Add OpikStep to an ACE runner</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="n">client</span> <span class="o">=</span> <span class="n">LiteLLMClient</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">)</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="n">runner</span> <span class="o">=</span> <span class="n">ACE</span><span class="o">.</span><span class="n">from_roles</span><span class="p">(</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    <span class="n">agent</span><span class="o">=</span><span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">),</span>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>    <span class="n">reflector</span><span class="o">=</span><span class="n">Reflector</span><span class="p">(</span><span class="n">client</span><span class="p">),</span>
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>    <span class="n">skill_manager</span><span class="o">=</span><span class="n">SkillManager</span><span class="p">(</span><span class="n">client</span><span class="p">),</span>
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>    <span class="n">environment</span><span class="o">=</span><span class="n">SimpleEnvironment</span><span class="p">(),</span>
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="p">)</span>
-<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="n">runner</span><span class="o">.</span><span class="n">pipeline</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">OpikStep</span><span class="p">(</span><span class="n">project_name</span><span class="o">=</span><span class="s2">&quot;my-experiment&quot;</span><span class="p">))</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next</span><span class="w"> </span><span class="kn">import</span> <span class="n">ACELiteLLM</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1"># Easiest: ACELiteLLM enables both tracing modes with one flag</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">ace</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">,</span> <span class="n">opik</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">opik_project</span><span class="o">=</span><span class="s2">&quot;my-experiment&quot;</span><span class="p">)</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Option 2: LLM-level cost tracking only (no pipeline traces)</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_opik_litellm_callback</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">registered</span> <span class="o">=</span> <span class="n">register_opik_litellm_callback</span><span class="p">(</span><span class="n">project_name</span><span class="o">=</span><span class="s2">&quot;my-experiment&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="n">ACE</span><span class="p">,</span> <span class="n">OpikStep</span><span class="p">,</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="n">Agent</span><span class="p">,</span> <span class="n">Reflector</span><span class="p">,</span> <span class="n">SkillManager</span><span class="p">,</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">LiteLLMClient</span><span class="p">,</span> <span class="n">SimpleEnvironment</span><span class="p">,</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="p">)</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1"># Manual: Add OpikStep via extra_steps</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">client</span> <span class="o">=</span> <span class="n">LiteLLMClient</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">)</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="n">runner</span> <span class="o">=</span> <span class="n">ACE</span><span class="o">.</span><span class="n">from_roles</span><span class="p">(</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>    <span class="n">agent</span><span class="o">=</span><span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">),</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>    <span class="n">reflector</span><span class="o">=</span><span class="n">Reflector</span><span class="p">(</span><span class="n">client</span><span class="p">),</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>    <span class="n">skill_manager</span><span class="o">=</span><span class="n">SkillManager</span><span class="p">(</span><span class="n">client</span><span class="p">),</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>    <span class="n">environment</span><span class="o">=</span><span class="n">SimpleEnvironment</span><span class="p">(),</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>    <span class="n">extra_steps</span><span class="o">=</span><span class="p">[</span><span class="n">OpikStep</span><span class="p">(</span><span class="n">project_name</span><span class="o">=</span><span class="s2">&quot;my-experiment&quot;</span><span class="p">)],</span>
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># LLM-level cost tracking only (no pipeline traces)</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_opik_litellm_callback</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">registered</span> <span class="o">=</span> <span class="n">register_opik_litellm_callback</span><span class="p">(</span><span class="n">project_name</span><span class="o">=</span><span class="s2">&quot;my-experiment&quot;</span><span class="p">)</span>
 </code></pre></div>
 <h2 id="starting-the-opik-server">Starting the Opik Server<a class="headerlink" href="#starting-the-opik-server" title="Permanent link">&para;</a></h2>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Local (Docker)</label><label for="__tabbed_1_2">Comet Cloud</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>docker<span class="w"> </span>run<span class="w"> </span>-d<span class="w"> </span>-p<span class="w"> </span><span class="m">5173</span>:5173<span class="w"> </span>--name<span class="w"> </span>opik<span class="w"> </span>ghcr.io/comet-ml/opik:latest
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1"># View traces at http://localhost:5173</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>docker<span class="w"> </span>run<span class="w"> </span>-d<span class="w"> </span>-p<span class="w"> </span><span class="m">5173</span>:5173<span class="w"> </span>--name<span class="w"> </span>opik<span class="w"> </span>ghcr.io/comet-ml/opik:latest
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="c1"># View traces at http://localhost:5173</span>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">COMET_API_KEY</span><span class="o">=</span><span class="s2">&quot;your-api-key&quot;</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="c1"># Traces appear at https://www.comet.com/opik</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">COMET_API_KEY</span><span class="o">=</span><span class="s2">&quot;your-api-key&quot;</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="c1"># Traces appear at https://www.comet.com/opik</span>
 </code></pre></div>
 </div>
 </div>
@@ -1956,12 +1988,6 @@
 <td><code>list[str]</code></td>
 <td><code>None</code></td>
 <td>Extra tags attached to every trace</td>
-</tr>
-<tr>
-<td><code>register_litellm_callback</code></td>
-<td><code>bool</code></td>
-<td><code>True</code></td>
-<td>Also register per-LLM-call cost tracking</td>
 </tr>
 </tbody>
 </table>
@@ -2006,20 +2032,20 @@
     L --&gt; L2["reflector_reflect — 620 tokens, $0.0004"]
     L --&gt; L3["skill_manager_update — 380 tokens, $0.0002"]</code></pre>
 <h2 id="llm-cost-tracking">LLM Cost Tracking<a class="headerlink" href="#llm-cost-tracking" title="Permanent link">&para;</a></h2>
-<p>When <code>register_litellm_callback=True</code> (the default), <code>OpikStep</code> registers an <code>OpikLogger</code> callback on LiteLLM. Every LLM call is automatically tracked with:</p>
+<p><code>OpikStep</code> does <strong>not</strong> register the LiteLLM callback — the two tracing modes are independent. To get per-LLM-call cost tracking, call <code>register_opik_litellm_callback()</code> separately:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_opik_litellm_callback</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">success</span> <span class="o">=</span> <span class="n">register_opik_litellm_callback</span><span class="p">(</span><span class="n">project_name</span><span class="o">=</span><span class="s2">&quot;cost-tracking&quot;</span><span class="p">)</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># Returns True if registered, False if Opik unavailable</span>
+</code></pre></div>
+<p>Every LLM call is then automatically tracked with:</p>
 <ul>
 <li>Input / output tokens</li>
 <li>Model used</li>
 <li>Cost per call</li>
 <li>Latency</li>
 </ul>
-<p>You can also register the callback independently:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_opik_litellm_callback</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">success</span> <span class="o">=</span> <span class="n">register_opik_litellm_callback</span><span class="p">(</span><span class="n">project_name</span><span class="o">=</span><span class="s2">&quot;cost-tracking&quot;</span><span class="p">)</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># Returns True if registered, False if Opik unavailable</span>
-</code></pre></div>
-<p>This is useful when you want cost tracking without pipeline-level traces (e.g. with <code>ACELiteLLM</code>).</p>
+<p>When using <code>ACELiteLLM</code> with <code>opik=True</code>, both modes are enabled together automatically — no need to call <code>register_opik_litellm_callback()</code> manually.</p>
 <h2 id="environment-variables">Environment Variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2057,50 +2083,92 @@
 </tr>
 </tbody>
 </table>
-<h2 id="graceful-degradation">Graceful Degradation<a class="headerlink" href="#graceful-degradation" title="Permanent link">&para;</a></h2>
-<p><code>OpikStep</code> soft-imports Opik. If the package is not installed or tracing is disabled via environment variables, the step silently becomes a no-op — no errors, no traces, no performance impact.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next</span><span class="w"> </span><span class="kn">import</span> <span class="n">OPIK_AVAILABLE</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="k">if</span> <span class="n">OPIK_AVAILABLE</span><span class="p">:</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Opik tracing is available&quot;</span><span class="p">)</span>
+<h2 id="error-handling">Error Handling<a class="headerlink" href="#error-handling" title="Permanent link">&para;</a></h2>
+<p>When using <code>ACELiteLLM</code> with <code>opik=True</code>, errors are <strong>raised immediately</strong>:</p>
+<ul>
+<li><code>ImportError</code> if the <code>opik</code> package is not installed</li>
+<li><code>RuntimeError</code> if the Opik client fails to initialize (bad config, disabled via env vars)</li>
+</ul>
+<p>This ensures you know immediately if tracing is broken, rather than discovering missing traces later.</p>
+<p>When using <code>OpikStep</code> directly via <code>extra_steps</code>, it soft-imports Opik and silently becomes a no-op if the package is absent — useful for pipelines that should work with or without observability.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next</span><span class="w"> </span><span class="kn">import</span> <span class="n">OPIK_AVAILABLE</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="k">if</span> <span class="n">OPIK_AVAILABLE</span><span class="p">:</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Opik tracing is available&quot;</span><span class="p">)</span>
 </code></pre></div>
+<h2 id="troubleshooting-opikconfig">Troubleshooting: <code>~/.opik.config</code><a class="headerlink" href="#troubleshooting-opikconfig" title="Permanent link">&para;</a></h2>
+<p>The Opik SDK stores a global config file at <code>~/.opik.config</code> (created by <code>opik.configure()</code>). This file <strong>overrides environment variables</strong> and can cause silent failures if it contains stale settings.</p>
+<p>If traces aren't appearing, check:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>cat<span class="w"> </span>~/.opik.config
+</code></pre></div>
+<p>A correct config for Comet Cloud looks like:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">[opik]</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="na">url_override</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">https://www.comet.com/opik/api/</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="na">workspace</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">your-workspace-name</span>
+</code></pre></div>
+<p>Common issues:</p>
+<ul>
+<li><strong>Wrong URL</strong>: <code>https://www.comet.com/api/</code> (missing <code>/opik/</code>) causes 404 errors</li>
+<li><strong>Wrong workspace</strong>: <code>workspace = default</code> instead of your actual workspace name</li>
+<li><strong>Stale config</strong>: Re-run <code>opik.configure()</code> or edit the file directly to fix</li>
+</ul>
 <h2 id="disabling-tracing">Disabling Tracing<a class="headerlink" href="#disabling-tracing" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># In CI or tests</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="nv">OPIK_DISABLED</span><span class="o">=</span><span class="nb">true</span><span class="w"> </span>pytest<span class="w"> </span>tests/
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1"># Or via the alternative variable</span>
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="nv">OPIK_ENABLED</span><span class="o">=</span><span class="nb">false</span><span class="w"> </span>python<span class="w"> </span>my_script.py
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># In CI or tests</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="nv">OPIK_DISABLED</span><span class="o">=</span><span class="nb">true</span><span class="w"> </span>pytest<span class="w"> </span>tests/
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="c1"># Or via the alternative variable</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="nv">OPIK_ENABLED</span><span class="o">=</span><span class="nb">false</span><span class="w"> </span>python<span class="w"> </span>my_script.py
 </code></pre></div>
 <h2 id="full-example">Full Example<a class="headerlink" href="#full-example" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    <span class="n">ACE</span><span class="p">,</span> <span class="n">Agent</span><span class="p">,</span> <span class="n">Reflector</span><span class="p">,</span> <span class="n">SkillManager</span><span class="p">,</span> <span class="n">Skillbook</span><span class="p">,</span>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="n">LiteLLMClient</span><span class="p">,</span> <span class="n">SimpleEnvironment</span><span class="p">,</span> <span class="n">Sample</span><span class="p">,</span> <span class="n">OpikStep</span><span class="p">,</span>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="p">)</span>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>
-<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="n">client</span> <span class="o">=</span> <span class="n">LiteLLMClient</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">)</span>
-<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="n">skillbook</span> <span class="o">=</span> <span class="n">Skillbook</span><span class="p">()</span>
-<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>
-<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="n">runner</span> <span class="o">=</span> <span class="n">ACE</span><span class="o">.</span><span class="n">from_roles</span><span class="p">(</span>
-<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>    <span class="n">agent</span><span class="o">=</span><span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">),</span>
-<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>    <span class="n">reflector</span><span class="o">=</span><span class="n">Reflector</span><span class="p">(</span><span class="n">client</span><span class="p">),</span>
-<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>    <span class="n">skill_manager</span><span class="o">=</span><span class="n">SkillManager</span><span class="p">(</span><span class="n">client</span><span class="p">),</span>
-<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a>    <span class="n">environment</span><span class="o">=</span><span class="n">SimpleEnvironment</span><span class="p">(),</span>
-<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a>    <span class="n">skillbook</span><span class="o">=</span><span class="n">skillbook</span><span class="p">,</span>
-<a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a><span class="p">)</span>
-<a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a>
-<a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a><span class="c1"># Add OpikStep to the runner&#39;s pipeline</span>
-<a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a><span class="n">runner</span><span class="o">.</span><span class="n">pipeline</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">OpikStep</span><span class="p">(</span><span class="n">project_name</span><span class="o">=</span><span class="s2">&quot;ace-training&quot;</span><span class="p">))</span>
-<a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a>
-<a id="__codelineno-8-20" name="__codelineno-8-20" href="#__codelineno-8-20"></a><span class="n">samples</span> <span class="o">=</span> <span class="p">[</span>
-<a id="__codelineno-8-21" name="__codelineno-8-21" href="#__codelineno-8-21"></a>    <span class="n">Sample</span><span class="p">(</span><span class="n">question</span><span class="o">=</span><span class="s2">&quot;What is 2+2?&quot;</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">ground_truth</span><span class="o">=</span><span class="s2">&quot;4&quot;</span><span class="p">),</span>
-<a id="__codelineno-8-22" name="__codelineno-8-22" href="#__codelineno-8-22"></a>    <span class="n">Sample</span><span class="p">(</span><span class="n">question</span><span class="o">=</span><span class="s2">&quot;Capital of France?&quot;</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">ground_truth</span><span class="o">=</span><span class="s2">&quot;Paris&quot;</span><span class="p">),</span>
-<a id="__codelineno-8-23" name="__codelineno-8-23" href="#__codelineno-8-23"></a><span class="p">]</span>
-<a id="__codelineno-8-24" name="__codelineno-8-24" href="#__codelineno-8-24"></a>
-<a id="__codelineno-8-25" name="__codelineno-8-25" href="#__codelineno-8-25"></a><span class="n">results</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="n">epochs</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
-<a id="__codelineno-8-26" name="__codelineno-8-26" href="#__codelineno-8-26"></a><span class="n">runner</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;trained.json&quot;</span><span class="p">)</span>
-<a id="__codelineno-8-27" name="__codelineno-8-27" href="#__codelineno-8-27"></a>
-<a id="__codelineno-8-28" name="__codelineno-8-28" href="#__codelineno-8-28"></a><span class="c1"># View traces at http://localhost:5173 → project &quot;ace-training&quot;</span>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">ACELiteLLM (easiest)</label><label for="__tabbed_2_2">ACE runner (manual)</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next</span><span class="w"> </span><span class="kn">import</span> <span class="n">ACELiteLLM</span><span class="p">,</span> <span class="n">Sample</span><span class="p">,</span> <span class="n">SimpleEnvironment</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="n">ace</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">,</span> <span class="n">opik</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">opik_project</span><span class="o">=</span><span class="s2">&quot;ace-training&quot;</span><span class="p">)</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="n">samples</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>    <span class="n">Sample</span><span class="p">(</span><span class="n">question</span><span class="o">=</span><span class="s2">&quot;What is 2+2?&quot;</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">ground_truth</span><span class="o">=</span><span class="s2">&quot;4&quot;</span><span class="p">),</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>    <span class="n">Sample</span><span class="p">(</span><span class="n">question</span><span class="o">=</span><span class="s2">&quot;Capital of France?&quot;</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">ground_truth</span><span class="o">=</span><span class="s2">&quot;Paris&quot;</span><span class="p">),</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="p">]</span>
+<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>
+<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="n">results</span> <span class="o">=</span> <span class="n">ace</span><span class="o">.</span><span class="n">learn</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="n">environment</span><span class="o">=</span><span class="n">SimpleEnvironment</span><span class="p">(),</span> <span class="n">epochs</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="n">ace</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;trained.json&quot;</span><span class="p">)</span>
+<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a>
+<a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="c1"># View traces at http://localhost:5173 → project &quot;ace-training&quot;</span>
 </code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>    <span class="n">ACE</span><span class="p">,</span> <span class="n">Agent</span><span class="p">,</span> <span class="n">Reflector</span><span class="p">,</span> <span class="n">SkillManager</span><span class="p">,</span> <span class="n">Skillbook</span><span class="p">,</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>    <span class="n">LiteLLMClient</span><span class="p">,</span> <span class="n">SimpleEnvironment</span><span class="p">,</span> <span class="n">Sample</span><span class="p">,</span> <span class="n">OpikStep</span><span class="p">,</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>    <span class="n">register_opik_litellm_callback</span><span class="p">,</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="p">)</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="n">client</span> <span class="o">=</span> <span class="n">LiteLLMClient</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">)</span>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="n">runner</span> <span class="o">=</span> <span class="n">ACE</span><span class="o">.</span><span class="n">from_roles</span><span class="p">(</span>
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>    <span class="n">agent</span><span class="o">=</span><span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">),</span>
+<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>    <span class="n">reflector</span><span class="o">=</span><span class="n">Reflector</span><span class="p">(</span><span class="n">client</span><span class="p">),</span>
+<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a>    <span class="n">skill_manager</span><span class="o">=</span><span class="n">SkillManager</span><span class="p">(</span><span class="n">client</span><span class="p">),</span>
+<a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a>    <span class="n">environment</span><span class="o">=</span><span class="n">SimpleEnvironment</span><span class="p">(),</span>
+<a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a>    <span class="n">extra_steps</span><span class="o">=</span><span class="p">[</span><span class="n">OpikStep</span><span class="p">(</span><span class="n">project_name</span><span class="o">=</span><span class="s2">&quot;ace-training&quot;</span><span class="p">)],</span>
+<a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a><span class="p">)</span>
+<a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a>
+<a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a><span class="c1"># Optionally add LLM-level cost tracking</span>
+<a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a><span class="n">register_opik_litellm_callback</span><span class="p">(</span><span class="n">project_name</span><span class="o">=</span><span class="s2">&quot;ace-training&quot;</span><span class="p">)</span>
+<a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a>
+<a id="__codelineno-12-20" name="__codelineno-12-20" href="#__codelineno-12-20"></a><span class="n">samples</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-12-21" name="__codelineno-12-21" href="#__codelineno-12-21"></a>    <span class="n">Sample</span><span class="p">(</span><span class="n">question</span><span class="o">=</span><span class="s2">&quot;What is 2+2?&quot;</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">ground_truth</span><span class="o">=</span><span class="s2">&quot;4&quot;</span><span class="p">),</span>
+<a id="__codelineno-12-22" name="__codelineno-12-22" href="#__codelineno-12-22"></a>    <span class="n">Sample</span><span class="p">(</span><span class="n">question</span><span class="o">=</span><span class="s2">&quot;Capital of France?&quot;</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">ground_truth</span><span class="o">=</span><span class="s2">&quot;Paris&quot;</span><span class="p">),</span>
+<a id="__codelineno-12-23" name="__codelineno-12-23" href="#__codelineno-12-23"></a><span class="p">]</span>
+<a id="__codelineno-12-24" name="__codelineno-12-24" href="#__codelineno-12-24"></a>
+<a id="__codelineno-12-25" name="__codelineno-12-25" href="#__codelineno-12-25"></a><span class="n">results</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="n">epochs</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+<a id="__codelineno-12-26" name="__codelineno-12-26" href="#__codelineno-12-26"></a><span class="n">runner</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;trained.json&quot;</span><span class="p">)</span>
+</code></pre></div>
+</div>
+</div>
+</div>
 <h2 id="what-to-read-next">What to Read Next<a class="headerlink" href="#what-to-read-next" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../../guides/integration/">Integration Pattern</a> — how runners compose pipeline steps</li>

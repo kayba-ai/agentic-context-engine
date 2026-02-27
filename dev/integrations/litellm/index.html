@@ -1534,6 +1534,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#opik-observability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Opik Observability
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#what-to-read-next" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1870,6 +1881,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#opik-observability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Opik Observability
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#what-to-read-next" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1979,6 +2001,24 @@
 <td><code>True</code></td>
 <td>Enable/disable learning</td>
 </tr>
+<tr>
+<td><code>opik</code></td>
+<td><code>bool</code></td>
+<td><code>False</code></td>
+<td>Enable Opik observability (pipeline traces + LiteLLM per-call cost tracking)</td>
+</tr>
+<tr>
+<td><code>opik_project</code></td>
+<td><code>str</code></td>
+<td><code>"ace-framework"</code></td>
+<td>Opik project name for organizing traces</td>
+</tr>
+<tr>
+<td><code>opik_tags</code></td>
+<td><code>list[str]</code></td>
+<td><code>None</code></td>
+<td>Tags applied to every Opik trace</td>
+</tr>
 </tbody>
 </table>
 <h2 id="methods">Methods<a class="headerlink" href="#methods" title="Permanent link">&para;</a></h2>
@@ -2058,6 +2098,18 @@
 <a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="c1"># Custom endpoint</span>
 <a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">,</span> <span class="n">base_url</span><span class="o">=</span><span class="s2">&quot;https://your-endpoint.com&quot;</span><span class="p">)</span>
 </code></pre></div>
+<h2 id="opik-observability">Opik Observability<a class="headerlink" href="#opik-observability" title="Permanent link">&para;</a></h2>
+<p>Enable tracing and cost tracking with a single flag:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">ace</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">,</span> <span class="n">opik</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">opik_project</span><span class="o">=</span><span class="s2">&quot;my-experiment&quot;</span><span class="p">)</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="c1"># Both tracing modes are enabled:</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="c1"># 1. Pipeline traces (OpikStep) — one trace per sample with ACE context</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="c1"># 2. LiteLLM callback — per-LLM-call token/cost tracking</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="n">results</span> <span class="o">=</span> <span class="n">ace</span><span class="o">.</span><span class="n">learn</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="n">environment</span><span class="o">=</span><span class="n">SimpleEnvironment</span><span class="p">(),</span> <span class="n">epochs</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="c1"># View traces at http://localhost:5173 → project &quot;my-experiment&quot;</span>
+</code></pre></div>
+<p>See <a href="../opik/">Opik Observability</a> for full details, environment variables, and manual setup.</p>
 <h2 id="what-to-read-next">What to Read Next<a class="headerlink" href="#what-to-read-next" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../../guides/full-pipeline/">Full Pipeline Guide</a> — for more control over the pipeline</li>
