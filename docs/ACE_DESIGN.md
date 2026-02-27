@@ -604,6 +604,7 @@ Reusable step implementations live in `ace_next/steps/`. Each is a single class 
 | **LoadTracesStep** | `sample` | — | `trace` | None (pure) | default (1) |
 | **OpenClawToTraceStep** | `trace` | — | `trace` | None (pure) | default (1) |
 | **PersistStep** | `skillbook` | `target_path` | — | Writes skillbook to CLAUDE.md or similar | 1 |
+| **ExportSkillbookMarkdownStep** | `skillbook` | `path`, `skillbook` (real) | — | Rewrites human-readable markdown file from skillbook | 1 |
 
 **Requires vs Injected:** `Requires` lists context fields read by the step — validated by the pipeline engine at construction time. The `skillbook` field on the context is a `SkillbookView` (read-only). Steps that **write** to the skillbook (TagStep, ApplyStep, DeduplicateStep, CheckpointStep) receive the real `Skillbook` via constructor injection — marked as "(real)" in the table. These injected dependencies are not tracked by `requires`/`provides`.
 
@@ -947,6 +948,25 @@ class PersistStep:
 ```
 
 Integration-specific side-effect step — writes the current skillbook to an external file (e.g., `CLAUDE.md` for Claude Code). Used by `ClaudeCode` runner to persist learned strategies into the project's instruction file after each learning cycle. Unlike `CheckpointStep` (which saves the full skillbook JSON at intervals), `PersistStep` runs on every sample and writes in the target format expected by the integration. Receives the real `Skillbook` via constructor injection.
+
+### ExportSkillbookMarkdownStep
+
+```python
+class ExportSkillbookMarkdownStep:
+    requires = frozenset({"skillbook"})
+    provides = frozenset()
+
+    def __init__(self, path: str | Path, skillbook: Skillbook) -> None:
+        self.path = Path(path)
+        self.skillbook = skillbook
+
+    def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
+        # Rewrites the markdown file from the current skillbook state
+        ...
+        return ctx
+```
+
+Exports the skillbook as a human-readable markdown file, grouped by section. The file is rewritten from scratch on every invocation so it always reflects the current skillbook state. Intended for use as an `extra_step` appended after the learning tail. Receives the real `Skillbook` via constructor injection.
 
 ---
 
@@ -1558,6 +1578,7 @@ ace_next/
     observability.py        ← ObservabilityStep (logger.info)
     opik.py                 ← OpikStep
     load_traces.py          ← LoadTracesStep (generic JSONL loader)
+    export_markdown.py      ← ExportSkillbookMarkdownStep
     persist.py              ← PersistStep
   runners/                    ← Runner classes (compose Pipeline, manage epoch loop)
     __init__.py               ← Re-exports ACERunner, TraceAnalyser, ACE, BrowserUse, LangChain, ClaudeCode, ACELiteLLM

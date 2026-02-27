@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""Learn from OpenClaw session transcripts and sync strategies to AGENTS.md.
+"""Learn from OpenClaw session transcripts.
 
 Reads OpenClaw session JSONL files, feeds them through the ACE learning
-pipeline (TraceAnalyser), and writes the updated skillbook back into
-OpenClaw's workspace so the agent picks up learned strategies on its
-next session.
+pipeline (TraceAnalyser), and writes the updated skillbook as JSON and
+markdown to the output directory.
 
 Designed to run manually or via cron.
 
@@ -34,7 +33,6 @@ Usage:
 
 import argparse
 import os
-import re
 import sys
 from pathlib import Path
 
@@ -54,11 +52,11 @@ from ace_next import (
     SkillManager,
     TraceAnalyser,
     register_opik_litellm_callback,
-    wrap_skillbook_context,
 )
 from ace_next.core.context import ACEStepContext
 from ace_next.steps.load_traces import LoadTracesStep
 from ace_next.integrations.openclaw import OpenClawToTraceStep
+from ace_next.steps.export_markdown import ExportSkillbookMarkdownStep
 
 
 # ---------------------------------------------------------------------------
@@ -67,19 +65,10 @@ from ace_next.integrations.openclaw import OpenClawToTraceStep
 
 OPENCLAW_HOME = Path(os.getenv("OPENCLAW_HOME", Path.home() / ".openclaw")).expanduser()
 OPENCLAW_AGENT_ID = os.getenv("OPENCLAW_AGENT_ID", "main")
-OPENCLAW_WORKSPACE = Path(
-    os.getenv("OPENCLAW_WORKSPACE", OPENCLAW_HOME / "workspace")
-).expanduser()
-
 SESSIONS_DIR = OPENCLAW_HOME / "agents" / OPENCLAW_AGENT_ID / "sessions"
-SKILLBOOK_PATH = OPENCLAW_HOME / "ace_skillbook.json"
 PROCESSED_LOG = OPENCLAW_HOME / "ace_processed.txt"
 
 MODEL = os.getenv("ACE_MODEL", "bedrock/us.anthropic.claude-sonnet-4-20250514-v1:0")
-
-# AGENTS.md markers for the skillbook section
-MARKER_START = "<!-- ACE:SKILLBOOK:START -->"
-MARKER_END = "<!-- ACE:SKILLBOOK:END -->"
 
 
 # ---------------------------------------------------------------------------
@@ -126,48 +115,6 @@ def parse_session(path: Path) -> object | None:
 
 
 # ---------------------------------------------------------------------------
-# AGENTS.md sync (US2: FR-005, FR-006)
-# ---------------------------------------------------------------------------
-
-
-def sync_to_agents_md(skillbook: Skillbook) -> None:
-    """Write the skillbook into AGENTS.md between marker comments.
-
-    Creates AGENTS.md if it doesn't exist.  Replaces the section between
-    ``<!-- ACE:SKILLBOOK:START -->`` and ``<!-- ACE:SKILLBOOK:END -->``
-    markers, preserving all other content.
-    """
-    agents_md = OPENCLAW_WORKSPACE / "AGENTS.md"
-    existing = agents_md.read_text() if agents_md.exists() else ""
-
-    context = wrap_skillbook_context(skillbook)
-    if not context:
-        print("  Skillbook empty — skipping AGENTS.md sync")
-        return
-
-    ace_section = (
-        f"{MARKER_START}\n"
-        f"## Learned Strategies\n\n"
-        f"These strategies were learned from your past sessions. Use relevant\n"
-        f"ones to improve your responses. Cite strategy IDs (e.g.\n"
-        f"[web-scraping-00001]) when you apply them.\n\n"
-        f"{context}\n"
-        f"{MARKER_END}"
-    )
-
-    if MARKER_START in existing:
-        # Replace existing section
-        pattern = re.escape(MARKER_START) + r".*?" + re.escape(MARKER_END)
-        content = re.sub(pattern, ace_section, existing, flags=re.DOTALL)
-    else:
-        content = existing.rstrip() + "\n\n" + ace_section + "\n"
-
-    agents_md.parent.mkdir(parents=True, exist_ok=True)
-    agents_md.write_text(content)
-    print(f"  Synced {len(skillbook.skills())} strategies to {agents_md}")
-
-
-# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -178,7 +125,7 @@ def section(name: str) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Learn from OpenClaw session transcripts and sync to AGENTS.md."
+        description="Learn from OpenClaw session transcripts."
     )
     parser.add_argument(
         "--dry-run",
@@ -189,6 +136,12 @@ def main() -> None:
         "--reprocess",
         action="store_true",
         help="Ignore the processed log and reprocess all sessions.",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=OPENCLAW_HOME,
+        help="Output directory for skillbook files (default: OPENCLAW_HOME).",
     )
     parser.add_argument(
         "files",
@@ -251,12 +204,13 @@ def main() -> None:
 
     # -- Load or create skillbook (FR-004) --
     section("Loading skillbook")
-    if SKILLBOOK_PATH.exists():
+    skillbook_path = args.output.expanduser() / "ace_skillbook.json"
+    if skillbook_path.exists():
         try:
-            skillbook = Skillbook.load_from_file(str(SKILLBOOK_PATH))
+            skillbook = Skillbook.load_from_file(str(skillbook_path))
             print(
                 f"  Loaded {len(skillbook.skills())} existing strategies"
-                f" from {SKILLBOOK_PATH}"
+                f" from {skillbook_path}"
             )
         except Exception as exc:
             print(f"  ERROR: Failed to load skillbook: {exc}")
@@ -281,11 +235,15 @@ def main() -> None:
     )
     register_opik_litellm_callback(project_name="openclaw-trace-learning")
 
+    output_dir = args.output.expanduser()
+    markdown_path = output_dir / "ace_skillbook.md"
+    export_md_step = ExportSkillbookMarkdownStep(markdown_path, skillbook)
+
     analyser = TraceAnalyser.from_roles(
         reflector=Reflector(client),
         skill_manager=SkillManager(client),
         skillbook=skillbook,
-        extra_steps=[opik_step],  # type: ignore[arg-type]
+        extra_steps=[opik_step, export_md_step],  # type: ignore[arg-type]
     )
 
     results = analyser.run(traces, epochs=1, wait=True)
@@ -307,19 +265,17 @@ def main() -> None:
 
     # -- Save skillbook (FR-004) --
     section("Saving")
-    SKILLBOOK_PATH.parent.mkdir(parents=True, exist_ok=True)
-    skillbook.save_to_file(str(SKILLBOOK_PATH))
-    print(f"  Skillbook: {SKILLBOOK_PATH}")
+    json_path = output_dir / "ace_skillbook.json"
+    json_path.parent.mkdir(parents=True, exist_ok=True)
+    skillbook.save_to_file(str(json_path))
+    print(f"  Skillbook JSON: {json_path}")
+    print(f"  Skillbook MD:   {markdown_path}")
 
     # -- Mark sessions processed (FR-007) --
     if not args.files:
         processed.update(f.name for f in new_sessions)
         save_processed(processed)
         print(f"  Processed log: {PROCESSED_LOG}")
-
-    # -- Sync to AGENTS.md (FR-005) --
-    section("Syncing to OpenClaw")
-    sync_to_agents_md(skillbook)
 
     section("Done")
 
