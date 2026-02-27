@@ -207,8 +207,30 @@ reflector = Reflector(mock_llm)
 skill_manager = SkillManager(mock_llm)
 ```
 
+## Observability
+
+Add Opik tracing to any pipeline via `extra_steps` (requires `pip install ace-framework[observability]`):
+
+```python
+from ace_next import ACE, OpikStep, register_opik_litellm_callback
+
+runner = ACE.from_roles(
+    agent=agent,
+    reflector=reflector,
+    skill_manager=skill_manager,
+    environment=environment,
+    extra_steps=[OpikStep(project_name="my-experiment")],
+)
+
+# Optionally add per-LLM-call cost tracking
+register_opik_litellm_callback(project_name="my-experiment")
+```
+
+See [Opik Observability](../integrations/opik.md) for full details.
+
 ## What to Read Next
 
 - [Async Learning](async-learning.md) — parallel Reflector execution
 - [Prompt Engineering](prompts.md) — customize prompt templates
 - [Integration Pattern](integration.md) — wrap existing agents instead
+- [Opik Observability](../integrations/opik.md) — monitor costs and traces

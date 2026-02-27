@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from pipeline import Pipeline
-from pipeline.protocol import SampleResult
+from pipeline.protocol import SampleResult, StepProtocol
 
 from ..core.context import ACEStepContext, SkillbookView
 from ..core.environments import Sample, TaskEnvironment
@@ -48,6 +48,7 @@ class ACE(ACERunner):
         dedup_interval: int = 10,
         checkpoint_dir: str | Path | None = None,
         checkpoint_interval: int = 10,
+        extra_steps: list[StepProtocol] | None = None,
     ) -> ACE:
         """Construct from pre-built role instances.
 
@@ -64,6 +65,8 @@ class ACE(ACERunner):
             dedup_interval: Samples between deduplication runs.
             checkpoint_dir: Directory for checkpoint files.
             checkpoint_interval: Samples between checkpoint saves.
+            extra_steps: Additional steps appended after the learning
+                tail (e.g. ``OpikStep``).
         """
         skillbook = skillbook or Skillbook()
         steps = [
@@ -79,6 +82,8 @@ class ACE(ACERunner):
                 checkpoint_interval=checkpoint_interval,
             ),
         ]
+        if extra_steps:
+            steps.extend(extra_steps)
         return cls(pipeline=Pipeline(steps), skillbook=skillbook)
 
     def run(

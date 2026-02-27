@@ -2,17 +2,30 @@
 
 Terminal side-effect step that creates an Opik trace per sample with
 pipeline metadata, agent output, reflection insights, and skill
-manager operations.  Optionally registers the LiteLLM OpikLogger
-callback for per-LLM-call token/cost tracking.
+manager operations.
 
 Place at the end of the pipeline (after ApplyStep).  Gracefully
 degrades to a no-op when Opik is not installed or is disabled.
+
+**Explicit opt-in only** — constructing an ``OpikStep`` is the
+opt-in signal.  Opik is never auto-enabled just because the package
+is installed.
+
+Two independent tracing modes:
+
+1. **Pipeline step** (this class) — client-agnostic, reads
+   ``ACEStepContext`` fields and creates one Opik trace per sample.
+2. **LiteLLM callback** (``register_opik_litellm_callback``) —
+   LiteLLM-specific, registers ``OpikLogger`` on
+   ``litellm.callbacks`` for per-LLM-call token/cost tracking.
+   Call separately when needed; ``OpikStep`` does NOT register it.
 """
 
 from __future__ import annotations
 
 import logging
 import os
+import warnings
 from typing import Any
 
 from ..core.context import ACEStepContext
@@ -44,7 +57,8 @@ def register_opik_litellm_callback(
     """Register ``OpikLogger`` on ``litellm.callbacks`` for token/cost tracking.
 
     Standalone helper — call this when you want LiteLLM-level Opik
-    tracing without adding ``OpikStep`` to the pipeline.
+    tracing.  This is **separate** from ``OpikStep`` (pipeline-level
+    tracing) and must be called explicitly.
 
     Returns ``True`` if the callback was successfully registered.
     """
@@ -54,10 +68,28 @@ def register_opik_litellm_callback(
         import litellm
         from litellm.integrations.opik.opik import OpikLogger
 
-        opik_logger = OpikLogger(project_name=project_name)
+        # OpikLogger.__init__ calls asyncio.create_task() which spews
+        # ERROR logs + RuntimeWarnings when no event loop is running.
+        # Suppress only those specific messages during init.
+        class _AsyncInitFilter(logging.Filter):
+            def filter(self, record: logging.LogRecord) -> bool:
+                return "Asynchronous processing not initialized" not in record.getMessage()
+
+        _ll = logging.getLogger("LiteLLM")
+        _f = _AsyncInitFilter()
+        _ll.addFilter(_f)
+        try:
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore",
+                    message="coroutine.*periodic_flush.*never awaited",
+                    category=RuntimeWarning,
+                )
+                opik_logger = OpikLogger(project_name=project_name)
+        finally:
+            _ll.removeFilter(_f)
         already = any(
-            getattr(cb, "__class__", None) and cb.__class__.__name__.lower() == "opik"
-            for cb in getattr(litellm, "callbacks", [])
+            isinstance(cb, OpikLogger) for cb in getattr(litellm, "callbacks", [])
         )
         if not already:
             litellm.callbacks.append(opik_logger)
@@ -77,11 +109,13 @@ class OpikStep:
     Pure side-effect step — reads context fields and creates an Opik
     trace per sample.  Never mutates the context.
 
+    **Does NOT register the LiteLLM callback.**  Call
+    ``register_opik_litellm_callback()`` separately if you also want
+    per-LLM-call token/cost tracking.
+
     Args:
         project_name: Opik project name.
         tags: Tags applied to every trace.
-        register_litellm_callback: Also register ``OpikLogger`` on
-            ``litellm.callbacks`` for per-LLM-call token/cost tracking.
     """
 
     requires = frozenset({"skillbook"})
@@ -91,7 +125,6 @@ class OpikStep:
         self,
         project_name: str = "ace-framework",
         tags: list[str] | None = None,
-        register_litellm_callback: bool = True,
     ) -> None:
         self.project_name = project_name
         self.tags = tags or ["ace"]
@@ -100,13 +133,20 @@ class OpikStep:
 
         if self.enabled:
             try:
-                self._client = _opik.Opik(project_name=project_name)
+                # Pass config explicitly from env vars so we never depend
+                # on the global ~/.opik.config file.
+                api_key = os.environ.get("OPIK_API_KEY")
+                workspace = os.environ.get("OPIK_WORKSPACE")
+                host = os.environ.get("OPIK_URL_OVERRIDE")
+                self._client = _opik.Opik(
+                    project_name=project_name,
+                    api_key=api_key or None,
+                    workspace=workspace or None,
+                    host=host or None,
+                )
             except Exception as exc:
                 logger.debug("OpikStep: failed to create Opik client: %s", exc)
                 self.enabled = False
-
-        if self.enabled and register_litellm_callback:
-            register_opik_litellm_callback(project_name=project_name)
 
     def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
         if not self.enabled:
