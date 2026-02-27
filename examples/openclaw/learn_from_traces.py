@@ -25,12 +25,14 @@ Usage:
     # One-off run
     uv run python examples/openclaw/learn_from_traces.py
 
-    # Cron (every 30 minutes)
-    */30 * * * * cd /path/to/agentic-context-engine && uv run python examples/openclaw/learn_from_traces.py
+    # Dry run — parse sessions without learning
+    uv run python examples/openclaw/learn_from_traces.py --dry-run
+
+    # Reprocess all sessions (ignore processed log)
+    uv run python examples/openclaw/learn_from_traces.py --reprocess
 """
 
 import argparse
-import json
 import os
 import re
 import sys
@@ -46,12 +48,17 @@ load_dotenv(_root / ".env")
 
 from ace_next import (
     LiteLLMClient,
+    OpikStep,
     Reflector,
     Skillbook,
     SkillManager,
     TraceAnalyser,
+    register_opik_litellm_callback,
     wrap_skillbook_context,
 )
+from ace_next.core.context import ACEStepContext
+from ace_next.steps.load_traces import LoadTracesStep
+from ace_next.integrations.openclaw import OpenClawToTraceStep
 
 
 # ---------------------------------------------------------------------------
@@ -68,7 +75,7 @@ SESSIONS_DIR = OPENCLAW_HOME / "agents" / OPENCLAW_AGENT_ID / "sessions"
 SKILLBOOK_PATH = OPENCLAW_HOME / "ace_skillbook.json"
 PROCESSED_LOG = OPENCLAW_HOME / "ace_processed.txt"
 
-MODEL = os.getenv("ACE_MODEL", "anthropic/claude-sonnet-4-20250514")
+MODEL = os.getenv("ACE_MODEL", "bedrock/us.anthropic.claude-sonnet-4-20250514-v1:0")
 
 # AGENTS.md markers for the skillbook section
 MARKER_START = "<!-- ACE:SKILLBOOK:START -->"
@@ -76,7 +83,7 @@ MARKER_END = "<!-- ACE:SKILLBOOK:END -->"
 
 
 # ---------------------------------------------------------------------------
-# Processed-session tracking
+# Processed-session tracking (US3: FR-007, FR-008)
 # ---------------------------------------------------------------------------
 
 
@@ -94,89 +101,32 @@ def save_processed(processed: set[str]) -> None:
 
 
 # ---------------------------------------------------------------------------
-# JSONL parsing
+# Session parsing via pipeline steps
 # ---------------------------------------------------------------------------
 
+_load_step = LoadTracesStep()
+_convert_step = OpenClawToTraceStep()
 
-def parse_session_jsonl(path: Path) -> dict | None:
-    """Parse an OpenClaw session JSONL file into a trace dict.
 
-    Returns a dict with keys expected by ReflectStep::
+def parse_session(path: Path) -> object | None:
+    """Parse a single session JSONL file using pipeline steps.
 
-        {"question", "reasoning", "answer", "feedback", "ground_truth", "skill_ids"}
-
-    Returns None if the session has no usable content.
-
-    Note:
-        The exact JSONL schema depends on your OpenClaw version.  Adjust
-        field names below after inspecting a real session file::
-
-            head -20 ~/.openclaw/agents/main/sessions/*.jsonl
+    Returns the trace object (raw events for now, structured dict later)
+    or None if the file is empty/unparseable.
     """
-    events: list[dict] = []
-    for line in path.read_text().splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            events.append(json.loads(line))
-        except json.JSONDecodeError:
-            continue
+    ctx = ACEStepContext(sample=str(path))
+    ctx = _load_step(ctx)
 
-    if not events:
+    # Skip empty sessions
+    if not ctx.trace:
         return None
 
-    # Collect messages by role
-    user_messages: list[str] = []
-    assistant_messages: list[str] = []
-    tool_calls: list[dict] = []
-
-    for event in events:
-        role = event.get("role", "")
-        content = event.get("content", "")
-
-        if role == "user" and content:
-            user_messages.append(str(content))
-        elif role == "assistant" and content:
-            assistant_messages.append(str(content))
-
-        # Capture tool invocations for richer traces
-        if event.get("type") == "tool":
-            tool_calls.append(
-                {
-                    "name": event.get("name", "unknown"),
-                    "input": str(event.get("input", ""))[:300],
-                    "output": str(event.get("output", ""))[:300],
-                }
-            )
-
-    if not user_messages:
-        return None
-
-    question = user_messages[0]
-    answer = assistant_messages[-1] if assistant_messages else "(no response)"
-
-    # Build reasoning from the full conversation
-    reasoning_parts: list[str] = []
-    for i, msg in enumerate(user_messages):
-        reasoning_parts.append(f"[User] {msg[:500]}")
-        if i < len(assistant_messages):
-            reasoning_parts.append(f"[Assistant] {assistant_messages[i][:500]}")
-    for tc in tool_calls:
-        reasoning_parts.append(f"[Tool: {tc['name']}] {tc['input']} -> {tc['output']}")
-
-    return {
-        "question": question,
-        "reasoning": "\n".join(reasoning_parts),
-        "answer": answer,
-        "skill_ids": [],
-        "feedback": f"Session completed with {len(tool_calls)} tool calls",
-        "ground_truth": None,
-    }
+    ctx = _convert_step(ctx)
+    return ctx.trace
 
 
 # ---------------------------------------------------------------------------
-# AGENTS.md sync
+# AGENTS.md sync (US2: FR-005, FR-006)
 # ---------------------------------------------------------------------------
 
 
@@ -240,37 +190,51 @@ def main() -> None:
         action="store_true",
         help="Ignore the processed log and reprocess all sessions.",
     )
+    parser.add_argument(
+        "files",
+        nargs="*",
+        type=Path,
+        help="JSONL trace files to process directly (skips session discovery).",
+    )
     args = parser.parse_args()
 
-    # -- Discover new sessions --
+    # -- Discover new sessions (FR-001, FR-012) --
     section("Discovering sessions")
-    if not SESSIONS_DIR.exists():
-        print(f"  Sessions directory not found: {SESSIONS_DIR}")
-        print("  Is OpenClaw installed and has the agent run at least once?")
-        return
+    processed: set[str] = set()
+    if args.files:
+        new_sessions = [f.resolve() for f in args.files if f.exists()]
+        missing = [f for f in args.files if not f.exists()]
+        for m in missing:
+            print(f"  WARNING: file not found: {m}")
+        print(f"  Direct files: {len(new_sessions)}")
+    else:
+        if not SESSIONS_DIR.exists():
+            print(f"  Sessions directory not found: {SESSIONS_DIR}")
+            print("  Is OpenClaw installed and has the agent run at least once?")
+            sys.exit(1)
 
-    processed = set() if args.reprocess else load_processed()
-    session_files = sorted(SESSIONS_DIR.glob("*.jsonl"))
-    new_sessions = [f for f in session_files if f.name not in processed]
+        processed = set() if args.reprocess else load_processed()
+        session_files = sorted(SESSIONS_DIR.glob("*.jsonl"))
+        new_sessions = [f for f in session_files if f.name not in processed]
 
-    print(f"  Sessions dir:  {SESSIONS_DIR}")
-    print(f"  Total sessions: {len(session_files)}")
-    print(f"  Already processed: {len(processed)}")
-    print(f"  New to process: {len(new_sessions)}")
+        print(f"  Sessions dir:  {SESSIONS_DIR}")
+        print(f"  Total sessions: {len(session_files)}")
+        print(f"  Already processed: {len(processed)}")
+        print(f"  New to process: {len(new_sessions)}")
 
     if not new_sessions:
         print("  Nothing new to learn from.")
         return
 
-    # -- Parse into traces --
+    # -- Parse into traces (FR-002, FR-010) --
     section("Parsing sessions")
-    traces: list[dict] = []
+    traces: list[object] = []
     skipped = 0
     for session_file in new_sessions:
-        trace = parse_session_jsonl(session_file)
+        trace = parse_session(session_file)
         if trace:
             traces.append(trace)
-            print(f"  + {session_file.name}: {trace['question'][:60]}")
+            print(f"  + {session_file.name}")
         else:
             skipped += 1
 
@@ -280,30 +244,48 @@ def main() -> None:
         print("  No usable traces found.")
         return
 
+    # -- Dry run: stop before learning (FR-009) --
     if args.dry_run:
         print("\n  --dry-run: stopping before learning.")
         return
 
-    # -- Load or create skillbook --
+    # -- Load or create skillbook (FR-004) --
     section("Loading skillbook")
     if SKILLBOOK_PATH.exists():
-        skillbook = Skillbook.load_from_file(str(SKILLBOOK_PATH))
-        print(
-            f"  Loaded {len(skillbook.skills())} existing strategies from {SKILLBOOK_PATH}"
-        )
+        try:
+            skillbook = Skillbook.load_from_file(str(SKILLBOOK_PATH))
+            print(
+                f"  Loaded {len(skillbook.skills())} existing strategies"
+                f" from {SKILLBOOK_PATH}"
+            )
+        except Exception as exc:
+            print(f"  ERROR: Failed to load skillbook: {exc}")
+            print("  Starting with empty skillbook instead.")
+            skillbook = Skillbook()
     else:
         skillbook = Skillbook()
         print("  Starting with empty skillbook")
 
     skills_before = len(skillbook.skills())
 
-    # -- Run learning --
+    # -- Run learning (FR-003) --
     section(f"Learning from {len(traces)} traces")
-    client = LiteLLMClient(model=MODEL)
+    client = LiteLLMClient(
+        model=MODEL,
+        api_key=os.getenv("AWS_BEARER_TOKEN_BEDROCK"),
+    )
+
+    opik_step = OpikStep(
+        project_name="openclaw-trace-learning",
+        tags=["openclaw", "trace-analyser"],
+    )
+    register_opik_litellm_callback(project_name="openclaw-trace-learning")
+
     analyser = TraceAnalyser.from_roles(
         reflector=Reflector(client),
         skill_manager=SkillManager(client),
         skillbook=skillbook,
+        extra_steps=[opik_step],  # type: ignore[arg-type]
     )
 
     results = analyser.run(traces, epochs=1, wait=True)
@@ -323,18 +305,19 @@ def main() -> None:
         for skill in skillbook.skills()[-3:]:
             print(f"    [{skill.id}] {skill.content[:70]}")
 
-    # -- Save skillbook --
+    # -- Save skillbook (FR-004) --
     section("Saving")
     SKILLBOOK_PATH.parent.mkdir(parents=True, exist_ok=True)
     skillbook.save_to_file(str(SKILLBOOK_PATH))
     print(f"  Skillbook: {SKILLBOOK_PATH}")
 
-    # -- Mark sessions processed --
-    processed.update(f.name for f in new_sessions)
-    save_processed(processed)
-    print(f"  Processed log: {PROCESSED_LOG}")
+    # -- Mark sessions processed (FR-007) --
+    if not args.files:
+        processed.update(f.name for f in new_sessions)
+        save_processed(processed)
+        print(f"  Processed log: {PROCESSED_LOG}")
 
-    # -- Sync to AGENTS.md --
+    # -- Sync to AGENTS.md (FR-005) --
     section("Syncing to OpenClaw")
     sync_to_agents_md(skillbook)
 

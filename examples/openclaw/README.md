@@ -10,6 +10,8 @@ OpenClaw runs sessions  -->  JSONL transcripts on disk
                                      |
                         learn_from_traces.py (cron)
                                      |
+                    LoadTracesStep -> OpenClawToTraceStep
+                                     |
                         TraceAnalyser (Reflect -> Update -> Apply)
                                      |
                      +---------+-----+--------+
@@ -20,9 +22,10 @@ OpenClaw runs sessions  -->  JSONL transcripts on disk
 ```
 
 1. OpenClaw writes session transcripts to `~/.openclaw/agents/<id>/sessions/*.jsonl`
-2. The script reads new sessions, parses them into trace dicts
-3. `TraceAnalyser` runs the ACE learning pipeline (no agent execution needed)
-4. The updated skillbook is saved and synced into `AGENTS.md` between marker comments
+2. `LoadTracesStep` reads JSONL files into raw event lists
+3. `OpenClawToTraceStep` converts events to structured traces (pass-through for now)
+4. `TraceAnalyser` runs the ACE learning pipeline (Reflect -> Tag -> Update -> Apply)
+5. The updated skillbook is saved and synced into `AGENTS.md` between marker comments
 
 ## Setup
 
@@ -37,13 +40,13 @@ export ANTHROPIC_API_KEY="your-key"
 ## Usage
 
 ```bash
-# One-off run
+# Learn from all past sessions
 uv run python examples/openclaw/learn_from_traces.py
 
-# Dry run — parse sessions without learning
+# Preview what would be processed (no LLM calls, no file changes)
 uv run python examples/openclaw/learn_from_traces.py --dry-run
 
-# Reprocess all sessions (ignore processed log)
+# Reprocess everything (ignore what's already been learned)
 uv run python examples/openclaw/learn_from_traces.py --reprocess
 ```
 
@@ -57,6 +60,7 @@ uv run python examples/openclaw/learn_from_traces.py --reprocess
 
 | Environment Variable | Default | Description |
 |---|---|---|
+| `ANTHROPIC_API_KEY` | *(required)* | API key for LLM provider |
 | `ACE_MODEL` | `anthropic/claude-sonnet-4-20250514` | LLM for reflection and skill extraction |
 | `OPENCLAW_AGENT_ID` | `main` | OpenClaw agent to learn from |
 | `OPENCLAW_HOME` | `~/.openclaw` | OpenClaw home directory |
@@ -68,15 +72,13 @@ uv run python examples/openclaw/learn_from_traces.py --reprocess
 |---|---|
 | `~/.openclaw/ace_skillbook.json` | Persistent skillbook (survives across runs) |
 | `~/.openclaw/ace_processed.txt` | Log of already-processed session filenames |
-| `~/.openclaw/workspace/AGENTS.md` | Updated with learned strategies between `<!-- ACE:SKILLBOOK -->` markers |
+| `~/.openclaw/workspace/AGENTS.md` | Updated with learned strategies between `<!-- ACE:SKILLBOOK:START/END -->` markers |
 
-## Adapting the JSONL parser
+## Architecture
 
-The session JSONL format depends on your OpenClaw version. Inspect a real
-session file to see the actual schema:
+The integration uses two pipeline steps from the ACE framework:
 
-```bash
-head -20 ~/.openclaw/agents/main/sessions/*.jsonl
-```
+- **`LoadTracesStep`** (`ace_next/steps/load_traces.py`) — Generic step that reads a JSONL file and places parsed events on `ctx.trace`
+- **`OpenClawToTraceStep`** (`ace_next/integrations/openclaw/to_trace.py`) — OpenClaw-specific step that converts raw events to structured traces (currently a pass-through; transformation logic to be defined)
 
-Then adjust `parse_session_jsonl()` in the script to match.
+These steps can be composed with `learning_tail()` in a full pipeline, or used standalone as in this script.

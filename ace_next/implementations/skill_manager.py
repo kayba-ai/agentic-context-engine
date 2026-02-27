@@ -74,7 +74,7 @@ class SkillManager:
                 ``as_prompt``, ``stats``).
             question_context: Description of the task domain.
             progress: Current progress summary (e.g. ``"5/10 correct"``).
-            **kwargs: Forwarded to the LLM client.
+            **kwargs: Accepted for protocol compatibility but not forwarded.
 
         Returns:
             :class:`SkillManagerOutput` containing the update operations.
