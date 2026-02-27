@@ -27,6 +27,7 @@ from ..implementations.prompts import wrap_skillbook_for_external_agent
 from .browser_use import BrowserExecuteStep, BrowserResult, BrowserToTrace
 from .claude_code import ClaudeCodeExecuteStep, ClaudeCodeResult, ClaudeCodeToTrace
 from .langchain import LangChainExecuteStep, LangChainResult, LangChainToTrace
+from .openclaw import OpenClawToTraceStep
 
 
 def wrap_skillbook_context(skillbook) -> str:
@@ -51,6 +52,8 @@ __all__ = [
     "LangChainExecuteStep",
     "LangChainResult",
     "LangChainToTrace",
+    # OpenClaw
+    "OpenClawToTraceStep",
     # Utility
     "wrap_skillbook_context",
 ]
