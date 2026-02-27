@@ -222,7 +222,8 @@ ACERunner (shared infrastructure: epoch loop, delegates to Pipeline.run())
 ├── ACE                 — [Agent → Evaluate → Reflect → Tag → Update → Apply]; input = Sample + Environment
 ├── BrowserUse          — [BrowserExecute → BrowserToTrace → Reflect → Tag → Update → Apply]; input = task strings
 ├── LangChain           — [LangChainExecute → LangChainToTrace → Reflect → Tag → Update → Apply]; input = chain inputs
-└── ClaudeCode          — [ClaudeCodeExecute → ClaudeCodeToTrace → Reflect → Tag → Update → Apply]; input = task strings
+├── ClaudeCode          — [ClaudeCodeExecute → ClaudeCodeToTrace → Reflect → Tag → Update → Apply]; input = task strings
+└── OpenClaw (script)   — [LoadTraces → OpenClawToTrace → Reflect → Tag → Update → Apply]; input = JSONL trace files
 
 ACELiteLLM (standalone convenience wrapper — not an ACERunner subclass)
 ├── ask()               — direct Agent call, no pipeline
@@ -600,7 +601,10 @@ Reusable step implementations live in `ace_next/steps/`. Each is a single class 
 | **DeduplicateStep** | `global_sample_index` | `manager` (DeduplicationManagerLike), `skillbook` (real) | — | Consolidates similar skills | 1 |
 | **CheckpointStep** | `global_sample_index` | `skillbook` (real) | — | Saves skillbook to disk | 1 |
 | **OpikStep** | `skillbook` | `project_name`, `tags` | — | Logs pipeline traces to Opik | 1 |
+| **LoadTracesStep** | `sample` | — | `trace` | None (pure) | default (1) |
+| **OpenClawToTraceStep** | `trace` | — | `trace` | None (pure) | default (1) |
 | **PersistStep** | `skillbook` | `target_path` | — | Writes skillbook to CLAUDE.md or similar | 1 |
+| **ExportSkillbookMarkdownStep** | `skillbook` | `path`, `skillbook` (real) | — | Rewrites human-readable markdown file from skillbook | 1 |
 
 **Requires vs Injected:** `Requires` lists context fields read by the step — validated by the pipeline engine at construction time. The `skillbook` field on the context is a `SkillbookView` (read-only). Steps that **write** to the skillbook (TagStep, ApplyStep, DeduplicateStep, CheckpointStep) receive the real `Skillbook` via constructor injection — marked as "(real)" in the table. These injected dependencies are not tracked by `requires`/`provides`.
 
@@ -701,7 +705,7 @@ class ReflectStep:
         return ctx.replace(reflection=reflection)
 ```
 
-Pure — produces a reflection object, no side effects. Handles two trace formats: (1) when `ctx.trace` is a dict (from EvaluateStep), it extracts known fields and calls the Reflector's existing API with typed arguments; (2) when `ctx.trace` is any other object (from TraceAnalyser or integrations), it passes the raw trace via `**kwargs` for the Reflector to handle directly. Declares `async_boundary = True` — everything from here onward runs in a background thread pool. This lets the execute head return fast while learning continues.
+Pure — produces a reflection object, no side effects. Handles two trace formats: (1) when `ctx.trace` is a dict (from EvaluateStep or a ToTrace converter), it extracts known fields and calls the Reflector's existing API with typed arguments; (2) when `ctx.trace` is any other object (from TraceAnalyser or integrations without a converter), it passes the raw trace via `**kwargs` — the Reflector accepts it for protocol compatibility but does not forward it to the LLM. Integration-specific traces should always go through a ToTrace converter step that produces the standardised dict. Declares `async_boundary = True` — everything from here onward runs in a background thread pool. This lets the execute head return fast while learning continues.
 
 ### TagStep
 
@@ -877,6 +881,56 @@ from ace_next import register_opik_litellm_callback
 register_opik_litellm_callback()
 ```
 
+### LoadTracesStep
+
+```python
+class LoadTracesStep:
+    requires = frozenset({"sample"})
+    provides = frozenset({"trace"})
+
+    def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
+        path = Path(ctx.sample)
+        events: list[dict] = []
+        for line in path.read_text().splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                events.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+        return ctx.replace(trace=events)
+```
+
+Generic JSONL file loader — reads a file path from `ctx.sample`, parses each line as JSON, and populates `ctx.trace` with the parsed event dicts. Designed for integration runners that learn from pre-recorded traces on disk (e.g., OpenClaw session transcripts). Silently skips unparseable lines (blank lines, corrupted JSON). Returns an empty list for missing or empty files. Pure function — no constructor dependencies, no side effects.
+
+**Placement:** Used as the first step in trace-file-based pipelines, before a framework-specific ToTrace converter:
+
+```python
+steps = [
+    LoadTracesStep(),
+    OpenClawToTraceStep(),  # or any ToTrace converter
+    *learning_tail(reflector, skill_manager, skillbook),
+]
+```
+
+### OpenClawToTraceStep
+
+```python
+class OpenClawToTraceStep:
+    requires = frozenset({"trace"})
+    provides = frozenset({"trace"})
+
+    def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
+        events = ctx.trace  # list[dict] from LoadTracesStep
+        trace_dict = _events_to_trace(events)
+        return ctx.replace(trace=trace_dict)
+```
+
+OpenClaw-specific trace converter — transforms raw JSONL events (loaded by `LoadTracesStep`) into the structured trace format expected by `ReflectStep`. Extracts user messages into `question`, assistant thinking/tool calls/responses into `reasoning`, last assistant text into `answer`, and a session summary into `feedback`. Follows the same pattern as `BrowserToTrace`, `LangChainToTrace`, and `ClaudeCodeToTrace`. Lives in `ace_next/integrations/openclaw/to_trace.py`.
+
+**Placement:** Used after `LoadTracesStep` in OpenClaw pipelines. The `examples/openclaw/learn_from_traces.py` script uses both steps standalone (not in a full Pipeline) and feeds results to `TraceAnalyser.from_roles()`.
+
 ### PersistStep
 
 ```python
@@ -894,6 +948,25 @@ class PersistStep:
 ```
 
 Integration-specific side-effect step — writes the current skillbook to an external file (e.g., `CLAUDE.md` for Claude Code). Used by `ClaudeCode` runner to persist learned strategies into the project's instruction file after each learning cycle. Unlike `CheckpointStep` (which saves the full skillbook JSON at intervals), `PersistStep` runs on every sample and writes in the target format expected by the integration. Receives the real `Skillbook` via constructor injection.
+
+### ExportSkillbookMarkdownStep
+
+```python
+class ExportSkillbookMarkdownStep:
+    requires = frozenset({"skillbook"})
+    provides = frozenset()
+
+    def __init__(self, path: str | Path, skillbook: Skillbook) -> None:
+        self.path = Path(path)
+        self.skillbook = skillbook
+
+    def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
+        # Rewrites the markdown file from the current skillbook state
+        ...
+        return ctx
+```
+
+Exports the skillbook as a human-readable markdown file, grouped by section. The file is rewritten from scratch on every invocation so it always reflects the current skillbook state. Intended for use as an `extra_step` appended after the learning tail. Receives the real `Skillbook` via constructor injection.
 
 ---
 
@@ -1504,6 +1577,8 @@ ace_next/
     checkpoint.py           ← CheckpointStep
     observability.py        ← ObservabilityStep (logger.info)
     opik.py                 ← OpikStep
+    load_traces.py          ← LoadTracesStep (generic JSONL loader)
+    export_markdown.py      ← ExportSkillbookMarkdownStep
     persist.py              ← PersistStep
   runners/                    ← Runner classes (compose Pipeline, manage epoch loop)
     __init__.py               ← Re-exports ACERunner, TraceAnalyser, ACE, BrowserUse, LangChain, ClaudeCode, ACELiteLLM
@@ -1519,6 +1594,9 @@ ace_next/
     browser_use.py            ← BrowserExecuteStep, BrowserResult, BrowserToTrace
     langchain.py              ← LangChainExecuteStep, LangChainResult, LangChainToTrace
     claude_code.py            ← ClaudeCodeExecuteStep, ClaudeCodeResult, ClaudeCodeToTrace
+    openclaw/
+      __init__.py             ← Exports OpenClawToTraceStep
+      to_trace.py             ← OpenClawToTraceStep (JSONL events → structured trace dict)
   providers/                  ← LLM client wrappers (not pipeline steps)
     __init__.py               ← Exports LiteLLMClient, InstructorClient, etc.
     litellm.py                ← LiteLLMClient, LiteLLMConfig, LLMResponse

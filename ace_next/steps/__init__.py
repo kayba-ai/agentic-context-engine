@@ -18,6 +18,8 @@ from .apply import ApplyStep
 from .checkpoint import CheckpointStep
 from .deduplicate import DeduplicateStep
 from .evaluate import EvaluateStep
+from .export_markdown import ExportSkillbookMarkdownStep
+from .load_traces import LoadTracesStep
 from .observability import ObservabilityStep
 from .opik import OPIK_AVAILABLE, OpikStep, register_opik_litellm_callback
 from .persist import PersistStep
@@ -31,6 +33,8 @@ __all__ = [
     "CheckpointStep",
     "DeduplicateStep",
     "EvaluateStep",
+    "ExportSkillbookMarkdownStep",
+    "LoadTracesStep",
     "ObservabilityStep",
     "OPIK_AVAILABLE",
     "OpikStep",
