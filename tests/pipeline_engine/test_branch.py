@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import asyncio
 import threading
-import time
 from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any
@@ -142,19 +141,6 @@ class Log:
             self.log.append(self.name)
         return ctx
 
-
-class SlowPass:
-    """Sleeps for *delay* seconds then passes context through."""
-
-    requires = frozenset()
-    provides = frozenset()
-
-    def __init__(self, delay: float = 0.05):
-        self.delay = delay
-
-    def __call__(self, ctx: StepContext) -> StepContext:
-        time.sleep(self.delay)
-        return ctx
 
 
 # --- native async helpers ---
@@ -1274,18 +1260,26 @@ class TestBranchViaRun:
         assert len(results) == 2
         assert all(r.error is None for r in results)
 
-    @pytest.mark.slow
     def test_branch_runs_children_in_parallel(self):
-        """Fan-out across two slow branches should be faster than sequential."""
-        delay = 0.1
+        """Fan-out branches must execute concurrently, not sequentially.
+
+        Uses a threading.Barrier that requires both branches to arrive before
+        either can proceed.  If branches ran sequentially the first would
+        block at the barrier and the test would fail with a BranchError.
+        """
+        barrier = threading.Barrier(2, timeout=5)
+
+        class BarrierStep:
+            requires = frozenset()
+            provides = frozenset()
+
+            def __call__(self, ctx: StepContext) -> StepContext:
+                barrier.wait()  # blocks until the other branch also arrives
+                return ctx
+
         pipe = Pipeline().branch(
-            Pipeline().then(SlowPass(delay)),
-            Pipeline().then(SlowPass(delay)),
+            Pipeline().then(BarrierStep()),
+            Pipeline().then(BarrierStep()),
         )
-        t0 = time.monotonic()
         results = pipe.run([TestContext(sample="s")])
-        elapsed = time.monotonic() - t0
         assert results[0].error is None
-        assert (
-            elapsed < delay * 2.5
-        ), f"Expected branches to run in parallel (~{delay}s), took {elapsed:.2f}s"
