@@ -38,19 +38,38 @@ if TYPE_CHECKING:
     from ..llm import LLMClient
 
 
-# Default system prompt for the sub-agent
-DEFAULT_SUBAGENT_SYSTEM_PROMPT = """You are a trace analysis assistant. Your job is to analyze agent execution traces and provide insights.
+# --- Mode-specific subagent prompts ---
+# Analysis mode: descriptive survey — enables the main agent to categorize and pick deep-dive targets
+SUBAGENT_ANALYSIS_PROMPT = """\
+You are a trace reader for a multi-phase analysis pipeline. A downstream agent will use your output to categorize traces and decide which ones deserve deep investigation. It will not read the raw traces itself — your summary is its only view into the data.
 
-You will receive:
-1. A question about some aspect of an agent's execution
-2. Context data (partial trace, code output, or specific data to analyze)
+For each trace or conversation in the context:
+1. **Task** — what was requested or attempted (brief).
+2. **Approach** — the agent's key steps, tools used, and the overall sequence of actions.
+3. **Decision points** — where the agent chose between alternatives. What did it choose and what were the other options?
+4. **Mistakes** — errors, wrong turns, retries, wasted steps. Describe what went wrong factually — do not analyze root causes.
+5. **What stood out** — anything non-obvious: clever recoveries, unusual tool usage, unexpected results, or signs of a pattern.
 
-Your response should be:
-- Concise and focused on answering the question
-- Based only on the provided context
-- Actionable when possible (suggest what to do differently)
+Cite step numbers or message excerpts as evidence. Be thorough — the downstream agent cannot go back to the raw data."""
 
-You have no tools - just analyze the provided context and answer the question directly."""
+# Deep-dive mode: analytical — provides evidence-rich material for synthesis
+SUBAGENT_DEEPDIVE_PROMPT = """\
+You are an investigator analyzing agent execution traces. A downstream agent has already surveyed these traces and selected them for deeper analysis. Your job is to answer the specific question asked, providing the evidence and reasoning the downstream agent needs to formulate learnings.
+
+Approach:
+- **Causes, not symptoms.** When something went wrong, identify the root decision or assumption that led to it. What should the agent have done instead — concretely?
+- **Contrast directly.** When given multiple traces, find the specific point where they diverged. Do not describe each trace separately — compare them.
+- **Cite everything.** Every claim must reference specific evidence (step number, message content, tool output). If something is ambiguous, say so — do not speculate.
+- **Suggest alternatives.** For mistakes, describe the concrete action the agent should have taken instead."""
+
+# Backward-compat alias
+DEFAULT_SUBAGENT_SYSTEM_PROMPT = SUBAGENT_ANALYSIS_PROMPT
+
+# Mode → prompt mapping for _build_prompt
+_MODE_PROMPTS = {
+    "analysis": SUBAGENT_ANALYSIS_PROMPT,
+    "deep_dive": SUBAGENT_DEEPDIVE_PROMPT,
+}
 
 
 class CallBudget:
@@ -166,6 +185,7 @@ class SubAgentLLM:
         question: str,
         context: str,
         *,
+        mode: str = "analysis",
         max_tokens: Optional[int] = None,
         temperature: Optional[float] = None,
     ) -> str:
@@ -178,6 +198,8 @@ class SubAgentLLM:
         Args:
             question: The question to ask about the context
             context: The context data to analyze (trace excerpt, code output, etc.)
+            mode: Prompt protocol — "analysis" for survey, "deep_dive" for
+                  investigation. Unknown modes fall back to config.system_prompt.
             max_tokens: Override max tokens for this call
             temperature: Override temperature for this call
 
@@ -195,7 +217,7 @@ class SubAgentLLM:
         self._call_count += 1
 
         # Build the prompt
-        prompt = self._build_prompt(question, context)
+        prompt = self._build_prompt(question, context, mode=mode)
 
         # Choose which LLM to use
         llm = self.subagent_llm if self.subagent_llm is not None else self.main_llm
@@ -218,6 +240,7 @@ class SubAgentLLM:
                 "question": question,
                 "context_length": len(context),
                 "response_length": len(result),
+                "mode": mode,
             }
         )
 
@@ -238,17 +261,20 @@ class SubAgentLLM:
 
         return result
 
-    def _build_prompt(self, question: str, context: str) -> str:
+    def _build_prompt(self, question: str, context: str, *, mode: str = "analysis") -> str:
         """Build the prompt for the sub-agent.
 
         Args:
             question: The question to ask
             context: The context data
+            mode: Prompt protocol — known modes use protocol prompts,
+                  unknown modes fall back to config.system_prompt.
 
         Returns:
             Formatted prompt string
         """
-        return f"""{self.config.system_prompt}
+        system = _MODE_PROMPTS.get(mode, self.config.system_prompt)
+        return f"""{system}
 
 ## Question
 {question}
@@ -287,12 +313,14 @@ def create_ask_llm_function(
     """
     subagent = SubAgentLLM(llm, config=config, subagent_llm=subagent_llm)
 
-    def bounded_ask_llm(question: str, context: str = "") -> str:
+    def bounded_ask_llm(question: str, context: str = "", mode: str = "analysis") -> str:
         """Ask the sub-agent a question with context (bounded by budget/max_calls).
 
         Args:
             question: The question to ask
             context: The context data to analyze (default: empty string)
+            mode: Prompt protocol — "analysis" for survey, "deep_dive" for
+                  investigation (default: "analysis")
 
         Returns:
             The sub-agent's response, or a limit message if max calls exceeded
@@ -302,7 +330,7 @@ def create_ask_llm_function(
                 return f"(Max {budget._max_calls} LLM calls exceeded - continue with available data)"
         elif subagent.call_count >= max_calls:
             return f"(Max {max_calls} sub-agent calls exceeded - continue with available data)"
-        return subagent.ask(question, context)
+        return subagent.ask(question, context, mode=mode)
 
     # Attach metadata for introspection
     bounded_ask_llm.subagent = subagent  # type: ignore
