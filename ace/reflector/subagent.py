@@ -113,7 +113,7 @@ class SubAgentConfig:
     """
 
     model: Optional[str] = None  # None means use same model as main reflector
-    max_tokens: int = 4096
+    max_tokens: int = 8192
     temperature: float = 0.3
     system_prompt: str = DEFAULT_SUBAGENT_SYSTEM_PROMPT
 
