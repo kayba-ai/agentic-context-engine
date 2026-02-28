@@ -32,7 +32,7 @@ class RecursiveConfig:
     # Sub-agent configuration
     enable_subagent: bool = True
     subagent_model: Optional[str] = None
-    subagent_max_tokens: int = 4096
+    subagent_max_tokens: int = 8192
     subagent_temperature: float = 0.3
     subagent_system_prompt: Optional[str] = None
     enable_fallback_synthesis: bool = True
