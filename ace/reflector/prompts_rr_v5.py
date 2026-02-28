@@ -22,6 +22,14 @@ Changes v5.2 (smarter analysis strategy):
 - Deep-dives target divergent outcomes (success+failure of same type) instead of random traces
 - Clearer import warning to prevent `import collections` trap
 - Added ask_llm truncation warning to prevent wasted iterations printing slices
+
+Changes v5.3 (main agent behavior fixes):
+- Discovery: 3-level schema inspection + trace_idx lookup dict + single-iteration constraint
+- Categorize: replaced passive print-and-read with ask_llm-driven categorization in 1 iteration
+- Deep-dive: minimum 2 deep-dives, explicit deep_dives list for synthesis
+- Synthesize: stronger instruction to include deep-dive results
+- Rules: synthesis must include deep-dive results alongside survey summaries
+- Config: SubAgentConfig.max_tokens raised from 4096 to 8192 (prevents synthesis truncation)
 """
 
 REFLECTOR_RECURSIVE_V5_SYSTEM = """\
@@ -71,28 +79,41 @@ Code is for extracting, batching, and formatting data to feed into ask_llm.
 
 ### Step 1: Discover (code-only, iteration 1)
 Understand the data shape and inventory. Do NOT judge outcomes yet — just catalog what you have.
+**Complete discovery in this single iteration — do NOT split schema exploration across multiple iterations.**
 ```python
 print("Keys:", traces.keys())
 steps = traces.get("steps", [])
 print(f"{{len(steps)}} steps")
+# Build trace_idx: trace_id → list index (use this in deep-dives to avoid index-vs-ID confusion)
+trace_idx = {{}}
 if steps:
-    # Schema: nested keys, 2 levels deep
+    # Schema: nested keys, 3 levels deep
     sample = steps[0]
     if isinstance(sample, dict):
         schema = {{}}
         for k, v in sample.items():
             if isinstance(v, dict):
-                schema[k] = list(v.keys())[:5]
+                sub = {{}}
+                for k2, v2 in list(v.items())[:5]:
+                    if isinstance(v2, dict):
+                        sub[k2] = list(v2.keys())[:5]
+                    elif isinstance(v2, list) and v2:
+                        sub[k2] = f"list[{{len(v2)}}]"
+                    else:
+                        sub[k2] = type(v2).__name__
+                schema[k] = sub
             elif isinstance(v, list) and v and isinstance(v[0], dict):
                 schema[k] = list(v[0].keys())[:5]
             else:
                 schema[k] = f"{{type(v).__name__}}: {{repr(v)[:50]}}"
         print("Schema:", json.dumps(schema, default=str))
-    # Per-trace inventory table
+    # Per-trace inventory table + build trace_idx
     for j, s in enumerate(steps):
         msg_count = len(s.get("messages", s.get("steps", []))) if isinstance(s, dict) else "?"
         trace_id = s.get("id", s.get("name", f"trace_{{j}}")) if isinstance(s, dict) else f"trace_{{j}}"
+        trace_idx[trace_id] = j
         print(f"  [{{j}}] id={{trace_id}}  messages={{msg_count}}")
+    print(f"trace_idx built: {{len(trace_idx)}} entries")
 ```
 
 ### Step 2: Survey (ask_llm, iteration 2-3)
@@ -121,8 +142,8 @@ print(f"\\nSurvey coverage: {{len(summaries)}} batches for {{len(steps)}} traces
 # If any traces were missed (e.g. ask_llm dropped some), re-send them
 ```
 
-### Step 3: Categorize + Plan (code-driven, iteration 3-4)
-You now have summaries for all traces. **Before continuing, verify all survey data is present:**
+### Step 3: Categorize + Plan (ask_llm, 1 iteration)
+You now have summaries for all traces. Verify coverage, then use ask_llm to categorize and pick deep-dive targets in one shot:
 ```python
 # CRITICAL: verify all batches survived across iterations
 print(f"Summaries stored: {{len(summaries)}} batches, keys: {{list(summaries.keys())}}")
@@ -130,16 +151,25 @@ expected_batches = (len(steps) + BATCH - 1) // BATCH
 if len(summaries) < expected_batches:
     print(f"MISSING {{expected_batches - len(summaries)}} batches — re-run them before proceeding")
 
-# Print all summaries compactly for review
 all_summaries = "\\n---\\n".join(f"{{k}}: {{v}}" for k, v in summaries.items())
-print(all_summaries[:5000])
-# Group by request type or similarity — look for DIVERGENT OUTCOMES:
-# same request type, different result. These produce the best learnings.
-# Plan which groups deserve deep-dives.
+# Categorize and pick deep-dive targets in one shot
+categories = ask_llm(
+    "Group these summaries by task type and outcome (success/failure/partial). "
+    "Then pick the 2-3 best deep-dive targets — prioritize: "
+    "(1) DIVERGENT outcomes (same task type, one succeeded, one failed), "
+    "(2) longest/most complex traces with mistakes, "
+    "(3) most common failure pattern. "
+    "For each target, state the trace IDs and what to investigate.",
+    all_summaries,
+    mode="analysis"
+)
+print(categories[:3000])
 ```
 
-### Step 4: Deep-dive (ask_llm, iteration 4-5)
+### Step 4: Deep-dive (ask_llm, iteration 4-6)
 **Deep-dives MUST use raw trace data — NOT summaries.** Analyzing summaries of summaries is lazy and produces shallow, unverified learnings. You already have summaries from Step 2. The point of deep-dives is to go back to the raw data and find evidence that summaries miss.
+
+**Do at least 2 deep-dives** when you have divergent outcomes or multiple failure patterns. Store each result in a list — you need ALL of them for synthesis.
 
 Target the most informative traces — NOT the simplest ones.
 - **Divergent outcomes:** Send a success+failure pair of the same request type.
@@ -147,7 +177,8 @@ Target the most informative traces — NOT the simplest ones.
 - **Longest/highest-cost traces:** These contain the most decision points and mistakes.
 - **Skip** short, simple, clearly routine traces — they rarely yield learnings.
 ```python
-# Deep-dive: send FULL raw traces — ask_llm can handle large context
+deep_dives = []  # Collect ALL deep-dive results for synthesis
+# Deep-dive 1: send FULL raw traces — ask_llm can handle large context
 success_trace = json.dumps(steps[success_idx], default=str)
 failure_trace = json.dumps(steps[failure_idx], default=str)
 contrast = ask_llm(
@@ -156,16 +187,18 @@ contrast = ask_llm(
     f"SUCCESS:\\n{{success_trace}}\\n\\nFAILURE:\\n{{failure_trace}}",
     mode="deep_dive"
 )
-print(contrast)
+deep_dives.append(contrast)
+print(contrast[:2000])
+# Deep-dive 2+: repeat for other targets from categorization
 ```
 
 ### Step 5: Synthesize and call FINAL()
-Deep-dive results contain your best evidence — include them at full length.
-Combine ALL survey summaries (Step 2) with deep-dive evidence (Step 4). Send the full data — ask_llm can handle it:
+Deep-dive results contain your best evidence — **you MUST include them**. Omitting deep-dives wastes the most valuable analysis you did.
+Combine ALL survey summaries (Step 2) with ALL deep-dive results (Step 4). Send the full data — ask_llm can handle it:
 ```python
 all_findings = "\\n---\\n".join(
     [all_summaries]  # ALL survey summaries — do not truncate
-    + [str(v) for v in deep_dive_results]  # ALL deep-dive results
+    + [str(v) for v in deep_dives]  # ALL deep-dive results — do not omit
 )
 summary = ask_llm(
     "Synthesize these findings into actionable learnings for future agents. "
@@ -243,6 +276,7 @@ Every learning MUST have a non-empty `evidence` field citing specific trace deta
 - Print output and ask_llm responses can both be truncated. Before re-querying, check `len(variable)` — the full response may already be stored even if the print was cut off
 - **Preferably 3 traces per ask_llm call** — subagents work best with small, focused batches. Use discretion if more are needed.
 - **Do not be lazy.** Deep-dives must use raw trace data (`json.dumps(steps[idx])`), not summaries from earlier phases. Re-analyzing summaries is not a deep-dive — it just compresses already-compressed information and produces shallow, unverified conclusions. Go back to the raw data.
+- **Synthesis context MUST include deep-dive results alongside survey summaries** — omitting deep-dives wastes the most valuable evidence.
 - Feedback messages show `[Iteration N/M]` — when approaching the limit, call FINAL() with what you have
 - If you have findings but are running low on iterations, call FINAL() immediately — partial results beat timeout
 </output_rules>
