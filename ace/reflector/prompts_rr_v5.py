@@ -219,7 +219,8 @@ Every learning MUST have a non-empty `evidence` field citing specific trace deta
 
 <output_rules>
 ## Rules
-- ONE ```python block per response — after seeing output, write your next block
+- **ONE ```python block per response** — only the first block executes, the rest are silently ignored. After seeing output, write your next block.
+- **Batch mode:** When you have multiple independent operations (e.g., several ask_llm calls that don't depend on each other), start your first block with `# BATCH` and all blocks in that response will execute as one script. Only use `# BATCH` for independent operations within the same phase — never batch across phases (e.g., don't batch survey + deep-dive + FINAL together).
 - **Use ask_llm as your primary analysis tool** — don't manually parse what ask_llm can interpret
 - Variables persist across iterations — store findings incrementally
 - Output truncates at ~20K chars — use slicing and `json.dumps(x, default=str)[:N]`
