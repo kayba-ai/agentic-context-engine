@@ -723,6 +723,51 @@ print(results)
         self.assertEqual(subagent.call_count, 0)
         self.assertEqual(len(subagent.call_history), 0)
 
+    def test_mode_based_prompt_selection(self):
+        """Test that mode selects different system prompts."""
+        from ace.reflector.subagent import (
+            SubAgentLLM,
+            SUBAGENT_ANALYSIS_PROMPT,
+            SUBAGENT_DEEPDIVE_PROMPT,
+        )
+
+        class MockLLM:
+            def complete(self, prompt, **kwargs):
+                class Response:
+                    text = "Response"
+
+                return Response()
+
+        subagent = SubAgentLLM(MockLLM())
+
+        analysis_prompt = subagent._build_prompt("q", "ctx", mode="analysis")
+        deepdive_prompt = subagent._build_prompt("q", "ctx", mode="deep_dive")
+
+        # Different modes produce different prompts
+        self.assertNotEqual(analysis_prompt, deepdive_prompt)
+        self.assertIn(SUBAGENT_ANALYSIS_PROMPT, analysis_prompt)
+        self.assertIn(SUBAGENT_DEEPDIVE_PROMPT, deepdive_prompt)
+
+        # Unknown mode falls back to config.system_prompt (which defaults to analysis)
+        fallback_prompt = subagent._build_prompt("q", "ctx", mode="custom")
+        self.assertIn(SUBAGENT_ANALYSIS_PROMPT, fallback_prompt)
+
+    def test_mode_recorded_in_call_history(self):
+        """Test that mode is recorded in call history metadata."""
+        from ace.reflector.subagent import SubAgentLLM
+
+        class MockLLM:
+            def complete(self, prompt, **kwargs):
+                class Response:
+                    text = "Response"
+
+                return Response()
+
+        subagent = SubAgentLLM(MockLLM())
+        subagent.ask("Question", "Context", mode="deep_dive")
+
+        self.assertEqual(subagent.call_history[0]["mode"], "deep_dive")
+
     def test_subagent_separate_llm(self):
         """Test that SubAgentLLM can use a separate LLM."""
         from ace.reflector.subagent import SubAgentLLM
