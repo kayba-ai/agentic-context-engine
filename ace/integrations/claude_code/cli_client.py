@@ -179,6 +179,7 @@ class CLIClient(LLMClient):
                     text=True,
                     timeout=self.timeout,
                     env=env,
+                    encoding='utf-8',
                 )
 
                 if result.returncode != 0:
