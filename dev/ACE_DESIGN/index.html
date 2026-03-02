@@ -1454,6 +1454,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../integrations/openclaw/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenClaw
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -3749,7 +3777,7 @@
 <a id="__codelineno-32-8" name="__codelineno-32-8" href="#__codelineno-32-8"></a>        <span class="k">return</span> <span class="n">ctx</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">trace</span><span class="o">=</span><span class="n">trace_dict</span><span class="p">)</span>
 </code></pre></div>
 <p>OpenClaw-specific trace converter — transforms raw JSONL events (loaded by <code>LoadTracesStep</code>) into the structured trace format expected by <code>ReflectStep</code>. Extracts user messages into <code>question</code>, assistant thinking/tool calls/responses into <code>reasoning</code>, last assistant text into <code>answer</code>, and a session summary into <code>feedback</code>. Follows the same pattern as <code>BrowserToTrace</code>, <code>LangChainToTrace</code>, and <code>ClaudeCodeToTrace</code>. Lives in <code>ace_next/integrations/openclaw/to_trace.py</code>.</p>
-<p><strong>Placement:</strong> Used after <code>LoadTracesStep</code> in OpenClaw pipelines. The <code>examples/openclaw/learn_from_traces.py</code> script uses both steps standalone (not in a full Pipeline) and feeds results to <code>TraceAnalyser.from_roles()</code>.</p>
+<p><strong>Placement:</strong> Used after <code>LoadTracesStep</code> in OpenClaw pipelines. The <code>examples/openclaw/kayba-ace/learn_from_traces.py</code> script uses both steps standalone (not in a full Pipeline) and feeds results to <code>TraceAnalyser.from_roles()</code>.</p>
 <h3 id="persiststep">PersistStep<a class="headerlink" href="#persiststep" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">PersistStep</span><span class="p">:</span>
 <a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a>    <span class="n">requires</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;skillbook&quot;</span><span class="p">})</span>
@@ -4880,6 +4908,8 @@ The current API offers two extremes: factory methods (<code>from_roles</code>) t
 </code></pre></div>
 <p>The builder would handle <code>SkillbookView</code> wiring, step ordering validation, and <code>ACERunner</code> construction internally. Users compose by name ("reflect", "apply") rather than by importing step classes.</p>
 <p>This would only be worth pursuing when there is evidence of users building custom pipelines with <code>learning_tail()</code> and hitting friction with the manual wiring. The <code>learning_tail()</code> helper (see Integration Pattern section) covers the most common customisation — custom execute step + standard learning — without a builder. A builder adds value when users need fine-grained insertion points (between existing steps) or want to compose from presets without understanding the step internals. The main risk is that a builder mirrors the step list, adding a second construction path to document, test, and keep in sync. It can also hide the <code>requires</code>/<code>provides</code> contracts — when a validation step is inserted at the wrong position, the error comes from the pipeline engine (field missing) rather than the builder (wrong position name), making debugging indirect. Mitigate by having the builder validate the final step chain at <code>build()</code> time and surfacing clear errors.</p>
+<p><strong>LiteLLM proxy base URL support (<code>LITELLM_API_BASE</code>):</strong>
+The <code>learn_from_traces.py</code> script (and by extension <code>ace-learn</code>) does not pass <code>api_base</code> to <code>LiteLLMClient</code>, so users running a LiteLLM proxy server behind a custom URL cannot use it with the OpenClaw integration. <code>LiteLLMClient</code> already supports <code>api_base</code> as a constructor parameter — the script just needs to read <code>os.getenv("LITELLM_API_BASE")</code> and pass it through. Deferred because all current users connect directly to providers (Anthropic, Bedrock, OpenRouter) where only a model string and API key are needed. Revisit when a user needs proxy support.</p>
 <p><strong>Skillbook rollback and versioning:</strong>
 Currently the skillbook is mutated in place with no way to undo a bad update. If the LLM hallucinates a harmful skill or a batch degrades overall quality, the only recovery is restoring from a checkpoint file. A lightweight versioning mechanism — e.g., snapshotting skillbook state at epoch boundaries or before each <code>ApplyStep</code>, with a <code>rollback(to_version)</code> method — would enable automatic revert when a validation metric degrades, A/B comparison between skillbook versions, and safer experimentation with aggressive learning rates. This could live as a <code>VersionedSkillbook</code> wrapper or as an optional <code>SnapshotStep</code> inserted before <code>ApplyStep</code>. Deferred because the current checkpoint-to-disk approach covers the most common recovery scenario (resume after crash), and in-memory versioning adds memory overhead proportional to skillbook size times number of snapshots.</p>
 <hr />
