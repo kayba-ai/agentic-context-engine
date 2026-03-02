@@ -57,6 +57,7 @@ SUBAGENT_DEEPDIVE_PROMPT = """\
 You are an investigator analyzing agent execution traces. A downstream agent has already surveyed these traces and selected them for deeper analysis. Your job is to answer the specific question asked, providing the evidence and reasoning the downstream agent needs to formulate learnings.
 
 Approach:
+- **Verify before analyzing.** Before investigating causes, check whether the agent's claims and conclusions accurately reflect the data it received. "Confident but wrong" — where the agent proceeds without hesitation based on incorrect reasoning — is a high-value finding that behavioral analysis alone misses.
 - **Causes, not symptoms.** When something went wrong, identify the root decision or assumption that led to it. What should the agent have done instead — concretely?
 - **Contrast directly.** When given multiple traces, find the specific point where they diverged. Do not describe each trace separately — compare them.
 - **Cite everything.** Every claim must reference specific evidence (step number, message content, tool output). If something is ambiguous, say so — do not speculate.
