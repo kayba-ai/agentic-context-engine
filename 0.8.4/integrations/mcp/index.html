@@ -10,13 +10,9 @@
       
       
       
-        <link rel="canonical" href="https://kayba-ai.github.io/agentic-context-engine/latest/guides/async-learning/">
+        <link rel="canonical" href="https://kayba-ai.github.io/agentic-context-engine/latest/integrations/mcp/">
       
       
-        <link rel="prev" href="../prompts/">
-      
-      
-        <link rel="next" href="../testing/">
       
       
         
@@ -76,7 +72,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#async-learning" class="md-skip">
+        <a href="#ace-mcp-server" class="md-skip">
           Skip to content
         </a>
       
@@ -113,7 +109,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Async Learning
+              ACE MCP Server
             
           </span>
         </div>
@@ -286,13 +282,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../full-pipeline/" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../guides/full-pipeline/" class="md-tabs__link">
           
   
   
@@ -332,7 +326,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../integrations/" class="md-tabs__link">
+        <a href="../" class="md-tabs__link">
           
   
   
@@ -756,31 +750,28 @@
       
   
   
-    
   
   
-  
     
     
     
     
-      
-        
-        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
         
           
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
             
   
   
@@ -798,7 +789,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
@@ -816,7 +807,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../full-pipeline/" class="md-nav__link">
+      <a href="../../guides/full-pipeline/" class="md-nav__link">
         
   
   
@@ -844,7 +835,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../integration/" class="md-nav__link">
+      <a href="../../guides/integration/" class="md-nav__link">
         
   
   
@@ -872,7 +863,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../prompts/" class="md-nav__link">
+      <a href="../../guides/prompts/" class="md-nav__link">
         
   
   
@@ -897,37 +888,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Async Learning
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../guides/async-learning/" class="md-nav__link">
         
   
   
@@ -943,92 +907,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#architecture" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Architecture
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#basic-usage" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Basic Usage
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#monitoring-progress" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Monitoring Progress
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#with-acelitellm" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        With ACELiteLLM
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#why-this-architecture" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Why This Architecture
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#what-to-read-next" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        What to Read Next
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1041,7 +919,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../testing/" class="md-nav__link">
+      <a href="../../guides/testing/" class="md-nav__link">
         
   
   
@@ -1415,7 +1293,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../integrations/" class="md-nav__link">
+      <a href="../" class="md-nav__link">
         
   
   
@@ -1443,7 +1321,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../integrations/litellm/" class="md-nav__link">
+      <a href="../litellm/" class="md-nav__link">
         
   
   
@@ -1471,7 +1349,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../integrations/langchain/" class="md-nav__link">
+      <a href="../langchain/" class="md-nav__link">
         
   
   
@@ -1499,7 +1377,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../integrations/browser-use/" class="md-nav__link">
+      <a href="../browser-use/" class="md-nav__link">
         
   
   
@@ -1527,7 +1405,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../integrations/claude-code/" class="md-nav__link">
+      <a href="../claude-code/" class="md-nav__link">
         
   
   
@@ -1555,7 +1433,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../integrations/opik/" class="md-nav__link">
+      <a href="../opik/" class="md-nav__link">
         
   
   
@@ -1583,7 +1461,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../integrations/openclaw/" class="md-nav__link">
+      <a href="../openclaw/" class="md-nav__link">
         
   
   
@@ -1665,6 +1543,133 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-the-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running the Server
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tools
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tools">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#aceask" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ace.ask
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#acelearnsample" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ace.learn.sample
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#acelearnfeedback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ace.learn.feedback
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aceskillbookget" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ace.skillbook.get
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aceskillbooksave" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ace.skillbook.save
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aceskillbookload" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ace.skillbook.load
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#session-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Session Model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#architecture" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1676,10 +1681,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#basic-usage" class="md-nav__link">
+  <a href="#testing-with-the-mcp-inspector" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Basic Usage
+        Testing with the MCP Inspector
       
     </span>
   </a>
@@ -1687,43 +1692,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#monitoring-progress" class="md-nav__link">
+  <a href="#file-layout" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Monitoring Progress
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#with-acelitellm" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        With ACELiteLLM
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#why-this-architecture" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Why This Architecture
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#what-to-read-next" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        What to Read Next
+        File Layout
       
     </span>
   </a>
@@ -1750,96 +1722,337 @@
   
 
 
-<h1 id="async-learning">Async Learning<a class="headerlink" href="#async-learning" title="Permanent link">&para;</a></h1>
-<p>By default, learning (Reflect, Tag, Update, Apply) runs synchronously after each sample. With async learning, the Agent returns immediately while learning continues in the background.</p>
-<h2 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h2>
-<pre class="mermaid"><code>graph LR
-    S1[Sample 1] --&gt; A[Agent]
-    S2[Sample 2] --&gt; A
-    S3[Sample 3] --&gt; A
-    A --&gt;|foreground| E[Environment]
-    E --&gt;|background| R1[Reflector 1]
-    E --&gt; R2[Reflector 2]
-    E --&gt; R3[Reflector 3]
-    R1 --&gt; Q[Queue]
-    R2 --&gt; Q
-    R3 --&gt; Q
-    Q --&gt;|serialized| SM[SkillManager]
-    SM --&gt; SK[Skillbook]</code></pre>
-<ul>
-<li><strong>Reflectors</strong> run concurrently (safe — they only read the skillbook)</li>
-<li><strong>SkillManager</strong> runs sequentially (required — it writes to the skillbook)</li>
-<li>The Agent uses whatever skillbook state is available (eventual consistency)</li>
-</ul>
-<h2 id="basic-usage">Basic Usage<a class="headerlink" href="#basic-usage" title="Permanent link">&para;</a></h2>
-<p>Pass <code>wait=False</code> to <code>run()</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next</span><span class="w"> </span><span class="kn">import</span> <span class="n">ACE</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">runner</span> <span class="o">=</span> <span class="n">ACE</span><span class="o">.</span><span class="n">from_roles</span><span class="p">(</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">agent</span><span class="o">=</span><span class="n">agent</span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">reflector</span><span class="o">=</span><span class="n">reflector</span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">skill_manager</span><span class="o">=</span><span class="n">skill_manager</span><span class="p">,</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">environment</span><span class="o">=</span><span class="n">environment</span><span class="p">,</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="p">)</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="c1"># Agent returns fast — learning continues in background</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">results</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="n">epochs</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">wait</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="c1"># Use results immediately</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="c1"># Wait before saving</span>
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="n">runner</span><span class="o">.</span><span class="n">wait_for_background</span><span class="p">()</span>
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="n">runner</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;learned.json&quot;</span><span class="p">)</span>
+<h1 id="ace-mcp-server">ACE MCP Server<a class="headerlink" href="#ace-mcp-server" title="Permanent link">&para;</a></h1>
+<p>ACE (Agentic Context Engine) provides an optional MCP server that exposes ACE as a tool provider over the <a href="https://modelcontextprotocol.io/">Model Context Protocol</a>. Orchestration frameworks, IDEs (Cursor, Windsurf, Claude Code), and other MCP clients can connect to the server and use ACE skills at runtime.</p>
+<p>The integration is fully opt-in. Installing ACE without the <code>mcp</code> extra does not pull in the MCP SDK, and attempting to start <code>ace-mcp</code> without that extra will fail with an install hint instead of breaking normal ACE imports.</p>
+<h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;ace-framework[mcp]&quot;</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1"># or using uv:</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>uv<span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;ace-framework[mcp]&quot;</span>
 </code></pre></div>
-<h2 id="monitoring-progress">Monitoring Progress<a class="headerlink" href="#monitoring-progress" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">stats</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">learning_stats</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="c1"># {&#39;active&#39;: 5, &#39;completed&#39;: 25}</span>
+<h2 id="running-the-server">Running the Server<a class="headerlink" href="#running-the-server" title="Permanent link">&para;</a></h2>
+<p>Start the server using the provided CLI entrypoint:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>ace-mcp
 </code></pre></div>
-<h2 id="with-acelitellm">With ACELiteLLM<a class="headerlink" href="#with-acelitellm" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next</span><span class="w"> </span><span class="kn">import</span> <span class="n">ACELiteLLM</span><span class="p">,</span> <span class="n">Sample</span><span class="p">,</span> <span class="n">SimpleEnvironment</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">)</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">samples</span> <span class="o">=</span> <span class="p">[</span><span class="n">Sample</span><span class="p">(</span><span class="n">question</span><span class="o">=</span><span class="s2">&quot;...&quot;</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">ground_truth</span><span class="o">=</span><span class="s2">&quot;...&quot;</span><span class="p">)]</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">results</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">learn</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="n">environment</span><span class="o">=</span><span class="n">SimpleEnvironment</span><span class="p">(),</span> <span class="n">wait</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="c1"># Agent is immediately available</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="n">answer</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">ask</span><span class="p">(</span><span class="s2">&quot;New question&quot;</span><span class="p">)</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="c1"># Wait when you need to save</span>
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="n">agent</span><span class="o">.</span><span class="n">wait_for_background</span><span class="p">()</span>
-<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="n">agent</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;learned.json&quot;</span><span class="p">)</span>
+<p>By default it communicates over <code>stdio</code>, making it ready for integration as a local tool provider in any MCP-compatible client.</p>
+<p>Example with a specific model:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nv">ACE_MCP_DEFAULT_MODEL</span><span class="o">=</span>bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0<span class="w"> </span>ace-mcp
 </code></pre></div>
-<h2 id="why-this-architecture">Why This Architecture<a class="headerlink" href="#why-this-architecture" title="Permanent link">&para;</a></h2>
+<h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
+<p>All settings are read from environment variables with the <code>ACE_MCP_</code> prefix:</p>
 <table>
 <thead>
 <tr>
-<th>Component</th>
-<th>Parallelizable?</th>
-<th>Reason</th>
+<th>Variable</th>
+<th>Default</th>
+<th>Description</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Reflector</td>
-<td>Yes</td>
-<td>Only reads the skillbook, produces independent analysis</td>
+<td><code>ACE_MCP_DEFAULT_MODEL</code></td>
+<td><code>gpt-4o-mini</code></td>
+<td>LiteLLM model identifier used when creating new sessions. Any <a href="https://docs.litellm.ai/docs/providers">LiteLLM-supported model</a> works (e.g. <code>bedrock/...</code>, <code>anthropic/...</code>, <code>openai/...</code>).</td>
 </tr>
 <tr>
-<td>SkillManager</td>
-<td>No</td>
-<td>Writes to the skillbook, handles deduplication</td>
+<td><code>ACE_MCP_SAFE_MODE</code></td>
+<td><code>false</code></td>
+<td>When <code>true</code>, blocks <code>ace.learn.sample</code>, <code>ace.learn.feedback</code>, <code>ace.skillbook.save</code>, and <code>ace.skillbook.load</code>. Read-only tools (<code>ace.ask</code>, <code>ace.skillbook.get</code>) remain available.</td>
+</tr>
+<tr>
+<td><code>ACE_MCP_ALLOW_SAVE_LOAD</code></td>
+<td><code>true</code></td>
+<td>When <code>false</code>, blocks <code>ace.skillbook.save</code> and <code>ace.skillbook.load</code> independently of safe mode.</td>
+</tr>
+<tr>
+<td><code>ACE_MCP_MAX_SAMPLES_PER_CALL</code></td>
+<td><code>25</code></td>
+<td>Maximum number of samples accepted in a single <code>ace.learn.sample</code> call.</td>
+</tr>
+<tr>
+<td><code>ACE_MCP_MAX_PROMPT_CHARS</code></td>
+<td><code>100000</code></td>
+<td>Maximum total characters across question + context fields.</td>
+</tr>
+<tr>
+<td><code>ACE_MCP_SESSION_TTL_SECONDS</code></td>
+<td><code>3600</code></td>
+<td>Idle time (seconds) before a session is garbage-collected.</td>
+</tr>
+<tr>
+<td><code>ACE_MCP_LEARN_TIMEOUT_SECONDS</code></td>
+<td><code>300</code></td>
+<td>Maximum seconds for a single <code>ace.learn.sample</code> or <code>ace.learn.feedback</code> call before returning <code>ACE_MCP_TIMEOUT</code>.</td>
+</tr>
+<tr>
+<td><code>ACE_MCP_SKILLBOOK_ROOT</code></td>
+<td>unset</td>
+<td>If set, <code>ace.skillbook.save</code> and <code>ace.skillbook.load</code> reject paths outside this directory.</td>
+</tr>
+<tr>
+<td><code>ACE_MCP_LOG_LEVEL</code></td>
+<td><code>INFO</code></td>
+<td>Server log level (<code>DEBUG</code>, <code>INFO</code>, <code>WARNING</code>, <code>ERROR</code>). Logs go to stderr.</td>
 </tr>
 </tbody>
 </table>
-<p>This gives ~3x faster learning when the Reflector LLM calls run concurrently.</p>
-<h2 id="what-to-read-next">What to Read Next<a class="headerlink" href="#what-to-read-next" title="Permanent link">&para;</a></h2>
-<ul>
-<li><a href="../full-pipeline/">Full Pipeline Guide</a> — synchronous pipeline setup</li>
-<li><a href="../testing/">Testing</a> — test async learning with MagicMock</li>
-</ul>
+<h2 id="tools">Tools<a class="headerlink" href="#tools" title="Permanent link">&para;</a></h2>
+<h3 id="aceask"><code>ace.ask</code><a class="headerlink" href="#aceask" title="Permanent link">&para;</a></h3>
+<p>Ask a question using the current skillbook. Does <strong>not</strong> mutate the skillbook.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>session_id</code></td>
+<td>string</td>
+<td>yes</td>
+<td>Session identifier for state isolation.</td>
+</tr>
+<tr>
+<td><code>question</code></td>
+<td>string</td>
+<td>yes</td>
+<td>The question to answer.</td>
+</tr>
+<tr>
+<td><code>context</code></td>
+<td>string</td>
+<td>no</td>
+<td>Additional context for the question.</td>
+</tr>
+<tr>
+<td><code>session_config</code></td>
+<td>object</td>
+<td>no</td>
+<td>Override <code>model</code>, <code>temperature</code>, <code>max_tokens</code> for this session.</td>
+</tr>
+</tbody>
+</table>
+<p>Returns: <code>answer</code>, <code>skill_count</code>.</p>
+<h3 id="acelearnsample"><code>ace.learn.sample</code><a class="headerlink" href="#acelearnsample" title="Permanent link">&para;</a></h3>
+<p>Provide sample question/answer pairs for ACE to learn from. Runs the full ACE pipeline (Agent, Evaluate, Reflect, Update, Apply).</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>session_id</code></td>
+<td>string</td>
+<td>yes</td>
+<td>Session identifier.</td>
+</tr>
+<tr>
+<td><code>samples</code></td>
+<td>array</td>
+<td>yes</td>
+<td>List of <code>{question, context?, ground_truth?, metadata?}</code> items (1–25).</td>
+</tr>
+<tr>
+<td><code>epochs</code></td>
+<td>int</td>
+<td>no</td>
+<td>Number of learning passes (default: 1, max: 20).</td>
+</tr>
+<tr>
+<td><code>session_config</code></td>
+<td>object</td>
+<td>no</td>
+<td>Override model settings.</td>
+</tr>
+</tbody>
+</table>
+<p>Returns: <code>processed</code>, <code>failed</code>, <code>skill_count_before</code>, <code>skill_count_after</code>, <code>new_skill_count</code>.</p>
+<p>Blocked by: <code>ACE_MCP_SAFE_MODE=true</code>.</p>
+<h3 id="acelearnfeedback"><code>ace.learn.feedback</code><a class="headerlink" href="#acelearnfeedback" title="Permanent link">&para;</a></h3>
+<p>Provide feedback on a previous answer. If a prior <code>ace.ask</code> exists for the session, learns directly from that interaction. Otherwise, builds a trace from the provided fields and learns from it.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>session_id</code></td>
+<td>string</td>
+<td>yes</td>
+<td>Session identifier.</td>
+</tr>
+<tr>
+<td><code>question</code></td>
+<td>string</td>
+<td>yes</td>
+<td>The original question.</td>
+</tr>
+<tr>
+<td><code>answer</code></td>
+<td>string</td>
+<td>yes</td>
+<td>The answer being evaluated.</td>
+</tr>
+<tr>
+<td><code>feedback</code></td>
+<td>string</td>
+<td>yes</td>
+<td>Feedback about answer quality.</td>
+</tr>
+<tr>
+<td><code>context</code></td>
+<td>string</td>
+<td>no</td>
+<td>Original context.</td>
+</tr>
+<tr>
+<td><code>ground_truth</code></td>
+<td>string</td>
+<td>no</td>
+<td>The correct answer.</td>
+</tr>
+<tr>
+<td><code>session_config</code></td>
+<td>object</td>
+<td>no</td>
+<td>Override model settings.</td>
+</tr>
+</tbody>
+</table>
+<p>Returns: <code>learned</code> (always <code>true</code> on success — the learning path executed), <code>skill_count_before</code>, <code>skill_count_after</code>, <code>new_skill_count</code>.</p>
+<p>Blocked by: <code>ACE_MCP_SAFE_MODE=true</code>.</p>
+<h3 id="aceskillbookget"><code>ace.skillbook.get</code><a class="headerlink" href="#aceskillbookget" title="Permanent link">&para;</a></h3>
+<p>Retrieve skills and statistics from the active skillbook.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>session_id</code></td>
+<td>string</td>
+<td>yes</td>
+<td>Session identifier.</td>
+</tr>
+<tr>
+<td><code>limit</code></td>
+<td>int</td>
+<td>no</td>
+<td>Max skills to return (default: 20, max: 200).</td>
+</tr>
+<tr>
+<td><code>include_invalid</code></td>
+<td>bool</td>
+<td>no</td>
+<td>Include invalidated skills (default: false).</td>
+</tr>
+</tbody>
+</table>
+<p>Returns: <code>stats</code>, <code>skills[]</code> (each with <code>id</code>, <code>content</code>, <code>topic</code>, <code>helpful</code>, <code>harmful</code>, <code>neutral</code>).</p>
+<h3 id="aceskillbooksave"><code>ace.skillbook.save</code><a class="headerlink" href="#aceskillbooksave" title="Permanent link">&para;</a></h3>
+<p>Save the session's skillbook to a file on disk.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>session_id</code></td>
+<td>string</td>
+<td>yes</td>
+<td>Session identifier.</td>
+</tr>
+<tr>
+<td><code>path</code></td>
+<td>string</td>
+<td>yes</td>
+<td>File path to save to.</td>
+</tr>
+</tbody>
+</table>
+<p>Returns: <code>path</code> (resolved absolute path), <code>saved_skill_count</code>.</p>
+<p>Blocked by: <code>ACE_MCP_SAFE_MODE=true</code> (<code>ACE_MCP_FORBIDDEN_IN_SAFE_MODE</code>) or <code>ACE_MCP_ALLOW_SAVE_LOAD=false</code> (<code>ACE_MCP_SAVE_LOAD_DISABLED</code>). The path is resolved to a canonical absolute path before validation and file I/O. Must be under <code>ACE_MCP_SKILLBOOK_ROOT</code> if configured.</p>
+<h3 id="aceskillbookload"><code>ace.skillbook.load</code><a class="headerlink" href="#aceskillbookload" title="Permanent link">&para;</a></h3>
+<p>Load a skillbook from disk into the session, replacing the current one.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>session_id</code></td>
+<td>string</td>
+<td>yes</td>
+<td>Session identifier.</td>
+</tr>
+<tr>
+<td><code>path</code></td>
+<td>string</td>
+<td>yes</td>
+<td>File path to load from.</td>
+</tr>
+</tbody>
+</table>
+<p>Returns: <code>path</code> (resolved absolute path), <code>skill_count</code>.</p>
+<p>Blocked by: <code>ACE_MCP_SAFE_MODE=true</code> (<code>ACE_MCP_FORBIDDEN_IN_SAFE_MODE</code>) or <code>ACE_MCP_ALLOW_SAVE_LOAD=false</code> (<code>ACE_MCP_SAVE_LOAD_DISABLED</code>). The path is resolved to a canonical absolute path before validation and file I/O. Must be under <code>ACE_MCP_SKILLBOOK_ROOT</code> if configured.</p>
+<h2 id="session-model">Session Model<a class="headerlink" href="#session-model" title="Permanent link">&para;</a></h2>
+<p>All state is isolated by <code>session_id</code>. Each session holds its own <code>ACELiteLLM</code> runner with an independent skillbook. Pass the same <code>session_id</code> across calls to persist context within server memory.</p>
+<p>Sessions are garbage-collected after <code>ACE_MCP_SESSION_TTL_SECONDS</code> of inactivity. Per-session locks ensure concurrent requests to the same session are serialised.</p>
+<p>Any tool that accepts <code>session_config</code> can override the model, temperature, and max_tokens for that session's runner on first creation. Once a session exists, <code>session_config</code> on subsequent calls is used only if it creates a new session.</p>
+<h2 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h2>
+<p>The MCP server does <strong>not</strong> use custom pipeline steps. It is a thin async layer over <code>ACELiteLLM</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>MCP Client (stdio)
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>  → MCP SDK (handles JSON-RPC framing)
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    → adapters.py (tool registration, schema generation, error mapping)
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>      → handlers.py (validation, session management, safety guards)
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>        → ACELiteLLM (sync runner — bridged via asyncio.to_thread)
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>          → Pipeline (internal — handles step execution, async_boundary, background learning)
+</code></pre></div>
+<p>The handlers use <code>asyncio.to_thread()</code> to call the sync <code>ACELiteLLM</code> methods from the async MCP event loop. This is the standard Python pattern for bridging async callers to sync APIs. The pipeline engine handles all internal async concerns (step-level <code>to_thread</code>, <code>async_boundary</code> for background learning) transparently.</p>
+<h2 id="testing-with-the-mcp-inspector">Testing with the MCP Inspector<a class="headerlink" href="#testing-with-the-mcp-inspector" title="Permanent link">&para;</a></h2>
+<p>The <a href="https://github.com/modelcontextprotocol/inspector">MCP Inspector</a> provides a web UI for testing MCP servers interactively:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>npx<span class="w"> </span>@modelcontextprotocol/inspector<span class="w"> </span>uv<span class="w"> </span>run<span class="w"> </span>ace-mcp
+</code></pre></div>
+<p>Set <code>ACE_MCP_DEFAULT_MODEL</code> in the Inspector's environment variables panel before connecting.</p>
+<h2 id="file-layout">File Layout<a class="headerlink" href="#file-layout" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>ace_next/integrations/mcp/
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>  __init__.py       ← Package marker
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>  server.py         ← Server creation and CLI entrypoint
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>  config.py         ← MCPServerConfig (pydantic-settings, env vars)
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>  registry.py       ← SessionRegistry (session lifecycle, TTL sweep)
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>  handlers.py       ← MCPHandlers (validation, safety, delegation to ACELiteLLM)
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>  adapters.py       ← MCP SDK glue (tool registration, schema inlining, error mapping)
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>  models.py         ← Pydantic request/response models for all six tools
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>  errors.py         ← ACEMCPError hierarchy and MCP error mapping
+</code></pre></div>
 
 
 
