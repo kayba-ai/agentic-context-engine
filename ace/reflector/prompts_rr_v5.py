@@ -38,6 +38,11 @@ Changes v5.4 (verification pass):
 - Synthesis weights verification findings (incorrect reasoning) as high-value
 - Both passes shown in same code block (prevents variable-not-found errors across iterations)
 - Added explicit two-trace comparison example (prevents wasted iterations on multi-trace extraction)
+
+Changes v5.5 (rules-aware discovery):
+- Discovery surfaces large embedded strings (>500 chars) with key names and sizes
+- Model can identify and extract rules/policy/instructions from the surfaced strings
+- Strategy intro emphasizes rules as essential reference frame for correctness evaluation
 """
 
 REFLECTOR_RECURSIVE_V5_SYSTEM = """\
@@ -85,8 +90,11 @@ injected into future agents' prompts. Identify WHAT the agent did that mattered 
 **ask_llm is your primary tool.** It can reason about meaning, intent, and correctness.
 Code is for extracting, batching, and formatting data to feed into ask_llm.
 
+**Agent traces may contain both what the agent DID and what it was SUPPOSED to do** (rules, policy, instructions, system prompt). If present, finding and using those rules is essential — without them, you can only describe behavior, not evaluate correctness.
+
 ### Step 1: Discover (code-only, iteration 1)
 Understand the data shape and inventory. Do NOT judge outcomes yet — just catalog what you have.
+Also search for agent operating rules, policy, or instructions embedded in the trace data — understanding what the agent was *supposed* to do is essential for evaluating what it *actually* did.
 **Complete discovery in this single iteration — do NOT split schema exploration across multiple iterations.**
 ```python
 print("Keys:", traces.keys())
@@ -94,6 +102,7 @@ steps = traces.get("steps", [])
 print(f"{{len(steps)}} steps")
 # Build trace_idx: trace_id → list index (use this in deep-dives to avoid index-vs-ID confusion)
 trace_idx = {{}}
+agent_rules = ""  # Model can populate after seeing large strings
 if steps:
     # Schema: nested keys, 3 levels deep
     sample = steps[0]
@@ -122,6 +131,23 @@ if steps:
         trace_idx[trace_id] = j
         print(f"  [{{j}}] id={{trace_id}}  messages={{msg_count}}")
     print(f"trace_idx built: {{len(trace_idx)}} entries")
+    # Surface large embedded strings (rules, policy, instructions often live here)
+    large_strings = []
+    for s in steps[:3]:
+        if not isinstance(s, dict): continue
+        queue = [(k, v) for k, v in s.items()]
+        while queue:
+            k, v = queue.pop(0)
+            if isinstance(v, str) and len(v) > 500:
+                large_strings.append((k, len(v)))
+            elif isinstance(v, dict):
+                queue.extend(v.items())
+    if large_strings:
+        large_strings.sort(key=lambda x: -x[1])
+        for name, size in large_strings[:10]:
+            print(f"  Large string: '{{name}}' ({{size}} chars)")
+    else:
+        print("No large embedded strings found")
 ```
 
 ### Step 2: Survey (ask_llm, iteration 2-3)
@@ -179,7 +205,7 @@ print(categories[:3000])
 ### Step 4: Deep-dive (ask_llm, iteration 4-6)
 **Deep-dives MUST use raw trace data — NOT summaries.** Analyzing summaries of summaries is lazy and produces shallow, unverified learnings. You already have summaries from Step 2. The point of deep-dives is to go back to the raw data and find evidence that summaries miss.
 
-**Do at least 2 deep-dives** when you have divergent outcomes or multiple failure patterns. Store each result in a list — you need ALL of them for synthesis.
+**Do a deep-dive for each distinct issue category** from your categorization — not just the most obvious ones. Each category of problem needs its own investigation. Store each result in a list — you need ALL of them for synthesis.
 
 **Every deep-dive includes a verification pass.** Use code to separate what the agent said from what data it received, then ask_llm checks whether the agent's reasoning was correct. This catches "confident but wrong" errors — where the agent proceeds without hesitation based on incorrect reasoning — that behavioral analysis alone misses.
 
@@ -191,13 +217,16 @@ Target the most informative traces — NOT the simplest ones.
 - **Skip** short, simple, clearly routine traces — they rarely yield learnings.
 
 Each deep-dive uses two ask_llm calls in the same code block:
-1. **Verification** — extract agent claims vs received data, check correctness
+1. **Verification** — extract agent claims vs received data, check correctness against rules
 2. **Analysis** — full trace + verification results, identify root causes
+
+If you discovered agent rules/policy in Step 1, include them in deep-dive context — the subagent can only evaluate correctness if it can see what the agent was supposed to do.
 
 **Both passes MUST be in the same code block** so variables are guaranteed shared. Do NOT split pass 1 and pass 2 across iterations — that causes variable-not-found errors and wastes iterations.
 
 ```python
 deep_dives = []  # Collect ALL deep-dive results for synthesis
+rules_ctx = f"AGENT RULES:\\n{{agent_rules}}\\n\\n" if agent_rules else ""
 
 # === Deep-dive 1: single trace ===
 # Extract messages, run both passes in ONE code block
@@ -209,16 +238,16 @@ data_in = [m for m in msgs if isinstance(m, dict) and m.get("role") in ("tool", 
 # Pass 1: Verification
 v1 = ask_llm(
     "For each key claim or conclusion the agent made, check whether it matches "
-    "the data it received. List INCORRECT claims: (1) what agent claimed, "
-    "(2) what data shows, (3) impact. If all correct, say so.",
-    json.dumps({{"claims": claims, "data": data_in}}, default=str),
+    "the data it received and complies with the rules. List INCORRECT claims: (1) what agent claimed, "
+    "(2) what data/rules show, (3) impact. If all correct, say so.",
+    rules_ctx + json.dumps({{"claims": claims, "data": data_in}}, default=str),
     mode="deep_dive"
 )
 # Pass 2: Analysis (uses v1 directly — same code block)
 a1 = ask_llm(
     "Given these verification findings and the full trace, what should the agent "
     "do differently? Focus on root causes.",
-    f"VERIFICATION:\\n{{v1}}\\n\\nFULL TRACE:\\n{{json.dumps(td, default=str)}}",
+    f"VERIFICATION:\\n{{v1}}\\n\\n{{rules_ctx}}FULL TRACE:\\n{{json.dumps(td, default=str)}}",
     mode="deep_dive"
 )
 deep_dives.append(f"Trace {{target_idx}} verification:\\n{{v1}}\\n\\nAnalysis:\\n{{a1}}")
@@ -232,8 +261,8 @@ msgs_b = td_b.get("messages", td_b.get("steps", []))
 
 # Pass 1: Verify both traces
 v2 = ask_llm(
-    "For each trace, check agent claims against data received. List INCORRECT claims.",
-    json.dumps({{
+    "For each trace, check agent claims against data received and rules. List INCORRECT claims.",
+    rules_ctx + json.dumps({{
         "trace_a": {{"claims": [m for m in msgs_a if isinstance(m, dict) and m.get("role") == "assistant"],
                     "data": [m for m in msgs_a if isinstance(m, dict) and m.get("role") in ("tool", "system")]}},
         "trace_b": {{"claims": [m for m in msgs_b if isinstance(m, dict) and m.get("role") == "assistant"],
@@ -245,7 +274,7 @@ v2 = ask_llm(
 a2 = ask_llm(
     "Given verification findings and both full traces, what caused the different outcomes? "
     "What should the agent do differently?",
-    f"VERIFICATION:\\n{{v2}}\\n\\nTRACE A:\\n{{json.dumps(td_a, default=str)}}\\n\\nTRACE B:\\n{{json.dumps(td_b, default=str)}}",
+    f"VERIFICATION:\\n{{v2}}\\n\\n{{rules_ctx}}TRACE A:\\n{{json.dumps(td_a, default=str)}}\\n\\nTRACE B:\\n{{json.dumps(td_b, default=str)}}",
     mode="deep_dive"
 )
 deep_dives.append(f"Traces {{idx_a}},{{idx_b}} verification:\\n{{v2}}\\n\\nAnalysis:\\n{{a2}}")
