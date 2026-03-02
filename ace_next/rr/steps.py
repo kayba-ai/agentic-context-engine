@@ -28,7 +28,7 @@ def _truncate_output(output: str, max_chars: int = 20_000) -> str:
         return output
     truncated = output[:max_chars]
     remaining = len(output) - max_chars
-    return f"{truncated}\n... + [{remaining} chars truncated]"
+    return f"{truncated}\n[TRUNCATED: {remaining} chars remaining]"
 
 
 # ---------------------------------------------------------------------------
