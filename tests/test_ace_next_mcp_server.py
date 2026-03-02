@@ -1,7 +1,10 @@
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
+
+pytest.importorskip("mcp.server")
+pytest.importorskip("mcp.types")
+
 from ace_next.integrations.mcp.server import create_server
-from ace_next.integrations.mcp.adapters import register_tools
 from mcp.server import Server
 from mcp.types import ListToolsRequest
 
@@ -30,4 +33,3 @@ async def test_tool_registration():
     result = await handler(MagicMock())
     registered_names = {t.name for t in result.root.tools}
     assert registered_names == EXPECTED_TOOL_NAMES
-

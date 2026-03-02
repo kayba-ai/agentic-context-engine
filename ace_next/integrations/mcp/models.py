@@ -20,7 +20,6 @@ class AskRequest(BaseModel):
     question: str = Field(min_length=1, max_length=100000)
     context: str = Field(default="")
     session_config: SessionConfig | None = None
-    learn: bool = Field(default=True)
     metadata: dict[str, Any] | None = None
     
     model_config = ConfigDict(extra="forbid")
@@ -119,7 +118,6 @@ class SkillbookSaveResponse(BaseModel):
 class SkillbookLoadRequest(BaseModel):
     session_id: str = Field(min_length=1)
     path: str = Field(min_length=1)
-    replace: bool = Field(default=True)
     
     model_config = ConfigDict(extra="forbid")
 

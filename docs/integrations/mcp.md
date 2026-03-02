@@ -2,6 +2,8 @@
 
 ACE (Agentic Context Engine) provides an optional MCP server to allow orchestration frameworks, IDEs (like Cursor, Windsurf, Claude Code), and other clients to use ACE as a tool provider.
 
+The integration is fully opt-in. Installing ACE without the `mcp` extra does not pull in the MCP SDK, and attempting to start `ace-mcp` without that extra will fail with an install hint instead of breaking normal ACE imports.
+
 ## Installation
 
 To enable the MCP server, install ACE with the `mcp` extra:
@@ -41,6 +43,8 @@ Set configuration via environment variables:
 - `ace.learn.feedback`: Provide feedback on an ACE answer.
 - `ace.skillbook.get`: Get statistics and skills from the active skillbook.
 - `ace.skillbook.save`: Save the active skillbook to disk.
-- `ace.skillbook.load`: Load a skillbook from disk into the session.
+- `ace.skillbook.load`: Replace the session skillbook with a skillbook loaded from disk.
+
+Learning is explicit: `ace.ask` answers without mutating the skillbook, and learning only happens through `ace.learn.sample` or `ace.learn.feedback`.
 
 All state is isolated by `session_id`. Pass the same `session_id` continuously to persist context within the server memory.

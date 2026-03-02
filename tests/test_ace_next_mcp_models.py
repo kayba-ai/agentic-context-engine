@@ -30,12 +30,16 @@ def test_session_config_validation():
 def test_ask_request_validation():
     # Valid
     req = AskRequest(session_id="s1", question="hello")
-    assert req.learn is True
     assert req.context == ""
+    assert req.metadata is None
     
     # Max length question
     with pytest.raises(ValidationError):
         AskRequest(session_id="s1", question="a" * 100001)
+
+    # Removed compatibility flags must remain invalid
+    with pytest.raises(ValidationError):
+        AskRequest(session_id="s1", question="hello", learn=True)
 
 def test_learn_sample_request_limits():
     # Min items
@@ -63,3 +67,15 @@ def test_error_envelope():
     # Extra fields forbidden
     with pytest.raises(ValidationError):
         ErrorEnvelope(code="ERR1", message="m", extra="not allowed")
+
+
+def test_skillbook_load_request_disallows_unsupported_flags():
+    req = SkillbookLoadRequest(session_id="s1", path="/tmp/skillbook.json")
+    assert req.path == "/tmp/skillbook.json"
+
+    with pytest.raises(ValidationError):
+        SkillbookLoadRequest(
+            session_id="s1",
+            path="/tmp/skillbook.json",
+            replace=False,
+        )

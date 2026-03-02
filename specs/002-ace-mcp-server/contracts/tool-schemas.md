@@ -52,7 +52,6 @@ This document defines the canonical request/response schemas for MCP tools expos
     "question": { "type": "string", "minLength": 1, "maxLength": 100000 },
     "context": { "type": "string", "default": "" },
     "session_config": { "$ref": "#/definitions/SessionConfig" },
-    "learn": { "type": "boolean", "default": true },
     "metadata": { "type": "object", "additionalProperties": true }
   },
   "additionalProperties": false,
@@ -301,8 +300,7 @@ Path policy: if server config sets `ACE_MCP_SKILLBOOK_ROOT`, `path` MUST resolve
   "required": ["session_id", "path"],
   "properties": {
     "session_id": { "type": "string", "minLength": 1 },
-    "path": { "type": "string", "minLength": 1 },
-    "replace": { "type": "boolean", "default": true }
+    "path": { "type": "string", "minLength": 1 }
   },
   "additionalProperties": false
 }

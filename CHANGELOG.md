@@ -5,7 +5,7 @@ All notable changes to ACE Framework will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.8.5] - 2026-03-02
+## [Unreleased]
 
 ### Added
 - **ACE MCP server (optional)** — stdio MCP server in `ace_next.integrations.mcp` with tools: `ace.ask`, `ace.learn.sample`, `ace.learn.feedback`, `ace.skillbook.get`, `ace.skillbook.save`, `ace.skillbook.load`
@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Testing
 - Added MCP test suite: models, registry, handlers, and server registration/startup smoke tests
-- Verified unit regression after MCP integration updates
+- Added optional-dependency boundary checks for the MCP integration
 
 ## [0.8.4] - 2026-02-27
 

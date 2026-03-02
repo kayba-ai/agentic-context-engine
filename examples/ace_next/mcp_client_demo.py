@@ -1,9 +1,21 @@
 import asyncio
 import os
 import sys
-from mcp.client.stdio import stdio_client
-from mcp.client.session import ClientSession
-from mcp.client.stdio import get_default_environment
+
+try:
+    from mcp.client.session import ClientSession
+    from mcp.client.stdio import get_default_environment
+    from mcp.client.stdio import stdio_client
+except ModuleNotFoundError as exc:  # pragma: no cover - optional dependency guard
+    if (exc.name or "").split(".")[0] == "mcp":
+        print(
+            'This example requires the optional MCP extra. '
+            'Install it with `pip install "ace-framework[mcp]"` or '
+            '`uv add "ace-framework[mcp]"`.',
+            file=sys.stderr,
+        )
+        raise SystemExit(1) from exc
+    raise
 
 try:
     from mcp.client.stdio import StdioServerParameters
