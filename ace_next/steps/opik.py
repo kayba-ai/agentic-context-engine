@@ -73,7 +73,9 @@ def register_opik_litellm_callback(
         # Suppress only those specific messages during init.
         class _AsyncInitFilter(logging.Filter):
             def filter(self, record: logging.LogRecord) -> bool:
-                return "Asynchronous processing not initialized" not in record.getMessage()
+                return (
+                    "Asynchronous processing not initialized" not in record.getMessage()
+                )
 
         _ll = logging.getLogger("LiteLLM")
         _f = _AsyncInitFilter()
@@ -227,6 +229,15 @@ class OpikStep:
         if ctx.reflection:
             metadata["key_insight"] = ctx.reflection.key_insight
             metadata["learnings_count"] = len(ctx.reflection.extracted_learnings)
+            # Surface reflector-specific metadata (e.g. ClaudeRRStep cost info)
+            raw = ctx.reflection.raw or {}
+            if raw.get("claude_rr"):
+                metadata["reflector_type"] = "claude_rr"
+                cost = raw.get("cost_info", {})
+                if cost:
+                    metadata["rr_cost_usd"] = cost.get("total_cost_usd")
+                    metadata["rr_turns"] = cost.get("num_turns")
+                    metadata["rr_duration_ms"] = cost.get("duration_ms")
 
         if ctx.skill_manager_output:
             ops = ctx.skill_manager_output.operations
