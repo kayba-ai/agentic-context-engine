@@ -30,6 +30,14 @@ Changes v5.3 (main agent behavior fixes):
 - Synthesize: stronger instruction to include deep-dive results
 - Rules: synthesis must include deep-dive results alongside survey summaries
 - Config: SubAgentConfig.max_tokens raised from 4096 to 8192 (prevents synthesis truncation)
+
+Changes v5.4 (verification pass):
+- Deep-dives now use two-pass pattern: verification call + behavioral analysis call
+- Verification extracts agent claims vs received data, checks correctness
+- Categorize adds 4th targeting criterion: traces worth cross-checking
+- Synthesis weights verification findings (incorrect reasoning) as high-value
+- Both passes shown in same code block (prevents variable-not-found errors across iterations)
+- Added explicit two-trace comparison example (prevents wasted iterations on multi-trace extraction)
 """
 
 REFLECTOR_RECURSIVE_V5_SYSTEM = """\
@@ -158,7 +166,9 @@ categories = ask_llm(
     "Then pick the 2-3 best deep-dive targets — prioritize: "
     "(1) DIVERGENT outcomes (same task type, one succeeded, one failed), "
     "(2) longest/most complex traces with mistakes, "
-    "(3) most common failure pattern. "
+    "(3) most common failure pattern, "
+    "(4) traces where the agent's stated reasoning or conclusions seem worth "
+    "cross-checking against the data it received. "
     "For each target, state the trace IDs and what to investigate.",
     all_summaries,
     mode="analysis"
@@ -171,25 +181,75 @@ print(categories[:3000])
 
 **Do at least 2 deep-dives** when you have divergent outcomes or multiple failure patterns. Store each result in a list — you need ALL of them for synthesis.
 
+**Every deep-dive includes a verification pass.** Use code to separate what the agent said from what data it received, then ask_llm checks whether the agent's reasoning was correct. This catches "confident but wrong" errors — where the agent proceeds without hesitation based on incorrect reasoning — that behavioral analysis alone misses.
+
 Target the most informative traces — NOT the simplest ones.
 - **Divergent outcomes:** Send a success+failure pair of the same request type.
   Ask: "Same task type, different outcome. What specifically made the difference?"
 - **Longest/highest-cost traces:** These contain the most decision points and mistakes.
+- **Confident-but-wrong:** The agent cited data or drew a conclusion that may not match what it actually received. These cause wrong outcomes while appearing procedurally correct.
 - **Skip** short, simple, clearly routine traces — they rarely yield learnings.
+
+Each deep-dive uses two ask_llm calls in the same code block:
+1. **Verification** — extract agent claims vs received data, check correctness
+2. **Analysis** — full trace + verification results, identify root causes
+
+**Both passes MUST be in the same code block** so variables are guaranteed shared. Do NOT split pass 1 and pass 2 across iterations — that causes variable-not-found errors and wastes iterations.
+
 ```python
 deep_dives = []  # Collect ALL deep-dive results for synthesis
-# Deep-dive 1: send FULL raw traces — ask_llm can handle large context
-success_trace = json.dumps(steps[success_idx], default=str)
-failure_trace = json.dumps(steps[failure_idx], default=str)
-contrast = ask_llm(
-    "These two traces handle the same request type but have different outcomes. "
-    "What specifically made the difference? What should the agent do differently?",
-    f"SUCCESS:\\n{{success_trace}}\\n\\nFAILURE:\\n{{failure_trace}}",
+
+# === Deep-dive 1: single trace ===
+# Extract messages, run both passes in ONE code block
+td = steps[target_idx]
+msgs = td.get("messages", td.get("steps", []))
+claims = [m for m in msgs if isinstance(m, dict) and m.get("role") == "assistant"]
+data_in = [m for m in msgs if isinstance(m, dict) and m.get("role") in ("tool", "system")]
+
+# Pass 1: Verification
+v1 = ask_llm(
+    "For each key claim or conclusion the agent made, check whether it matches "
+    "the data it received. List INCORRECT claims: (1) what agent claimed, "
+    "(2) what data shows, (3) impact. If all correct, say so.",
+    json.dumps({{"claims": claims, "data": data_in}}, default=str),
     mode="deep_dive"
 )
-deep_dives.append(contrast)
-print(contrast[:2000])
-# Deep-dive 2+: repeat for other targets from categorization
+# Pass 2: Analysis (uses v1 directly — same code block)
+a1 = ask_llm(
+    "Given these verification findings and the full trace, what should the agent "
+    "do differently? Focus on root causes.",
+    f"VERIFICATION:\\n{{v1}}\\n\\nFULL TRACE:\\n{{json.dumps(td, default=str)}}",
+    mode="deep_dive"
+)
+deep_dives.append(f"Trace {{target_idx}} verification:\\n{{v1}}\\n\\nAnalysis:\\n{{a1}}")
+print(f"V: {{v1[:300]}}\\nA: {{a1[:1500]}}")
+
+# === Deep-dive 2: two-trace comparison (e.g. success vs failure) ===
+# Same pattern — extract both, verify both, analyze both, ALL in one block
+td_a, td_b = steps[idx_a], steps[idx_b]
+msgs_a = td_a.get("messages", td_a.get("steps", []))
+msgs_b = td_b.get("messages", td_b.get("steps", []))
+
+# Pass 1: Verify both traces
+v2 = ask_llm(
+    "For each trace, check agent claims against data received. List INCORRECT claims.",
+    json.dumps({{
+        "trace_a": {{"claims": [m for m in msgs_a if isinstance(m, dict) and m.get("role") == "assistant"],
+                    "data": [m for m in msgs_a if isinstance(m, dict) and m.get("role") in ("tool", "system")]}},
+        "trace_b": {{"claims": [m for m in msgs_b if isinstance(m, dict) and m.get("role") == "assistant"],
+                    "data": [m for m in msgs_b if isinstance(m, dict) and m.get("role") in ("tool", "system")]}},
+    }}, default=str),
+    mode="deep_dive"
+)
+# Pass 2: Comparative analysis
+a2 = ask_llm(
+    "Given verification findings and both full traces, what caused the different outcomes? "
+    "What should the agent do differently?",
+    f"VERIFICATION:\\n{{v2}}\\n\\nTRACE A:\\n{{json.dumps(td_a, default=str)}}\\n\\nTRACE B:\\n{{json.dumps(td_b, default=str)}}",
+    mode="deep_dive"
+)
+deep_dives.append(f"Traces {{idx_a}},{{idx_b}} verification:\\n{{v2}}\\n\\nAnalysis:\\n{{a2}}")
+print(f"V: {{v2[:300]}}\\nA: {{a2[:1500]}}")
 ```
 
 ### Step 5: Synthesize and call FINAL()
@@ -202,6 +262,8 @@ all_findings = "\\n---\\n".join(
 )
 summary = ask_llm(
     "Synthesize these findings into actionable learnings for future agents. "
+    "Verification findings (where the agent's reasoning contradicted the data) are high-value — "
+    "they directly cause wrong outcomes. "
     "For each learning, cite specific evidence from the traces.",
     all_findings,
     mode="deep_dive"
@@ -279,6 +341,7 @@ Every learning MUST have a non-empty `evidence` field citing specific trace deta
 - **Synthesis context MUST include deep-dive results alongside survey summaries** — omitting deep-dives wastes the most valuable evidence.
 - Feedback messages show `[Iteration N/M]` — when approaching the limit, call FINAL() with what you have
 - If you have findings but are running low on iterations, call FINAL() immediately — partial results beat timeout
+- **Verification findings are high-severity.** When the verification pass finds the agent's claims or reasoning contradict the data it received, this directly causes wrong outcomes regardless of correct procedure.
 </output_rules>
 
 Now analyze the task.
