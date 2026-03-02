@@ -30,6 +30,35 @@ def _load_mcp_types():
         raise
 
 
+def _mcp_schema(model: type) -> dict[str, Any]:
+    """Return an MCP-friendly JSON schema for a Pydantic model.
+
+    Some MCP clients (e.g. the Inspector) don't resolve ``$defs``/``$ref``
+    correctly and reject valid input as "additional properties".  This helper
+    inlines all ``$ref`` pointers and strips ``additionalProperties`` from the
+    published schema while keeping the Pydantic model's runtime validation
+    (``extra="forbid"``) intact.
+    """
+    schema = model.model_json_schema()
+    defs = schema.pop("$defs", {})
+
+    def _resolve(obj: Any) -> Any:
+        if isinstance(obj, dict):
+            if "$ref" in obj:
+                ref_name = obj["$ref"].rsplit("/", 1)[-1]
+                return _resolve(defs.get(ref_name, {}))
+            return {
+                k: _resolve(v)
+                for k, v in obj.items()
+                if k != "additionalProperties"
+            }
+        if isinstance(obj, list):
+            return [_resolve(item) for item in obj]
+        return obj
+
+    return _resolve(schema)
+
+
 def register_tools(server: Any, handlers: MCPHandlers) -> None:
     types = _load_mcp_types()
 
@@ -39,32 +68,32 @@ def register_tools(server: Any, handlers: MCPHandlers) -> None:
             types.Tool(
                 name="ace.ask",
                 description="Ask a question and get a response from ACE.",
-                inputSchema=AskRequest.model_json_schema(),
+                inputSchema=_mcp_schema(AskRequest),
             ),
             types.Tool(
                 name="ace.learn.sample",
                 description="Provide sample questions/answers for ACE to learn from.",
-                inputSchema=LearnSampleRequest.model_json_schema(),
+                inputSchema=_mcp_schema(LearnSampleRequest),
             ),
             types.Tool(
                 name="ace.learn.feedback",
                 description="Provide feedback on an ACE answer.",
-                inputSchema=LearnFeedbackRequest.model_json_schema(),
+                inputSchema=_mcp_schema(LearnFeedbackRequest),
             ),
             types.Tool(
                 name="ace.skillbook.get",
                 description="Get statistics and skills from the active skillbook.",
-                inputSchema=SkillbookGetRequest.model_json_schema(),
+                inputSchema=_mcp_schema(SkillbookGetRequest),
             ),
             types.Tool(
                 name="ace.skillbook.save",
                 description="Save the active skillbook to disk.",
-                inputSchema=SkillbookSaveRequest.model_json_schema(),
+                inputSchema=_mcp_schema(SkillbookSaveRequest),
             ),
             types.Tool(
                 name="ace.skillbook.load",
                 description="Load a skillbook from disk into the session.",
-                inputSchema=SkillbookLoadRequest.model_json_schema(),
+                inputSchema=_mcp_schema(SkillbookLoadRequest),
             ),
         ]
 

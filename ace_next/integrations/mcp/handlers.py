@@ -163,20 +163,21 @@ class MCPHandlers:
                     ))
                     
                 count_before = len(session.runner.skillbook.skills())
-                
-                await asyncio.to_thread(
+
+                results = await asyncio.to_thread(
                     session.runner.learn,
                     samples,
                     None,
                     request.epochs,
                 )
-                
+
+                failed = sum(1 for r in results if r.error is not None)
                 count_after = len(session.runner.skillbook.skills())
-                
+
                 return LearnSampleResponse(
                     session_id=request.session_id,
-                    processed=len(samples),
-                    failed=0,
+                    processed=len(samples) - failed,
+                    failed=failed,
                     skill_count_before=count_before,
                     skill_count_after=count_after,
                     new_skill_count=max(0, count_after - count_before)
@@ -205,25 +206,37 @@ class MCPHandlers:
             try:
                 count_before = len(session.runner.skillbook.skills())
 
-                trace = {
-                    "question": request.question,
-                    "reasoning": request.context,
-                    "answer": request.answer,
-                    "skill_ids": [],
-                    "feedback": request.feedback,
-                    "ground_truth": request.ground_truth,
-                }
-                
-                await asyncio.to_thread(session.runner.learn_from_traces, [trace])
-                
+                # Prefer the direct feedback path when a prior ask exists;
+                # fall back to learn_from_traces for standalone feedback.
+                learned = await asyncio.to_thread(
+                    session.runner.learn_from_feedback,
+                    request.feedback,
+                    request.ground_truth or None,
+                )
+
+                if not learned:
+                    # No prior ask interaction — build a trace and learn
+                    trace = {
+                        "question": request.question,
+                        "reasoning": request.context,
+                        "answer": request.answer,
+                        "skill_ids": [],
+                        "feedback": request.feedback,
+                        "ground_truth": request.ground_truth,
+                    }
+                    await asyncio.to_thread(
+                        session.runner.learn_from_traces, [trace]
+                    )
+
                 count_after = len(session.runner.skillbook.skills())
-                
+
+                new_skill_count = max(0, count_after - count_before)
                 return LearnFeedbackResponse(
                     session_id=request.session_id,
-                    learned=True,
+                    learned=new_skill_count > 0,
                     skill_count_before=count_before,
                     skill_count_after=count_after,
-                    new_skill_count=max(0, count_after - count_before)
+                    new_skill_count=new_skill_count,
                 )
             except ACEMCPError:
                 raise

@@ -92,6 +92,7 @@ all = [
 mcp = [
     "mcp>=1.22.0",
     "pydantic-settings>=2.0.0",
+    "tenacity>=8.0.0",
 ]
 
 [project.scripts]

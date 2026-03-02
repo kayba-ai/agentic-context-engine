@@ -74,6 +74,7 @@ langchain = [
 mcp = [
     { name = "mcp" },
     { name = "pydantic-settings" },
+    { name = "tenacity" },
 ]
 observability = [
     { name = "opik" },
@@ -139,6 +140,7 @@ requires-dist = [
     { name = "sentence-transformers", marker = "extra == 'deduplication'", specifier = ">=2.2.0" },
     { name = "tenacity", marker = "extra == 'all'", specifier = ">=8.0.0" },
     { name = "tenacity", marker = "extra == 'claude-code'", specifier = ">=8.0.0" },
+    { name = "tenacity", marker = "extra == 'mcp'", specifier = ">=8.0.0" },
     { name = "torch", marker = "extra == 'all'", specifier = ">=2.0.0" },
     { name = "torch", marker = "extra == 'transformers'", specifier = ">=2.0.0" },
     { name = "transformers", marker = "extra == 'all'", specifier = ">=4.30.0" },
