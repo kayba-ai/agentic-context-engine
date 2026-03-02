@@ -27,6 +27,7 @@ Implemented in `ace_next/` (parallel to `ace/` for easy rollback). The package i
 | `ACELiteLLM` convenience wrapper | Done | `ace_next/runners/litellm.py` |
 | LLM providers (`LiteLLMClient`, `InstructorClient`, `LangChainLiteLLMClient`, `ClaudeCodeLLMClient`) | Done | `ace_next/providers/` |
 | Recursive Reflector | Done | `ace_next/rr/` (SubRunner base in `ace_next/core/`) |
+| MCP Server (optional) | Done | `ace_next/integrations/mcp/` |
 
 ---
 
@@ -1140,6 +1141,8 @@ Runners in `ace_next/runners/` compose these steps with `learning_tail()`.
 
 Each integration defines its own input/output format. A converter step acts as a compatibility layer between the integration-specific result and the learning tail's standardised trace dict.
 
+> **MCP Server — a different pattern.** The MCP integration does *not* add pipeline steps. It is a thin async layer over `ACELiteLLM` that exposes ACE as an MCP tool provider. MCP handlers validate requests, manage sessions, enforce safety guards, then delegate to `ACELiteLLM` methods (`ask`, `learn`, `learn_from_feedback`, `save`, `load`) via `asyncio.to_thread()`. See [MCP Server docs](integrations/mcp.md) for details.
+
 ```
 Standard ACE:      [Agent → Evaluate]                          → [Reflect → Tag → Update → Apply]
                     ╰── execute (built-in) ──╯                    ╰──────── learn (shared) ──────╯
@@ -1597,6 +1600,15 @@ ace_next/
     openclaw/
       __init__.py             ← Exports OpenClawToTraceStep
       to_trace.py             ← OpenClawToTraceStep (JSONL events → structured trace dict)
+    mcp/                        ← Optional MCP server (install with ace-framework[mcp])
+      __init__.py               ← Package marker
+      server.py                 ← Server creation and CLI entrypoint (ace-mcp)
+      config.py                 ← MCPServerConfig (pydantic-settings, env vars)
+      registry.py               ← SessionRegistry (session lifecycle, TTL sweep)
+      handlers.py               ← MCPHandlers (validation, safety, delegation to ACELiteLLM)
+      adapters.py               ← MCP SDK glue (tool registration, schema inlining, error mapping)
+      models.py                 ← Pydantic request/response models for all six tools
+      errors.py                 ← ACEMCPError hierarchy and MCP error mapping
   providers/                  ← LLM client wrappers (not pipeline steps)
     __init__.py               ← Exports LiteLLMClient, InstructorClient, etc.
     litellm.py                ← LiteLLMClient, LiteLLMConfig, LLMResponse
