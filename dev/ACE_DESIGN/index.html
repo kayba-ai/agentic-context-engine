@@ -2773,6 +2773,11 @@
 <td>Done</td>
 <td><code>ace_next/rr/</code> (SubRunner base in <code>ace_next/core/</code>)</td>
 </tr>
+<tr>
+<td>MCP Server (optional)</td>
+<td>Done</td>
+<td><code>ace_next/integrations/mcp/</code></td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -3998,6 +4003,9 @@
 <p>Runners in <code>ace_next/runners/</code> compose these steps with <code>learning_tail()</code>.</p>
 <h3 id="core-idea-execute-convert-learn">Core idea: execute → convert → learn<a class="headerlink" href="#core-idea-execute-convert-learn" title="Permanent link">&para;</a></h3>
 <p>Each integration defines its own input/output format. A converter step acts as a compatibility layer between the integration-specific result and the learning tail's standardised trace dict.</p>
+<blockquote>
+<p><strong>MCP Server — a different pattern.</strong> The MCP integration does <em>not</em> add pipeline steps. It is a thin async layer over <code>ACELiteLLM</code> that exposes ACE as an MCP tool provider. MCP handlers validate requests, manage sessions, enforce safety guards, then delegate to <code>ACELiteLLM</code> methods (<code>ask</code>, <code>learn</code>, <code>learn_from_feedback</code>, <code>save</code>, <code>load</code>) via <code>asyncio.to_thread()</code>. See <a href="../integrations/mcp/">MCP Server docs</a> for details.</p>
+</blockquote>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-40-1" name="__codelineno-40-1" href="#__codelineno-40-1"></a>Standard ACE:      [Agent → Evaluate]                          → [Reflect → Tag → Update → Apply]
 <a id="__codelineno-40-2" name="__codelineno-40-2" href="#__codelineno-40-2"></a>                    ╰── execute (built-in) ──╯                    ╰──────── learn (shared) ──────╯
 <a id="__codelineno-40-3" name="__codelineno-40-3" href="#__codelineno-40-3"></a>                         provides: trace (dict) ─────────────────► requires: trace
@@ -4433,12 +4441,21 @@
 <a id="__codelineno-53-58" name="__codelineno-53-58" href="#__codelineno-53-58"></a>    openclaw/
 <a id="__codelineno-53-59" name="__codelineno-53-59" href="#__codelineno-53-59"></a>      __init__.py             ← Exports OpenClawToTraceStep
 <a id="__codelineno-53-60" name="__codelineno-53-60" href="#__codelineno-53-60"></a>      to_trace.py             ← OpenClawToTraceStep (JSONL events → structured trace dict)
-<a id="__codelineno-53-61" name="__codelineno-53-61" href="#__codelineno-53-61"></a>  providers/                  ← LLM client wrappers (not pipeline steps)
-<a id="__codelineno-53-62" name="__codelineno-53-62" href="#__codelineno-53-62"></a>    __init__.py               ← Exports LiteLLMClient, InstructorClient, etc.
-<a id="__codelineno-53-63" name="__codelineno-53-63" href="#__codelineno-53-63"></a>    litellm.py                ← LiteLLMClient, LiteLLMConfig, LLMResponse
-<a id="__codelineno-53-64" name="__codelineno-53-64" href="#__codelineno-53-64"></a>    instructor.py             ← InstructorClient, wrap_with_instructor
-<a id="__codelineno-53-65" name="__codelineno-53-65" href="#__codelineno-53-65"></a>    langchain.py              ← LangChainLiteLLMClient (optional: langchain-litellm)
-<a id="__codelineno-53-66" name="__codelineno-53-66" href="#__codelineno-53-66"></a>    claude_code.py            ← ClaudeCodeLLMClient, ClaudeCodeLLMConfig (optional: claude CLI)
+<a id="__codelineno-53-61" name="__codelineno-53-61" href="#__codelineno-53-61"></a>    mcp/                        ← Optional MCP server (install with ace-framework[mcp])
+<a id="__codelineno-53-62" name="__codelineno-53-62" href="#__codelineno-53-62"></a>      __init__.py               ← Package marker
+<a id="__codelineno-53-63" name="__codelineno-53-63" href="#__codelineno-53-63"></a>      server.py                 ← Server creation and CLI entrypoint (ace-mcp)
+<a id="__codelineno-53-64" name="__codelineno-53-64" href="#__codelineno-53-64"></a>      config.py                 ← MCPServerConfig (pydantic-settings, env vars)
+<a id="__codelineno-53-65" name="__codelineno-53-65" href="#__codelineno-53-65"></a>      registry.py               ← SessionRegistry (session lifecycle, TTL sweep)
+<a id="__codelineno-53-66" name="__codelineno-53-66" href="#__codelineno-53-66"></a>      handlers.py               ← MCPHandlers (validation, safety, delegation to ACELiteLLM)
+<a id="__codelineno-53-67" name="__codelineno-53-67" href="#__codelineno-53-67"></a>      adapters.py               ← MCP SDK glue (tool registration, schema inlining, error mapping)
+<a id="__codelineno-53-68" name="__codelineno-53-68" href="#__codelineno-53-68"></a>      models.py                 ← Pydantic request/response models for all six tools
+<a id="__codelineno-53-69" name="__codelineno-53-69" href="#__codelineno-53-69"></a>      errors.py                 ← ACEMCPError hierarchy and MCP error mapping
+<a id="__codelineno-53-70" name="__codelineno-53-70" href="#__codelineno-53-70"></a>  providers/                  ← LLM client wrappers (not pipeline steps)
+<a id="__codelineno-53-71" name="__codelineno-53-71" href="#__codelineno-53-71"></a>    __init__.py               ← Exports LiteLLMClient, InstructorClient, etc.
+<a id="__codelineno-53-72" name="__codelineno-53-72" href="#__codelineno-53-72"></a>    litellm.py                ← LiteLLMClient, LiteLLMConfig, LLMResponse
+<a id="__codelineno-53-73" name="__codelineno-53-73" href="#__codelineno-53-73"></a>    instructor.py             ← InstructorClient, wrap_with_instructor
+<a id="__codelineno-53-74" name="__codelineno-53-74" href="#__codelineno-53-74"></a>    langchain.py              ← LangChainLiteLLMClient (optional: langchain-litellm)
+<a id="__codelineno-53-75" name="__codelineno-53-75" href="#__codelineno-53-75"></a>    claude_code.py            ← ClaudeCodeLLMClient, ClaudeCodeLLMConfig (optional: claude CLI)
 </code></pre></div>
 <p>Each integration provides: (1) an execute step, (2) a result type, and (3) a ToTrace converter step. Runners in <code>ace_next/runners/</code> compose these with <code>learning_tail()</code>. For offline analysis, raw trace objects are passed directly to TraceAnalyser.</p>
 <h3 id="what-moves-where">What moves where<a class="headerlink" href="#what-moves-where" title="Permanent link">&para;</a></h3>
