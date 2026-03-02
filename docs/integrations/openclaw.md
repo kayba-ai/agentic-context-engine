@@ -40,6 +40,9 @@ flowchart TD
 
 Before setting up ACE, you need a working OpenClaw installation.
 
+!!! info "Platform support"
+    OpenClaw runs on **Linux**, **macOS**, and **Windows** (via WSL2). All shell commands on this page use bash syntax. On Windows, run them inside your WSL2 environment. The `setup.py` script uses cross-platform Python and works on all three platforms natively.
+
 ### 1. Install OpenClaw
 
 !!! note "Already have OpenClaw running?"
@@ -106,26 +109,61 @@ Two steps: **install the skill** (copies files + patches AGENTS.md), then **choo
 
 ### Step 1 — Install the skill
 
-Clone the ACE repo and run the setup script:
+The skill needs to be copied into your OpenClaw workspace and AGENTS.md needs to be updated so the agent knows to use the skillbook. You can do this automatically with the setup script or manually.
 
-```bash
-git clone https://github.com/Kayba-ai/agentic-context-engine.git
-cd agentic-context-engine
-python examples/openclaw/setup.py
-```
+=== "Automatic (setup script)"
 
-This does two things automatically:
+    Clone the ACE repo and run the setup script:
 
-1. **Copies** the `kayba-ace/` skill folder to `~/.openclaw/workspace/skills/kayba-ace/`
-2. **Patches** `~/.openclaw/workspace/AGENTS.md` with auto-learning instructions
+    ```bash
+    git clone https://github.com/Kayba-ai/agentic-context-engine.git
+    cd agentic-context-engine
+    python examples/openclaw/setup.py
+    ```
 
-!!! tip "Options"
+    This does two things:
+
+    1. **Copies** the `kayba-ace/` skill folder to `~/.openclaw/workspace/skills/kayba-ace/`
+    2. **Appends** auto-learning instructions to `~/.openclaw/workspace/AGENTS.md`
+
+    Options:
+
     ```bash
     python examples/openclaw/setup.py --no-agents        # skip AGENTS.md patching
     python examples/openclaw/setup.py --openclaw-home /path/to/.openclaw  # custom path
     ```
 
     The script is idempotent — it won't overwrite generated files (`ace_skillbook.json`, `ace_skillbook.md`, `ace_processed.txt`) and skips the AGENTS.md patch if already present.
+
+=== "Manual"
+
+    **1. Copy the skill folder** into the OpenClaw workspace:
+
+    ```bash
+    # Clone the ACE repo (if you haven't already)
+    git clone https://github.com/Kayba-ai/agentic-context-engine.git
+
+    # Copy the skill
+    mkdir -p ~/.openclaw/workspace/skills/kayba-ace
+    cp agentic-context-engine/examples/openclaw/kayba-ace/* \
+       ~/.openclaw/workspace/skills/kayba-ace/
+    ```
+
+    **2. Patch AGENTS.md** — append the auto-learning instructions so the agent reads the skillbook at session start:
+
+    ```bash
+    cat agentic-context-engine/examples/openclaw/AGENTS.md.snippet \
+      >> ~/.openclaw/workspace/AGENTS.md
+    ```
+
+    Or copy the snippet content manually and paste it at the end of your `AGENTS.md`. The snippet tells the agent to:
+
+    - Run `ace-learn` at session start and report results
+    - Read `skills/kayba-ace/ace_skillbook.md` into its context
+    - Cite strategy IDs when applying learned strategies
+
+    !!! warning "Check for duplicates"
+        If you run the manual steps more than once, make sure you don't append the snippet twice. Look for the `## Auto-Learning` heading in your AGENTS.md — if it's already there, skip this step.
 
 ### Step 2 — Choose how to run learning
 
@@ -289,20 +327,46 @@ uv run python ~/.openclaw/workspace/skills/kayba-ace/learn_from_traces.py \
 uv run python ~/.openclaw/workspace/skills/kayba-ace/learn_from_traces.py --reprocess
 ```
 
-#### 2d — Automate with cron
+#### 2d — Automate (optional)
 
-```bash
-crontab -e
-```
+=== "Linux / macOS (cron)"
 
-Add:
+    ```bash
+    crontab -e
+    ```
 
-```
-*/30 * * * * cd /path/to/agentic-context-engine && uv run python ~/.openclaw/workspace/skills/kayba-ace/learn_from_traces.py >> /tmp/ace-openclaw.log 2>&1
-```
+    Add:
+
+    ```
+    */30 * * * * cd /path/to/agentic-context-engine && uv run python ~/.openclaw/workspace/skills/kayba-ace/learn_from_traces.py >> /tmp/ace-openclaw.log 2>&1
+    ```
+
+=== "Windows (Task Scheduler)"
+
+    Create a scheduled task that runs every 30 minutes:
+
+    ```powershell
+    # From an elevated PowerShell prompt
+    $action = New-ScheduledTaskAction `
+      -Execute "wsl" `
+      -Argument "bash -c 'cd /path/to/agentic-context-engine && uv run python ~/.openclaw/workspace/skills/kayba-ace/learn_from_traces.py >> /tmp/ace-openclaw.log 2>&1'"
+    $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 30)
+    Register-ScheduledTask -TaskName "ACE Learn" -Action $action -Trigger $trigger
+    ```
+
+    This calls into WSL2 where OpenClaw and ACE are installed.
+
+=== "Manual"
+
+    Run the script whenever you want to learn from new sessions:
+
+    ```bash
+    cd /path/to/agentic-context-engine
+    uv run python ~/.openclaw/workspace/skills/kayba-ace/learn_from_traces.py
+    ```
 
 !!! note "AGENTS.md for host setup"
-    The setup script already patched AGENTS.md in Step 1. For the host setup, the agent can't run `ace-learn` directly (it's not in the container), so it will report that `ace-learn` is not found and continue normally. Learning happens externally via cron; the agent still reads the skillbook at session start.
+    The setup script already patched AGENTS.md in Step 1. For the host setup, the agent can't run `ace-learn` directly (it's not in the container), so it will report that `ace-learn` is not found and continue normally. Learning happens externally via cron or manual runs; the agent still reads the skillbook at session start.
 
 ---
 
