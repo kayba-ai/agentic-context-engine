@@ -43,6 +43,12 @@ Changes v5.5 (rules-aware discovery):
 - Discovery surfaces large embedded strings (>500 chars) with key names and sizes
 - Model can identify and extract rules/policy/instructions from the surfaced strings
 - Strategy intro emphasizes rules as essential reference frame for correctness evaluation
+
+Changes v5.6 (adaptive strategy):
+- Added Step 1.5: Adapt — LLM derives evaluation criteria from discovery (compact inline form)
+- Survey prepends criteria to the existing question when available (no if/else branch)
+- Categorize adds breadth constraint (max 2 deep-dives per root cause) and criteria-violation targeting
+- Subagent analysis prompt: evaluate criteria for every trace, cite violations
 """
 
 REFLECTOR_RECURSIVE_V5_SYSTEM = """\
@@ -85,7 +91,7 @@ injected into future agents' prompts. Identify WHAT the agent did that mattered 
 </sandbox>
 
 <strategy>
-## How to Analyze — Discover → Survey → Categorize → Deep-dive → Synthesize
+## How to Analyze — Discover → Adapt → Survey → Categorize → Deep-dive → Synthesize
 
 **ask_llm is your primary tool.** It can reason about meaning, intent, and correctness.
 Code is for extracting, batching, and formatting data to feed into ask_llm.
@@ -150,7 +156,22 @@ if steps:
         print("No large embedded strings found")
 ```
 
-### Step 2: Survey (ask_llm, iteration 2-3)
+### Step 1.5: Adapt (ask_llm, iteration 2)
+Derive evaluation criteria from your discovery — ask_llm turns what you found (schema, rules, patterns) into specific, testable checks for the survey phase.
+```python
+eval_criteria = ask_llm(
+    "Based on this discovery, define evaluation criteria to check on EVERY trace "
+    "during survey. Return a numbered list: what to look for, what a violation looks like.",
+    f"Data: {{len(steps)}} steps\\nSchema: {{json.dumps(schema, default=str)}}\\n"
+    + (f"Agent rules:\\n{{agent_rules}}\\n" if agent_rules else "")
+    + (f"Large strings: {{large_strings}}" if large_strings else ""),
+    mode="analysis"
+)
+print(f"Eval criteria ({{len(eval_criteria)}} chars):")
+print(eval_criteria[:3000])
+```
+
+### Step 2: Survey (ask_llm, iteration 3-4)
 Send batches of ~3 traces to ask_llm for a brief per-trace summary.
 Subagents do the heavy reading — your job is batching and serialization.
 **ask_llm can handle large context** — send full trace data, don't truncate it.
@@ -161,9 +182,14 @@ BATCH = 3  # ~3 traces per call — subagents work best with small batches
 for i in range(0, len(steps), BATCH):
     batch = steps[i:i+BATCH]
     batch_data = json.dumps(batch, default=str)
+    criteria_prefix = (
+        f"Evaluate against these criteria:\\n{{eval_criteria}}\\n\\n"
+    ) if eval_criteria else ""
     result = ask_llm(
+        criteria_prefix +
         "For each trace/conversation below, give a brief summary: "
-        "(1) what was requested, (2) what the agent did, (3) how it ended (success/failure/partial). "
+        "(1) what was requested, (2) what the agent did, "
+        "(3) how it ended (success/failure/partial). "
         "Use the trace ID or index as the key.",
         batch_data,
         mode="analysis"
@@ -194,7 +220,10 @@ categories = ask_llm(
     "(2) longest/most complex traces with mistakes, "
     "(3) most common failure pattern, "
     "(4) traces where the agent's stated reasoning or conclusions seem worth "
-    "cross-checking against the data it received. "
+    "cross-checking against the data it received, "
+    "(5) criteria/rule violations that appeared across traces (even successful ones). "
+    "Group deep-dive targets by ROOT CAUSE — max 2 deep-dives per root cause. "
+    "Prioritize BREADTH over DEPTH. "
     "For each target, state the trace IDs and what to investigate.",
     all_summaries,
     mode="analysis"
@@ -202,7 +231,7 @@ categories = ask_llm(
 print(categories[:3000])
 ```
 
-### Step 4: Deep-dive (ask_llm, iteration 4-6)
+### Step 4: Deep-dive (ask_llm, iteration 5-7)
 **Deep-dives MUST use raw trace data — NOT summaries.** Analyzing summaries of summaries is lazy and produces shallow, unverified learnings. You already have summaries from Step 2. The point of deep-dives is to go back to the raw data and find evidence that summaries miss.
 
 **Do a deep-dive for each distinct issue category** from your categorization — not just the most obvious ones. Each category of problem needs its own investigation. Store each result in a list — you need ALL of them for synthesis.

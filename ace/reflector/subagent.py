@@ -49,7 +49,7 @@ For each trace or conversation in the context:
 3. **Decision points** — where the agent chose between alternatives. What did it choose and what were the other options?
 4. **Mistakes** — errors, wrong turns, retries, wasted steps. Describe what went wrong factually — do not analyze root causes.
 5. **What stood out** — anything non-obvious: clever recoveries, unusual tool usage, unexpected results, or signs of a pattern.
-6. **Rule compliance** — if agent operating rules or policy are provided in the context, flag any actions that appear to violate them, even if the outcome looked successful.
+6. **Evaluation criteria** — if evaluation criteria, rules, or a checklist are provided in the context, actively evaluate every applicable criterion for every trace — even successful ones. Cite evidence for any violations.
 
 Cite step numbers or message excerpts as evidence. Be thorough — the downstream agent cannot go back to the raw data."""
 
