@@ -89,9 +89,15 @@ all = [
     "torch>=2.0.0",
     "accelerate>=0.20.0",
 ]
+mcp = [
+    "mcp>=1.22.0",
+    "pydantic-settings>=2.0.0",
+    "tenacity>=8.0.0",
+]
 
 [project.scripts]
 ace-learn = "ace.integrations.claude_code.learner:main"
+ace-mcp = "ace_next.integrations.mcp.server:main"
 
 [project.urls]
 Homepage = "https://kayba.ai"
