@@ -2,7 +2,7 @@
 
 **Feature Branch**: `001-openclaw-integration`
 **Created**: 2026-02-27
-**Status**: Draft
+**Status**: Implemented
 **Input**: User description: "Integrate ACE with OpenClaw to automatically learn from session transcripts and sync strategies back into the agent's workspace"
 
 ## User Scenarios & Testing *(mandatory)*
@@ -71,6 +71,23 @@ A developer wants to see what sessions would be processed and what data would be
 
 ---
 
+### User Story 5 - Docker Deployment (Priority: P1)
+
+A developer wants ACE baked into their OpenClaw Docker image so the agent can trigger learning itself at session start — zero host-side setup. They extend the OpenClaw image with a `Dockerfile.ace` that installs Python 3.12, uv, and the ACE framework, then add AGENTS.md instructions telling the agent to run `ace-learn` and read the skillbook.
+
+**Why this priority**: Most OpenClaw users run Docker. Without a Docker path, they must install Python/uv on the host, manage paths, and set up cron — friction that prevents adoption. Docker makes it zero-config after the initial image build.
+
+**Independent Test**: Build the extended image, run `ace-learn --dry-run` inside a container with mounted `.openclaw` volume, verify it discovers sessions and reports correctly.
+
+**Acceptance Scenarios**:
+
+1. **Given** the developer has a working OpenClaw Docker setup, **When** they build with `Dockerfile.ace` and pass their LLM API key through docker-compose, **Then** the `ace-learn` command is available inside the container.
+2. **Given** the extended image is running, **When** the agent runs `ace-learn` at session start, **Then** it processes new sessions, updates the skillbook in the workspace volume, and reports results.
+3. **Given** the AGENTS.md contains the auto-learning instructions, **When** the agent starts a new session, **Then** it runs `ace-learn`, reads `skills/kayba-ace/ace_skillbook.md` using file-reading tools, and applies relevant strategies.
+4. **Given** the skillbook is written to the workspace volume, **When** the container restarts, **Then** the skillbook persists and is available for the next session.
+
+---
+
 ### Edge Cases
 
 - What happens when the session transcript directory does not exist (OpenClaw not installed or agent never run)? The system reports a clear error message indicating the expected directory and suggests verifying the installation.
@@ -119,6 +136,7 @@ A developer wants to see what sessions would be processed and what data would be
 
 - OpenClaw stores session transcripts as individual files (one per session) in a predictable directory structure under the OpenClaw home directory.
 - OpenClaw reads the workspace file (AGENTS.md) at the start of each session, making it the appropriate injection point for learned strategies.
+- OpenClaw does NOT auto-inline markdown links in AGENTS.md — the agent must explicitly read files using its file-reading tools. AGENTS.md instructions must tell the agent to `read` the skillbook file, not just link to it.
 - The LLM API key is provided through standard environment variable configuration.
 - The default LLM model for reflection and skill extraction follows the project's standard configuration pattern.
 - Session transcripts contain structured entries with role (user/assistant) and content fields, with optional tool invocation entries.

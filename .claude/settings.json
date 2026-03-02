@@ -2,7 +2,21 @@
   "permissions": {
     "allow": [
       "Bash(uv run pytest:*)",
-      "Bash(uv run black:*)"
+      "Bash(uv run black:*)",
+      "Bash(docker build --no-cache -t openclaw:local -f Dockerfile.ace .)",
+      "Bash(docker build --no-cache --build-arg OPENCLAW_IMAGE=openclaw:local -t openclaw:local -f Dockerfile.ace .)",
+      "Bash(docker exec openclaw-openclaw-gateway-1 ls /home/node/.openclaw/.openclaw/)",
+      "Bash(docker exec openclaw-openclaw-gateway-1 cat /home/node/.openclaw/.openclaw/openclaw.json)",
+      "Read(//home/david/Desktop/projects/Kayba/openclaw/**)",
+      "Bash(docker compose down)",
+      "Bash(docker compose up -d openclaw-gateway)",
+      "Bash(python3 -c \":*)",
+      "Read(//home/david/.openclaw/**)"
+    ],
+    "additionalDirectories": [
+      "/home/david/.openclaw/credentials",
+      "/home/david/.openclaw/agents/main/agent",
+      "/home/david/.openclaw/.openclaw"
     ]
   }
 }

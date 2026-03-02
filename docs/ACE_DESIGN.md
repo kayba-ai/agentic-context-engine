@@ -930,7 +930,7 @@ class OpenClawToTraceStep:
 
 OpenClaw-specific trace converter — transforms raw JSONL events (loaded by `LoadTracesStep`) into the structured trace format expected by `ReflectStep`. Extracts user messages into `question`, assistant thinking/tool calls/responses into `reasoning`, last assistant text into `answer`, and a session summary into `feedback`. Follows the same pattern as `BrowserToTrace`, `LangChainToTrace`, and `ClaudeCodeToTrace`. Lives in `ace_next/integrations/openclaw/to_trace.py`.
 
-**Placement:** Used after `LoadTracesStep` in OpenClaw pipelines. The `examples/openclaw/learn_from_traces.py` script uses both steps standalone (not in a full Pipeline) and feeds results to `TraceAnalyser.from_roles()`.
+**Placement:** Used after `LoadTracesStep` in OpenClaw pipelines. The `examples/openclaw/kayba-ace/learn_from_traces.py` script uses both steps standalone (not in a full Pipeline) and feeds results to `TraceAnalyser.from_roles()`.
 
 ### PersistStep
 
@@ -1972,6 +1972,9 @@ ace = (
 The builder would handle `SkillbookView` wiring, step ordering validation, and `ACERunner` construction internally. Users compose by name ("reflect", "apply") rather than by importing step classes.
 
 This would only be worth pursuing when there is evidence of users building custom pipelines with `learning_tail()` and hitting friction with the manual wiring. The `learning_tail()` helper (see Integration Pattern section) covers the most common customisation — custom execute step + standard learning — without a builder. A builder adds value when users need fine-grained insertion points (between existing steps) or want to compose from presets without understanding the step internals. The main risk is that a builder mirrors the step list, adding a second construction path to document, test, and keep in sync. It can also hide the `requires`/`provides` contracts — when a validation step is inserted at the wrong position, the error comes from the pipeline engine (field missing) rather than the builder (wrong position name), making debugging indirect. Mitigate by having the builder validate the final step chain at `build()` time and surfacing clear errors.
+
+**LiteLLM proxy base URL support (`LITELLM_API_BASE`):**
+The `learn_from_traces.py` script (and by extension `ace-learn`) does not pass `api_base` to `LiteLLMClient`, so users running a LiteLLM proxy server behind a custom URL cannot use it with the OpenClaw integration. `LiteLLMClient` already supports `api_base` as a constructor parameter — the script just needs to read `os.getenv("LITELLM_API_BASE")` and pass it through. Deferred because all current users connect directly to providers (Anthropic, Bedrock, OpenRouter) where only a model string and API key are needed. Revisit when a user needs proxy support.
 
 **Skillbook rollback and versioning:**
 Currently the skillbook is mutated in place with no way to undo a bad update. If the LLM hallucinates a harmful skill or a batch degrades overall quality, the only recovery is restoring from a checkpoint file. A lightweight versioning mechanism — e.g., snapshotting skillbook state at epoch boundaries or before each `ApplyStep`, with a `rollback(to_version)` method — would enable automatic revert when a validation metric degrades, A/B comparison between skillbook versions, and safer experimentation with aggressive learning rates. This could live as a `VersionedSkillbook` wrapper or as an optional `SnapshotStep` inserted before `ApplyStep`. Deferred because the current checkpoint-to-disk approach covers the most common recovery scenario (resume after crash), and in-memory versioning adds memory overhead proportional to skillbook size times number of snapshots.

@@ -1,0 +1,71 @@
+# ─── Add these sections to your OpenClaw AGENTS.md ───
+#
+# Paste them at the end of ~/.openclaw/workspace/AGENTS.md (or wherever
+# your AGENTS.md lives). The agent reads AGENTS.md at session start and
+# will follow these instructions automatically.
+#
+# REQUIREMENTS:
+#   - Build the ACE-extended Docker image (see Dockerfile.ace)
+#   - Pass your LLM API key through docker-compose environment:
+#
+#       environment:
+#         ACE_MODEL: "bedrock/us.anthropic.claude-sonnet-4-20250514-v1:0"
+#         # Pick ONE of these depending on your provider:
+#         AWS_BEARER_TOKEN_BEDROCK: ${AWS_BEARER_TOKEN_BEDROCK}
+#         ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+#         OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+#         LITELLM_API_KEY: ${LITELLM_API_KEY}
+
+## Auto-Learning
+
+At the start of each session, before responding to the user's first message,
+run:
+
+    ace-learn
+
+After it completes, report the results to the user. Include:
+- How many new sessions were processed
+- How many new strategies were added (and their IDs)
+- Total strategy count in the skillbook
+
+Example:
+
+> **ACE Learning Report**
+> Processed 2 new sessions (6 total, 4 previously processed).
+> Added 3 new strategies: `error_handling-00005`, `code_style-00008`,
+> `debugging-00003`. Skillbook now contains 14 strategies.
+
+If there were no new sessions, report that briefly:
+
+> **ACE:** No new sessions to learn from. Skillbook has 14 strategies loaded.
+
+If the command fails, tell the user that auto-learning failed and suggest they
+check their API key configuration, then continue normally.
+If `ace-learn` is not found, tell the user ACE is not installed and continue.
+
+### On-demand learning
+
+If the user asks to "learn from this session" (or similar), process only the
+current session's transcript:
+
+    ace-learn <path-to-current-session.jsonl>
+
+Find the current session file in `~/.openclaw/agents/main/sessions/` (it will
+be the most recently modified `.jsonl` file). Report what was learned using the
+same format as above.
+
+Do **not** reprocess all sessions — only the current one.
+
+## Learned Strategies
+
+After running `ace-learn`, read the file `skills/kayba-ace/ace_skillbook.md`
+into your context. This file contains strategies learned from past sessions.
+
+**Important:** You must explicitly read the file — markdown links are not
+auto-inlined. Use your file-reading tools to load the full content.
+
+When a strategy is relevant to the current task:
+
+1. Apply it.
+2. Cite the strategy ID (e.g. `conversation_style-00003`) so the user can
+   trace which learned behaviour influenced the response.

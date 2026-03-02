@@ -31,7 +31,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 # Expected layout: OPENCLAW_HOME/workspace/skills/<name>/script.py
 # Override with OPENCLAW_HOME env var if the script lives elsewhere.
 OPENCLAW_HOME = Path(
-    os.getenv("OPENCLAW_HOME", SCRIPT_DIR.parents[2])
+    os.getenv("OPENCLAW_HOME") or SCRIPT_DIR.parents[2]
 ).expanduser()
 
 # Ensure ace_next is importable (dev: repo root; prod: pip install)
@@ -239,9 +239,17 @@ def main() -> None:
 
     # -- Run learning (FR-003) --
     section(f"Learning from {len(traces)} traces")
+    # Pick the first available API key based on the configured provider.
+    api_key = (
+        os.getenv("AWS_BEARER_TOKEN_BEDROCK")
+        or os.getenv("ANTHROPIC_API_KEY")
+        or os.getenv("OPENROUTER_API_KEY")
+        or os.getenv("LITELLM_API_KEY")
+        or os.getenv("SPH_LITELLM_KEY")
+    )
     client = LiteLLMClient(
         model=MODEL,
-        api_key=os.getenv("AWS_BEARER_TOKEN_BEDROCK"),
+        api_key=api_key,
     )
 
     markdown_path = output_dir / "ace_skillbook.md"

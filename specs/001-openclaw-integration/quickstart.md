@@ -36,13 +36,13 @@ export ACE_MODEL="anthropic/claude-sonnet-4-20250514"  # LLM model
 
 ```bash
 # Learn from all past sessions
-uv run python examples/openclaw/learn_from_traces.py
+uv run python examples/openclaw/kayba-ace/learn_from_traces.py
 
 # Preview what would be processed (no LLM calls, no file changes)
-uv run python examples/openclaw/learn_from_traces.py --dry-run
+uv run python examples/openclaw/kayba-ace/learn_from_traces.py --dry-run
 
 # Reprocess everything (ignore what's already been learned)
-uv run python examples/openclaw/learn_from_traces.py --reprocess
+uv run python examples/openclaw/kayba-ace/learn_from_traces.py --reprocess
 ```
 
 ## What Happens
@@ -61,7 +61,7 @@ Run every 30 minutes via cron:
 ```bash
 crontab -e
 # Add:
-*/30 * * * * cd /path/to/agentic-context-engine && uv run python examples/openclaw/learn_from_traces.py >> /tmp/ace-openclaw.log 2>&1
+*/30 * * * * cd /path/to/agentic-context-engine && uv run python examples/openclaw/kayba-ace/learn_from_traces.py >> /tmp/ace-openclaw.log 2>&1
 ```
 
 ## Verify
