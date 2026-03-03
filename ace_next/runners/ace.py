@@ -36,6 +36,62 @@ class ACE(ACERunner):
     """
 
     @classmethod
+    def build_steps(
+        cls,
+        *,
+        agent: AgentLike,
+        reflector: ReflectorLike,
+        skill_manager: SkillManagerLike,
+        environment: TaskEnvironment | None = None,
+        skillbook: Skillbook | None = None,
+        dedup_manager: DeduplicationManagerLike | None = None,
+        dedup_interval: int = 10,
+        checkpoint_dir: str | Path | None = None,
+        checkpoint_interval: int = 10,
+        extra_steps: list[StepProtocol] | None = None,
+    ) -> list[StepProtocol]:
+        """Return the steps that ``from_roles()`` would compose.
+
+        Use this to inspect, modify, or extend the pipeline before
+        constructing it yourself::
+
+            steps = ACE.build_steps(agent=agent, reflector=reflector, ...)
+            steps.insert(2, MyCustomStep())
+            pipe = Pipeline(steps)
+            runner = ACERunner(pipeline=pipe, skillbook=skillbook)
+
+        Args:
+            agent: Agent role for producing answers.
+            reflector: Reflector role for analysing execution.
+            skill_manager: SkillManager role for update operations.
+            environment: Optional task environment for evaluation feedback.
+            skillbook: Starting skillbook.  Creates an empty one if ``None``.
+            dedup_manager: Optional deduplication manager.
+            dedup_interval: Samples between deduplication runs.
+            checkpoint_dir: Directory for checkpoint files.
+            checkpoint_interval: Samples between checkpoint saves.
+            extra_steps: Additional steps appended after the learning
+                tail (e.g. ``OpikStep``).
+        """
+        skillbook = skillbook or Skillbook()
+        steps: list[StepProtocol] = [
+            AgentStep(agent),
+            EvaluateStep(environment),
+            *learning_tail(
+                reflector,
+                skill_manager,
+                skillbook,
+                dedup_manager=dedup_manager,
+                dedup_interval=dedup_interval,
+                checkpoint_dir=checkpoint_dir,
+                checkpoint_interval=checkpoint_interval,
+            ),
+        ]
+        if extra_steps:
+            steps.extend(extra_steps)
+        return steps
+
+    @classmethod
     def from_roles(
         cls,
         *,
@@ -69,21 +125,18 @@ class ACE(ACERunner):
                 tail (e.g. ``OpikStep``).
         """
         skillbook = skillbook or Skillbook()
-        steps = [
-            AgentStep(agent),
-            EvaluateStep(environment),
-            *learning_tail(
-                reflector,
-                skill_manager,
-                skillbook,
-                dedup_manager=dedup_manager,
-                dedup_interval=dedup_interval,
-                checkpoint_dir=checkpoint_dir,
-                checkpoint_interval=checkpoint_interval,
-            ),
-        ]
-        if extra_steps:
-            steps.extend(extra_steps)
+        steps = cls.build_steps(
+            agent=agent,
+            reflector=reflector,
+            skill_manager=skill_manager,
+            environment=environment,
+            skillbook=skillbook,
+            dedup_manager=dedup_manager,
+            dedup_interval=dedup_interval,
+            checkpoint_dir=checkpoint_dir,
+            checkpoint_interval=checkpoint_interval,
+            extra_steps=extra_steps,
+        )
         return cls(pipeline=Pipeline(steps), skillbook=skillbook)
 
     def run(

@@ -37,6 +37,11 @@ Add ACE learning to existing systems:
 
 Shows the three-step integration: Inject → Execute → Learn
 
+### Pipeline Composition
+**[pipeline_composition/](pipeline_composition/)** - Build custom ACE pipelines
+
+- [compose_custom_pipeline.py](pipeline_composition/compose_custom_pipeline.py) - Mix and match steps, add custom steps, use `build_steps()`
+
 ## 📊 Advanced Topics
 
 ### Production Learning
@@ -65,6 +70,7 @@ Shows the three-step integration: Inject → Execute → Learn
 | Browser automation | [browser-use/](browser-use/) |
 | LangChain workflows | [langchain/](langchain/) |
 | Custom agents | [custom_integration_example.py](custom_integration_example.py) |
+| Custom pipelines | [pipeline_composition/](pipeline_composition/) |
 | Production learning | [helicone/](helicone/) |
 | Prompt optimization | [prompts/](prompts/) |
 

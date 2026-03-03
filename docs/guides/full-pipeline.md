@@ -228,8 +228,27 @@ register_opik_litellm_callback(project_name="my-experiment")
 
 See [Opik Observability](../integrations/opik.md) for full details.
 
+## Going Deeper: Manual Pipeline Composition
+
+The `ACE.from_roles()` runner composes a `Pipeline` internally. You can build the
+same pipeline yourself for full control over step ordering, branching, and
+custom steps:
+
+```python
+from ace_next import Pipeline, AgentStep, EvaluateStep, learning_tail
+
+pipe = Pipeline([
+    AgentStep(agent),
+    EvaluateStep(environment),
+    *learning_tail(reflector, skill_manager, skillbook),
+])
+```
+
+See [Composing Pipelines](composing-pipelines.md) for the complete guide.
+
 ## What to Read Next
 
+- [Composing Pipelines](composing-pipelines.md) — compose custom pipelines from steps
 - [Async Learning](async-learning.md) — parallel Reflector execution
 - [Prompt Engineering](prompts.md) — customize prompt templates
 - [Integration Pattern](integration.md) — wrap existing agents instead

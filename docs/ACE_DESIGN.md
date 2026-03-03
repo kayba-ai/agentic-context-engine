@@ -589,6 +589,39 @@ Reusable step implementations live in `ace_next/steps/`. Each is a single class 
 
 **Design principle: steps are stateless.** A step's `__call__` is a pure function of its constructor arguments and the incoming `ACEStepContext`. No internal counters, no accumulated state between invocations. If a step needs run-scoped information (like a global sample index for interval logic), the runner computes it and places it on the context. This keeps steps predictable across multiple `run()` calls — behaviour depends only on what's in the context, not on invocation history.
 
+### Public API
+
+All pipeline primitives, ACE steps, and context types are importable from `ace_next`:
+
+```python
+# Pipeline engine
+from ace_next import Pipeline, Branch, MergeStrategy, StepProtocol, SampleResult
+
+# ACE context
+from ace_next import ACEStepContext, SkillbookView
+
+# Runner base class (for custom runners)
+from ace_next import ACERunner
+
+# Core steps
+from ace_next import (
+    AgentStep, EvaluateStep, ReflectStep, TagStep, UpdateStep, ApplyStep,
+    DeduplicateStep, CheckpointStep, LoadTracesStep, ExportSkillbookMarkdownStep,
+    ObservabilityStep, PersistStep, learning_tail,
+)
+```
+
+Integration steps live in `ace_next.integrations` (they have framework-specific dependencies):
+
+```python
+from ace_next.integrations.browser_use import BrowserExecuteStep, BrowserToTrace
+from ace_next.integrations.langchain import LangChainExecuteStep, LangChainToTrace
+from ace_next.integrations.claude_code import ClaudeCodeExecuteStep, ClaudeCodeToTrace
+from ace_next.integrations.openclaw import OpenClawToTraceStep
+```
+
+Every runner also exposes a `build_steps()` classmethod that returns the step list it would compose internally, enabling users to inspect, modify, and recompose pipelines. See the [Composing Pipelines](guides/composing-pipelines.md) guide.
+
 ### Step Summary
 
 | Step | Requires (context) | Injected (constructor) | Provides | Side effects | `max_workers` |

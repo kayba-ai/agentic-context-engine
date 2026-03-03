@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 from pipeline import Pipeline
-from pipeline.protocol import SampleResult
+from pipeline.protocol import SampleResult, StepProtocol
 
 from ..core.context import ACEStepContext, SkillbookView
 from ..core.skillbook import Skillbook
@@ -49,6 +49,73 @@ class LangChain(ACERunner):
     """
 
     @classmethod
+    def build_steps(
+        cls,
+        *,
+        runnable: Any,
+        reflector: ReflectorLike,
+        skill_manager: SkillManagerLike,
+        skillbook: Skillbook | None = None,
+        skillbook_path: Optional[str] = None,
+        output_parser: Optional[Callable[[Any], str]] = None,
+        dedup_config: Optional[DeduplicationConfig] = None,
+        dedup_manager: DeduplicationManagerLike | None = None,
+        dedup_interval: int = 10,
+        checkpoint_dir: str | Path | None = None,
+        checkpoint_interval: int = 10,
+    ) -> list[StepProtocol]:
+        """Return the steps that ``from_roles()`` would compose.
+
+        Use this to inspect, modify, or extend the pipeline before
+        constructing it yourself::
+
+            steps = LangChain.build_steps(runnable=chain, reflector=r, ...)
+            steps.insert(2, MyCustomStep())
+            pipe = Pipeline(steps)
+            runner = ACERunner(pipeline=pipe, skillbook=skillbook)
+
+        Args:
+            runnable: Any LangChain Runnable (chain, AgentExecutor, LangGraph).
+            reflector: Reflector role for analysing execution traces.
+            skill_manager: SkillManager role for update operations.
+            skillbook: Starting skillbook.  Creates an empty one if ``None``.
+            skillbook_path: Path to load skillbook from.
+            output_parser: Custom function to extract a string from runnable output.
+            dedup_config: Deduplication configuration.
+            dedup_manager: Optional pre-built deduplication manager.
+            dedup_interval: Samples between deduplication runs.
+            checkpoint_dir: Directory for checkpoint files.
+            checkpoint_interval: Samples between checkpoint saves.
+        """
+        # Resolve skillbook
+        if skillbook_path:
+            skillbook = Skillbook.load_from_file(skillbook_path)
+        elif skillbook is None:
+            skillbook = Skillbook()
+
+        # Resolve dedup manager
+        dm = dedup_manager
+        if dm is None and dedup_config is not None:
+            from ..deduplication import DeduplicationManager
+
+            dm = DeduplicationManager(dedup_config)
+
+        steps: list[StepProtocol] = [
+            LangChainExecuteStep(runnable, output_parser=output_parser),
+            LangChainToTrace(),
+            *learning_tail(
+                reflector,
+                skill_manager,
+                skillbook,
+                dedup_manager=dm,
+                dedup_interval=dedup_interval,
+                checkpoint_dir=checkpoint_dir,
+                checkpoint_interval=checkpoint_interval,
+            ),
+        ]
+        return steps
+
+    @classmethod
     def from_roles(
         cls,
         *,
@@ -79,32 +146,24 @@ class LangChain(ACERunner):
             checkpoint_dir: Directory for checkpoint files.
             checkpoint_interval: Samples between checkpoint saves.
         """
-        # Resolve skillbook
+        # Resolve skillbook (must match build_steps resolution)
         if skillbook_path:
             skillbook = Skillbook.load_from_file(skillbook_path)
         elif skillbook is None:
             skillbook = Skillbook()
 
-        # Resolve dedup manager
-        dm = dedup_manager
-        if dm is None and dedup_config is not None:
-            from ..deduplication import DeduplicationManager
-
-            dm = DeduplicationManager(dedup_config)
-
-        steps = [
-            LangChainExecuteStep(runnable, output_parser=output_parser),
-            LangChainToTrace(),
-            *learning_tail(
-                reflector,
-                skill_manager,
-                skillbook,
-                dedup_manager=dm,
-                dedup_interval=dedup_interval,
-                checkpoint_dir=checkpoint_dir,
-                checkpoint_interval=checkpoint_interval,
-            ),
-        ]
+        steps = cls.build_steps(
+            runnable=runnable,
+            reflector=reflector,
+            skill_manager=skill_manager,
+            skillbook=skillbook,
+            output_parser=output_parser,
+            dedup_config=dedup_config,
+            dedup_manager=dedup_manager,
+            dedup_interval=dedup_interval,
+            checkpoint_dir=checkpoint_dir,
+            checkpoint_interval=checkpoint_interval,
+        )
         return cls(pipeline=Pipeline(steps), skillbook=skillbook)
 
     @classmethod

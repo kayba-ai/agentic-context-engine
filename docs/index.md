@@ -74,6 +74,15 @@ pip install ace-framework
 
     [:octicons-arrow-right-24: Integrations Overview](integrations/index.md)
 
+-   **Pipeline Composition**
+
+    ---
+
+    Compose custom pipelines by mixing and matching steps for full control.
+
+    [:octicons-arrow-right-24: Composing Pipelines](guides/composing-pipelines.md)
+    [:octicons-arrow-right-24: Pipeline Engine](pipeline/index.md)
+
 </div>
 
 ## Available Runners

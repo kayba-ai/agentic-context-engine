@@ -1,5 +1,11 @@
 """ACE next — pipeline-based rewrite of the ACE framework."""
 
+# Pipeline engine (re-exported from pipeline/)
+from pipeline import Branch, MergeStrategy, Pipeline, SampleResult, StepProtocol
+
+# ACE context
+from .core import ACEStepContext, SkillbookView
+
 # Core types
 from .core import (
     EnvironmentResult,
@@ -20,18 +26,47 @@ from .providers import (
     LiteLLMClient,
     wrap_with_instructor,
 )
+
+# Runners
 from .runners import (
     ACE,
     ACELiteLLM,
+    ACERunner,
     BrowserUse,
     ClaudeCode,
     LangChain,
     TraceAnalyser,
 )
 from .rr import RRConfig, RRStep
+
+# Steps
+from .steps import (
+    AgentStep,
+    ApplyStep,
+    CheckpointStep,
+    DeduplicateStep,
+    EvaluateStep,
+    ExportSkillbookMarkdownStep,
+    LoadTracesStep,
+    ObservabilityStep,
+    PersistStep,
+    ReflectStep,
+    TagStep,
+    UpdateStep,
+    learning_tail,
+)
 from .steps.opik import OPIK_AVAILABLE, OpikStep, register_opik_litellm_callback
 
 __all__ = [
+    # Pipeline composition
+    "Pipeline",
+    "Branch",
+    "MergeStrategy",
+    "StepProtocol",
+    "SampleResult",
+    # ACE context
+    "ACEStepContext",
+    "SkillbookView",
     # Core data types
     "Skill",
     "Skillbook",
@@ -53,10 +88,25 @@ __all__ = [
     # Runners
     "ACE",
     "ACELiteLLM",
+    "ACERunner",
     "BrowserUse",
     "ClaudeCode",
     "LangChain",
     "TraceAnalyser",
+    # Steps
+    "AgentStep",
+    "EvaluateStep",
+    "ReflectStep",
+    "TagStep",
+    "UpdateStep",
+    "ApplyStep",
+    "DeduplicateStep",
+    "CheckpointStep",
+    "LoadTracesStep",
+    "ExportSkillbookMarkdownStep",
+    "ObservabilityStep",
+    "PersistStep",
+    "learning_tail",
     # Recursive Reflector
     "RRStep",
     "RRConfig",
