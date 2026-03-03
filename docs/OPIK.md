@@ -294,6 +294,79 @@ Run with:
 OPIK_PROJECT_NAME="training-run-001" uv run python train.py
 ```
 
+## ace_next Pipeline Tracing
+
+The `ace_next` pipeline provides two dedicated Opik steps. These are separate from the legacy `ace/` tracing described above.
+
+### OpikStep (pipeline-level)
+
+Logs one Opik trace per sample with pipeline metadata, agent output, reflection insights, and skill manager operations:
+
+```python
+from ace_next import ACE, OpikStep
+
+ace = ACE.from_roles(
+    agent=agent, reflector=reflector, skill_manager=skill_manager,
+    extra_steps=[OpikStep(project_name="my-project")],
+)
+```
+
+### RROpikStep (Recursive Reflector)
+
+Logs hierarchical traces for the Recursive Reflector's REPL loop. Each iteration becomes a child span:
+
+```python
+from ace_next.rr import RRStep, RRConfig, RROpikStep
+
+rr = RRStep(llm, config=RRConfig(max_iterations=10))
+
+# Place RROpikStep after RRStep in the pipeline
+steps = [..., rr, RROpikStep(project_name="my-project")]
+```
+
+**Trace hierarchy:**
+
+```
+rr_reflect (trace)
+├── rr_iteration_0 (span)    ← code, stdout, stderr
+├── rr_iteration_1 (span)
+└── rr_iteration_2 (span)    ← FINAL called here
+```
+
+**Step contract:**
+
+| Field | Value |
+|-------|-------|
+| `requires` | `{"reflection"}` |
+| `provides` | `{}` (pure side-effect) |
+
+**Environment variables:**
+
+| Variable | Description |
+|----------|-------------|
+| `OPIK_API_KEY` | API key for Opik authentication |
+| `OPIK_WORKSPACE` | Opik workspace name |
+| `OPIK_URL_OVERRIDE` | Custom Opik server URL |
+| `OPIK_DISABLED=true` | Disable all Opik tracing |
+
+**Behaviour:**
+- Soft-imports `opik` — gracefully degrades to a no-op when the package is absent.
+- Explicit opt-in only — Opik is never auto-enabled just because the package is installed.
+- Reads `ctx.reflection.raw["rr_trace"]` for per-iteration data and sub-agent call history.
+- Call `flush()` after the pipeline finishes to drain buffered traces before the process exits.
+
+**Parent trace metadata:**
+
+```python
+{
+    "total_iterations": int,
+    "subagent_call_count": int,   # only when sub-agent calls exist
+    "subagent_calls": list[dict], # full call history
+}
+```
+
+See [RR_DESIGN.md](RR_DESIGN.md) for the full Recursive Reflector architecture.
+
 ## Related Documentation
 
 - [Quick Start Guide](./QUICK_START.md)

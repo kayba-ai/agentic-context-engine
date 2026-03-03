@@ -1085,6 +1085,8 @@ Concrete LLM-based implementations of the role protocols. Live in `ace_next/impl
 | `RRStep` | `ReflectorLike` + `StepProtocol` | `reflect()` / `__call__()` | `rr/runner.py` |
 | `SkillManager` | `SkillManagerLike` | `update_skills()` | `implementations/skill_manager.py` |
 
+`RRStep` has a different constructor pattern — see [RR_DESIGN.md](RR_DESIGN.md) for the full Recursive Reflector architecture, configuration (`RRConfig`), sandbox API, sub-agent system, trace context, and observability (`RROpikStep`).
+
 All three share the same constructor pattern:
 
 ```python
@@ -1112,7 +1114,7 @@ output = agent.generate(
 
 Analyzes agent outputs to extract lessons and improve strategies. Builds a skillbook excerpt from the agent's cited skill IDs (via `make_skillbook_excerpt()`), formats the prompt, and calls `llm.complete_structured(prompt, ReflectorOutput)`.
 
-**SIMPLE mode only** — single-pass reflection. For recursive multi-iteration reflection, use `RRStep` — it satisfies the same `ReflectorLike` protocol and can be used as a drop-in replacement in any runner.
+**SIMPLE mode only** — single-pass reflection. For recursive multi-iteration reflection, use `RRStep` — it satisfies the same `ReflectorLike` protocol and can be used as a drop-in replacement in any runner. See [RR_DESIGN.md](RR_DESIGN.md) for the full architecture.
 
 ```python
 reflector = Reflector(llm)
