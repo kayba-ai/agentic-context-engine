@@ -10,6 +10,7 @@ Public API::
 
 from .config import RecursiveConfig as RRConfig
 from .context import RRIterationContext
+from .opik import RROpikStep
 from .runner import RRStep
 from .sandbox import ExecutionResult, ExecutionTimeoutError, TraceSandbox
 from .steps import CheckResultStep, ExtractCodeStep, LLMCallStep, SandboxExecStep
@@ -24,6 +25,7 @@ from .trace_context import TraceContext, TraceStep
 __all__ = [
     "RRConfig",
     "RRIterationContext",
+    "RROpikStep",
     "RRStep",
     # Inner pipeline steps
     "CheckResultStep",

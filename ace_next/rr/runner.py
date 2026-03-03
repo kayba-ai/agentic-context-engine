@@ -28,14 +28,6 @@ from ace_next.core.outputs import ExtractedLearning, ReflectorOutput
 from .context import RRIterationContext
 from .steps import LLMCallStep, ExtractCodeStep, SandboxExecStep, CheckResultStep
 
-try:
-    import opik as _opik
-
-    _OPIK_AVAILABLE = True
-except ImportError:
-    _opik = None  # type: ignore[assignment]
-    _OPIK_AVAILABLE = False
-
 if TYPE_CHECKING:
     from ace_next.core.outputs import AgentOutput
 
@@ -82,35 +74,34 @@ class RRStep(SubRunner):
         self.subagent_llm = subagent_llm
 
     # ------------------------------------------------------------------
-    # Loop override — per-iteration Opik spans
+    # Loop override — collect iteration data for observability
     # ------------------------------------------------------------------
 
     def run_loop(self, **kwargs: Any) -> Any:
-        """Execute the iterative loop with per-iteration Opik spans."""
+        """Execute the iterative loop, collecting per-iteration data.
+
+        Iteration logs are appended to ``kwargs["iteration_log"]`` (a
+        mutable list supplied by :meth:`reflect`).  The data is later
+        attached to ``ReflectorOutput.raw["rr_trace"]`` so that a
+        downstream ``RROpikStep`` can create hierarchical Opik traces
+        without embedding observability logic here.
+        """
         pipe = self._build_inner_pipeline(**kwargs)
         ctx = self._build_initial_context(**kwargs)
+        iteration_log: list[dict[str, Any]] = kwargs.get("iteration_log", [])
 
         for i in range(self.max_iterations):
             ctx = pipe(ctx)
             rr_ctx: RRIterationContext = ctx  # type: ignore[assignment]
 
-            if _OPIK_AVAILABLE:
-                try:
-                    from opik import opik_context
-
-                    exec_result = rr_ctx.exec_result
-                    opik_context.update_current_span(
-                        metadata={
-                            f"iteration_{i}": {
-                                "code": rr_ctx.code,
-                                "stdout": getattr(exec_result, "stdout", None) if exec_result else None,
-                                "stderr": getattr(exec_result, "stderr", None) if exec_result else None,
-                                "terminated": rr_ctx.terminated,
-                            }
-                        },
-                    )
-                except Exception:
-                    pass
+            exec_result = rr_ctx.exec_result
+            iteration_log.append({
+                "iteration": i,
+                "code": rr_ctx.code,
+                "stdout": getattr(exec_result, "stdout", None) if exec_result else None,
+                "stderr": getattr(exec_result, "stderr", None) if exec_result else None,
+                "terminated": rr_ctx.terminated,
+            })
 
             if self._is_done(ctx):
                 return self._extract_result(ctx)
@@ -240,6 +231,7 @@ class RRStep(SubRunner):
         sandbox = self._create_sandbox(trace_obj, traces, skillbook, **kwargs)
         budget = CallBudget(self.config.max_llm_calls)
         initial_prompt = self._build_initial_prompt(traces, skillbook, trace_obj)
+        iteration_log: list[dict[str, Any]] = []
 
         timeout_args = {
             "question": question,
@@ -253,7 +245,20 @@ class RRStep(SubRunner):
             budget=budget,
             initial_prompt=initial_prompt,
             timeout_args=timeout_args,
+            iteration_log=iteration_log,
         )
+
+        # Enrich result with RR execution metadata for downstream
+        # observability steps (e.g. RROpikStep).
+        if isinstance(result, ReflectorOutput):
+            subagent_calls = self._get_subagent_history(sandbox)
+            result.raw["rr_trace"] = {
+                "iterations": iteration_log,
+                "subagent_calls": subagent_calls,
+                "total_iterations": len(iteration_log),
+                "timed_out": result.raw.get("timeout", False),
+            }
+
         return result  # type: ignore[return-value]
 
     # ------------------------------------------------------------------
@@ -330,6 +335,15 @@ class RRStep(SubRunner):
         sandbox.inject("traces", traces)
 
         return sandbox
+
+    @staticmethod
+    def _get_subagent_history(sandbox: TraceSandbox) -> list[dict[str, Any]]:
+        """Extract sub-agent call history from the sandbox's ask_llm function."""
+        ask_llm_fn = sandbox.namespace.get("ask_llm")
+        subagent = getattr(ask_llm_fn, "subagent", None)
+        if subagent is not None:
+            return list(subagent.call_history)
+        return []
 
     def _build_initial_prompt(
         self,

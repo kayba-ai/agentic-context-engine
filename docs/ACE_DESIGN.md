@@ -602,6 +602,7 @@ Reusable step implementations live in `ace_next/steps/`. Each is a single class 
 | **DeduplicateStep** | `global_sample_index` | `manager` (DeduplicationManagerLike), `skillbook` (real) | — | Consolidates similar skills | 1 |
 | **CheckpointStep** | `global_sample_index` | `skillbook` (real) | — | Saves skillbook to disk | 1 |
 | **OpikStep** | `skillbook` | `project_name`, `tags` | — | Logs pipeline traces to Opik | 1 |
+| **RROpikStep** | `reflection` | `project_name`, `tags` | — | Logs RR REPL traces to Opik (hierarchical) | 1 |
 | **LoadTracesStep** | `sample` | — | `trace` | None (pure) | default (1) |
 | **OpenClawToTraceStep** | `trace` | — | `trace` | None (pure) | default (1) |
 | **PersistStep** | `skillbook` | `target_path` | — | Writes skillbook to CLAUDE.md or similar | 1 |
@@ -880,6 +881,48 @@ ace = ACELiteLLM.from_model("gpt-4o-mini", opik=True, opik_project="my-project")
 # LLM-level token tracking only (no pipeline traces)
 from ace_next import register_opik_litellm_callback
 register_opik_litellm_callback()
+```
+
+### RROpikStep
+
+```python
+class RROpikStep:
+    requires = frozenset({"reflection"})
+    provides = frozenset()
+
+    def __init__(
+        self,
+        project_name: str = "ace-rr",
+        tags: list[str] | None = None,
+    ) -> None: ...
+```
+
+Dedicated observability step for the Recursive Reflector. Reads `ctx.reflection.raw["rr_trace"]` — a dict populated by `RRStep.reflect()` containing per-iteration REPL data and sub-agent call history — and creates a hierarchical Opik trace with child spans per iteration.
+
+Follows the same patterns as `OpikStep`: explicit opt-in only, soft-imports `opik`, respects `OPIK_DISABLED` env var, gracefully degrades to a no-op. Located in `ace_next/rr/opik.py` (co-located with the RR module, not in `ace_next/steps/`).
+
+**Trace hierarchy:**
+
+```
+rr_reflect (trace)
+├── rr_iteration_0 (span)    ← code, stdout, stderr
+├── rr_iteration_1 (span)
+└── rr_iteration_2 (span)    ← FINAL called here
+```
+
+Sub-agent call history is attached to the parent trace metadata. Each iteration span logs the code sent to the sandbox, stdout/stderr output, and whether `FINAL()` was called.
+
+**Data flow:** `RRStep` collects iteration data during `run_loop()` and enriches `ReflectorOutput.raw["rr_trace"]` after the loop completes. `RROpikStep` reads this data — observability is fully decoupled from business logic, matching the `OpikStep` philosophy.
+
+```python
+from ace_next.rr import RRStep, RRConfig, RROpikStep
+
+# Place RROpikStep after RRStep in your pipeline
+steps = [
+    ...,
+    rr_step,
+    RROpikStep(project_name="my-project"),
+]
 ```
 
 ### LoadTracesStep
@@ -1638,6 +1681,7 @@ Each integration provides: (1) an execute step, (2) a result type, and (3) a ToT
 | New | `ace_next/steps/checkpoint.py` | CheckpointStep |
 | New | `ace_next/steps/observability.py` | ObservabilityStep (logger.info) |
 | New | `ace_next/steps/opik.py` | OpikStep (Opik trace logging) |
+| New | `ace_next/rr/opik.py` | RROpikStep (hierarchical RR trace logging to Opik) |
 | New | `ace_next/steps/persist.py` | PersistStep |
 | New | `ace_next/runners/` | ACERunner, TraceAnalyser, ACE, BrowserUse, LangChain, ClaudeCode |
 | `ace/integrations/browser_use.py` | `ace_next/integrations/browser_use.py` + `ace_next/runners/browser_use.py` | Split into execute step + result type + ToTrace converter + runner |

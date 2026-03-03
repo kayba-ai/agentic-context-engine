@@ -10,6 +10,12 @@ Usage:
 
     # Custom model:
     ACE_MODEL=openai/gpt-4o-mini uv run python examples/ace_next/rr_demo.py
+
+    # With Opik tracing (requires ``pip install opik`` and OPIK_API_KEY):
+    #   from ace_next.rr import RROpikStep
+    #   rr_opik = RROpikStep(project_name="my-project")
+    #   # Place after RRStep in your pipeline, or call manually:
+    #   rr_opik(result_ctx)
 """
 
 import logging

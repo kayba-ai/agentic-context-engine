@@ -275,3 +275,116 @@ class TestRRStepBackwardCompat:
         llm = MockLLM()
         rr = RRStep(llm)
         assert isinstance(rr, ReflectorLike)
+
+
+@pytest.mark.unit
+class TestRRTraceData:
+    """Test that reflect() populates rr_trace on ReflectorOutput.raw."""
+
+    def test_rr_trace_populated_on_success(self):
+        """Successful reflection stores iteration log in .raw['rr_trace']."""
+        explore = '```python\nprint(traces["question"])\n```'
+        final = """```python
+FINAL({
+    "reasoning": "ok",
+    "key_insight": "insight",
+    "correct_approach": "approach",
+    "extracted_learnings": [],
+    "skill_tags": []
+})
+```"""
+        llm = MockLLM([explore, final])
+        rr = RRStep(llm, config=RRConfig(max_iterations=5, enable_subagent=False))
+
+        result = rr.reflect(
+            question="test",
+            agent_output=AgentOutput(reasoning="r", final_answer="a", skill_ids=[]),
+            skillbook=Skillbook(),
+        )
+
+        assert "rr_trace" in result.raw
+        rr_trace = result.raw["rr_trace"]
+        assert rr_trace["total_iterations"] == 2
+        assert rr_trace["timed_out"] is False
+        assert len(rr_trace["iterations"]) == 2
+        assert rr_trace["iterations"][0]["iteration"] == 0
+        assert rr_trace["iterations"][1]["iteration"] == 1
+        assert rr_trace["iterations"][1]["terminated"] is True
+        assert isinstance(rr_trace["subagent_calls"], list)
+
+    def test_rr_trace_populated_on_timeout(self):
+        """Timeout reflection also stores iteration log."""
+        explore = '```python\nprint("looking...")\n```'
+        llm = MockLLM([explore] * 2)
+        rr = RRStep(
+            llm,
+            config=RRConfig(
+                max_iterations=2,
+                enable_subagent=False,
+                enable_fallback_synthesis=False,
+            ),
+        )
+
+        result = rr.reflect(
+            question="test",
+            agent_output=AgentOutput(reasoning="r", final_answer="a", skill_ids=[]),
+            skillbook=Skillbook(),
+        )
+
+        assert "rr_trace" in result.raw
+        rr_trace = result.raw["rr_trace"]
+        assert rr_trace["total_iterations"] == 2
+        assert rr_trace["timed_out"] is True
+
+    def test_iteration_log_has_code_and_stdout(self):
+        """Each iteration entry has code and stdout fields."""
+        code_response = '```python\nprint("hello")\n```'
+        final = """```python
+FINAL({"reasoning": "r", "key_insight": "k", "correct_approach": "a"})
+```"""
+        llm = MockLLM([code_response, final])
+        rr = RRStep(llm, config=RRConfig(max_iterations=5, enable_subagent=False))
+
+        result = rr.reflect(
+            question="test",
+            agent_output=AgentOutput(reasoning="r", final_answer="a", skill_ids=[]),
+            skillbook=Skillbook(),
+        )
+
+        it0 = result.raw["rr_trace"]["iterations"][0]
+        assert it0["code"] is not None
+        assert "hello" in (it0["stdout"] or "")
+
+
+@pytest.mark.unit
+class TestRROpikStep:
+    """Test RROpikStep — graceful degradation and data reading."""
+
+    def test_noop_when_opik_unavailable(self):
+        """RROpikStep is a no-op when Opik is not installed."""
+        from ace_next.rr.opik import RROpikStep, OPIK_AVAILABLE
+
+        step = RROpikStep(project_name="test")
+        # If Opik IS installed in the test env, skip this assertion
+        if not OPIK_AVAILABLE:
+            assert not step.enabled
+
+    def test_noop_when_no_reflection(self):
+        """RROpikStep returns ctx unchanged when reflection is None."""
+        from ace_next.rr.opik import RROpikStep
+
+        step = RROpikStep(project_name="test")
+        # Force disabled to avoid needing real Opik client
+        step.enabled = False
+
+        ctx = ACEStepContext(skillbook=SkillbookView(Skillbook()))
+        result = step(ctx)
+        assert result is ctx
+
+    def test_step_protocol_attributes(self):
+        """RROpikStep has correct requires/provides."""
+        from ace_next.rr.opik import RROpikStep
+
+        step = RROpikStep(project_name="test")
+        assert "reflection" in step.requires
+        assert len(step.provides) == 0

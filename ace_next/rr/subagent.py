@@ -240,21 +240,6 @@ class SubAgentLLM:
             }
         )
 
-        # Update span metadata (Opik, if available)
-        try:
-            from opik import opik_context
-
-            opik_context.update_current_span(
-                metadata={
-                    "question_preview": question[:200],
-                    "context_length": len(context),
-                    "response_length": len(result),
-                    "call_number": self._call_count,
-                }
-            )
-        except Exception:
-            pass
-
         return result
 
     def _build_prompt(self, question: str, context: str, *, mode: str = "analysis") -> str:
