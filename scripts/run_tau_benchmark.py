@@ -330,6 +330,11 @@ def parse_args() -> argparse.Namespace:
         help="Skip ACE training, run baseline only",
     )
     parser.add_argument(
+        "--train-only",
+        action="store_true",
+        help="Run ACE training only, save skillbook, skip evaluation",
+    )
+    parser.add_argument(
         "--compare",
         action="store_true",
         help="Run both baseline and ACE, then compare results",
@@ -454,6 +459,30 @@ def parse_args() -> argparse.Namespace:
         metavar="DIR",
         help="Replay captured reflector inputs from DIR through all prompt versions to train skillbooks",
     )
+    parser.add_argument(
+        "--batch",
+        action="store_true",
+        help="Use batch mode for replay: combine all traces and reflect once (vs sequential)",
+    )
+    parser.add_argument(
+        "--claude-rr",
+        action="store_true",
+        help="Use ClaudeRRStep (Claude Agent SDK) instead of RecursiveReflector for replay",
+    )
+    parser.add_argument(
+        "--convert-traces",
+        type=str,
+        default=None,
+        metavar="DIR",
+        help="Convert raw tau2 simulation traces to reflector-input format. Value: input directory.",
+    )
+    parser.add_argument(
+        "--convert-output",
+        type=str,
+        default=None,
+        metavar="DIR",
+        help="Output directory for converted traces (default: {input_dir}_reflector_inputs)",
+    )
 
     args = parser.parse_args()
 
@@ -501,7 +530,7 @@ def parse_args() -> argparse.Namespace:
         "max_refinement_rounds": 3,
         "batch_reflect": False,
         "trace_limit": 500,
-        "feedback_level": "outcome",
+        "feedback_level": "full",
         "model": "gpt-4.1-mini-2025-04-14",
         "user_llm": "gpt-4.1-2025-04-14",
         "temperature": 0.0,
@@ -609,6 +638,22 @@ def _enrich_trace_with_feedback(
         lines.append(f"\n## Termination: {simulation.termination_reason.value}")
 
     return "\n".join(lines)
+
+
+def _format_assertions(simulation: SimulationRun) -> Optional[str]:
+    """Format assertion results from a simulation as ground truth for the reflector.
+
+    Returns a string listing PASS/FAIL assertions, or None if unavailable.
+    """
+    if not simulation.reward_info or not simulation.reward_info.nl_assertions:
+        return None
+    lines = []
+    for a in simulation.reward_info.nl_assertions:
+        status = "PASS" if a.met else "FAIL"
+        lines.append(f"[{status}] {a.nl_assertion}")
+        if not a.met and a.justification:
+            lines.append(f"  Reason: {a.justification}")
+    return "\n".join(lines) if lines else None
 
 
 def _extract_last_agent_message(simulation: SimulationRun) -> str:
@@ -861,6 +906,21 @@ def run_ace_training(
                 else:
                     outcome = "SUCCEEDED" if result["success"] else "FAILED"
                     feedback = f"Task {outcome}. Reward: {result['reward']:.2f}, Steps: {result['steps']}"
+                    # Include termination reason when available
+                    if (
+                        simulation
+                        and simulation.termination_reason
+                        and simulation.termination_reason.value != "success"
+                    ):
+                        feedback += (
+                            f". Termination: {simulation.termination_reason.value}"
+                        )
+
+                # Use task instruction for richer reflector context
+                task_question = task.get("instruction", "customer service task")
+
+                # Extract ground truth from assertions when available
+                ground_truth = _format_assertions(simulation) if simulation else None
 
                 # Trace goes in reasoning (Model Reasoning), outcome+policy in feedback (Environment Feedback)
                 # Use last agent message as final_answer so reflector sees a real prediction
@@ -878,17 +938,17 @@ def run_ace_training(
 
                 # Learn from result with full conversation context
                 reflection = reflector.reflect(
-                    question="customer service task",
+                    question=task_question,
                     agent_output=agent_output,
                     skillbook=skillbook,
-                    ground_truth=None,
+                    ground_truth=ground_truth,
                     feedback=feedback,
                 )
 
                 skill_manager_output = skill_manager.update_skills(
                     reflection=reflection,
                     skillbook=skillbook,
-                    question_context="customer service task",
+                    question_context=task_question,
                     progress=f"epoch {epoch}/{args.epochs} · task {i + 1}/{len(train_tasks)}",
                 )
 
@@ -1125,7 +1185,11 @@ def capture_reflector_inputs(args: argparse.Namespace) -> None:
 
         try:
             result, simulation = run_single_task_traced(
-                task, skillbook, args, phase="capture", trial=0,
+                task,
+                skillbook,
+                args,
+                phase="capture",
+                trial=0,
             )
 
             # Build trace — identical to run_ace_training() lines 822–857
@@ -1147,6 +1211,15 @@ def capture_reflector_inputs(args: argparse.Namespace) -> None:
             else:
                 outcome = "SUCCEEDED" if result["success"] else "FAILED"
                 feedback = f"Task {outcome}. Reward: {result['reward']:.2f}, Steps: {result['steps']}"
+                if (
+                    simulation
+                    and simulation.termination_reason
+                    and simulation.termination_reason.value != "success"
+                ):
+                    feedback += f". Termination: {simulation.termination_reason.value}"
+
+            task_question = task.get("instruction", "customer service task")
+            ground_truth = _format_assertions(simulation) if simulation else None
 
             last_msg = (
                 _extract_last_agent_message(simulation)
@@ -1162,8 +1235,8 @@ def capture_reflector_inputs(args: argparse.Namespace) -> None:
 
             # Serialize per-task JSON — exactly what reflector.reflect() receives
             record = {
-                "question": "customer service task",
-                "ground_truth": None,
+                "question": task_question,
+                "ground_truth": ground_truth,
                 "feedback": feedback,
                 "agent_output": {
                     "final_answer": agent_output.final_answer,
@@ -1190,6 +1263,133 @@ def capture_reflector_inputs(args: argparse.Namespace) -> None:
         print(f"\n✅ Saved {saved}/{len(tasks)} reflector input files to {output_dir}")
 
 
+def _messages_from_raw_dicts(raw_messages: List[Dict[str, Any]]) -> List[Any]:
+    """Wrap raw JSON message dicts so TraceContext.from_tau_simulation works.
+
+    from_tau_simulation uses getattr() (duck-typing) instead of dict access,
+    so we convert each dict into a simple namespace object.
+    """
+    from types import SimpleNamespace
+
+    wrapped = []
+    for msg in raw_messages:
+        tc_raw = msg.get("tool_calls")
+        tool_calls = None
+        if tc_raw:
+            tool_calls = [
+                SimpleNamespace(
+                    name=tc.get("name", "unknown"),
+                    arguments=tc.get("arguments", {}),
+                )
+                for tc in tc_raw
+            ]
+        ns = SimpleNamespace(
+            role=msg.get("role", "assistant"),
+            content=msg.get("content"),
+            tool_calls=tool_calls,
+            error=msg.get("error"),
+        )
+        # ToolMessages have a role of "tool" and carry an id field
+        if msg.get("role") == "tool":
+            ns.tool_call_id = msg.get("id")
+        wrapped.append(ns)
+    return wrapped
+
+
+def convert_raw_traces(args: argparse.Namespace) -> None:
+    """Convert raw tau2 simulation traces to reflector-input JSON format.
+
+    Reads task_*.json files (full simulation format) from the input directory,
+    extracts conversation traces offline (no API calls), and writes
+    reflector-input JSON (question, agent_output, feedback) to the output dir.
+    """
+    input_dir = Path(args.convert_traces)
+    if not input_dir.exists():
+        print(f"Error: Directory not found: {input_dir}")
+        sys.exit(1)
+
+    output_dir = (
+        Path(args.convert_output)
+        if args.convert_output
+        else Path(str(input_dir) + "_reflector_inputs")
+    )
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    task_files = sorted(
+        input_dir.glob("task_*.json"),
+        key=lambda p: int(p.stem.split("_")[1]),
+    )
+    if not task_files:
+        print(f"Error: No task_*.json files found in {input_dir}")
+        sys.exit(1)
+
+    print(f"Converting {len(task_files)} traces from {input_dir} -> {output_dir}")
+
+    saved = 0
+    for tf in task_files:
+        task_id = tf.stem.split("_")[1]
+        try:
+            with open(tf) as f:
+                data = json.load(f)
+
+            sim = data.get("simulation", {})
+            raw_messages = sim.get("messages", [])
+            if not raw_messages:
+                print(f"  task_{task_id}: no messages, skipping")
+                continue
+
+            # Wrap dicts for duck-typed TraceContext.from_tau_simulation
+            messages = _messages_from_raw_dicts(raw_messages)
+            trace_ctx = TraceContext.from_tau_simulation(messages, system_prompt="")
+            trace_str = trace_ctx.to_markdown()
+
+            # Extract last agent message as final_answer
+            last_msg = "No agent response"
+            for msg in reversed(raw_messages):
+                if msg.get("role") == "assistant" and msg.get("content"):
+                    content = msg["content"]
+                    last_msg = content[:500] if len(content) > 500 else content
+                    break
+
+            # Build feedback — sanitised traces have no rewards/assertions
+            feedback = "Task completed"
+            term_reason = sim.get("termination_reason")
+            if term_reason:
+                feedback += f". Termination: {term_reason}"
+
+            # Use task description as question, fall back to generic
+            task_info = data.get("task", {})
+            question = (
+                task_info.get("description", {}).get("relevant_policies")
+                or "customer service task"
+            )
+            if isinstance(question, list):
+                question = ", ".join(question)
+
+            record = {
+                "question": question,
+                "ground_truth": None,
+                "feedback": feedback,
+                "agent_output": {
+                    "final_answer": last_msg,
+                    "reasoning": trace_str,
+                    "skill_ids": [],
+                },
+            }
+
+            out_file = output_dir / f"task_{task_id}.json"
+            with open(out_file, "w") as f:
+                json.dump(record, f, indent=2, default=str)
+
+            saved += 1
+            print(f"  task_{task_id} -> {out_file.name}")
+
+        except Exception as e:
+            print(f"  task_{task_id} ERROR: {e}")
+
+    print(f"\nConverted {saved}/{len(task_files)} traces to {output_dir}")
+
+
 def replay_reflector_inputs(args: argparse.Namespace) -> None:
     """Replay captured reflector inputs through all prompt versions to train skillbooks.
 
@@ -1199,7 +1399,13 @@ def replay_reflector_inputs(args: argparse.Namespace) -> None:
     trained skillbook.
     """
     from ace.prompt_manager import PromptManager
-    from ace.reflector.prompt_registry import ALL_PROMPT_VERSION_NAMES, get_prompt_template
+    from ace.reflector.prompt_registry import (
+        ALL_PROMPT_VERSION_NAMES,
+        get_prompt_template,
+    )
+    from ace.reflector import RecursiveReflector, RecursiveConfig
+
+    use_claude_rr = getattr(args, "claude_rr", False)
 
     input_dir = Path(args.replay_reflector_inputs)
     if not input_dir.exists():
@@ -1221,68 +1427,225 @@ def replay_reflector_inputs(args: argparse.Namespace) -> None:
         with open(tf) as f:
             inputs.append(json.load(f))
 
-    print(f"\n🔄 Replaying {len(inputs)} reflector inputs through {len(ALL_PROMPT_VERSION_NAMES)} prompt versions")
+    # Filter prompt versions if --reflector-prompts is specified
+    versions = (
+        [args.reflector_prompts]
+        if getattr(args, "reflector_prompts", None)
+        else ALL_PROMPT_VERSION_NAMES
+    )
+    batch_mode = getattr(args, "batch", False)
+    rr_label = "claude-rr" if use_claude_rr else "recursive"
+    mode_label = "batch" if batch_mode else "sequential"
+
+    print(
+        f"\n🔄 Replaying {len(inputs)} reflector inputs through {len(versions)} prompt versions ({rr_label}, {mode_label})"
+    )
 
     reflector_model = getattr(args, "reflector_model", None) or args.model
     reflector_client = create_llm_client(args, model=reflector_model)
     pm = PromptManager()
 
-    output_base = input_dir / "training_recursive_sequential"
+    if use_claude_rr:
+        dir_name = (
+            "training_claude_rr_batch"
+            if batch_mode
+            else "training_claude_rr_sequential"
+        )
+    else:
+        dir_name = (
+            "training_recursive_batch"
+            if batch_mode
+            else "training_recursive_sequential"
+        )
+    output_base = input_dir / dir_name
     output_base.mkdir(parents=True, exist_ok=True)
 
     summary_table: Dict[str, int] = {}
 
-    for version in ALL_PROMPT_VERSION_NAMES:
+    for version in versions:
         print(f"\n{'=' * 60}")
-        print(f"  Prompt version: {version}")
+        print(f"  Prompt version: {version} ({mode_label})")
         print(f"{'=' * 60}")
 
         skillbook = Skillbook()
-        reflector = Reflector(
-            reflector_client,
-            mode=ReflectorMode.RECURSIVE,
-            recursive_prompt_template=get_prompt_template(version),
-        )
+
+        if use_claude_rr:
+            import os as _os
+            from ace_next.rr.claude_rr import ClaudeRRStep, ClaudeRRConfig
+
+            # Clear nesting-detection env vars so Claude Code subprocess can launch
+            for _k in (
+                "CLAUDECODE",
+                "CLAUDE_CODE_ENTRYPOINT",
+                "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS",
+            ):
+                _os.environ.pop(_k, None)
+
+            # Build env for Claude Code subprocess to use Bedrock
+            claude_env: dict[str, str] = {"CLAUDE_CODE_USE_BEDROCK": "1"}
+            for key in ("AWS_BEARER_TOKEN_BEDROCK", "AWS_REGION", "AWS_REGION_NAME"):
+                val = _os.environ.get(key)
+                if val:
+                    claude_env[key] = val
+            if "AWS_REGION" not in claude_env and "AWS_REGION_NAME" in claude_env:
+                claude_env["AWS_REGION"] = claude_env["AWS_REGION_NAME"]
+
+            # Strip LiteLLM "bedrock/" prefix for Claude Code native model ID
+            cc_model = args.model
+            if cc_model and cc_model.startswith("bedrock/"):
+                cc_model = cc_model[len("bedrock/") :]
+            if cc_model:
+                claude_env["ANTHROPIC_MODEL"] = cc_model
+
+            reflector = ClaudeRRStep(
+                ClaudeRRConfig(
+                    model=cc_model,
+                    env=claude_env,
+                    max_turns=15,
+                    max_budget_usd=1.00,
+                )
+            )
+        else:
+            rr_config = RecursiveConfig(max_iterations=8, enable_subagent=False)
+            reflector = RecursiveReflector(
+                llm=reflector_client,
+                prompt_template=get_prompt_template(version),
+                config=rr_config,
+            )
+
         skill_manager = SkillManager(
             reflector_client,
             prompt_template=pm.get_skill_manager_prompt(version="3.0"),
         )
 
-        for i, record in enumerate(inputs):
-            task_file = task_files[i]
-            task_id = task_file.stem  # e.g. "task_0"
+        if batch_mode:
+            # Build per-task trace records
+            tasks = []
+            combined_reasoning = []
+            combined_feedback = []
+            for i, record in enumerate(inputs):
+                task_file = task_files[i]
+                task_id = task_file.stem
+                ao_data = record["agent_output"]
+                status = (
+                    record["feedback"].split(":")[0]
+                    if ":" in record["feedback"]
+                    else "UNKNOWN"
+                )
+                tasks.append(
+                    {
+                        "task_id": task_id,
+                        "question": record["question"],
+                        "ground_truth": record.get("ground_truth"),
+                        "feedback": record["feedback"],
+                        "steps": [
+                            {
+                                "role": "agent",
+                                "reasoning": ao_data["reasoning"],
+                                "answer": ao_data["final_answer"],
+                                "skill_ids": ao_data.get("skill_ids", []),
+                            }
+                        ],
+                    }
+                )
+                combined_reasoning.append(
+                    f"### Task {i + 1}: {task_id} ({status})\n{ao_data['reasoning']}"
+                )
+                combined_feedback.append(
+                    f"Task {i + 1} ({task_id}): {record['feedback']}"
+                )
 
             try:
-                # Reconstruct AgentOutput from JSON (no trace_context — auto-built from reasoning)
-                ao_data = record["agent_output"]
-                agent_output = AgentOutput(
-                    final_answer=ao_data["final_answer"],
-                    reasoning=ao_data["reasoning"],
-                    skill_ids=ao_data.get("skill_ids", []),
-                )
-
-                reflection = reflector.reflect(
-                    question=record["question"],
-                    agent_output=agent_output,
-                    skillbook=skillbook,
-                    ground_truth=record.get("ground_truth"),
-                    feedback=record["feedback"],
-                )
+                if use_claude_rr:
+                    # Pass structured multi-task trace directly via trace= kwarg
+                    batch_trace = {
+                        "batch": True,
+                        "task_count": len(tasks),
+                        "tasks": tasks,
+                    }
+                    print(
+                        f"    Batch trace: {len(tasks)} tasks, ~{len(json.dumps(batch_trace, default=str))} chars"
+                    )
+                    reflection = reflector.reflect(
+                        question="Analyze patterns across all training tasks. Look for common failure modes, successful strategies, and cross-task patterns.",
+                        skillbook=skillbook,
+                        trace=batch_trace,
+                    )
+                else:
+                    # RecursiveReflector: flatten into a single AgentOutput
+                    mega_trace = "\n\n---\n\n".join(combined_reasoning)
+                    mega_feedback = "\n".join(combined_feedback)
+                    print(f"    Combined trace size: ~{len(mega_trace)} chars")
+                    agent_output = AgentOutput(
+                        final_answer=f"Batch of {len(inputs)} tasks",
+                        reasoning=mega_trace,
+                        skill_ids=[],
+                    )
+                    reflection = reflector.reflect(
+                        question="Analyze patterns across all training tasks. Look for common failure modes, successful strategies, and cross-task patterns.",
+                        agent_output=agent_output,
+                        skillbook=skillbook,
+                        ground_truth=None,
+                        feedback=mega_feedback,
+                    )
 
                 skill_manager_output = skill_manager.update_skills(
                     reflection=reflection,
                     skillbook=skillbook,
-                    question_context=record["question"],
-                    progress=f"{version} · {i + 1}/{len(inputs)}",
+                    question_context=f"Batch analysis of {len(inputs)} customer service tasks",
+                    progress=f"{version} · batch",
                 )
 
                 skillbook.apply_update(skill_manager_output.update)
-
-                print(f"    [{i + 1}/{len(inputs)}] {task_id} ✓ ({len(skillbook.skills())} skills)")
+                print(
+                    f"    Batch reflection ✓ ({len(skillbook.skills())} skills)",
+                    flush=True,
+                )
 
             except Exception as e:
-                print(f"    [{i + 1}/{len(inputs)}] {task_id} ERROR: {e}")
-                continue
+                print(f"    Batch reflection ERROR: {e}", flush=True)
+
+        else:
+            # Sequential mode: reflect on each trace individually
+            for i, record in enumerate(inputs):
+                task_file = task_files[i]
+                task_id = task_file.stem  # e.g. "task_0"
+
+                try:
+                    ao_data = record["agent_output"]
+                    agent_output = AgentOutput(
+                        final_answer=ao_data["final_answer"],
+                        reasoning=ao_data["reasoning"],
+                        skill_ids=ao_data.get("skill_ids", []),
+                    )
+
+                    reflection = reflector.reflect(
+                        question=record["question"],
+                        agent_output=agent_output,
+                        skillbook=skillbook,
+                        ground_truth=record.get("ground_truth"),
+                        feedback=record["feedback"],
+                    )
+
+                    skill_manager_output = skill_manager.update_skills(
+                        reflection=reflection,
+                        skillbook=skillbook,
+                        question_context=record["question"],
+                        progress=f"{version} · {i + 1}/{len(inputs)}",
+                    )
+
+                    skillbook.apply_update(skill_manager_output.update)
+
+                    print(
+                        f"    [{i + 1}/{len(inputs)}] {task_id} ✓ ({len(skillbook.skills())} skills)",
+                        flush=True,
+                    )
+
+                except Exception as e:
+                    print(
+                        f"    [{i + 1}/{len(inputs)}] {task_id} ERROR: {e}", flush=True
+                    )
+                    continue
 
         # Save trained skillbook
         version_dir = output_base / version
@@ -1296,11 +1659,11 @@ def replay_reflector_inputs(args: argparse.Namespace) -> None:
 
     # Print summary table
     print(f"\n{'=' * 40}")
-    print("  REPLAY SUMMARY")
+    print(f"  REPLAY SUMMARY ({mode_label})")
     print(f"{'=' * 40}")
     print(f"  {'Version':<10} {'Skills':>8}")
     print(f"  {'-' * 20}")
-    for version in ALL_PROMPT_VERSION_NAMES:
+    for version in versions:
         print(f"  {version:<10} {summary_table[version]:>8}")
     print(f"{'=' * 40}")
     print(f"\n✅ All skillbooks saved to {output_base}/")
@@ -1595,7 +1958,9 @@ def _run_prompt_sweep(args: argparse.Namespace) -> None:
             "metrics": results["metrics"],
             "tasks_evaluated": results["tasks_evaluated"],
         }
-    sweep_file = output_dir / f"tau_{args.domain}_{original_config_name}_sweep_{timestamp}.json"
+    sweep_file = (
+        output_dir / f"tau_{args.domain}_{original_config_name}_sweep_{timestamp}.json"
+    )
     with open(sweep_file, "w") as f:
         json.dump(sweep_summary, f, indent=2)
     print(f"\n💾 Sweep results saved to: {sweep_file}")
@@ -1605,11 +1970,14 @@ def main() -> None:
     """Main entry point."""
     args = parse_args()
 
+    # Convert mode: convert raw traces to reflector-input format and exit
+    if getattr(args, "convert_traces", None):
+        convert_raw_traces(args)
+        return
+
     # Capture mode: save reflector inputs and exit
     if getattr(args, "capture_reflector_inputs", None):
-        setup_opik_tracing(
-            args.domain, args.model, getattr(args, "opik_project", None)
-        )
+        setup_opik_tracing(args.domain, args.model, getattr(args, "opik_project", None))
         capture_reflector_inputs(args)
         return
 
@@ -1857,6 +2225,29 @@ def main() -> None:
         )
         print_results(results, "ENHANCED Results (pre-trained skillbook)", args)
         save_results(args, results, loaded_skillbook, "ace")
+
+    elif getattr(args, "train_only", False):
+        # Train only — save skillbook and exit
+        if args.batch_reflect:
+            skillbook = run_ace_batch_training(
+                train_tasks,
+                args,
+                args.quiet,
+                experiment_name=experiment_name,
+            )
+        else:
+            skillbook = run_ace_training(
+                train_tasks,
+                args,
+                args.quiet,
+                experiment_name=experiment_name,
+            )
+        save_results(
+            args,
+            {"tasks_evaluated": 0, "k": args.k, "pass_sums": {}, "metrics": {}},
+            skillbook,
+            "train_only",
+        )
 
     elif args.compare:
 

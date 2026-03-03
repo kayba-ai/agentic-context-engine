@@ -60,6 +60,7 @@ class ClaudeRRConfig:
     """Configuration for the Claude-based Recursive Reflector."""
 
     model: str | None = None
+    env: dict[str, str] | None = None
     max_turns: int = 10
     max_budget_usd: float = 0.50
     permission_mode: str = "bypassPermissions"
@@ -234,6 +235,7 @@ class ClaudeRRStep:
 
         options = ClaudeAgentOptions(
             model=cfg.model,
+            env=cfg.env,
             max_turns=cfg.max_turns,
             max_budget_usd=cfg.max_budget_usd,
             system_prompt=system_prompt,
