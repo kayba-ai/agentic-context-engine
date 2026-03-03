@@ -213,6 +213,31 @@ Protocols use structural typing (duck typing checked by mypy). A class satisfies
 - Mocks satisfy protocols without ceremony.
 - Steps are decoupled from implementations at the type level, not just by convention.
 
+### Architecture Layers
+
+The framework separates concerns into four layers:
+
+| Layer | Location | Responsibility | Example |
+|-------|----------|----------------|---------|
+| **Protocols** | `ace_next/protocols/` | Interface contracts | `ReflectorLike.reflect()` |
+| **Roles** | `ace_next/implementations/` | Business logic (LLM calls) | `Reflector`, `RRStep` |
+| **Steps** | `ace_next/steps/` | Context plumbing (extract → call role → put back) | `ReflectStep` |
+| **Runners** | `ace_next/runners/` | Orchestration (sample loop, epoch management) | `ACELiteLLM` |
+
+**Protocols** define what a role must look like. **Roles** implement the logic. **Steps** adapt between the pipeline's context-based data flow and the role's parameter-based API. **Runners** compose steps into pipelines and iterate over inputs.
+
+This means roles are interchangeable anywhere their protocol is expected:
+
+```python
+# Simple single-pass reflection
+ace = ACELiteLLM(llm, reflector=Reflector(llm))
+
+# Deep recursive reflection (drop-in replacement)
+ace = ACELiteLLM(llm, reflector=RRStep(llm, config=RRConfig(max_iterations=10)))
+```
+
+Both `Reflector` and `RRStep` satisfy `ReflectorLike`. The runner and pipeline don't know or care which one is in use.
+
 ---
 
 ## Class Hierarchy
@@ -230,11 +255,11 @@ ACELiteLLM (standalone convenience wrapper — not an ACERunner subclass)
 ├── ask()               — direct Agent call, no pipeline
 ├── learn()             — delegates to lazy-init ACE runner
 ├── learn_from_traces() — delegates to lazy-init TraceAnalyser
-└── learn_from_feedback()— manual single-shot learning from last ask()
+└── learn_from_feedback()— runs learning_tail pipeline from last ask()
 
 RRStep (SubRunner — composable iterative step)
 ├── __call__()          — StepProtocol entry; can be placed in any runner's pipeline
-├── reflect()           — ReflectorLike entry; standalone use
+├── reflect()           — ReflectorLike entry; usable as drop-in reflector in runners
 └── run_loop()          — SubRunner loop driver; inner Pipeline([LLMCall, ExtractCode, SandboxExec, CheckResult])
 ```
 
@@ -897,7 +922,7 @@ class RROpikStep:
     ) -> None: ...
 ```
 
-Dedicated observability step for the Recursive Reflector. Reads `ctx.reflection.raw["rr_trace"]` — a dict populated by `RRStep.reflect()` containing per-iteration REPL data and sub-agent call history — and creates a hierarchical Opik trace with child spans per iteration.
+Dedicated observability step for the Recursive Reflector. Reads `ctx.reflection.raw["rr_trace"]` — a dict populated by `RRStep` containing per-iteration REPL data and sub-agent call history — and creates a hierarchical Opik trace with child spans per iteration.
 
 Follows the same patterns as `OpikStep`: explicit opt-in only, soft-imports `opik`, respects `OPIK_DISABLED` env var, gracefully degrades to a no-op. Located in `ace_next/rr/opik.py` (co-located with the RR module, not in `ace_next/steps/`).
 
@@ -1024,6 +1049,7 @@ Concrete LLM-based implementations of the role protocols. Live in `ace_next/impl
 |---|---|---|---|
 | `Agent` | `AgentLike` | `generate()` | `implementations/agent.py` |
 | `Reflector` | `ReflectorLike` | `reflect()` | `implementations/reflector.py` |
+| `RRStep` | `ReflectorLike` + `StepProtocol` | `reflect()` / `__call__()` | `rr/runner.py` |
 | `SkillManager` | `SkillManagerLike` | `update_skills()` | `implementations/skill_manager.py` |
 
 All three share the same constructor pattern:
@@ -1053,7 +1079,7 @@ output = agent.generate(
 
 Analyzes agent outputs to extract lessons and improve strategies. Builds a skillbook excerpt from the agent's cited skill IDs (via `make_skillbook_excerpt()`), formats the prompt, and calls `llm.complete_structured(prompt, ReflectorOutput)`.
 
-**SIMPLE mode only** — single-pass reflection. Recursive mode (where the Reflector iterates multiple times to deepen analysis) is an advanced feature deferred to a later version.
+**SIMPLE mode only** — single-pass reflection. For recursive multi-iteration reflection, use `RRStep` — it satisfies the same `ReflectorLike` protocol and can be used as a drop-in replacement in any runner.
 
 ```python
 reflector = Reflector(llm)

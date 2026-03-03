@@ -22,6 +22,8 @@ from ..protocols import (
     ReflectorLike,
     SkillManagerLike,
 )
+from ..core.context import ACEStepContext, SkillbookView
+from ..steps import learning_tail
 from .ace import ACE
 from .trace_analyser import TraceAnalyser
 
@@ -338,8 +340,9 @@ class ACELiteLLM:
     ) -> bool:
         """Learn from the last :meth:`ask` interaction.
 
-        Runs the Reflector and SkillManager directly (no pipeline) on
-        the most recent ``ask()`` call with the provided feedback.
+        Runs the standard ``learning_tail`` pipeline (ReflectStep,
+        TagStep, UpdateStep, ApplyStep) on the most recent ``ask()``
+        call with the provided feedback.
 
         Args:
             feedback: User feedback about the answer quality.
@@ -354,21 +357,37 @@ class ACELiteLLM:
 
         question, agent_output = self._last_interaction
 
-        reflection = self.reflector.reflect(
-            question=question,
-            agent_output=agent_output,
-            skillbook=self._skillbook,
-            ground_truth=ground_truth,
-            feedback=feedback,
+        # Build synthetic trace (same format EvaluateStep produces)
+        trace = {
+            "question": question,
+            "context": "",
+            "ground_truth": ground_truth,
+            "reasoning": agent_output.reasoning,
+            "answer": agent_output.final_answer,
+            "skill_ids": agent_output.skill_ids,
+            "feedback": feedback,
+        }
+
+        ctx = ACEStepContext(
+            skillbook=SkillbookView(self._skillbook),
+            trace=trace,
         )
-        sm_output = self.skill_manager.update_skills(
-            reflection=reflection,
-            skillbook=self._skillbook,
-            question_context=f"User interaction: {question}",
-            progress="Learning from user feedback",
+
+        # Same learning pipeline as learn() and learn_from_traces()
+        from pipeline import Pipeline
+
+        steps = learning_tail(
+            self.reflector,
+            self.skill_manager,
+            self._skillbook,
         )
-        self._skillbook.apply_update(sm_output.update)
-        return True
+        if self._opik_step is not None:
+            steps.append(self._opik_step)
+
+        pipe = Pipeline(steps)
+        results = pipe.run([ctx])
+        pipe.wait_for_background()  # ReflectStep has async_boundary=True
+        return len(results) > 0 and results[0].error is None
 
     # ------------------------------------------------------------------
     # Lifecycle
