@@ -9,7 +9,7 @@ composition into the ACE pipeline.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, Optional
 
 from pipeline import Pipeline
 from pipeline.context import StepContext
@@ -23,13 +23,10 @@ from .subagent import CallBudget, SubAgentConfig, create_ask_llm_function
 from .trace_context import TraceContext
 
 from ace_next.core.context import ACEStepContext
-from ace_next.core.outputs import ExtractedLearning, ReflectorOutput
+from ace_next.core.outputs import AgentOutput, ExtractedLearning, ReflectorOutput
 
 from .context import RRIterationContext
 from .steps import LLMCallStep, ExtractCodeStep, SandboxExecStep, CheckResultStep
-
-if TYPE_CHECKING:
-    from ace_next.core.outputs import AgentOutput
 
 logger = logging.getLogger(__name__)
 
@@ -45,9 +42,8 @@ def _preview(text: str | None, max_len: int = 150) -> str:
 class RRStep(SubRunner):
     """Recursive Reflector as a pipeline step (SubRunner pattern).
 
-    Satisfies **StepProtocol** — can be placed directly in a Pipeline.
-    Also satisfies **ReflectorLike** — can be passed to ``ReflectStep``
-    or used standalone via ``reflect()``.
+    Satisfies **StepProtocol** (place directly in a Pipeline) and
+    **ReflectorLike** (use as drop-in reflector in runners via ReflectStep).
 
     Internally builds a ``Pipeline([LLMCallStep, ExtractCodeStep,
     SandboxExecStep, CheckResultStep])`` and calls it once per REPL
@@ -170,33 +166,56 @@ class RRStep(SubRunner):
     # ------------------------------------------------------------------
 
     def __call__(self, ctx: ACEStepContext) -> ACEStepContext:  # type: ignore[override]
-        """Run the Recursive Reflector and attach the reflection to *ctx*.
-
-        Mirrors :class:`~ace_next.steps.reflect.ReflectStep` unpacking so
-        that RRStep can be placed directly in a Pipeline without a separate
-        ReflectStep wrapper.
-        """
+        """Run the Recursive Reflector and attach the reflection to *ctx*."""
         trace = ctx.trace or {}
         if isinstance(trace, dict):
-            reflection = self.reflect(
+            reflection = self._run_reflection(
+                traces=trace,
                 question=trace.get("question", ""),
                 ground_truth=trace.get("ground_truth"),
                 feedback=trace.get("feedback"),
-                traces=trace,
                 skillbook=ctx.skillbook,
             )
         else:
-            reflection = self.reflect(
+            reflection = self._run_reflection(
                 skillbook=ctx.skillbook,
                 trace=trace,
             )
         return ctx.replace(reflection=reflection)
 
     # ------------------------------------------------------------------
-    # ReflectorLike entry (also usable standalone)
+    # ReflectorLike protocol
     # ------------------------------------------------------------------
 
     def reflect(
+        self,
+        *,
+        question: str,
+        agent_output: AgentOutput,
+        skillbook: Any = None,
+        ground_truth: Optional[str] = None,
+        feedback: Optional[str] = None,
+        **kwargs: Any,
+    ) -> ReflectorOutput:
+        """ReflectorLike — delegates to the internal REPL loop.
+
+        Allows RRStep to be used as a drop-in replacement for Reflector
+        in any runner or learning_tail pipeline.
+        """
+        return self._run_reflection(
+            question=question,
+            agent_output=agent_output,
+            skillbook=skillbook,
+            ground_truth=ground_truth,
+            feedback=feedback,
+            **kwargs,
+        )
+
+    # ------------------------------------------------------------------
+    # Core reflection logic
+    # ------------------------------------------------------------------
+
+    def _run_reflection(
         self,
         *,
         question: str = "",
@@ -206,13 +225,7 @@ class RRStep(SubRunner):
         feedback: Optional[str] = None,
         **kwargs: Any,
     ) -> ReflectorOutput:
-        """Run the recursive REPL loop and return analysis.
-
-        Accepts the same signature as ``ReflectorLike.reflect()`` so it
-        can be used as a drop-in replacement.  When called from
-        ``__call__`` (StepProtocol), only *trace* and *skillbook* are
-        provided via kwargs.
-        """
+        """Run the recursive REPL loop and return analysis."""
         # Allow passing trace/skillbook via kwargs (from __call__)
         trace_obj = kwargs.pop("trace", None)
         if trace_obj is None and agent_output is not None:

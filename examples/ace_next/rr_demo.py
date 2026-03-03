@@ -13,9 +13,7 @@ Usage:
 
     # With Opik tracing (requires ``pip install opik`` and OPIK_API_KEY):
     #   from ace_next.rr import RROpikStep
-    #   rr_opik = RROpikStep(project_name="my-project")
-    #   # Place after RRStep in your pipeline, or call manually:
-    #   rr_opik(result_ctx)
+    #   pipe = Pipeline([rr, RROpikStep(project_name="my-project")])
 """
 
 import logging
@@ -33,7 +31,6 @@ load_dotenv(_root / ".env")
 from ace_next.providers.litellm import LiteLLMClient
 from ace_next.rr import RRConfig, RRStep, TraceSandbox, TraceContext, TraceStep
 from ace_next.core.context import ACEStepContext, SkillbookView
-from ace_next.core.outputs import AgentOutput, ReflectorOutput
 from ace_next.core.skillbook import Skillbook
 
 MODEL = os.getenv("ACE_MODEL", "anthropic/claude-haiku-4-5-20251001")
@@ -55,12 +52,12 @@ def section(name: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Demo 1: RRStep.reflect() — agent got the wrong answer
+# Demo 1: RRStep — agent got the wrong answer
 # ---------------------------------------------------------------------------
 
 def demo_wrong_answer():
     """RR analyzes a trace where the agent answered incorrectly."""
-    section("Demo 1: RRStep.reflect() — wrong answer")
+    section("Demo 1: RRStep — wrong answer")
 
     llm = LiteLLMClient(model=MODEL, max_tokens=4096)
     rr = RRStep(
@@ -68,21 +65,30 @@ def demo_wrong_answer():
         config=RRConfig(max_iterations=8, enable_subagent=False),
     )
 
-    result = rr.reflect(
-        question="What is the largest planet in our solar system by mass?",
-        agent_output=AgentOutput(
-            reasoning=(
-                "The user is asking about the largest planet. "
-                "Saturn has those huge rings and is very large. "
-                "I'll go with Saturn."
-            ),
-            final_answer="Saturn",
-            skill_ids=[],
-        ),
-        skillbook=Skillbook(),
-        ground_truth="Jupiter",
-        feedback="Incorrect. The correct answer is Jupiter, not Saturn.",
+    ctx = ACEStepContext(
+        trace={
+            "question": "What is the largest planet in our solar system by mass?",
+            "ground_truth": "Jupiter",
+            "feedback": "Incorrect. The correct answer is Jupiter, not Saturn.",
+            "steps": [
+                {
+                    "role": "agent",
+                    "reasoning": (
+                        "The user is asking about the largest planet. "
+                        "Saturn has those huge rings and is very large. "
+                        "I'll go with Saturn."
+                    ),
+                    "answer": "Saturn",
+                    "skill_ids": [],
+                }
+            ],
+        },
+        skillbook=SkillbookView(Skillbook()),
     )
+
+    result_ctx = rr(ctx)
+    assert result_ctx.reflection is not None
+    result = result_ctx.reflection
 
     print(f"\n  --- Result ---")
     print(f"  Reasoning: {result.reasoning[:200]}")

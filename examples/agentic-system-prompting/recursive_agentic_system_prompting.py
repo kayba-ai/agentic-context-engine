@@ -6,7 +6,7 @@ Feeds pre-recorded agent traces through TraceAnalyser (offline mode) to
 extract reusable strategies into a skillbook.
 
 Each trace file is loaded as a traces-format dict and passed directly
-to RRStep.reflect(traces=...) via a thin adapter step, so the sandbox
+to RRStep via a thin adapter step, so the sandbox
 receives the full conversation data.
 
 TraceAnalyser handles the rest of the learning-tail pipeline:
@@ -63,15 +63,14 @@ from ace.reflector.prompts_rr_v5 import REFLECTOR_RECURSIVE_V5_PROMPT
 
 
 # ---------------------------------------------------------------------------
-# Adapter step: passes raw trace as the `traces` kwarg to RRStep.reflect()
-# so the sandbox receives the full conversation data.
+# Adapter step: normalises raw traces into the dict format RRStep expects.
 # ---------------------------------------------------------------------------
 class RRTraceStep:
-    """Bridge between TraceAnalyser's per-trace context and RRStep.reflect().
+    """Bridge between TraceAnalyser's per-trace context and RRStep.
 
-    TraceAnalyser places the raw trace on ``ctx.trace``.  RRStep.reflect()
-    needs it as the ``traces`` keyword argument to populate the sandbox
-    ``traces`` variable and prompt metadata correctly.
+    TraceAnalyser places the raw trace on ``ctx.trace``.  RRStep.__call__
+    expects a traces-format dict with a ``steps`` key.  This adapter
+    normalises the trace and delegates to ``RRStep.__call__``.
     """
 
     requires = frozenset({"trace", "skillbook"})
@@ -91,11 +90,7 @@ class RRTraceStep:
                 "question": str(trace.get("id", "")) if isinstance(trace, dict) else "",
                 "steps": [trace],
             }
-        reflection = self.rr.reflect(
-            traces=traces_dict,
-            skillbook=ctx.skillbook,
-        )
-        return ctx.replace(reflection=reflection)
+        return self.rr(ctx.replace(trace=traces_dict))
 
 
 def load_traces(traces_dir: Path) -> Dict[str, Any]:

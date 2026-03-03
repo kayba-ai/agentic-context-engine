@@ -12,6 +12,7 @@ from ace_next.rr.config import RecursiveConfig
 from ace_next.rr.sandbox import TraceSandbox
 from ace_next.rr.subagent import CallBudget
 
+from ace_next.core.context import ACEStepContext, SkillbookView
 from ace_next.core.outputs import AgentOutput, ReflectorOutput
 from ace_next.core.skillbook import Skillbook
 from ace_next.rr import RRConfig, RRStep
@@ -55,8 +56,25 @@ def _make_rr(llm, max_iterations=5, **kw):
     )
 
 
-def _agent_output(answer="4"):
-    return AgentOutput(reasoning="r", final_answer=answer, skill_ids=[])
+def _make_ctx(
+    question: str = "q",
+    answer: str = "4",
+    reasoning: str = "r",
+    ground_truth: str | None = None,
+    feedback: str | None = None,
+) -> ACEStepContext:
+    """Build an ACEStepContext suitable for RRStep.__call__."""
+    trace: dict = {
+        "question": question,
+        "steps": [
+            {"role": "agent", "reasoning": reasoning, "answer": answer, "skill_ids": []}
+        ],
+    }
+    if ground_truth is not None:
+        trace["ground_truth"] = ground_truth
+    if feedback is not None:
+        trace["feedback"] = feedback
+    return ACEStepContext(trace=trace, skillbook=SkillbookView(Skillbook()))
 
 
 FINAL_GOOD = """```python
@@ -85,13 +103,10 @@ class TestLoopLifecycle:
         """Happy path: explore on iter 0, FINAL on iter 1."""
         llm = MockLLM([EXPLORE, FINAL_GOOD])
         rr = _make_rr(llm)
-        result = rr.reflect(
-            question="What is 2+2?",
-            agent_output=_agent_output(),
-            skillbook=Skillbook(),
-            ground_truth="4",
-            feedback="Correct!",
-        )
+        result_ctx = rr(_make_ctx(
+            question="What is 2+2?", ground_truth="4", feedback="Correct!",
+        ))
+        result = result_ctx.reflection
         assert isinstance(result, ReflectorOutput)
         assert result.key_insight == "insight"
         assert llm.call_count == 2
@@ -101,26 +116,24 @@ class TestLoopLifecycle:
         premature = '```python\nFINAL({"reasoning":"fast","key_insight":"k","correct_approach":"a"})\n```'
         llm = MockLLM([premature, EXPLORE, FINAL_GOOD])
         rr = _make_rr(llm)
-        result = rr.reflect(
-            question="q", agent_output=_agent_output(), skillbook=Skillbook()
-        )
-        assert result.key_insight == "insight"
+        result_ctx = rr(_make_ctx())
+        assert result_ctx.reflection is not None
+        assert result_ctx.reflection.key_insight == "insight"
         assert llm.call_count == 3
 
     def test_max_iterations_timeout(self):
         """All iterations exhaust without FINAL -> timeout output."""
         llm = MockLLM([EXPLORE] * 3)
         rr = _make_rr(llm, max_iterations=3, enable_fallback_synthesis=False)
-        result = rr.reflect(
-            question="q", agent_output=_agent_output(), skillbook=Skillbook()
-        )
-        assert isinstance(result, ReflectorOutput)
-        assert "max iterations" in result.reasoning.lower()
+        result_ctx = rr(_make_ctx())
+        assert result_ctx.reflection is not None
+        assert isinstance(result_ctx.reflection, ReflectorOutput)
+        assert "max iterations" in result_ctx.reflection.reasoning.lower()
 
     def test_budget_exhaustion_stops_gracefully(self):
         """Budget runs out mid-loop — LLM should NOT be called."""
         llm = MockLLM([EXPLORE] * 10)
-        rr = _make_rr(llm, max_iterations=10)
+        _make_rr(llm, max_iterations=10)
 
         # Directly test LLMCallStep with an already-exhausted budget
         budget = CallBudget(max_calls=0)  # already exhausted
@@ -144,30 +157,27 @@ class TestLoopLifecycle:
         )
         llm = MockLLM([raw])
         rr = _make_rr(llm)
-        result = rr.reflect(
-            question="q", agent_output=_agent_output(), skillbook=Skillbook()
-        )
-        assert result.key_insight == "di"
+        result_ctx = rr(_make_ctx())
+        assert result_ctx.reflection is not None
+        assert result_ctx.reflection.key_insight == "di"
 
     def test_empty_llm_response_gets_feedback(self):
         """Empty response triggers retry feedback, then FINAL succeeds."""
         llm = MockLLM(["", EXPLORE, FINAL_GOOD])
         rr = _make_rr(llm)
-        result = rr.reflect(
-            question="q", agent_output=_agent_output(), skillbook=Skillbook()
-        )
-        assert isinstance(result, ReflectorOutput)
-        assert result.key_insight == "insight"
+        result_ctx = rr(_make_ctx())
+        assert result_ctx.reflection is not None
+        assert isinstance(result_ctx.reflection, ReflectorOutput)
+        assert result_ctx.reflection.key_insight == "insight"
         assert llm.call_count == 3
 
     def test_20_iterations_message_accumulation(self):
         """Long loop — verify messages accumulate correctly."""
         llm = MockLLM([EXPLORE] * 20)
         rr = _make_rr(llm, max_iterations=20, enable_fallback_synthesis=False)
-        result = rr.reflect(
-            question="q", agent_output=_agent_output(), skillbook=Skillbook()
-        )
-        assert "max iterations" in result.reasoning.lower()
+        result_ctx = rr(_make_ctx())
+        assert result_ctx.reflection is not None
+        assert "max iterations" in result_ctx.reflection.reasoning.lower()
         assert llm.call_count == 20
 
 
@@ -317,43 +327,26 @@ class TestSandboxBehavior:
 
 
 # =========================================================================
-# 5. Dual entry points
+# 5. Entry points
 # =========================================================================
 
 
 @pytest.mark.unit
-class TestDualEntryPoints:
-    def test_reflect_and_call_produce_same_result(self):
-        """Both reflect() and __call__() should produce a ReflectorOutput."""
-        from ace_next.core.context import ACEStepContext, SkillbookView
-
-        explore = EXPLORE
-        final = FINAL_GOOD
-        sb = Skillbook()
-
-        # reflect() path
-        llm1 = MockLLM([explore, final])
-        rr1 = _make_rr(llm1)
-        result1 = rr1.reflect(question="q", agent_output=_agent_output(), skillbook=sb)
-
-        # __call__() path
-        llm2 = MockLLM([explore, final])
-        rr2 = _make_rr(llm2)
+class TestEntryPoints:
+    def test_call_produces_reflection(self):
+        """__call__() produces a ReflectorOutput on the context."""
+        llm = MockLLM([EXPLORE, FINAL_GOOD])
+        rr = _make_rr(llm)
         traces = {
             "question": "q",
-            "ground_truth": None,
-            "feedback": None,
             "steps": [
                 {"role": "agent", "reasoning": "r", "answer": "4", "skill_ids": []}
             ],
         }
-        ctx = ACEStepContext(trace=traces, skillbook=SkillbookView(sb))
-        result_ctx = rr2(ctx)
-        result2 = result_ctx.reflection
-
-        assert isinstance(result1, ReflectorOutput)
-        assert isinstance(result2, ReflectorOutput)
-        assert result1.key_insight == result2.key_insight
+        ctx = ACEStepContext(trace=traces, skillbook=SkillbookView(Skillbook()))
+        result_ctx = rr(ctx)
+        assert isinstance(result_ctx.reflection, ReflectorOutput)
+        assert result_ctx.reflection.key_insight == "insight"
 
     def test_run_loop_direct_with_all_kwargs(self):
         """run_loop() standalone with full kwargs produces valid output."""
