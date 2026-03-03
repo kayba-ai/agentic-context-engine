@@ -73,7 +73,7 @@ class Reflector:
                 ``get_skill``).
             ground_truth: Expected correct answer (if available).
             feedback: Environment feedback text.
-            **kwargs: Forwarded to the LLM client.
+            **kwargs: Accepted for protocol compatibility but not forwarded.
 
         Returns:
             :class:`ReflectorOutput` with analysis and skill tags.
@@ -95,5 +95,5 @@ class Reflector:
         )
 
         return self.llm.complete_structured(
-            prompt, ReflectorOutput, max_retries=self.max_retries, **kwargs
+            prompt, ReflectorOutput, max_retries=self.max_retries
         )

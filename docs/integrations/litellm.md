@@ -31,6 +31,9 @@ agent.save("learned.json")
 | `environment` | `TaskEnvironment` | `None` | Evaluation environment |
 | `dedup_config` | `DeduplicationConfig` | `None` | Skill deduplication config |
 | `is_learning` | `bool` | `True` | Enable/disable learning |
+| `opik` | `bool` | `False` | Enable Opik observability (pipeline traces + LiteLLM per-call cost tracking) |
+| `opik_project` | `str` | `"ace-framework"` | Opik project name for organizing traces |
+| `opik_tags` | `list[str]` | `None` | Tags applied to every Opik trace |
 
 ## Methods
 
@@ -140,6 +143,23 @@ agent = ACELiteLLM.from_model("ollama/llama2")
 # Custom endpoint
 agent = ACELiteLLM.from_model("gpt-4o-mini", base_url="https://your-endpoint.com")
 ```
+
+## Opik Observability
+
+Enable tracing and cost tracking with a single flag:
+
+```python
+ace = ACELiteLLM.from_model("gpt-4o-mini", opik=True, opik_project="my-experiment")
+
+# Both tracing modes are enabled:
+# 1. Pipeline traces (OpikStep) — one trace per sample with ACE context
+# 2. LiteLLM callback — per-LLM-call token/cost tracking
+
+results = ace.learn(samples, environment=SimpleEnvironment(), epochs=3)
+# View traces at http://localhost:5173 → project "my-experiment"
+```
+
+See [Opik Observability](opik.md) for full details, environment variables, and manual setup.
 
 ## What to Read Next
 

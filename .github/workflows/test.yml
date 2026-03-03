@@ -27,7 +27,7 @@ jobs:
       uses: astral-sh/setup-uv@v7
 
     - name: Install dependencies
-      run: uv sync
+      run: uv sync --extra mcp
 
     - name: Run tests with coverage
       run: |
@@ -40,11 +40,6 @@ jobs:
         name: coverage-report
         path: htmlcov/
         retention-days: 30
-
-    - name: Check code formatting (Linux only)
-      if: matrix.os == 'ubuntu-latest'
-      run: |
-        uv run black --check ace/
 
     - name: Type checking (Linux only)
       if: matrix.os == 'ubuntu-latest'

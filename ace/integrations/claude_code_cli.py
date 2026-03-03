@@ -230,6 +230,7 @@ class ACEClaudeCode:
                 capture_output=True,
                 timeout=self.timeout,
                 env=env,
+                encoding='utf-8',
             )
 
             execution_trace, summary = self._parse_stream_json(result.stdout)

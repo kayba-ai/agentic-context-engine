@@ -1,6 +1,11 @@
 # Opik Observability
 
-ACE integrates with [Opik](https://github.com/comet-ml/opik) for tracing, cost tracking, and performance monitoring. Opik is added as an explicit pipeline step — append `OpikStep` to any pipeline to log traces automatically.
+ACE integrates with [Opik](https://github.com/comet-ml/opik) for tracing, cost tracking, and performance monitoring. All Opik tracing is **explicit opt-in** — it is never auto-enabled just because the package is installed.
+
+Two independent tracing modes:
+
+1. **Pipeline step** (`OpikStep`) — client-agnostic, logs one Opik trace per sample with ACE context fields.
+2. **LiteLLM callback** (`register_opik_litellm_callback`) — LiteLLM-specific, tracks per-LLM-call tokens and costs.
 
 ## Installation
 
@@ -11,13 +16,20 @@ pip install ace-framework[observability]
 ## Quick Start
 
 ```python
+from ace_next import ACELiteLLM
+
+# Easiest: ACELiteLLM enables both tracing modes with one flag
+ace = ACELiteLLM.from_model("gpt-4o-mini", opik=True, opik_project="my-experiment")
+```
+
+```python
 from ace_next import (
     ACE, OpikStep,
-    Agent, Reflector, SkillManager, Skillbook,
+    Agent, Reflector, SkillManager,
     LiteLLMClient, SimpleEnvironment,
 )
 
-# Option 1: Add OpikStep to an ACE runner
+# Manual: Add OpikStep via extra_steps
 client = LiteLLMClient(model="gpt-4o-mini")
 
 runner = ACE.from_roles(
@@ -25,12 +37,12 @@ runner = ACE.from_roles(
     reflector=Reflector(client),
     skill_manager=SkillManager(client),
     environment=SimpleEnvironment(),
+    extra_steps=[OpikStep(project_name="my-experiment")],
 )
-runner.pipeline.then(OpikStep(project_name="my-experiment"))
 ```
 
 ```python
-# Option 2: LLM-level cost tracking only (no pipeline traces)
+# LLM-level cost tracking only (no pipeline traces)
 from ace_next import register_opik_litellm_callback
 
 registered = register_opik_litellm_callback(project_name="my-experiment")
@@ -63,7 +75,6 @@ registered = register_opik_litellm_callback(project_name="my-experiment")
 |-----------|------|---------|-------------|
 | `project_name` | `str` | `"ace-framework"` | Opik project for organizing traces |
 | `tags` | `list[str]` | `None` | Extra tags attached to every trace |
-| `register_litellm_callback` | `bool` | `True` | Also register per-LLM-call cost tracking |
 
 ### What Gets Logged
 
@@ -94,14 +105,7 @@ graph TD
 
 ## LLM Cost Tracking
 
-When `register_litellm_callback=True` (the default), `OpikStep` registers an `OpikLogger` callback on LiteLLM. Every LLM call is automatically tracked with:
-
-- Input / output tokens
-- Model used
-- Cost per call
-- Latency
-
-You can also register the callback independently:
+`OpikStep` does **not** register the LiteLLM callback — the two tracing modes are independent. To get per-LLM-call cost tracking, call `register_opik_litellm_callback()` separately:
 
 ```python
 from ace_next import register_opik_litellm_callback
@@ -110,7 +114,14 @@ success = register_opik_litellm_callback(project_name="cost-tracking")
 # Returns True if registered, False if Opik unavailable
 ```
 
-This is useful when you want cost tracking without pipeline-level traces (e.g. with `ACELiteLLM`).
+Every LLM call is then automatically tracked with:
+
+- Input / output tokens
+- Model used
+- Cost per call
+- Latency
+
+When using `ACELiteLLM` with `opik=True`, both modes are enabled together automatically — no need to call `register_opik_litellm_callback()` manually.
 
 ## Environment Variables
 
@@ -122,9 +133,16 @@ This is useful when you want cost tracking without pipeline-level traces (e.g. w
 | `OPIK_URL_OVERRIDE` | Custom Opik server URL | `http://localhost:5173/api` |
 | `OPIK_WORKSPACE` | Opik workspace name | `default` |
 
-## Graceful Degradation
+## Error Handling
 
-`OpikStep` soft-imports Opik. If the package is not installed or tracing is disabled via environment variables, the step silently becomes a no-op — no errors, no traces, no performance impact.
+When using `ACELiteLLM` with `opik=True`, errors are **raised immediately**:
+
+- `ImportError` if the `opik` package is not installed
+- `RuntimeError` if the Opik client fails to initialize (bad config, disabled via env vars)
+
+This ensures you know immediately if tracing is broken, rather than discovering missing traces later.
+
+When using `OpikStep` directly via `extra_steps`, it soft-imports Opik and silently becomes a no-op if the package is absent — useful for pipelines that should work with or without observability.
 
 ```python
 from ace_next import OPIK_AVAILABLE
@@ -132,6 +150,30 @@ from ace_next import OPIK_AVAILABLE
 if OPIK_AVAILABLE:
     print("Opik tracing is available")
 ```
+
+## Troubleshooting: `~/.opik.config`
+
+The Opik SDK stores a global config file at `~/.opik.config` (created by `opik.configure()`). This file **overrides environment variables** and can cause silent failures if it contains stale settings.
+
+If traces aren't appearing, check:
+
+```bash
+cat ~/.opik.config
+```
+
+A correct config for Comet Cloud looks like:
+
+```ini
+[opik]
+url_override = https://www.comet.com/opik/api/
+workspace = your-workspace-name
+```
+
+Common issues:
+
+- **Wrong URL**: `https://www.comet.com/api/` (missing `/opik/`) causes 404 errors
+- **Wrong workspace**: `workspace = default` instead of your actual workspace name
+- **Stale config**: Re-run `opik.configure()` or edit the file directly to fix
 
 ## Disabling Tracing
 
@@ -145,36 +187,54 @@ OPIK_ENABLED=false python my_script.py
 
 ## Full Example
 
-```python
-from ace_next import (
-    ACE, Agent, Reflector, SkillManager, Skillbook,
-    LiteLLMClient, SimpleEnvironment, Sample, OpikStep,
-)
+=== "ACELiteLLM (easiest)"
 
-client = LiteLLMClient(model="gpt-4o-mini")
-skillbook = Skillbook()
+    ```python
+    from ace_next import ACELiteLLM, Sample, SimpleEnvironment
 
-runner = ACE.from_roles(
-    agent=Agent(client),
-    reflector=Reflector(client),
-    skill_manager=SkillManager(client),
-    environment=SimpleEnvironment(),
-    skillbook=skillbook,
-)
+    ace = ACELiteLLM.from_model("gpt-4o-mini", opik=True, opik_project="ace-training")
 
-# Add OpikStep to the runner's pipeline
-runner.pipeline.then(OpikStep(project_name="ace-training"))
+    samples = [
+        Sample(question="What is 2+2?", context="", ground_truth="4"),
+        Sample(question="Capital of France?", context="", ground_truth="Paris"),
+    ]
 
-samples = [
-    Sample(question="What is 2+2?", context="", ground_truth="4"),
-    Sample(question="Capital of France?", context="", ground_truth="Paris"),
-]
+    results = ace.learn(samples, environment=SimpleEnvironment(), epochs=3)
+    ace.save("trained.json")
 
-results = runner.run(samples, epochs=3)
-runner.save("trained.json")
+    # View traces at http://localhost:5173 → project "ace-training"
+    ```
 
-# View traces at http://localhost:5173 → project "ace-training"
-```
+=== "ACE runner (manual)"
+
+    ```python
+    from ace_next import (
+        ACE, Agent, Reflector, SkillManager, Skillbook,
+        LiteLLMClient, SimpleEnvironment, Sample, OpikStep,
+        register_opik_litellm_callback,
+    )
+
+    client = LiteLLMClient(model="gpt-4o-mini")
+
+    runner = ACE.from_roles(
+        agent=Agent(client),
+        reflector=Reflector(client),
+        skill_manager=SkillManager(client),
+        environment=SimpleEnvironment(),
+        extra_steps=[OpikStep(project_name="ace-training")],
+    )
+
+    # Optionally add LLM-level cost tracking
+    register_opik_litellm_callback(project_name="ace-training")
+
+    samples = [
+        Sample(question="What is 2+2?", context="", ground_truth="4"),
+        Sample(question="Capital of France?", context="", ground_truth="Paris"),
+    ]
+
+    results = runner.run(samples, epochs=3)
+    runner.save("trained.json")
+    ```
 
 ## What to Read Next
 

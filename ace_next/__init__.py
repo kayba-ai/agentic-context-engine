@@ -28,6 +28,7 @@ from .runners import (
     LangChain,
     TraceAnalyser,
 )
+from .rr import RRConfig, RRStep
 from .steps.opik import OPIK_AVAILABLE, OpikStep, register_opik_litellm_callback
 
 __all__ = [
@@ -56,6 +57,9 @@ __all__ = [
     "ClaudeCode",
     "LangChain",
     "TraceAnalyser",
+    # Recursive Reflector
+    "RRStep",
+    "RRConfig",
     # Deduplication
     "DeduplicationConfig",
     "DeduplicationManager",

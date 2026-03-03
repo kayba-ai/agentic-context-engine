@@ -65,7 +65,7 @@ class Agent:
             context: Additional context or requirements.
             skillbook: Current skillbook (duck-typed, needs ``as_prompt``).
             reflection: Optional reflection from a previous attempt.
-            **kwargs: Forwarded to the LLM client.
+            **kwargs: Accepted for protocol compatibility but not forwarded.
 
         Returns:
             :class:`AgentOutput` with reasoning, final_answer, and
@@ -79,7 +79,7 @@ class Agent:
         )
 
         output: AgentOutput = self.llm.complete_structured(
-            prompt, AgentOutput, max_retries=self.max_retries, **kwargs
+            prompt, AgentOutput, max_retries=self.max_retries
         )
         output.skill_ids = extract_cited_skill_ids(output.reasoning)
         return output

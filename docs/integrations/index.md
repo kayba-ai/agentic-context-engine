@@ -10,6 +10,8 @@ ACE provides runners for popular agentic frameworks. Each runner adds self-impro
 | [`LangChain`](langchain.md) | LangChain Runnables | Chain inputs | Meso |
 | [`BrowserUse`](browser-use.md) | browser-use | Task strings | Meso |
 | [`ClaudeCode`](claude-code.md) | Claude Code CLI | Task strings | Meso |
+| [OpenClaw](openclaw.md) | OpenClaw transcripts | JSONL trace files | Meso |
+| [MCP Server](mcp.md) | MCP (stdio) | Tool calls | Micro |
 | [Opik](opik.md) | Opik observability | — | Monitoring |
 
 ## The Pattern
@@ -56,4 +58,6 @@ All runners share these capabilities:
 - **Automating browser tasks?** Use [BrowserUse](browser-use.md)
 - **Running coding tasks with Claude Code?** Use [ClaudeCode](claude-code.md)
 - **Want to monitor costs and traces?** Add [Opik](opik.md)
+- **Learning from OpenClaw session transcripts?** Use [OpenClaw](openclaw.md)
+- **Exposing ACE as an MCP tool provider?** Use the [MCP Server](mcp.md)
 - **Using a different framework?** See the [Integration Guide](../guides/integration.md) to build a custom runner

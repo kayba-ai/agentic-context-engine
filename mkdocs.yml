@@ -76,6 +76,7 @@ nav:
     - Browser-Use: integrations/browser-use.md
     - Claude Code: integrations/claude-code.md
     - Opik Observability: integrations/opik.md
+    - OpenClaw: integrations/openclaw.md
   - API Reference: api/index.md
 
 markdown_extensions:

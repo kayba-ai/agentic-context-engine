@@ -1,0 +1,73 @@
+# Dockerfile.ace — OpenClaw + ACE (self-improving agent)
+#
+# Extends the OpenClaw image with Python 3.12 and the ACE framework
+# pre-installed, so the agent can learn from past sessions automatically.
+#
+# Build (two-step, from the openclaw repo root):
+#
+#   # 1. Build the base OpenClaw image
+#   docker build -t openclaw:base .
+#
+#   # 2. Extend with ACE
+#   docker build -t openclaw:local -f Dockerfile.ace .
+#
+# Then set OPENCLAW_IMAGE=openclaw:local in your .env file.
+#
+# IMPORTANT: You must pass your LLM API key through docker-compose so
+# ace-learn can call the reflection model. Add to docker-compose.yml
+# under the gateway service's environment section:
+#
+#   ACE_MODEL: "bedrock/us.anthropic.claude-sonnet-4-20250514-v1:0"
+#   # Plus one of: AWS_BEARER_TOKEN_BEDROCK, ANTHROPIC_API_KEY,
+#   #              OPENROUTER_API_KEY, or LITELLM_API_KEY
+
+ARG OPENCLAW_IMAGE=openclaw:base
+FROM ${OPENCLAW_IMAGE}
+
+USER root
+
+# ---------------------------------------------------------------------------
+# Python 3.12 + uv
+# ---------------------------------------------------------------------------
+
+# uv — fast Python package & version manager
+RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
+
+# Install Python 3.12 to a shared location
+# (bookworm ships 3.11; uv downloads an official standalone build)
+ENV UV_PYTHON_INSTALL_DIR=/opt/python
+RUN uv python install 3.12
+
+# ---------------------------------------------------------------------------
+# ACE framework
+# ---------------------------------------------------------------------------
+
+RUN rm -rf /opt/ace \
+    && git clone --depth 1 https://github.com/Kayba-ai/agentic-context-engine.git /opt/ace \
+    && cd /opt/ace \
+    && uv sync --no-dev --extra claude-code --python 3.12 \
+    && uv pip install boto3 --python .venv/bin/python \
+    && chown -R node:node /opt/ace
+
+# Wrapper script: writes output to the persistent workspace volume
+# so the skillbook survives container restarts.
+RUN printf '#!/bin/bash\n\
+set -euo pipefail\n\
+export OPENCLAW_HOME="${OPENCLAW_HOME:-$HOME/.openclaw}"\n\
+OUTPUT_DIR="$OPENCLAW_HOME/workspace/skills/kayba-ace"\n\
+mkdir -p "$OUTPUT_DIR"\n\
+cd /opt/ace\n\
+exec .venv/bin/python examples/openclaw/kayba-ace/learn_from_traces.py \\\n\
+    --output "$OUTPUT_DIR" \\\n\
+    "$@"\n' > /usr/local/bin/ace-learn \
+    && chmod +x /usr/local/bin/ace-learn
+
+# Note: Do NOT set OPENCLAW_HOME here — the base image derives it from
+# $HOME (~/.openclaw). Setting it explicitly causes double-nesting.
+
+# ---------------------------------------------------------------------------
+# Restore original user and working directory
+# ---------------------------------------------------------------------------
+
+USER node
+WORKDIR /app

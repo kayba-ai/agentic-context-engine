@@ -5,6 +5,29 @@ All notable changes to ACE Framework will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **ACE MCP server (optional)** — stdio MCP server in `ace_next.integrations.mcp` with tools: `ace.ask`, `ace.learn.sample`, `ace.learn.feedback`, `ace.skillbook.get`, `ace.skillbook.save`, `ace.skillbook.load`
+- **Session-scoped state management** — in-memory `session_id` registry with TTL cleanup and per-session async locking
+- **MCP packaging + CLI** — optional `mcp` extra and `ace-mcp` entrypoint
+- **MCP docs and demo client** — integration guide and stdio client example
+
+### Changed
+- **Safety controls** — runtime request limits (`max_prompt_chars`, `max_samples_per_call`) and optional root-bound path enforcement for save/load via `ACE_MCP_SKILLBOOK_ROOT`
+- **Schema-driven validation** — MCP request/response models aligned to `specs/002-ace-mcp-server/contracts/tool-schemas.md`
+
+### Testing
+- Added MCP test suite: models, registry, handlers, and server registration/startup smoke tests
+- Added optional-dependency boundary checks for the MCP integration
+
+## [0.8.4] - 2026-02-27
+
+### Added
+- **OpenClaw integration** — learn from OpenClaw session transcripts (JSONL) via new `OpenClawToTraceStep` and `LoadTracesStep` pipeline steps (#86)
+- **ExportSkillbookMarkdownStep** — export skillbook to markdown file
+- OpenClaw example script and integration docs
+
 ## [0.8.3] - 2026-02-21
 
 ### Added

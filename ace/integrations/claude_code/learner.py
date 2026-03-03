@@ -46,16 +46,16 @@ try:
     )
 except ImportError:
     # Fallback: no-op retry decorator when tenacity is not installed
-    def retry(**kwargs):  # type: ignore[misc]
+    def retry(**kwargs):  # type: ignore[misc, no-redef]
         def decorator(func):
             return func
 
         return decorator
 
-    def stop_after_attempt(n):  # type: ignore[misc]
+    def stop_after_attempt(n):  # type: ignore[misc, no-redef]
         return n
 
-    def wait_exponential(**kwargs):  # type: ignore[misc]
+    def wait_exponential(**kwargs):  # type: ignore[misc, no-redef]
         return None
 
 
@@ -1151,6 +1151,7 @@ def cmd_doctor(_args):
                 capture_output=True,
                 text=True,
                 timeout=30,
+                encoding='utf-8',
             )
             if result.returncode == 0:
                 print("   ✓ CLI responds to ping")
