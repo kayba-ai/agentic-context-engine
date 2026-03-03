@@ -61,8 +61,7 @@ class LLMCallStep:
             logger.warning("Budget exhausted, returning empty response")
             return ctx.replace(llm_response="")
 
-        trimmed = trim_messages(list(ctx.messages), self.config.max_context_chars)
-        response = self.llm.complete_messages(trimmed)
+        response = self.llm.complete_messages(list(ctx.messages))
         response_text: str = response.text or ""
         self.budget.consume()
 
