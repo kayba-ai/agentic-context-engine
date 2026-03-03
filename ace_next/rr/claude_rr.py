@@ -20,6 +20,7 @@ import json
 import logging
 import os
 import re
+import shutil
 import tempfile
 from dataclasses import dataclass
 from typing import Any, Optional, TYPE_CHECKING
@@ -241,15 +242,17 @@ class ClaudeRRStep:
             cwd=tmp_dir,
         )
 
-        final_text = ""
+        text_parts: list[str] = []
         cost_info: dict[str, Any] = {}
 
         async for message in query(prompt=_INITIAL_PROMPT, options=options):
             if isinstance(message, AssistantMessage):
-                # Keep the text from the last assistant message
-                for block in message.content:
-                    if isinstance(block, TextBlock):
-                        final_text = block.text
+                # Collect text from the last assistant message
+                text_parts = [
+                    block.text
+                    for block in message.content
+                    if isinstance(block, TextBlock)
+                ]
             elif isinstance(message, ResultMessage):
                 cost_info = {
                     "total_cost_usd": message.total_cost_usd,
@@ -259,7 +262,7 @@ class ClaudeRRStep:
                     "session_id": message.session_id,
                 }
 
-        return final_text, cost_info
+        return "\n".join(text_parts), cost_info
 
     # ------------------------------------------------------------------
     # Parsing
@@ -397,8 +400,6 @@ class ClaudeRRStep:
     @staticmethod
     def _cleanup(tmp_dir: str) -> None:
         """Remove the temporary sandbox directory."""
-        import shutil
-
         try:
             shutil.rmtree(tmp_dir)
         except OSError as e:
