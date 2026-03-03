@@ -8,9 +8,9 @@ import json
 import pytest
 
 from ace.llm import LLMResponse
-from ace.reflector.config import RecursiveConfig
-from ace.reflector.sandbox import TraceSandbox
-from ace.reflector.subagent import CallBudget
+from ace_next.rr.config import RecursiveConfig
+from ace_next.rr.sandbox import TraceSandbox
+from ace_next.rr.subagent import CallBudget
 
 from ace_next.core.outputs import AgentOutput, ReflectorOutput
 from ace_next.core.skillbook import Skillbook

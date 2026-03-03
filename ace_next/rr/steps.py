@@ -15,9 +15,9 @@ from .context import RRIterationContext
 from .message_trimming import trim_messages
 
 if TYPE_CHECKING:
-    from ace.reflector.config import RecursiveConfig
-    from ace.reflector.sandbox import TraceSandbox
-    from ace.reflector.subagent import CallBudget
+    from .config import RecursiveConfig
+    from .sandbox import TraceSandbox
+    from .subagent import CallBudget
 
 logger = logging.getLogger(__name__)
 

@@ -16,11 +16,11 @@ from pipeline.context import StepContext
 
 from ace_next.core.sub_runner import SubRunner
 
-from ace.reflector.config import RecursiveConfig
-from ace.reflector.prompts_rr_v3 import REFLECTOR_RECURSIVE_V3_PROMPT
-from ace.reflector.sandbox import TraceSandbox
-from ace.reflector.subagent import CallBudget, SubAgentConfig, create_ask_llm_function
-from ace.reflector.trace_context import TraceContext
+from .config import RecursiveConfig
+from .prompts import REFLECTOR_RECURSIVE_V3_PROMPT
+from .sandbox import TraceSandbox
+from .subagent import CallBudget, SubAgentConfig, create_ask_llm_function
+from .trace_context import TraceContext
 
 from ace_next.core.context import ACEStepContext
 from ace_next.core.outputs import ExtractedLearning, ReflectorOutput
@@ -179,11 +179,26 @@ class RRStep(SubRunner):
     # ------------------------------------------------------------------
 
     def __call__(self, ctx: ACEStepContext) -> ACEStepContext:  # type: ignore[override]
-        """Run the Recursive Reflector and attach the reflection to *ctx*."""
-        reflection = self.reflect(
-            trace=ctx.trace,
-            skillbook=ctx.skillbook,
-        )
+        """Run the Recursive Reflector and attach the reflection to *ctx*.
+
+        Mirrors :class:`~ace_next.steps.reflect.ReflectStep` unpacking so
+        that RRStep can be placed directly in a Pipeline without a separate
+        ReflectStep wrapper.
+        """
+        trace = ctx.trace or {}
+        if isinstance(trace, dict):
+            reflection = self.reflect(
+                question=trace.get("question", ""),
+                ground_truth=trace.get("ground_truth"),
+                feedback=trace.get("feedback"),
+                traces=trace,
+                skillbook=ctx.skillbook,
+            )
+        else:
+            reflection = self.reflect(
+                skillbook=ctx.skillbook,
+                trace=trace,
+            )
         return ctx.replace(reflection=reflection)
 
     # ------------------------------------------------------------------

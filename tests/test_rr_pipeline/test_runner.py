@@ -5,7 +5,7 @@ import json
 import pytest
 
 from ace.llm import LLMResponse
-from ace.reflector.config import RecursiveConfig
+from ace_next.rr.config import RecursiveConfig
 from ace_next.core.context import ACEStepContext, SkillbookView
 from ace_next.core.outputs import AgentOutput, ReflectorOutput
 from ace_next.core.skillbook import Skillbook
