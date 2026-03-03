@@ -10,7 +10,6 @@ Public API::
 
 from .config import RecursiveConfig as RRConfig
 from .context import RRIterationContext
-from .opik import RROpikStep
 from .runner import RRStep
 from .sandbox import ExecutionResult, ExecutionTimeoutError, TraceSandbox
 from .steps import CheckResultStep, ExtractCodeStep, LLMCallStep, SandboxExecStep
@@ -21,6 +20,14 @@ from .subagent import (
     create_ask_llm_function,
 )
 from .trace_context import TraceContext, TraceStep
+
+def __getattr__(name: str):
+    """Lazy-import RROpikStep to avoid pulling in Opik at package load time."""
+    if name == "RROpikStep":
+        from .opik import RROpikStep
+        return RROpikStep
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     "RRConfig",

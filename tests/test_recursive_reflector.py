@@ -907,13 +907,23 @@ class TestSandboxSecurity(unittest.TestCase):
         )
         self.assertIn("OK", result.stdout)
 
-    def test_getattr_not_in_builtins(self):
-        """Test that getattr, setattr, delattr are removed from builtins."""
-        self.assertNotIn("getattr", TraceSandbox.SAFE_BUILTINS)
+    def test_getattr_restricted_in_builtins(self):
+        """Test that getattr blocks dunder access and setattr/delattr are removed."""
+        # getattr placeholder is None in class-level SAFE_BUILTINS
+        # (replaced with safe_getattr in __init__)
+        self.assertIsNone(TraceSandbox.SAFE_BUILTINS.get("getattr"))
         self.assertNotIn("setattr", TraceSandbox.SAFE_BUILTINS)
         self.assertNotIn("delattr", TraceSandbox.SAFE_BUILTINS)
         # type is safe - it only returns an object's type, doesn't allow modification
         self.assertIn("type", TraceSandbox.SAFE_BUILTINS)
+
+        # After __init__, getattr in builtins should be safe_getattr
+        sandbox = TraceSandbox(trace=None)
+        builtins = sandbox.namespace["__builtins__"]
+        self.assertIsNotNone(builtins["getattr"])
+        # safe_getattr blocks dunder access
+        with self.assertRaises(AttributeError):
+            builtins["getattr"](object(), "__class__")
 
 
 @pytest.mark.unit

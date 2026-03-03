@@ -246,11 +246,12 @@ class TestRRStepTimeout:
         )
 
         # Call run_loop directly — no __call__() wrapper
+        budget = __import__(
+            "ace.reflector.subagent", fromlist=["CallBudget"]
+        ).CallBudget(10)
         result = rr.run_loop(
-            sandbox=rr._create_sandbox(None, {"question": "q", "steps": []}, None),
-            budget=__import__(
-                "ace.reflector.subagent", fromlist=["CallBudget"]
-            ).CallBudget(10),
+            sandbox=rr._create_sandbox(None, {"question": "q", "steps": []}, None, budget=budget),
+            budget=budget,
             initial_prompt="test prompt",
             timeout_args={
                 "question": "q",
@@ -275,11 +276,12 @@ class TestRRStepTimeout:
             ),
         )
 
+        budget = __import__(
+            "ace.reflector.subagent", fromlist=["CallBudget"]
+        ).CallBudget(10)
         result = rr.run_loop(
-            sandbox=rr._create_sandbox(None, {"question": "q", "steps": []}, None),
-            budget=__import__(
-                "ace.reflector.subagent", fromlist=["CallBudget"]
-            ).CallBudget(10),
+            sandbox=rr._create_sandbox(None, {"question": "q", "steps": []}, None, budget=budget),
+            budget=budget,
             initial_prompt="test prompt",
             # No timeout_args — should use safe defaults
         )

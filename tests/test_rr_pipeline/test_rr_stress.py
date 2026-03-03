@@ -353,8 +353,8 @@ class TestEntryPoints:
         llm = MockLLM([EXPLORE, FINAL_GOOD])
         rr = _make_rr(llm)
 
-        sandbox = rr._create_sandbox(None, {"question": "q", "steps": []}, None)
         budget = CallBudget(10)
+        sandbox = rr._create_sandbox(None, {"question": "q", "steps": []}, None, budget=budget)
         result = rr.run_loop(
             sandbox=sandbox,
             budget=budget,

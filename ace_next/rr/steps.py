@@ -57,13 +57,12 @@ class LLMCallStep:
         self.budget = budget
 
     def __call__(self, ctx: RRIterationContext) -> RRIterationContext:
-        if self.budget.exhausted:
+        if not self.budget.consume():
             logger.warning("Budget exhausted, returning empty response")
             return ctx.replace(llm_response="")
 
         response = self.llm.complete_messages(list(ctx.messages))
         response_text: str = response.text or ""
-        self.budget.consume()
 
         if not response_text:
             logger.warning(

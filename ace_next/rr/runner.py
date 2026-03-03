@@ -150,15 +150,20 @@ class RRStep(SubRunner):
         Timeout args are passed through ``run_loop(**kwargs)`` — no
         instance-level stashing required, eliminating the race condition
         when ``run_loop`` is called directly or concurrently.
+
+        The message history is extracted from *last_ctx* so that fallback
+        synthesis has access to the full REPL conversation.
         """
         logger.warning("Max iterations (%d) reached", self.max_iterations)
         args = kwargs.get("timeout_args", {})
+        # Extract messages from the last iteration context for fallback synthesis
+        messages = list(getattr(last_ctx, "messages", ()) or ())
         return self._build_timeout_output(
             args.get("question", ""),
             args.get("agent_output"),
             args.get("ground_truth"),
             args.get("feedback"),
-            args.get("messages"),
+            messages or None,
         )
 
     # ------------------------------------------------------------------
@@ -240,9 +245,9 @@ class RRStep(SubRunner):
                 question, agent_output, ground_truth, feedback, trace_obj
             )
 
-        # Setup
-        sandbox = self._create_sandbox(trace_obj, traces, skillbook, **kwargs)
+        # Setup — single shared budget for main LLM + sub-agent calls
         budget = CallBudget(self.config.max_llm_calls)
+        sandbox = self._create_sandbox(trace_obj, traces, skillbook, budget=budget, **kwargs)
         initial_prompt = self._build_initial_prompt(traces, skillbook, trace_obj)
         iteration_log: list[dict[str, Any]] = []
 
@@ -261,18 +266,28 @@ class RRStep(SubRunner):
             iteration_log=iteration_log,
         )
 
+        # Guarantee we always return a ReflectorOutput
+        if not isinstance(result, ReflectorOutput):
+            logger.warning(
+                "run_loop returned %s instead of ReflectorOutput, wrapping",
+                type(result).__name__,
+            )
+            result = ReflectorOutput(
+                reasoning=str(result) if result else "No analysis produced",
+                raw={"original_result": result},
+            )
+
         # Enrich result with RR execution metadata for downstream
         # observability steps (e.g. RROpikStep).
-        if isinstance(result, ReflectorOutput):
-            subagent_calls = self._get_subagent_history(sandbox)
-            result.raw["rr_trace"] = {
-                "iterations": iteration_log,
-                "subagent_calls": subagent_calls,
-                "total_iterations": len(iteration_log),
-                "timed_out": result.raw.get("timeout", False),
-            }
+        subagent_calls = self._get_subagent_history(sandbox)
+        result.raw["rr_trace"] = {
+            "iterations": iteration_log,
+            "subagent_calls": subagent_calls,
+            "total_iterations": len(iteration_log),
+            "timed_out": result.raw.get("timeout", False),
+        }
 
-        return result  # type: ignore[return-value]
+        return result
 
     # ------------------------------------------------------------------
     # Setup helpers
@@ -307,6 +322,8 @@ class RRStep(SubRunner):
         trace_obj: Any,
         traces: dict[str, Any],
         skillbook: Any,
+        *,
+        budget: CallBudget,
         **kwargs: Any,
     ) -> TraceSandbox:
         """Create and configure the TraceSandbox."""
@@ -314,18 +331,22 @@ class RRStep(SubRunner):
 
         # ask_llm sub-agent
         if self.config.enable_subagent:
+            subagent_system = (
+                self.config.subagent_system_prompt
+                if self.config.subagent_system_prompt is not None
+                else SubAgentConfig.system_prompt
+            )
             subagent_config = SubAgentConfig(
                 model=self.config.subagent_model,
                 max_tokens=self.config.subagent_max_tokens,
                 temperature=self.config.subagent_temperature,
-                system_prompt=self.config.subagent_system_prompt
-                or SubAgentConfig.system_prompt,
+                system_prompt=subagent_system,
             )
             ask_llm_fn = create_ask_llm_function(
                 llm=self.llm,
                 config=subagent_config,
                 subagent_llm=self.subagent_llm,
-                budget=CallBudget(self.config.max_llm_calls),
+                budget=budget,
             )
         else:
 

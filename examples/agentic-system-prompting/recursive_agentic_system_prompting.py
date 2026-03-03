@@ -25,6 +25,7 @@ Options:
     --epochs, -e            Number of passes over all traces (default: 1)
     --input-skillbook, -i   Path to existing skillbook to continue from
     --output-dir, -o        Output directory for results (default: script directory)
+    --opik                  Enable Opik tracing via RROpikStep (requires opik package)
 """
 
 import argparse
@@ -131,39 +132,6 @@ def load_traces(traces_dir: Path) -> Dict[str, Any]:
     }
 
 
-def setup_opik() -> None:
-    """Configure Opik tracing if credentials are available.
-
-    Per-call project routing is handled via ``metadata.opik.project_name``
-    in each LiteLLMClient's ``extra_params``.  The callback registered here
-    acts as the fallback default.
-    """
-    opik_key = os.environ.get("OPIK_API_KEY")
-    if not opik_key:
-        print("OPIK_API_KEY not found — Opik tracing disabled")
-        return
-
-    try:
-        import opik
-
-        opik.configure(
-            api_key=opik_key,
-            workspace=os.environ.get("OPIK_WORKSPACE", "default"),
-        )
-    except (ImportError, Exception) as e:
-        print(f"Opik init failed: {e}")
-        return
-
-    try:
-        from ace_next.steps.opik import register_opik_litellm_callback
-
-        # Register a single callback; per-call metadata overrides project
-        if register_opik_litellm_callback(project_name="REPL-agent"):
-            print("Opik tracing enabled (REPL-agent / REPL-Subagent)")
-    except ImportError:
-        print("Opik LiteLLM callback not available")
-
-
 def main():
     parser = argparse.ArgumentParser(
         description="Offline trace analysis — extract strategies into a skillbook"
@@ -193,6 +161,9 @@ def main():
     parser.add_argument(
         "-o", "--output-dir", type=Path, default=None, help="Output directory"
     )
+    parser.add_argument(
+        "--opik", action="store_true", help="Enable Opik tracing via RROpikStep"
+    )
     args = parser.parse_args()
 
     if not os.getenv("OPENAI_API_KEY"):
@@ -212,15 +183,12 @@ def main():
         skillbook = Skillbook.load_from_file(str(args.input_skillbook))
         print(f"Loaded skillbook: {len(skillbook.skills())} skills")
 
-    setup_opik()
-
-    # LLM clients — separate Opik projects for main REPL vs sub-agent
+    # LLM clients
     llm = LiteLLMClient(
         config=LiteLLMConfig(
             model=args.model,
             max_tokens=8192,
             temperature=1,
-            extra_params={"metadata": {"opik": {"project_name": "REPL-agent"}}},
         )
     )
     subagent_llm = LiteLLMClient(
@@ -228,12 +196,15 @@ def main():
             model="bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0",
             max_tokens=4096,
             temperature=0.3,
-            extra_params={"metadata": {"opik": {"project_name": "REPL-Subagent"}}},
         )
     )
     rr = RRStep(
         llm=llm,
-        config=RRConfig(subagent_model="bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0", max_iterations=60, max_llm_calls=60),
+        config=RRConfig(
+            subagent_model="bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0",
+            max_iterations=60,
+            max_llm_calls=60,
+        ),
         prompt_template=REFLECTOR_RECURSIVE_V5_PROMPT,
         subagent_llm=subagent_llm,
     )
@@ -246,15 +217,21 @@ def main():
         )
     )
 
-    # Build pipeline manually: RRTraceStep replaces ReflectStep to pass
-    # traces correctly, then the standard learning-tail steps follow.
-    steps = [
-        RRTraceStep(rr),
+    # Build pipeline: RRTraceStep → [RROpikStep] → Tag → Update → Apply → Dedup
+    steps: list[Any] = [RRTraceStep(rr)]
+
+    if args.opik:
+        from ace_next.rr import RROpikStep
+
+        steps.append(RROpikStep(project_name="ace-rr"))
+        print("Opik tracing enabled via RROpikStep")
+
+    steps.extend([
         TagStep(skillbook),
         UpdateStep(skill_manager),
         ApplyStep(skillbook),
         DeduplicateStep(dedup, skillbook),
-    ]
+    ])
     analyser = TraceAnalyser(pipeline=Pipeline(steps), skillbook=skillbook)
 
     print(
@@ -263,7 +240,7 @@ def main():
     )
     start = datetime.now()
 
-    # Run — single batch trace through RRTraceStep → Tag → Update → Apply → Dedup
+    # Run — single batch trace through the pipeline
     results = analyser.run([batch_trace], epochs=args.epochs)
 
     # Surface any pipeline errors (the pipeline catches exceptions silently)

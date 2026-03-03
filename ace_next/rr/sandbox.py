@@ -119,8 +119,9 @@ class TraceSandbox:
         "bin": bin,
         "hex": hex,
         "oct": oct,
-        # Object inspection
+        # Object inspection (getattr blocks dunder access — see __init__)
         "hasattr": hasattr,
+        "getattr": None,  # Replaced with safe_getattr in __init__
         "dir": dir,
         "vars": lambda obj=None: {} if obj is None else vars(obj),
         "id": id,
@@ -166,7 +167,6 @@ class TraceSandbox:
         "locals": None,
         "breakpoint": None,
         "memoryview": None,
-        "__build_class__": None,
     }
 
     def __init__(
@@ -205,12 +205,14 @@ class TraceSandbox:
             "timezone": timezone,
         }
 
-        # Safe getattr that blocks dunder access
+        # Safe getattr that blocks dunder access — override in both
+        # builtins (so bare getattr() works) and namespace (for direct ref)
         def safe_getattr(obj, name, *default):
             if name.startswith("_"):
                 raise AttributeError(f"Access to '{name}' blocked")
             return getattr(obj, name, *default) if default else getattr(obj, name)
 
+        self.namespace["__builtins__"]["getattr"] = safe_getattr
         self.namespace["safe_getattr"] = safe_getattr
 
         # Add llm_query if provided
