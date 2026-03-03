@@ -205,6 +205,64 @@ pipe = Pipeline([
 See the [Pipeline Engine docs](../pipeline/branching.md) for full branching
 and merge strategy details.
 
+## Using RRStep (Recursive Reflector)
+
+`RRStep` satisfies both `StepProtocol` and `ReflectorLike`, so it can be used
+in two ways:
+
+### As a drop-in reflector replacement
+
+Pass it anywhere a `Reflector` is expected:
+
+```python
+from ace_next import ACELiteLLM, LiteLLMClient
+from ace_next.rr import RRStep, RRConfig
+
+llm = LiteLLMClient(model="gpt-4o-mini")
+ace = ACELiteLLM(llm, reflector=RRStep(llm, config=RRConfig(max_iterations=10)))
+```
+
+### As a pipeline step
+
+Place it directly in a pipeline (it provides `reflection`):
+
+```python
+from ace_next import Pipeline, learning_tail, SkillManager, Skillbook, LiteLLMClient
+from ace_next.rr import RRStep, RRConfig, RROpikStep
+
+llm = LiteLLMClient(model="gpt-4o-mini")
+skillbook = Skillbook()
+rr = RRStep(llm, config=RRConfig(max_iterations=15))
+
+pipe = Pipeline([
+    MyExecuteStep(),
+    MyToTrace(),
+    rr,  # replaces ReflectStep — provides "reflection"
+    *learning_tail(None, SkillManager(llm), skillbook)[1:],  # skip ReflectStep
+    RROpikStep(project_name="my-project"),  # optional observability
+])
+```
+
+### With a separate sub-agent model
+
+Route sub-agent calls to a smaller/faster model:
+
+```python
+from ace_next.rr import RRStep, RRConfig
+
+main_llm = LiteLLMClient(model="gpt-4o")
+fast_llm = LiteLLMClient(model="gpt-4o-mini")
+
+rr = RRStep(
+    main_llm,
+    config=RRConfig(max_iterations=20, max_llm_calls=40),
+    subagent_llm=fast_llm,
+)
+```
+
+See [RR_DESIGN.md](../RR_DESIGN.md) for the full architecture, sandbox API,
+configuration reference, and trace schema.
+
 ## Available Steps
 
 All steps are importable from `ace_next`:
