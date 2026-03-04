@@ -17,10 +17,12 @@ EXPECTED_TOOL_NAMES = {
     "ace.skillbook.load",
 }
 
+
 def test_create_server():
     server = create_server()
     assert isinstance(server, Server)
     assert server.name == "ace-mcp-server"
+
 
 @pytest.mark.asyncio
 async def test_tool_registration():

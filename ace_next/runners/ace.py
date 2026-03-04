@@ -75,8 +75,8 @@ class ACE(ACERunner):
         """
         skillbook = skillbook or Skillbook()
         steps: list[StepProtocol] = [
-            AgentStep(agent),
-            EvaluateStep(environment),
+            AgentStep(agent),  # type: ignore[list-item]
+            EvaluateStep(environment),  # type: ignore[list-item]
             *learning_tail(
                 reflector,
                 skill_manager,
@@ -164,7 +164,7 @@ class ACE(ACERunner):
         """
         return self._run(samples, epochs=epochs, wait=wait)
 
-    def _build_context(
+    def _build_context(  # type: ignore[override]
         self,
         sample: Sample,
         *,

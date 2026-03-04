@@ -17,7 +17,6 @@ from ace_next.core.outputs import (
 )
 from ace_next.core.skillbook import Skillbook, UpdateBatch, UpdateOperation
 
-
 # ------------------------------------------------------------------ #
 # Mock roles for build_steps() tests
 # ------------------------------------------------------------------ #

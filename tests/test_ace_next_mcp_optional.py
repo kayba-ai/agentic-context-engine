@@ -12,7 +12,7 @@ def test_create_server_requires_mcp_extra(monkeypatch):
     try:
         server.create_server()
     except RuntimeError as exc:
-        assert 'ace-framework[mcp]' in str(exc)
+        assert "ace-framework[mcp]" in str(exc)
     else:  # pragma: no cover - defensive check
         raise AssertionError("create_server() should require the mcp extra")
 
@@ -28,6 +28,6 @@ def test_register_tools_requires_mcp_extra(monkeypatch):
     try:
         adapters.register_tools(object(), object())  # type: ignore[arg-type]
     except RuntimeError as exc:
-        assert 'ace-framework[mcp]' in str(exc)
+        assert "ace-framework[mcp]" in str(exc)
     else:  # pragma: no cover - defensive check
         raise AssertionError("register_tools() should require the mcp extra")

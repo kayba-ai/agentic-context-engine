@@ -9,6 +9,7 @@ Usage:
     uv run python examples/browser-use/online-shopping/baseline-online-shopping.py --runs 3
     uv run python examples/browser-use/online-shopping/baseline-online-shopping.py --runs 5 --no-pause
 """
+
 import argparse
 import asyncio
 import os

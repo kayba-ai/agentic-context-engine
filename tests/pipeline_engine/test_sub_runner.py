@@ -10,7 +10,6 @@ import pytest
 from pipeline import Pipeline, StepContext, StepProtocol
 from ace_next.core import SubRunner
 
-
 # ---------------------------------------------------------------------------
 # Minimal concrete SubRunner — a counter that loops until reaching a target
 # ---------------------------------------------------------------------------

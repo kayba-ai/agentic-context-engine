@@ -8,18 +8,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Self-contained RR module** (`ace_next/rr/`) — sandbox, subagent, trace_context, config, code_extraction, message_trimming extracted from `ace/reflector/` into a standalone package
+- **v5.6 prompt promoted as default** — new prompt evolution (v4 → v5.1–v5.6) for the `ace_next` RR pipeline
+- **`build_steps()` API** — all runners gain a `build_steps()` classmethod for pipeline customization
+- **Shared `CallBudget`** — single budget instance shared across RR pipeline steps
 - **ACE MCP server (optional)** — stdio MCP server in `ace_next.integrations.mcp` with tools: `ace.ask`, `ace.learn.sample`, `ace.learn.feedback`, `ace.skillbook.get`, `ace.skillbook.save`, `ace.skillbook.load`
 - **Session-scoped state management** — in-memory `session_id` registry with TTL cleanup and per-session async locking
 - **MCP packaging + CLI** — optional `mcp` extra and `ace-mcp` entrypoint
 - **MCP docs and demo client** — integration guide and stdio client example
+- **Composing pipelines guide** — new `docs/guides/composing-pipelines.md`
+- **RR examples** — `rr_demo.py`, `rr_opik_demo.py`, `compose_custom_pipeline.py`
 
 ### Changed
+- **RR backward-compat shims** — original `ace/reflector/` files now re-export from `ace_next.rr` (no duplication)
+- **`RRStep` dual protocol** — implements both `StepProtocol` and `ReflectorLike`
+- **Sandbox hardening** — hardened `getattr` in sandbox execution environment
+- **Opik made opt-in** — moved `opik` from hard dependency to `observability` extra
 - **Safety controls** — runtime request limits (`max_prompt_chars`, `max_samples_per_call`) and optional root-bound path enforcement for save/load via `ACE_MCP_SKILLBOOK_ROOT`
 - **Schema-driven validation** — MCP request/response models aligned to `specs/002-ace-mcp-server/contracts/tool-schemas.md`
+- **`learn_from_feedback` routed through pipeline** — feedback learning now uses the pipeline engine
 
 ### Testing
 - Added MCP test suite: models, registry, handlers, and server registration/startup smoke tests
 - Added optional-dependency boundary checks for the MCP integration
+- RR steps at 94%, sandbox at 92%, runner at 74%, MCP models at 100%
 
 ## [0.8.4] - 2026-02-27
 

@@ -162,7 +162,7 @@ class Branch:
         All branches run to completion before any failure is raised.
         """
         with ThreadPoolExecutor(max_workers=len(self.pipelines)) as executor:
-            futures = [executor.submit(p, ctx) for p in self.pipelines]
+            futures: list = [executor.submit(p, ctx) for p in self.pipelines]  # type: ignore[arg-type]
             results: list[StepContext] = []
             failures: list[BaseException] = []
             for f in futures:

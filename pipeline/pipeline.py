@@ -30,13 +30,18 @@ def _get_class_executor(step_cls: type) -> ThreadPoolExecutor:
     is shared across all pipeline instances.  ``max_workers`` defaults to 1
     if not declared on the class.
     """
-    if not hasattr(step_cls, "_executor") or step_cls._executor is None:
+    if not hasattr(step_cls, "_executor") or getattr(step_cls, "_executor") is None:
         with _executor_lock:
             # Double-checked locking
-            if not hasattr(step_cls, "_executor") or step_cls._executor is None:
+            if (
+                not hasattr(step_cls, "_executor")
+                or getattr(step_cls, "_executor") is None
+            ):
                 max_workers = getattr(step_cls, "max_workers", 1)
-                step_cls._executor = ThreadPoolExecutor(max_workers=max_workers)
-    return step_cls._executor
+                setattr(
+                    step_cls, "_executor", ThreadPoolExecutor(max_workers=max_workers)
+                )
+    return getattr(step_cls, "_executor")
 
 
 # ---------------------------------------------------------------------------

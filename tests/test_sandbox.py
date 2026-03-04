@@ -859,33 +859,39 @@ class TestShowVarsFunction(unittest.TestCase):
         )
 
     def test_show_vars_basic(self):
-        """Test SHOW_VARS prints available variables."""
+        """Test SHOW_VARS logs available variables."""
         sandbox = TraceSandbox(trace=self.trace, llm_query_fn=None)
-        result = sandbox.execute("SHOW_VARS()")
+        with self.assertLogs("ace_next.rr.sandbox", level="DEBUG") as cm:
+            sandbox.execute("SHOW_VARS()")
 
-        self.assertIn("Available variables:", result.stdout)
-        self.assertIn("trace", result.stdout)
-        self.assertIn("FINAL", result.stdout)
-        self.assertIn("FINAL_VAR", result.stdout)
-        self.assertIn("SHOW_VARS", result.stdout)
+        log_output = "\n".join(cm.output)
+        self.assertIn("Available variables:", log_output)
+        self.assertIn("trace", log_output)
+        self.assertIn("FINAL", log_output)
+        self.assertIn("FINAL_VAR", log_output)
+        self.assertIn("SHOW_VARS", log_output)
 
     def test_show_vars_includes_injected(self):
         """Test SHOW_VARS shows injected variables."""
         sandbox = TraceSandbox(trace=self.trace, llm_query_fn=None)
         sandbox.inject("custom_var", "test")
         sandbox.inject("another_var", 123)
-        result = sandbox.execute("SHOW_VARS()")
+        with self.assertLogs("ace_next.rr.sandbox", level="DEBUG") as cm:
+            sandbox.execute("SHOW_VARS()")
 
-        self.assertIn("custom_var", result.stdout)
-        self.assertIn("another_var", result.stdout)
+        log_output = "\n".join(cm.output)
+        self.assertIn("custom_var", log_output)
+        self.assertIn("another_var", log_output)
 
     def test_show_vars_excludes_internals(self):
         """Test SHOW_VARS excludes internal variables."""
         sandbox = TraceSandbox(trace=self.trace, llm_query_fn=None)
-        result = sandbox.execute("SHOW_VARS()")
+        with self.assertLogs("ace_next.rr.sandbox", level="DEBUG") as cm:
+            sandbox.execute("SHOW_VARS()")
 
+        log_output = "\n".join(cm.output)
         # Should not show builtins module or other internals
-        self.assertNotIn("__builtins__", result.stdout)
+        self.assertNotIn("__builtins__", log_output)
 
 
 if __name__ == "__main__":

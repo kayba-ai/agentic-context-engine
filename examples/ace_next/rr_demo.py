@@ -55,6 +55,7 @@ def section(name: str) -> None:
 # Demo 1: RRStep — agent got the wrong answer
 # ---------------------------------------------------------------------------
 
+
 def demo_wrong_answer():
     """RR analyzes a trace where the agent answered incorrectly."""
     section("Demo 1: RRStep — wrong answer")
@@ -107,6 +108,7 @@ def demo_wrong_answer():
 # ---------------------------------------------------------------------------
 # Demo 2: RRStep as pipeline step — multi-step tool-use failure
 # ---------------------------------------------------------------------------
+
 
 def demo_pipeline_step():
     """RR used as a pipeline step via __call__, analyzing a tool-use failure."""
@@ -170,23 +172,35 @@ def demo_pipeline_step():
 # Demo 3: TraceSandbox — run code against trace data directly
 # ---------------------------------------------------------------------------
 
+
 def demo_sandbox():
     """Use TraceSandbox standalone to show how the REPL environment works."""
     section("Demo 3: TraceSandbox — direct code execution")
 
     trace = TraceContext(
         steps=[
-            TraceStep(0, "user_message", "Find flights from NYC to London under $500", ""),
-            TraceStep(1, "tool_call:search_flights",
-                      '{"from": "NYC", "to": "London", "max_price": 500}',
-                      '[{"airline": "BA", "price": 450}, {"airline": "AA", "price": 520}]'),
-            TraceStep(2, "agent_reasoning",
-                      "Found 2 results. BA at $450 is under budget. AA at $520 is over.", ""),
-            TraceStep(3, "tool_call:book_flight",
-                      '{"airline": "AA", "price": 520}',
-                      'Error: Price $520 exceeds budget of $500'),
-            TraceStep(4, "agent_response",
-                      "I've booked your AA flight for $520.", ""),
+            TraceStep(
+                0, "user_message", "Find flights from NYC to London under $500", ""
+            ),
+            TraceStep(
+                1,
+                "tool_call:search_flights",
+                '{"from": "NYC", "to": "London", "max_price": 500}',
+                '[{"airline": "BA", "price": 450}, {"airline": "AA", "price": 520}]',
+            ),
+            TraceStep(
+                2,
+                "agent_reasoning",
+                "Found 2 results. BA at $450 is under budget. AA at $520 is over.",
+                "",
+            ),
+            TraceStep(
+                3,
+                "tool_call:book_flight",
+                '{"airline": "AA", "price": 520}',
+                "Error: Price $520 exceeds budget of $500",
+            ),
+            TraceStep(4, "agent_response", "I've booked your AA flight for $520.", ""),
         ],
         raw_reasoning="Agent searched flights, found options, but booked the wrong one.",
     )
@@ -195,7 +209,8 @@ def demo_sandbox():
 
     # Show the trace structure
     print("  Running: trace exploration code")
-    result = sandbox.execute("""
+    result = sandbox.execute(
+        """
 print(trace.summary())
 print()
 
@@ -210,18 +225,21 @@ print(f"Tool calls: {len(tool_calls)}")
 for t in tool_calls:
     print(f"  {t.action}: input={t.thought[:60]}")
     print(f"    output={t.observation[:80]}")
-""")
+"""
+    )
     print(f"  Output:\n{result.stdout}")
 
     # Show FINAL mechanism
     print("  Running: FINAL() call")
-    sandbox.execute("""
+    sandbox.execute(
+        """
 FINAL({
     "reasoning": "Agent booked AA ($520) instead of BA ($450) despite it exceeding the $500 budget",
     "key_insight": "Always validate constraints before executing actions",
     "error_identification": "Booked over-budget flight when a cheaper option was available",
 })
-""")
+"""
+    )
     print(f"  FINAL called: {sandbox.final_called}")
     print(f"  Final value keys: {list(sandbox.final_value.keys())}")
     print(f"  Key insight: {sandbox.final_value['key_insight']}")

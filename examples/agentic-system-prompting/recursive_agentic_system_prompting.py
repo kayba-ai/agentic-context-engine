@@ -226,12 +226,14 @@ def main():
         steps.append(RROpikStep(project_name="ace-rr"))
         print("Opik tracing enabled via RROpikStep")
 
-    steps.extend([
-        TagStep(skillbook),
-        UpdateStep(skill_manager),
-        ApplyStep(skillbook),
-        DeduplicateStep(dedup, skillbook),
-    ])
+    steps.extend(
+        [
+            TagStep(skillbook),
+            UpdateStep(skill_manager),
+            ApplyStep(skillbook),
+            DeduplicateStep(dedup, skillbook),
+        ]
+    )
     analyser = TraceAnalyser(pipeline=Pipeline(steps), skillbook=skillbook)
 
     print(

@@ -91,13 +91,19 @@ class RRStep(SubRunner):
             rr_ctx: RRIterationContext = ctx  # type: ignore[assignment]
 
             exec_result = rr_ctx.exec_result
-            iteration_log.append({
-                "iteration": i,
-                "code": rr_ctx.code,
-                "stdout": getattr(exec_result, "stdout", None) if exec_result else None,
-                "stderr": getattr(exec_result, "stderr", None) if exec_result else None,
-                "terminated": rr_ctx.terminated,
-            })
+            iteration_log.append(
+                {
+                    "iteration": i,
+                    "code": rr_ctx.code,
+                    "stdout": (
+                        getattr(exec_result, "stdout", None) if exec_result else None
+                    ),
+                    "stderr": (
+                        getattr(exec_result, "stderr", None) if exec_result else None
+                    ),
+                    "terminated": rr_ctx.terminated,
+                }
+            )
 
             if self._is_done(ctx):
                 return self._extract_result(ctx)
@@ -247,7 +253,9 @@ class RRStep(SubRunner):
 
         # Setup — single shared budget for main LLM + sub-agent calls
         budget = CallBudget(self.config.max_llm_calls)
-        sandbox = self._create_sandbox(trace_obj, traces, skillbook, budget=budget, **kwargs)
+        sandbox = self._create_sandbox(
+            trace_obj, traces, skillbook, budget=budget, **kwargs
+        )
         initial_prompt = self._build_initial_prompt(traces, skillbook, trace_obj)
         iteration_log: list[dict[str, Any]] = []
 
@@ -274,6 +282,8 @@ class RRStep(SubRunner):
             )
             result = ReflectorOutput(
                 reasoning=str(result) if result else "No analysis produced",
+                correct_approach="",
+                key_insight="",
                 raw={"original_result": result},
             )
 

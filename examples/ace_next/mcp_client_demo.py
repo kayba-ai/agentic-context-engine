@@ -9,7 +9,7 @@ try:
 except ModuleNotFoundError as exc:  # pragma: no cover - optional dependency guard
     if (exc.name or "").split(".")[0] == "mcp":
         print(
-            'This example requires the optional MCP extra. '
+            "This example requires the optional MCP extra. "
             'Install it with `pip install "ace-framework[mcp]"` or '
             '`uv add "ace-framework[mcp]"`.',
             file=sys.stderr,
@@ -24,15 +24,18 @@ except ImportError:  # pragma: no cover - fallback for SDK layout variants
 
     StdioServerParameters = mcp_stdio.StdioServerParameters
 
+
 async def main():
     if len(sys.argv) < 2:
-        print("Usage: uv run python examples/ace_next/mcp_client_demo.py <path_to_ace_mcp_cli>")
+        print(
+            "Usage: uv run python examples/ace_next/mcp_client_demo.py <path_to_ace_mcp_cli>"
+        )
         sys.exit(1)
-        
+
     server_path = sys.argv[1]
-    
+
     server_params = StdioServerParameters(
-        command=server_path, # usually "ace-mcp" or "uv"
+        command=server_path,  # usually "ace-mcp" or "uv"
         args=["run", "ace-mcp"] if "uv" in server_path else [],
         env={
             **get_default_environment(),
@@ -47,27 +50,25 @@ async def main():
     async with stdio_client(server_params) as (read_stream, write_stream):
         async with ClientSession(read_stream, write_stream) as session:
             await session.initialize()
-            
+
             print("Connected to ACE MCP Server.")
-            
+
             # List available tools
             tools = await session.list_tools()
             print("\\nAvailable Tools:")
             for tool in tools.tools:
                 print(f" - {tool.name}")
-                
+
             print("\\nTesting ace.ask...")
-            ask_args = {
-                "session_id": "demo-session-1",
-                "question": "What is 2 + 2?"
-            }
-            
+            ask_args = {"session_id": "demo-session-1", "question": "What is 2 + 2?"}
+
             result = await session.call_tool("ace.ask", ask_args)
             if result.isError:
                 print(f"Error calling tool: {result.content}")
             else:
                 for content in result.content:
                     print(f"Response: {content.text}")
+
 
 if __name__ == "__main__":
     asyncio.run(main())

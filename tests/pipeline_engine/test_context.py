@@ -15,7 +15,6 @@ import pytest
 
 from pipeline import StepContext
 
-
 # ---------------------------------------------------------------------------
 # Test-local subclass — validates the subclassing pattern
 # ---------------------------------------------------------------------------

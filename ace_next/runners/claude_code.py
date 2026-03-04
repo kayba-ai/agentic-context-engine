@@ -103,13 +103,13 @@ class ClaudeCode(ACERunner):
             dm = DeduplicationManager(dedup_config)
 
         steps: list[StepProtocol] = [
-            ClaudeCodeExecuteStep(
+            ClaudeCodeExecuteStep(  # type: ignore[list-item]
                 working_dir=working_dir,
                 timeout=timeout,
                 model=model,
                 allowed_tools=allowed_tools,
             ),
-            ClaudeCodeToTrace(),
+            ClaudeCodeToTrace(),  # type: ignore[list-item]
             *learning_tail(
                 reflector,
                 skill_manager,
@@ -231,7 +231,7 @@ class ClaudeCode(ACERunner):
             tasks = [tasks]
         return self._run(tasks, epochs=epochs, wait=wait)
 
-    def _build_context(
+    def _build_context(  # type: ignore[override]
         self,
         task: str,
         *,

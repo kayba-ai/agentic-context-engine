@@ -24,7 +24,6 @@ from ace_next.steps.reflect import ReflectStep
 from ace_next.steps.tag import TagStep
 from ace_next.steps.update import UpdateStep
 
-
 # ------------------------------------------------------------------ #
 # Helpers — mock roles satisfying protocols
 # ------------------------------------------------------------------ #
@@ -314,15 +313,16 @@ class TestApplyStep:
         assert len(sb.skills()) == 1
         assert sb.skills()[0].content == "new skill"
 
-    def test_malformed_update_raises(self):
-        """Malformed UpdateBatch should propagate the exception."""
+    def test_none_update_is_noop(self):
+        """None skill_manager_output should be a safe no-op."""
         sb = Skillbook()
         step = ApplyStep(sb)
 
         ctx = ACEStepContext(skill_manager_output=None)
 
-        with pytest.raises(Exception):
-            step(ctx)
+        result = step(ctx)
+        assert result is ctx
+        assert len(sb.skills()) == 0
 
     def test_provides_and_requires(self):
         sb = Skillbook()

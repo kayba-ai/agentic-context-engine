@@ -281,7 +281,7 @@ class TraceSandbox:
             "safe_getattr",
         }
         user_vars = [k for k in user_vars if k not in excluded]
-        print(f"Available variables: {sorted(user_vars)}")
+        logger.debug("Available variables: %s", sorted(user_vars))
 
     @property
     def final_value(self) -> Any:

@@ -7,23 +7,32 @@ from ace_next.integrations.mcp.config import MCPServerConfig
 from ace_next.integrations.mcp.registry import SessionRegistry
 from ace_next.integrations.mcp.handlers import MCPHandlers
 from ace_next.integrations.mcp.models import (
-    AskRequest, LearnSampleRequest, LearnFeedbackRequest,
-    SkillbookGetRequest, SkillbookSaveRequest, SkillbookLoadRequest,
-    SampleItem
+    AskRequest,
+    LearnSampleRequest,
+    LearnFeedbackRequest,
+    SkillbookGetRequest,
+    SkillbookSaveRequest,
+    SkillbookLoadRequest,
+    SampleItem,
 )
 from ace_next.integrations.mcp.errors import (
-    ForbiddenInSafeModeError, SaveLoadDisabledError, ValidationError,
+    ForbiddenInSafeModeError,
+    SaveLoadDisabledError,
+    ValidationError,
     map_error_to_mcp,
 )
 from ace_next.integrations.mcp.errors import TimeoutError as MCPTimeoutError
+
 
 @pytest.fixture
 def config():
     return MCPServerConfig(safe_mode=False)
 
+
 @pytest.fixture
 def registry(config):
     return SessionRegistry(config)
+
 
 @pytest.fixture
 def handlers(registry, config):
@@ -31,6 +40,7 @@ def handlers(registry, config):
 
 
 # ── ace.ask ──────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_handle_ask(handlers):
@@ -59,6 +69,7 @@ async def test_handle_ask_enforces_prompt_limit(handlers):
 
 
 # ── ace.skillbook.get ────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_handle_skillbook_get(handlers, registry):
@@ -110,6 +121,7 @@ async def test_handle_skillbook_get_uses_skill_type(handlers, registry):
 
 # ── ace.learn.sample ─────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_handle_learn_sample_safe_mode(handlers):
     handlers.config.safe_mode = True
@@ -130,6 +142,7 @@ async def test_handle_learn_sample_enforces_runtime_sample_limit(handlers):
 
 
 # ── ace.learn.feedback ───────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_handle_learn_feedback_uses_trace_learning(handlers):
@@ -200,6 +213,7 @@ async def test_handle_learn_feedback_trace_uses_context_not_reasoning(handlers):
 
 # ── ace.skillbook.save/load ──────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_handle_save_safe_mode(handlers, registry):
     handlers.config.safe_mode = True
@@ -254,6 +268,7 @@ async def test_handle_skillbook_load_rejects_path_outside_root(handlers):
 
 
 # ── ace.learn.sample success path ────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_handle_learn_sample_success(handlers):
@@ -317,7 +332,9 @@ async def test_handle_learn_sample_timeout(handlers):
         async def slow_learn(*args, **kwargs):
             await asyncio.sleep(10)
 
-        runner.learn.side_effect = lambda *a, **kw: asyncio.get_event_loop().run_until_complete(slow_learn())
+        runner.learn.side_effect = (
+            lambda *a, **kw: asyncio.get_event_loop().run_until_complete(slow_learn())
+        )
         runner.skillbook.skills.return_value = []
         mock_runner_cls.from_model.return_value = runner
 
@@ -330,6 +347,7 @@ async def test_handle_learn_sample_timeout(handlers):
 
 
 # ── ace.skillbook.save/load success paths ────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_handle_skillbook_save_success(handlers, registry):
@@ -368,6 +386,7 @@ async def test_handle_skillbook_load_success(handlers):
 
 # ── ace.skillbook.save/load uses resolved path ───────────────────
 
+
 @pytest.mark.asyncio
 async def test_handle_save_uses_resolved_path(handlers, registry):
     """save() receives the resolved path, not the raw user input."""
@@ -389,6 +408,7 @@ async def test_handle_save_uses_resolved_path(handlers, registry):
 
 
 # ── error-to-MCP mapping ────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_handle_call_tool_error_mapping(handlers):
@@ -427,6 +447,7 @@ def test_map_error_to_mcp_unknown_error():
 
 # ── sample indexing uses 0-based ─────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_handle_learn_sample_prompt_limit_uses_zero_index(handlers):
     """Error message for oversized samples uses 0-based index."""
@@ -434,8 +455,8 @@ async def test_handle_learn_sample_prompt_limit_uses_zero_index(handlers):
     req = LearnSampleRequest(
         session_id="s1",
         samples=[
-            SampleItem(question="ok"),       # fits
-            SampleItem(question="toolong"),   # exceeds limit
+            SampleItem(question="ok"),  # fits
+            SampleItem(question="toolong"),  # exceeds limit
         ],
     )
     with pytest.raises(ValidationError, match=r"samples\[1\]"):
@@ -443,6 +464,7 @@ async def test_handle_learn_sample_prompt_limit_uses_zero_index(handlers):
 
 
 # ── ground_truth included in feedback prompt limit ───────────────
+
 
 @pytest.mark.asyncio
 async def test_handle_learn_feedback_prompt_limit_includes_ground_truth(handlers):

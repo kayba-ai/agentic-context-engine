@@ -25,7 +25,6 @@ from ace_next.rr.steps import (
     _parse_final_value,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -103,9 +102,13 @@ class TestLoopLifecycle:
         """Happy path: explore on iter 0, FINAL on iter 1."""
         llm = MockLLM([EXPLORE, FINAL_GOOD])
         rr = _make_rr(llm)
-        result_ctx = rr(_make_ctx(
-            question="What is 2+2?", ground_truth="4", feedback="Correct!",
-        ))
+        result_ctx = rr(
+            _make_ctx(
+                question="What is 2+2?",
+                ground_truth="4",
+                feedback="Correct!",
+            )
+        )
         result = result_ctx.reflection
         assert isinstance(result, ReflectorOutput)
         assert result.key_insight == "insight"
@@ -354,7 +357,9 @@ class TestEntryPoints:
         rr = _make_rr(llm)
 
         budget = CallBudget(10)
-        sandbox = rr._create_sandbox(None, {"question": "q", "steps": []}, None, budget=budget)
+        sandbox = rr._create_sandbox(
+            None, {"question": "q", "steps": []}, None, budget=budget
+        )
         result = rr.run_loop(
             sandbox=sandbox,
             budget=budget,

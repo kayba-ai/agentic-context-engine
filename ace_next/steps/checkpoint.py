@@ -23,8 +23,8 @@ class CheckpointStep:
     always overwritten with the most recent state.
     """
 
-    requires = frozenset({"global_sample_index"})
-    provides = frozenset()
+    requires: frozenset[str] = frozenset({"global_sample_index"})
+    provides: frozenset[str] = frozenset()
 
     def __init__(
         self,

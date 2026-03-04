@@ -12,7 +12,6 @@ from ace_next.core.skillbook import Skillbook
 
 from ace_next.rr import RRStep, RRConfig
 
-
 # ---------------------------------------------------------------------------
 # Mock LLM
 # ---------------------------------------------------------------------------
@@ -250,7 +249,9 @@ class TestRRStepTimeout:
             "ace.reflector.subagent", fromlist=["CallBudget"]
         ).CallBudget(10)
         result = rr.run_loop(
-            sandbox=rr._create_sandbox(None, {"question": "q", "steps": []}, None, budget=budget),
+            sandbox=rr._create_sandbox(
+                None, {"question": "q", "steps": []}, None, budget=budget
+            ),
             budget=budget,
             initial_prompt="test prompt",
             timeout_args={
@@ -280,7 +281,9 @@ class TestRRStepTimeout:
             "ace.reflector.subagent", fromlist=["CallBudget"]
         ).CallBudget(10)
         result = rr.run_loop(
-            sandbox=rr._create_sandbox(None, {"question": "q", "steps": []}, None, budget=budget),
+            sandbox=rr._create_sandbox(
+                None, {"question": "q", "steps": []}, None, budget=budget
+            ),
             budget=budget,
             initial_prompt="test prompt",
             # No timeout_args — should use safe defaults

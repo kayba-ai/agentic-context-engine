@@ -64,8 +64,8 @@ class RROpikStep:
         tags: Tags applied to every trace.
     """
 
-    requires = frozenset({"reflection"})
-    provides = frozenset()
+    requires: frozenset[str] = frozenset({"reflection"})
+    provides: frozenset[str] = frozenset()
 
     def __init__(
         self,
@@ -124,6 +124,7 @@ class RROpikStep:
         metadata = self._build_metadata(rr_trace, subagent_calls)
         tags = list(self.tags)
 
+        assert self._client is not None
         trace = self._client.trace(
             name="rr_reflect",
             input=trace_input,

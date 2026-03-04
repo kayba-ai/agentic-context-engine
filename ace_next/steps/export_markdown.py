@@ -16,8 +16,8 @@ class ExportSkillbookMarkdownStep:
     always reflects the current state of the skillbook.
     """
 
-    requires = frozenset({"skillbook"})
-    provides = frozenset()
+    requires: frozenset[str] = frozenset({"skillbook"})
+    provides: frozenset[str] = frozenset()
 
     def __init__(self, path: str | Path, skillbook: Skillbook) -> None:
         self.path = Path(path)

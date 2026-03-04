@@ -144,7 +144,7 @@ class TraceAnalyser(ACERunner):
         """
         return self._run(traces, epochs=epochs, wait=wait)
 
-    def _build_context(
+    def _build_context(  # type: ignore[override]
         self,
         raw_trace: Any,
         *,

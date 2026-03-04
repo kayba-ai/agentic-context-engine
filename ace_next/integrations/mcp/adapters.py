@@ -16,7 +16,7 @@ from ace_next.integrations.mcp.models import (
 from ace_next.integrations.mcp.errors import map_error_to_mcp
 
 _MCP_INSTALL_HINT = (
-    'ACE MCP support is optional. Install it with '
+    "ACE MCP support is optional. Install it with "
     '`pip install "ace-framework[mcp]"` or `uv add "ace-framework[mcp]"`.'
 )
 
@@ -30,7 +30,7 @@ def _load_mcp_types():
         raise
 
 
-def _mcp_schema(model: type) -> dict[str, Any]:
+def _mcp_schema(model: Any) -> dict[str, Any]:
     """Return an MCP-friendly JSON schema for a Pydantic model.
 
     Some MCP clients (e.g. the Inspector) don't resolve ``$defs``/``$ref``
@@ -59,12 +59,12 @@ def _mcp_schema(model: type) -> dict[str, Any]:
 # ── Tool dispatch table ────────────────────────────────────────────
 
 _TOOL_DISPATCH: dict[str, tuple[type, str]] = {
-    "ace.ask":              (AskRequest,              "handle_ask"),
-    "ace.learn.sample":     (LearnSampleRequest,      "handle_learn_sample"),
-    "ace.learn.feedback":   (LearnFeedbackRequest,    "handle_learn_feedback"),
-    "ace.skillbook.get":    (SkillbookGetRequest,     "handle_skillbook_get"),
-    "ace.skillbook.save":   (SkillbookSaveRequest,    "handle_skillbook_save"),
-    "ace.skillbook.load":   (SkillbookLoadRequest,    "handle_skillbook_load"),
+    "ace.ask": (AskRequest, "handle_ask"),
+    "ace.learn.sample": (LearnSampleRequest, "handle_learn_sample"),
+    "ace.learn.feedback": (LearnFeedbackRequest, "handle_learn_feedback"),
+    "ace.skillbook.get": (SkillbookGetRequest, "handle_skillbook_get"),
+    "ace.skillbook.save": (SkillbookSaveRequest, "handle_skillbook_save"),
+    "ace.skillbook.load": (SkillbookLoadRequest, "handle_skillbook_load"),
 }
 
 

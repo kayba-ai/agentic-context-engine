@@ -22,8 +22,8 @@ class DeduplicateStep:
     comparisons, so running on every sample would be expensive.
     """
 
-    requires = frozenset({"global_sample_index"})
-    provides = frozenset()
+    requires: frozenset[str] = frozenset({"global_sample_index"})
+    provides: frozenset[str] = frozenset()
 
     max_workers = 1
 

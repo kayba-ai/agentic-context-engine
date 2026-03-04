@@ -4,13 +4,19 @@ from pathlib import Path
 
 from ace_next.integrations.mcp.registry import SessionRegistry
 from ace_next.integrations.mcp.models import (
-    AskRequest, AskResponse,
-    LearnSampleRequest, LearnSampleResponse,
-    LearnFeedbackRequest, LearnFeedbackResponse,
-    SkillbookGetRequest, SkillbookGetResponse,
-    SkillbookSaveRequest, SkillbookSaveResponse,
-    SkillbookLoadRequest, SkillbookLoadResponse,
-    SkillItem
+    AskRequest,
+    AskResponse,
+    LearnSampleRequest,
+    LearnSampleResponse,
+    LearnFeedbackRequest,
+    LearnFeedbackResponse,
+    SkillbookGetRequest,
+    SkillbookGetResponse,
+    SkillbookSaveRequest,
+    SkillbookSaveResponse,
+    SkillbookLoadRequest,
+    SkillbookLoadResponse,
+    SkillItem,
 )
 from ace_next.integrations.mcp.config import MCPServerConfig
 from ace_next.integrations.mcp.errors import (
@@ -23,6 +29,7 @@ from ace_next.integrations.mcp.errors import (
 )
 from ace_next.core.environments import Sample
 from ace_next.core.skillbook import Skill
+
 
 class MCPHandlers:
     def __init__(self, registry: SessionRegistry, config: MCPServerConfig):
@@ -81,11 +88,15 @@ class MCPHandlers:
         self._enforce_prompt_limit(len(request.question) + len(request.context), "ask")
 
         target_model, kwargs = self._get_session_kwargs(request.session_config)
-        session = await self.registry.get_or_create(request.session_id, model=target_model, **kwargs)
+        session = await self.registry.get_or_create(
+            request.session_id, model=target_model, **kwargs
+        )
 
         async with session.lock:
             try:
-                answer = await asyncio.to_thread(session.runner.ask, request.question, request.context)
+                answer = await asyncio.to_thread(
+                    session.runner.ask, request.question, request.context
+                )
                 skill_count = len(session.runner.skillbook.skills())
 
                 return AskResponse(
@@ -98,7 +109,9 @@ class MCPHandlers:
             except Exception as e:
                 raise InternalError(str(e))
 
-    async def handle_skillbook_get(self, request: SkillbookGetRequest) -> SkillbookGetResponse:
+    async def handle_skillbook_get(
+        self, request: SkillbookGetRequest
+    ) -> SkillbookGetResponse:
         session = await self.registry.get(request.session_id)
 
         async with session.lock:
@@ -109,40 +122,44 @@ class MCPHandlers:
                 limited_skills = []
                 for s in skills:
                     if isinstance(s, Skill):
-                        limited_skills.append(SkillItem(
-                            id=s.id,
-                            content=s.content,
-                            topic=s.section,
-                            helpful=s.helpful,
-                            harmful=s.harmful,
-                            neutral=s.neutral,
-                        ))
+                        limited_skills.append(
+                            SkillItem(
+                                id=s.id,
+                                content=s.content,
+                                topic=s.section,
+                                helpful=s.helpful,
+                                harmful=s.harmful,
+                                neutral=s.neutral,
+                            )
+                        )
                     else:
                         # Defensive fallback for non-standard skill objects
-                        limited_skills.append(SkillItem(
-                            id=getattr(s, 'id', str(len(limited_skills))),
-                            content=getattr(s, 'content', str(s)),
-                            topic=getattr(s, 'section', None),
-                            helpful=getattr(s, 'helpful', None),
-                            harmful=getattr(s, 'harmful', None),
-                            neutral=getattr(s, 'neutral', None),
-                        ))
+                        limited_skills.append(
+                            SkillItem(
+                                id=getattr(s, "id", str(len(limited_skills))),
+                                content=getattr(s, "content", str(s)),
+                                topic=getattr(s, "section", None),
+                                helpful=getattr(s, "helpful", None),
+                                harmful=getattr(s, "harmful", None),
+                                neutral=getattr(s, "neutral", None),
+                            )
+                        )
 
-                limited_skills = limited_skills[:request.limit]
+                limited_skills = limited_skills[: request.limit]
 
                 stats = skillbook.stats()
 
                 return SkillbookGetResponse(
-                    session_id=request.session_id,
-                    stats=stats,
-                    skills=limited_skills
+                    session_id=request.session_id, stats=stats, skills=limited_skills
                 )
             except ACEMCPError:
                 raise
             except Exception as e:
                 raise InternalError(str(e))
 
-    async def handle_learn_sample(self, request: LearnSampleRequest) -> LearnSampleResponse:
+    async def handle_learn_sample(
+        self, request: LearnSampleRequest
+    ) -> LearnSampleResponse:
         if self.config.safe_mode:
             raise ForbiddenInSafeModeError("ace.learn.sample")
 
@@ -162,18 +179,22 @@ class MCPHandlers:
             )
 
         target_model, kwargs = self._get_session_kwargs(request.session_config)
-        session = await self.registry.get_or_create(request.session_id, model=target_model, **kwargs)
+        session = await self.registry.get_or_create(
+            request.session_id, model=target_model, **kwargs
+        )
 
         async with session.lock:
             try:
                 samples = []
                 for s in request.samples:
-                    samples.append(Sample(
-                        question=s.question,
-                        context=s.context,
-                        ground_truth=s.ground_truth,
-                        metadata=s.metadata or {}
-                    ))
+                    samples.append(
+                        Sample(
+                            question=s.question,
+                            context=s.context,
+                            ground_truth=s.ground_truth,
+                            metadata=s.metadata or {},
+                        )
+                    )
 
                 count_before = len(session.runner.skillbook.skills())
 
@@ -196,7 +217,7 @@ class MCPHandlers:
                     failed=failed,
                     skill_count_before=count_before,
                     skill_count_after=count_after,
-                    new_skill_count=max(0, count_after - count_before)
+                    new_skill_count=max(0, count_after - count_before),
                 )
             except ACEMCPError:
                 raise
@@ -207,7 +228,9 @@ class MCPHandlers:
             except Exception as e:
                 raise InternalError(str(e))
 
-    async def handle_learn_feedback(self, request: LearnFeedbackRequest) -> LearnFeedbackResponse:
+    async def handle_learn_feedback(
+        self, request: LearnFeedbackRequest
+    ) -> LearnFeedbackResponse:
         if self.config.safe_mode:
             raise ForbiddenInSafeModeError("ace.learn.feedback")
 
@@ -221,7 +244,9 @@ class MCPHandlers:
         )
 
         target_model, kwargs = self._get_session_kwargs(request.session_config)
-        session = await self.registry.get_or_create(request.session_id, model=target_model, **kwargs)
+        session = await self.registry.get_or_create(
+            request.session_id, model=target_model, **kwargs
+        )
 
         async with session.lock:
             try:
@@ -241,7 +266,7 @@ class MCPHandlers:
 
                 if not learned:
                     # No prior ask interaction — build a trace and learn
-                    trace = {
+                    trace: dict[str, object] = {
                         "question": request.question,
                         "context": request.context,
                         "answer": request.answer,
@@ -250,9 +275,7 @@ class MCPHandlers:
                         "ground_truth": request.ground_truth,
                     }
                     await asyncio.wait_for(
-                        asyncio.to_thread(
-                            session.runner.learn_from_traces, [trace]
-                        ),
+                        asyncio.to_thread(session.runner.learn_from_traces, [trace]),
                         timeout=timeout,
                     )
 
@@ -274,7 +297,9 @@ class MCPHandlers:
             except Exception as e:
                 raise InternalError(str(e))
 
-    async def handle_skillbook_save(self, request: SkillbookSaveRequest) -> SkillbookSaveResponse:
+    async def handle_skillbook_save(
+        self, request: SkillbookSaveRequest
+    ) -> SkillbookSaveResponse:
         if self.config.safe_mode:
             raise ForbiddenInSafeModeError("ace.skillbook.save")
         if not self.config.allow_save_load:
@@ -292,14 +317,16 @@ class MCPHandlers:
                 return SkillbookSaveResponse(
                     session_id=request.session_id,
                     path=resolved,
-                    saved_skill_count=skill_count
+                    saved_skill_count=skill_count,
                 )
             except ACEMCPError:
                 raise
             except Exception as e:
                 raise InternalError(str(e))
 
-    async def handle_skillbook_load(self, request: SkillbookLoadRequest) -> SkillbookLoadResponse:
+    async def handle_skillbook_load(
+        self, request: SkillbookLoadRequest
+    ) -> SkillbookLoadResponse:
         if self.config.safe_mode:
             raise ForbiddenInSafeModeError("ace.skillbook.load")
         if not self.config.allow_save_load:
@@ -317,7 +344,7 @@ class MCPHandlers:
                 return SkillbookLoadResponse(
                     session_id=request.session_id,
                     path=resolved,
-                    skill_count=skill_count
+                    skill_count=skill_count,
                 )
             except ACEMCPError:
                 raise

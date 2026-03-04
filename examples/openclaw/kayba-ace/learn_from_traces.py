@@ -30,9 +30,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 
 # Expected layout: OPENCLAW_HOME/workspace/skills/<name>/script.py
 # Override with OPENCLAW_HOME env var if the script lives elsewhere.
-OPENCLAW_HOME = Path(
-    os.getenv("OPENCLAW_HOME") or SCRIPT_DIR.parents[2]
-).expanduser()
+OPENCLAW_HOME = Path(os.getenv("OPENCLAW_HOME") or SCRIPT_DIR.parents[2]).expanduser()
 
 # Ensure ace_next is importable (dev: repo root; prod: pip install)
 try:
@@ -61,7 +59,6 @@ from ace_next.core.context import ACEStepContext
 from ace_next.steps.load_traces import LoadTracesStep
 from ace_next.integrations.openclaw import OpenClawToTraceStep
 from ace_next.steps.export_markdown import ExportSkillbookMarkdownStep
-
 
 # ---------------------------------------------------------------------------
 # Configuration

@@ -170,14 +170,14 @@ class LangChainExecuteStep:
             return original_input
 
         if isinstance(original_input, dict) and "input" in original_input:
-            enhanced = original_input.copy()
-            enhanced["input"] = f"{original_input['input']}\n\n{context}"
-            return enhanced
+            enhanced_dict = original_input.copy()
+            enhanced_dict["input"] = f"{original_input['input']}\n\n{context}"
+            return enhanced_dict
 
         if isinstance(original_input, dict):
-            enhanced = original_input.copy()
-            enhanced["skillbook_context"] = context
-            return enhanced
+            enhanced_dict = original_input.copy()
+            enhanced_dict["skillbook_context"] = context
+            return enhanced_dict
 
         return original_input
 

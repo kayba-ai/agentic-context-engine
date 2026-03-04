@@ -73,7 +73,9 @@ def register_opik_litellm_callback(
         # Suppress only those specific messages during init.
         class _AsyncInitFilter(logging.Filter):
             def filter(self, record: logging.LogRecord) -> bool:
-                return "Asynchronous processing not initialized" not in record.getMessage()
+                return (
+                    "Asynchronous processing not initialized" not in record.getMessage()
+                )
 
         _ll = logging.getLogger("LiteLLM")
         _f = _AsyncInitFilter()
@@ -118,8 +120,8 @@ class OpikStep:
         tags: Tags applied to every trace.
     """
 
-    requires = frozenset({"skillbook"})
-    provides = frozenset()
+    requires: frozenset[str] = frozenset({"skillbook"})
+    provides: frozenset[str] = frozenset()
 
     def __init__(
         self,
@@ -171,6 +173,7 @@ class OpikStep:
         feedback_scores = self._build_feedback_scores(ctx)
         tags = self.tags + [f"epoch-{ctx.epoch}"]
 
+        assert self._client is not None
         trace = self._client.trace(
             name="ace_pipeline",
             input=trace_input,

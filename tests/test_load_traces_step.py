@@ -74,9 +74,7 @@ class TestLoadTracesStep:
 
         assert result.trace == []
 
-    def test_skips_unparseable_lines(
-        self, load_step: LoadTracesStep, tmp_path: Path
-    ):
+    def test_skips_unparseable_lines(self, load_step: LoadTracesStep, tmp_path: Path):
         path = tmp_path / "mixed.jsonl"
         path.write_text(
             '{"type": "session", "id": "s1"}\n'
@@ -93,9 +91,7 @@ class TestLoadTracesStep:
         assert result.trace[0]["type"] == "session"
         assert result.trace[1]["type"] == "message"
 
-    def test_preserves_full_event_data(
-        self, load_step: LoadTracesStep, tmp_path: Path
-    ):
+    def test_preserves_full_event_data(self, load_step: LoadTracesStep, tmp_path: Path):
         """Verify no truncation of event fields."""
         long_text = "x" * 10000
         event = {

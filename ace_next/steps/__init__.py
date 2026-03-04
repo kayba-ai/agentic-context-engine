@@ -73,15 +73,15 @@ def learning_tail(
     the corresponding config is provided.
     """
     steps: list[StepProtocol] = [
-        ReflectStep(reflector),
-        TagStep(skillbook),
-        UpdateStep(skill_manager),
-        ApplyStep(skillbook),
+        ReflectStep(reflector),  # type: ignore[list-item]
+        TagStep(skillbook),  # type: ignore[list-item]
+        UpdateStep(skill_manager),  # type: ignore[list-item]
+        ApplyStep(skillbook),  # type: ignore[list-item]
     ]
     if dedup_manager:
-        steps.append(DeduplicateStep(dedup_manager, skillbook, interval=dedup_interval))
+        steps.append(DeduplicateStep(dedup_manager, skillbook, interval=dedup_interval))  # type: ignore[arg-type]
     if checkpoint_dir:
         steps.append(
-            CheckpointStep(checkpoint_dir, skillbook, interval=checkpoint_interval)
+            CheckpointStep(checkpoint_dir, skillbook, interval=checkpoint_interval)  # type: ignore[arg-type]
         )
     return steps

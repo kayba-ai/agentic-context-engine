@@ -18,7 +18,6 @@ from ace_next.core.outputs import (
 from ace_next.core.skillbook import Skillbook, UpdateBatch, UpdateOperation
 from ace_next.runners.base import ACERunner
 
-
 # ------------------------------------------------------------------ #
 # Mock roles
 # ------------------------------------------------------------------ #
