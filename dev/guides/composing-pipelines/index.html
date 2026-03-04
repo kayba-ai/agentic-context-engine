@@ -19,7 +19,7 @@
       
       
       <link rel="icon" href="../../assets/Kayba_logo_rounded.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.3">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
     
     
 <title>ACE Documentation</title>
@@ -1670,6 +1670,56 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#using-rrstep-recursive-reflector" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using RRStep (Recursive Reflector)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Using RRStep (Recursive Reflector)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#as-a-drop-in-reflector-replacement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        As a drop-in reflector replacement
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#as-a-pipeline-step" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        As a pipeline step
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#with-a-separate-sub-agent-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        With a separate sub-agent model
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#available-steps" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1881,6 +1931,49 @@ concurrently:</p>
 </code></pre></div>
 <p>See the <a href="../../pipeline/branching/">Pipeline Engine docs</a> for full branching
 and merge strategy details.</p>
+<h2 id="using-rrstep-recursive-reflector">Using RRStep (Recursive Reflector)<a class="headerlink" href="#using-rrstep-recursive-reflector" title="Permanent link">&para;</a></h2>
+<p><code>RRStep</code> satisfies both <code>StepProtocol</code> and <code>ReflectorLike</code>, so it can be used
+in two ways:</p>
+<h3 id="as-a-drop-in-reflector-replacement">As a drop-in reflector replacement<a class="headerlink" href="#as-a-drop-in-reflector-replacement" title="Permanent link">&para;</a></h3>
+<p>Pass it anywhere a <code>Reflector</code> is expected:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next</span><span class="w"> </span><span class="kn">import</span> <span class="n">ACELiteLLM</span><span class="p">,</span> <span class="n">LiteLLMClient</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next.rr</span><span class="w"> </span><span class="kn">import</span> <span class="n">RRStep</span><span class="p">,</span> <span class="n">RRConfig</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="n">llm</span> <span class="o">=</span> <span class="n">LiteLLMClient</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">)</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="n">ace</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="p">(</span><span class="n">llm</span><span class="p">,</span> <span class="n">reflector</span><span class="o">=</span><span class="n">RRStep</span><span class="p">(</span><span class="n">llm</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">RRConfig</span><span class="p">(</span><span class="n">max_iterations</span><span class="o">=</span><span class="mi">10</span><span class="p">)))</span>
+</code></pre></div>
+<h3 id="as-a-pipeline-step">As a pipeline step<a class="headerlink" href="#as-a-pipeline-step" title="Permanent link">&para;</a></h3>
+<p>Place it directly in a pipeline (it provides <code>reflection</code>):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pipeline</span><span class="p">,</span> <span class="n">learning_tail</span><span class="p">,</span> <span class="n">SkillManager</span><span class="p">,</span> <span class="n">Skillbook</span><span class="p">,</span> <span class="n">LiteLLMClient</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next.rr</span><span class="w"> </span><span class="kn">import</span> <span class="n">RRStep</span><span class="p">,</span> <span class="n">RRConfig</span><span class="p">,</span> <span class="n">RROpikStep</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="n">llm</span> <span class="o">=</span> <span class="n">LiteLLMClient</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">)</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="n">skillbook</span> <span class="o">=</span> <span class="n">Skillbook</span><span class="p">()</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="n">rr</span> <span class="o">=</span> <span class="n">RRStep</span><span class="p">(</span><span class="n">llm</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">RRConfig</span><span class="p">(</span><span class="n">max_iterations</span><span class="o">=</span><span class="mi">15</span><span class="p">))</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="n">pipe</span> <span class="o">=</span> <span class="n">Pipeline</span><span class="p">([</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>    <span class="n">MyExecuteStep</span><span class="p">(),</span>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>    <span class="n">MyToTrace</span><span class="p">(),</span>
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>    <span class="n">rr</span><span class="p">,</span>  <span class="c1"># replaces ReflectStep — provides &quot;reflection&quot;</span>
+<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>    <span class="o">*</span><span class="n">learning_tail</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">SkillManager</span><span class="p">(</span><span class="n">llm</span><span class="p">),</span> <span class="n">skillbook</span><span class="p">)[</span><span class="mi">1</span><span class="p">:],</span>  <span class="c1"># skip ReflectStep</span>
+<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a>    <span class="n">RROpikStep</span><span class="p">(</span><span class="n">project_name</span><span class="o">=</span><span class="s2">&quot;my-project&quot;</span><span class="p">),</span>  <span class="c1"># optional observability</span>
+<a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a><span class="p">])</span>
+</code></pre></div>
+<h3 id="with-a-separate-sub-agent-model">With a separate sub-agent model<a class="headerlink" href="#with-a-separate-sub-agent-model" title="Permanent link">&para;</a></h3>
+<p>Route sub-agent calls to a smaller/faster model:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next.rr</span><span class="w"> </span><span class="kn">import</span> <span class="n">RRStep</span><span class="p">,</span> <span class="n">RRConfig</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="n">main_llm</span> <span class="o">=</span> <span class="n">LiteLLMClient</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">&quot;gpt-4o&quot;</span><span class="p">)</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="n">fast_llm</span> <span class="o">=</span> <span class="n">LiteLLMClient</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">)</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="n">rr</span> <span class="o">=</span> <span class="n">RRStep</span><span class="p">(</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>    <span class="n">main_llm</span><span class="p">,</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>    <span class="n">config</span><span class="o">=</span><span class="n">RRConfig</span><span class="p">(</span><span class="n">max_iterations</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">max_llm_calls</span><span class="o">=</span><span class="mi">40</span><span class="p">),</span>
+<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>    <span class="n">subagent_llm</span><span class="o">=</span><span class="n">fast_llm</span><span class="p">,</span>
+<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="p">)</span>
+</code></pre></div>
+<p>See <a href="../../RR_DESIGN/">RR_DESIGN.md</a> for the full architecture, sandbox API,
+configuration reference, and trace schema.</p>
 <h2 id="available-steps">Available Steps<a class="headerlink" href="#available-steps" title="Permanent link">&para;</a></h2>
 <p>All steps are importable from <code>ace_next</code>:</p>
 <table>

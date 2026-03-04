@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="../assets/Kayba_logo_rounded.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.3">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
     
     
 <title>ACE Documentation</title>
@@ -1871,6 +1871,78 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#recursive-reflector-rr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recursive Reflector (RR)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Recursive Reflector (RR)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rrstep" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RRStep
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rrconfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RRConfig
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sandbox-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sandbox Functions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tracecontext" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TraceContext
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rropikstep" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RROpikStep
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#prompts" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2215,6 +2287,78 @@
     <span class="md-ellipsis">
       
         register_opik_litellm_callback
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recursive-reflector-rr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recursive Reflector (RR)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Recursive Reflector (RR)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rrstep" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RRStep
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rrconfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RRConfig
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sandbox-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sandbox Functions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tracecontext" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TraceContext
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rropikstep" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RROpikStep
       
     </span>
   </a>
@@ -2756,11 +2900,177 @@
 </code></pre></div>
 <p>See <a href="../integrations/opik/">Opik Observability</a>.</p>
 <hr />
+<h2 id="recursive-reflector-rr">Recursive Reflector (RR)<a class="headerlink" href="#recursive-reflector-rr" title="Permanent link">&para;</a></h2>
+<p>REPL-based trace analyser that iteratively generates and executes Python code in a sandbox.</p>
+<h3 id="rrstep">RRStep<a class="headerlink" href="#rrstep" title="Permanent link">&para;</a></h3>
+<p>Drop-in replacement for <code>Reflector</code> — satisfies both <code>StepProtocol</code> and <code>ReflectorLike</code>.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next.rr</span><span class="w"> </span><span class="kn">import</span> <span class="n">RRStep</span><span class="p">,</span> <span class="n">RRConfig</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="n">rr</span> <span class="o">=</span> <span class="n">RRStep</span><span class="p">(</span>
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a>    <span class="n">llm</span><span class="p">,</span>                                    <span class="c1"># LLM client (must have complete_messages)</span>
+<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>    <span class="n">config</span><span class="o">=</span><span class="n">RRConfig</span><span class="p">(</span><span class="n">max_iterations</span><span class="o">=</span><span class="mi">10</span><span class="p">),</span>     <span class="c1"># Configuration</span>
+<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a>    <span class="n">prompt_template</span><span class="o">=</span><span class="n">REFLECTOR_RECURSIVE_PROMPT</span><span class="p">,</span>  <span class="c1"># Customisable (optional)</span>
+<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a>    <span class="n">subagent_llm</span><span class="o">=</span><span class="n">smaller_llm</span><span class="p">,</span>               <span class="c1"># Separate LLM for sub-agent (optional)</span>
+<a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a><span class="p">)</span>
+<a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a>
+<a id="__codelineno-20-10" name="__codelineno-20-10" href="#__codelineno-20-10"></a><span class="c1"># As drop-in reflector</span>
+<a id="__codelineno-20-11" name="__codelineno-20-11" href="#__codelineno-20-11"></a><span class="n">ace</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="p">(</span><span class="n">llm</span><span class="p">,</span> <span class="n">reflector</span><span class="o">=</span><span class="n">rr</span><span class="p">)</span>
+<a id="__codelineno-20-12" name="__codelineno-20-12" href="#__codelineno-20-12"></a>
+<a id="__codelineno-20-13" name="__codelineno-20-13" href="#__codelineno-20-13"></a><span class="c1"># As pipeline step</span>
+<a id="__codelineno-20-14" name="__codelineno-20-14" href="#__codelineno-20-14"></a><span class="n">pipe</span> <span class="o">=</span> <span class="n">Pipeline</span><span class="p">([</span><span class="o">...</span><span class="p">,</span> <span class="n">rr</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span>
+</code></pre></div>
+<h3 id="rrconfig">RRConfig<a class="headerlink" href="#rrconfig" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>max_iterations</code></td>
+<td><code>20</code></td>
+<td>Max REPL loop iterations</td>
+</tr>
+<tr>
+<td><code>timeout</code></td>
+<td><code>30.0</code></td>
+<td>Per-execution timeout in seconds (Unix only)</td>
+</tr>
+<tr>
+<td><code>max_llm_calls</code></td>
+<td><code>30</code></td>
+<td>Shared budget across main + sub-agent calls</td>
+</tr>
+<tr>
+<td><code>max_context_chars</code></td>
+<td><code>50_000</code></td>
+<td>Message history trim threshold</td>
+</tr>
+<tr>
+<td><code>max_output_chars</code></td>
+<td><code>20_000</code></td>
+<td>Per-execution output truncation limit</td>
+</tr>
+<tr>
+<td><code>enable_subagent</code></td>
+<td><code>True</code></td>
+<td>Enable <code>ask_llm()</code> in sandbox</td>
+</tr>
+<tr>
+<td><code>subagent_model</code></td>
+<td><code>None</code></td>
+<td>Sub-agent model (None = same as main)</td>
+</tr>
+<tr>
+<td><code>subagent_max_tokens</code></td>
+<td><code>8192</code></td>
+<td>Max tokens for sub-agent responses</td>
+</tr>
+<tr>
+<td><code>subagent_temperature</code></td>
+<td><code>0.3</code></td>
+<td>Sub-agent temperature</td>
+</tr>
+<tr>
+<td><code>subagent_system_prompt</code></td>
+<td><code>None</code></td>
+<td>Custom sub-agent system prompt</td>
+</tr>
+<tr>
+<td><code>enable_fallback_synthesis</code></td>
+<td><code>True</code></td>
+<td>Attempt LLM synthesis on timeout</td>
+</tr>
+</tbody>
+</table>
+<h3 id="sandbox-functions">Sandbox Functions<a class="headerlink" href="#sandbox-functions" title="Permanent link">&para;</a></h3>
+<p>Available inside sandbox code generated by the LLM:</p>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>FINAL(value)</code></td>
+<td>Submit final result dict (terminates the loop)</td>
+</tr>
+<tr>
+<td><code>FINAL_VAR(name)</code></td>
+<td>Submit a named variable as the result</td>
+</tr>
+<tr>
+<td><code>SHOW_VARS()</code></td>
+<td>Print available variables (debugging)</td>
+</tr>
+<tr>
+<td><code>ask_llm(question, context="", mode="analysis")</code></td>
+<td>Query sub-agent LLM</td>
+</tr>
+<tr>
+<td><code>llm_query(prompt)</code></td>
+<td>Alias for <code>ask_llm(prompt, "")</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="tracecontext">TraceContext<a class="headerlink" href="#tracecontext" title="Permanent link">&para;</a></h3>
+<p>Structured trace wrapper with factory methods:</p>
+<table>
+<thead>
+<tr>
+<th>Factory</th>
+<th>Input</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>TraceContext.from_agent_output(output)</code></td>
+<td><code>AgentOutput</code></td>
+</tr>
+<tr>
+<td><code>TraceContext.from_conversation_history(msgs)</code></td>
+<td><code>list[dict]</code></td>
+</tr>
+<tr>
+<td><code>TraceContext.from_tau_simulation(msgs, system_prompt)</code></td>
+<td>TAU-bench messages</td>
+</tr>
+<tr>
+<td><code>TraceContext.from_browser_use(history)</code></td>
+<td>browser-use <code>AgentHistory</code></td>
+</tr>
+<tr>
+<td><code>TraceContext.from_langchain(steps)</code></td>
+<td>LangChain intermediate steps</td>
+</tr>
+<tr>
+<td><code>TraceContext.from_reasoning_string(text)</code></td>
+<td>Raw reasoning string</td>
+</tr>
+<tr>
+<td><code>TraceContext.combine(traces)</code></td>
+<td>Merge multiple traces</td>
+</tr>
+</tbody>
+</table>
+<h3 id="rropikstep">RROpikStep<a class="headerlink" href="#rropikstep" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next.rr</span><span class="w"> </span><span class="kn">import</span> <span class="n">RROpikStep</span>
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="c1"># Place after RRStep for Opik observability</span>
+<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="n">steps</span> <span class="o">=</span> <span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">rr_step</span><span class="p">,</span> <span class="n">RROpikStep</span><span class="p">(</span><span class="n">project_name</span><span class="o">=</span><span class="s2">&quot;my-project&quot;</span><span class="p">)]</span>
+</code></pre></div>
+<p>See <a href="../RR_DESIGN/">RR_DESIGN.md</a> for the full architecture reference.</p>
+<hr />
 <h2 id="prompts">Prompts<a class="headerlink" href="#prompts" title="Permanent link">&para;</a></h2>
 <p>The default prompts are v2.1 (built into <code>ace_next</code>). Pass a custom template via <code>prompt_template</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">llm</span><span class="p">,</span> <span class="n">prompt_template</span><span class="o">=</span><span class="s2">&quot;Custom prompt with </span><span class="si">{skillbook}</span><span class="s2">, </span><span class="si">{question}</span><span class="s2">, </span><span class="si">{context}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="n">reflector</span> <span class="o">=</span> <span class="n">Reflector</span><span class="p">(</span><span class="n">llm</span><span class="p">,</span> <span class="n">prompt_template</span><span class="o">=</span><span class="s2">&quot;Custom reflector prompt ...&quot;</span><span class="p">)</span>
-<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="n">skill_manager</span> <span class="o">=</span> <span class="n">SkillManager</span><span class="p">(</span><span class="n">llm</span><span class="p">,</span> <span class="n">prompt_template</span><span class="o">=</span><span class="s2">&quot;Custom skill manager prompt ...&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">llm</span><span class="p">,</span> <span class="n">prompt_template</span><span class="o">=</span><span class="s2">&quot;Custom prompt with </span><span class="si">{skillbook}</span><span class="s2">, </span><span class="si">{question}</span><span class="s2">, </span><span class="si">{context}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="n">reflector</span> <span class="o">=</span> <span class="n">Reflector</span><span class="p">(</span><span class="n">llm</span><span class="p">,</span> <span class="n">prompt_template</span><span class="o">=</span><span class="s2">&quot;Custom reflector prompt ...&quot;</span><span class="p">)</span>
+<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a><span class="n">skill_manager</span> <span class="o">=</span> <span class="n">SkillManager</span><span class="p">(</span><span class="n">llm</span><span class="p">,</span> <span class="n">prompt_template</span><span class="o">=</span><span class="s2">&quot;Custom skill manager prompt ...&quot;</span><span class="p">)</span>
 </code></pre></div>
 <p>See <a href="../guides/prompts/">Prompt Engineering</a>.</p>
 

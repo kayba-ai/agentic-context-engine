@@ -19,7 +19,7 @@
       
       
       <link rel="icon" href="../assets/Kayba_logo_rounded.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.3">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
     
     
 <title>ACE Documentation</title>
@@ -1875,18 +1875,20 @@
 - Must declare <code>requires</code> and <code>provides</code> — the pipeline validates ordering at construction time
 - Steps declare their own parallelism constraints (see below)</p>
 <h3 id="step-protocol">Step protocol<a class="headerlink" href="#step-protocol" title="Permanent link">&para;</a></h3>
-<p>For static type checking, the framework exposes a <code>typing.Protocol</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Set</span> <span class="k">as</span> <span class="n">AbstractSet</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Protocol</span><span class="p">,</span> <span class="n">runtime_checkable</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="nd">@runtime_checkable</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="k">class</span><span class="w"> </span><span class="nc">StepProtocol</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">requires</span><span class="p">:</span> <span class="n">AbstractSet</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="n">provides</span><span class="p">:</span> <span class="n">AbstractSet</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">StepContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StepContext</span><span class="p">:</span> <span class="o">...</span>
+<p>For static type checking, the framework exposes a generic <code>typing.Protocol</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Protocol</span><span class="p">,</span> <span class="n">TypeVar</span><span class="p">,</span> <span class="n">runtime_checkable</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">Ctx</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;Ctx&quot;</span><span class="p">,</span> <span class="n">bound</span><span class="o">=</span><span class="n">StepContext</span><span class="p">)</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="nd">@runtime_checkable</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="k">class</span><span class="w"> </span><span class="nc">StepProtocol</span><span class="p">(</span><span class="n">Protocol</span><span class="p">[</span><span class="n">Ctx</span><span class="p">]):</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="n">requires</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="n">provides</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">Ctx</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Ctx</span><span class="p">:</span> <span class="o">...</span>
 </code></pre></div>
-<p><code>AbstractSet[str]</code> accepts both <code>set</code> and <code>frozenset</code> — steps declare plain set literals; the pipeline normalizes them to <code>frozenset</code> at construction time before doing any contract validation. <code>Pipeline</code> and <code>Branch</code> both satisfy this protocol, so they can be nested wherever a <code>Step</code> is expected without extra annotation. <code>@runtime_checkable</code> lets the pipeline validator use <code>isinstance(step, StepProtocol)</code> at construction time to give a clear error if a step is missing required attributes, rather than failing at call time.</p>
+<p><code>StepProtocol</code> is generic over the context type. The base <code>StepProtocol</code> (or <code>StepProtocol[StepContext]</code>) is satisfied by <code>Pipeline</code> and <code>Branch</code>, so they can be nested wherever a step is expected. Domain-specific steps use the parameterized form — e.g. <code>StepProtocol[ACEStepContext]</code> — so that mypy validates the <code>__call__</code> signature against the concrete context subclass without needing <code># type: ignore</code> comments.</p>
+<p><code>@runtime_checkable</code> lets the pipeline validator use <code>isinstance(step, StepProtocol)</code> at construction time to give a clear error if a step is missing required attributes, rather than failing at call time. The type parameter is erased at runtime, so <code>isinstance</code> checks work the same as with a non-generic protocol.</p>
 <h3 id="stepcontext-immutability-contract">StepContext — immutability contract<a class="headerlink" href="#stepcontext-immutability-contract" title="Permanent link">&para;</a></h3>
 <p><code>StepContext</code> is a frozen dataclass. Steps never mutate the incoming context — they return a new one via <code>.replace()</code>.</p>
 <p>The pipeline engine defines a minimal base with only two fields:</p>
