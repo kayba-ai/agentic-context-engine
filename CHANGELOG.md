@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.5] - 2026-03-04
+
 ### Added
 - **Self-contained RR module** (`ace_next/rr/`) — sandbox, subagent, trace_context, config, code_extraction, message_trimming extracted from `ace/reflector/` into a standalone package
 - **v5.6 prompt promoted as default** — new prompt evolution (v4 → v5.1–v5.6) for the `ace_next` RR pipeline
@@ -275,6 +277,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Type hints and modern Python practices
 - MIT licensed for open source use
 
+[0.8.5]: https://github.com/Kayba-ai/agentic-context-engine/compare/v0.8.4...v0.8.5
+[0.8.4]: https://github.com/Kayba-ai/agentic-context-engine/compare/v0.8.3...v0.8.4
 [0.8.3]: https://github.com/Kayba-ai/agentic-context-engine/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/Kayba-ai/agentic-context-engine/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/Kayba-ai/agentic-context-engine/compare/v0.8.0...v0.8.1
