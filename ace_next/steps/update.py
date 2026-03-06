@@ -36,6 +36,7 @@ class UpdateStep:
             c = ctx.trace.get("context", "")
             question_context = f"{q}\n{c}".strip() if c else q
 
+        assert ctx.reflection is not None
         output = self.skill_manager.update_skills(
             reflection=ctx.reflection,
             skillbook=ctx.skillbook,

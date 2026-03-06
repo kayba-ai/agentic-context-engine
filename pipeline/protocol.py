@@ -2,30 +2,30 @@
 
 from __future__ import annotations
 
-from collections.abc import Set as AbstractSet
 from dataclasses import dataclass, field
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol, TypeVar, runtime_checkable
 
 from .context import StepContext
 
+Ctx = TypeVar("Ctx", bound=StepContext)
+
 
 @runtime_checkable
-class StepProtocol(Protocol):
+class StepProtocol(Protocol[Ctx]):
     """Structural protocol that every step (and Pipeline/Branch) must satisfy.
 
-    ``AbstractSet[str]`` accepts both ``set`` and ``frozenset`` — steps may
-    declare plain set literals; the pipeline normalises them to ``frozenset``
-    at construction time before contract validation.
+    Generic over the context type — use ``StepProtocol[ACEStepContext]`` to
+    type-check steps that accept a specific ``StepContext`` subclass.
 
     ``@runtime_checkable`` lets the pipeline validator use
     ``isinstance(step, StepProtocol)`` at construction time to give a clear
     error if a step is missing required attributes.
     """
 
-    requires: AbstractSet[str]
-    provides: AbstractSet[str]
+    requires: frozenset[str]
+    provides: frozenset[str]
 
-    def __call__(self, ctx: StepContext) -> StepContext: ...
+    def __call__(self, ctx: Ctx) -> Ctx: ...
 
 
 @dataclass

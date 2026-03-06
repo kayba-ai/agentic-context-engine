@@ -3,7 +3,7 @@
 from typing import Optional
 from .skillbook import Skill, Skillbook
 from .updates import UpdateOperation, UpdateBatch
-from .llm import LLMClient, DummyLLMClient, TransformersLLMClient
+from .llm import LLMClient, DummyLLMClient
 from .roles import (
     Agent,
     ReplayAgent,
@@ -19,74 +19,24 @@ from .environments import (
     TaskEnvironment,
     SimpleEnvironment,
     EnvironmentResult,
-    ACEStepResult,
 )
-
-# ACE pipeline orchestrators (always available)
-from .adaptation import OfflineACE, OnlineACE, ACEBase
-
-# Pipeline-engine symbols (not yet wired — will be available after cut-over)
-BasePipeline = None  # type: ignore[assignment,misc]
-ACEPipeline = None  # type: ignore[assignment,misc]
-PipelineOrderError = None  # type: ignore[assignment,misc]
-Step = None  # type: ignore[assignment,misc]
-StepContext = None  # type: ignore[assignment,misc]
-AgentStep = None  # type: ignore[assignment,misc]
-EvaluateStep = None  # type: ignore[assignment,misc]
-ReflectStep = None  # type: ignore[assignment,misc]
-UpdateStep = None  # type: ignore[assignment,misc]
-from .async_learning import (
-    LearningTask,
-    ReflectionResult,
-    ThreadSafeSkillbook,
-    AsyncLearningPipeline,
-)
+from .deduplication import DeduplicationConfig
 
 # Import optional feature detection
-from .features import has_opik, has_litellm
+from .features import has_litellm
 
-# Import observability components if available
-if has_opik():
-    try:
-        from .observability import OpikIntegration as _OpikIntegration
-
-        OpikIntegration: Optional[type] = _OpikIntegration
-        OBSERVABILITY_AVAILABLE = True
-    except ImportError:
-        OpikIntegration: Optional[type] = None  # type: ignore
-        OBSERVABILITY_AVAILABLE = False
-else:
-    OpikIntegration: Optional[type] = None  # type: ignore
-    OBSERVABILITY_AVAILABLE = False
-
-# Import production LLM clients if available
+# Import production LLM client if available
 if has_litellm():
     try:
         from .llm_providers import LiteLLMClient as _LiteLLMClient
 
         LiteLLMClient: Optional[type] = _LiteLLMClient
-        LITELLM_AVAILABLE = True
     except ImportError:
         LiteLLMClient: Optional[type] = None  # type: ignore
-        LITELLM_AVAILABLE = False
 else:
     LiteLLMClient: Optional[type] = None  # type: ignore
-    LITELLM_AVAILABLE = False
 
-# Import Claude Code CLI LLM client (uses subscription auth, no API key needed)
-try:
-    from .llm_providers import (
-        ClaudeCodeLLMClient as _ClaudeCodeLLMClient,
-        CLAUDE_CODE_CLI_AVAILABLE as _CLAUDE_CODE_CLI_AVAILABLE,
-    )
-
-    ClaudeCodeLLMClient: Optional[type] = _ClaudeCodeLLMClient
-    CLAUDE_CODE_CLI_AVAILABLE = _CLAUDE_CODE_CLI_AVAILABLE
-except ImportError:
-    ClaudeCodeLLMClient: Optional[type] = None  # type: ignore
-    CLAUDE_CODE_CLI_AVAILABLE = False
-
-# Import integrations (LiteLLM, browser-use, LangChain, Claude Code, etc.) if available
+# Import integrations if available
 try:
     from .integrations import (
         ACELiteLLM as _ACELiteLLM,
@@ -94,9 +44,6 @@ try:
         ACELangChain as _ACELangChain,
         ACEClaudeCode as _ACEClaudeCode,
         wrap_skillbook_context as _wrap_skillbook_context,
-        BROWSER_USE_AVAILABLE as _BROWSER_USE_AVAILABLE,
-        LANGCHAIN_AVAILABLE as _LANGCHAIN_AVAILABLE,
-        CLAUDE_CODE_AVAILABLE as _CLAUDE_CODE_AVAILABLE,
     )
 
     ACELiteLLM: Optional[type] = _ACELiteLLM
@@ -104,50 +51,24 @@ try:
     ACELangChain: Optional[type] = _ACELangChain
     ACEClaudeCode: Optional[type] = _ACEClaudeCode
     wrap_skillbook_context: Optional[type] = _wrap_skillbook_context  # type: ignore
-    BROWSER_USE_AVAILABLE = _BROWSER_USE_AVAILABLE
-    LANGCHAIN_AVAILABLE = _LANGCHAIN_AVAILABLE
-    CLAUDE_CODE_AVAILABLE = _CLAUDE_CODE_AVAILABLE
 except ImportError:
     ACELiteLLM: Optional[type] = None  # type: ignore
     ACEAgent: Optional[type] = None  # type: ignore
     ACELangChain: Optional[type] = None  # type: ignore
     ACEClaudeCode: Optional[type] = None  # type: ignore
     wrap_skillbook_context: Optional[type] = None  # type: ignore
-    BROWSER_USE_AVAILABLE = False
-    LANGCHAIN_AVAILABLE = False
-    CLAUDE_CODE_AVAILABLE = False
-
-# Import deduplication module
-from .deduplication import (
-    DeduplicationConfig,
-    DeduplicationManager,
-)
-
-# Import recursive reflector module
-from .reflector import (
-    RecursiveConfig,
-    RecursiveReflector,
-    TraceSandbox,
-    TraceContext,
-)
-
-# Import insight source tracing
-from .insight_source import InsightSource, TraceReference
-
-# Import unified PromptManager
-from .prompt_manager import PromptManager
 
 __all__ = [
-    # Core components
+    # Core data types
     "Skill",
     "Skillbook",
     "UpdateOperation",
     "UpdateBatch",
+    # LLM clients
     "LLMClient",
     "DummyLLMClient",
-    "TransformersLLMClient",
     "LiteLLMClient",
-    "ClaudeCodeLLMClient",  # Claude Code CLI client (subscription auth)
+    # Roles
     "Agent",
     "ReplayAgent",
     "Reflector",
@@ -156,54 +77,21 @@ __all__ = [
     "AgentOutput",
     "ReflectorOutput",
     "SkillManagerOutput",
-    "BasePipeline",
-    "ACEPipeline",
+    # Adaptation loops
     "ACEBase",
-    "PipelineOrderError",
-    "Step",
-    "StepContext",
-    "AgentStep",
-    "EvaluateStep",
-    "ReflectStep",
-    "UpdateStep",
     "OfflineACE",
     "OnlineACE",
     "Sample",
     "TaskEnvironment",
     "SimpleEnvironment",
     "EnvironmentResult",
-    "ACEStepResult",
-    # Deduplication
+    # Integrations
+    "ACELiteLLM",
+    "ACEAgent",
+    "ACELangChain",
+    "ACEClaudeCode",
+    # Configuration
     "DeduplicationConfig",
-    "DeduplicationManager",
-    # Recursive reflector
-    "RecursiveConfig",
-    "RecursiveReflector",
-    "TraceSandbox",
-    "TraceContext",
-    # Out-of-box integrations
-    "ACELiteLLM",  # LiteLLM integration (quick start)
-    "ACEAgent",  # Browser-use integration
-    "ACELangChain",  # LangChain integration (complex workflows)
-    "ACEClaudeCode",  # Claude Code CLI integration
     # Utilities
     "wrap_skillbook_context",
-    # Async learning
-    "LearningTask",
-    "ReflectionResult",
-    "ThreadSafeSkillbook",
-    "AsyncLearningPipeline",
-    # Feature flags
-    "OpikIntegration",
-    "LITELLM_AVAILABLE",
-    "CLAUDE_CODE_CLI_AVAILABLE",  # Claude Code CLI available
-    "OBSERVABILITY_AVAILABLE",
-    "BROWSER_USE_AVAILABLE",
-    "LANGCHAIN_AVAILABLE",
-    "CLAUDE_CODE_AVAILABLE",
-    # Insight source tracing
-    "InsightSource",
-    "TraceReference",
-    # Prompt management
-    "PromptManager",
 ]

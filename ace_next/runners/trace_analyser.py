@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from pipeline import Pipeline
-from pipeline.protocol import SampleResult
+from pipeline.protocol import SampleResult, StepProtocol
 
 from ..core.context import ACEStepContext, SkillbookView
 from ..protocols import (
@@ -37,6 +37,54 @@ class TraceAnalyser(ACERunner):
     """
 
     @classmethod
+    def build_steps(
+        cls,
+        *,
+        reflector: ReflectorLike,
+        skill_manager: SkillManagerLike,
+        skillbook: Skillbook | None = None,
+        dedup_manager: DeduplicationManagerLike | None = None,
+        dedup_interval: int = 10,
+        checkpoint_dir: str | Path | None = None,
+        checkpoint_interval: int = 10,
+        extra_steps: list[StepProtocol] | None = None,
+    ) -> list[StepProtocol]:
+        """Return the steps that ``from_roles()`` would compose.
+
+        Use this to inspect, modify, or extend the pipeline before
+        constructing it yourself::
+
+            steps = TraceAnalyser.build_steps(reflector=r, skill_manager=sm, ...)
+            steps.append(MyCustomStep())
+            pipe = Pipeline(steps)
+            runner = ACERunner(pipeline=pipe, skillbook=skillbook)
+
+        Args:
+            reflector: Reflector role for analysing traces.
+            skill_manager: SkillManager role for producing update operations.
+            skillbook: Starting skillbook.  Creates an empty one if ``None``.
+            dedup_manager: Optional deduplication manager.
+            dedup_interval: Samples between deduplication runs.
+            checkpoint_dir: Directory for checkpoint files.
+            checkpoint_interval: Samples between checkpoint saves.
+            extra_steps: Additional steps appended after the learning
+                tail (e.g. ``OpikStep``).
+        """
+        skillbook = skillbook or Skillbook()
+        steps = learning_tail(
+            reflector,
+            skill_manager,
+            skillbook,
+            dedup_manager=dedup_manager,
+            dedup_interval=dedup_interval,
+            checkpoint_dir=checkpoint_dir,
+            checkpoint_interval=checkpoint_interval,
+        )
+        if extra_steps:
+            steps.extend(extra_steps)
+        return steps
+
+    @classmethod
     def from_roles(
         cls,
         *,
@@ -47,6 +95,7 @@ class TraceAnalyser(ACERunner):
         dedup_interval: int = 10,
         checkpoint_dir: str | Path | None = None,
         checkpoint_interval: int = 10,
+        extra_steps: list[StepProtocol] | None = None,
     ) -> TraceAnalyser:
         """Construct from pre-built role instances.
 
@@ -60,16 +109,19 @@ class TraceAnalyser(ACERunner):
             checkpoint_dir: Directory for checkpoint files.  Appends a
                 ``CheckpointStep`` when provided.
             checkpoint_interval: Samples between checkpoint saves.
+            extra_steps: Additional steps appended after the learning
+                tail (e.g. ``OpikStep``).
         """
         skillbook = skillbook or Skillbook()
-        steps = learning_tail(
-            reflector,
-            skill_manager,
-            skillbook,
+        steps = cls.build_steps(
+            reflector=reflector,
+            skill_manager=skill_manager,
+            skillbook=skillbook,
             dedup_manager=dedup_manager,
             dedup_interval=dedup_interval,
             checkpoint_dir=checkpoint_dir,
             checkpoint_interval=checkpoint_interval,
+            extra_steps=extra_steps,
         )
         return cls(pipeline=Pipeline(steps), skillbook=skillbook)
 
@@ -92,7 +144,7 @@ class TraceAnalyser(ACERunner):
         """
         return self._run(traces, epochs=epochs, wait=wait)
 
-    def _build_context(
+    def _build_context(  # type: ignore[override]
         self,
         raw_trace: Any,
         *,

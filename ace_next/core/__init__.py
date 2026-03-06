@@ -17,6 +17,7 @@ from .skillbook import (
     UpdateBatch,
     UpdateOperation,
 )
+from .sub_runner import SubRunner
 
 __all__ = [
     # Skillbook types
@@ -41,4 +42,6 @@ __all__ = [
     "Sample",
     "SimpleEnvironment",
     "TaskEnvironment",
+    # Patterns
+    "SubRunner",
 ]

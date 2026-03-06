@@ -104,5 +104,8 @@ appworld_data/
 *.parquet
 huggingface_cache/
 
+# MkDocs build output
+site/
+
 # Sensitive/private data (NEVER commit!)
 .private/

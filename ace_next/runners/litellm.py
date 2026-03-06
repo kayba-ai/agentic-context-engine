@@ -22,6 +22,8 @@ from ..protocols import (
     ReflectorLike,
     SkillManagerLike,
 )
+from ..core.context import ACEStepContext, SkillbookView
+from ..steps import learning_tail
 from .ace import ACE
 from .trace_analyser import TraceAnalyser
 
@@ -67,6 +69,9 @@ class ACELiteLLM:
         checkpoint_dir: str | Path | None = None,
         checkpoint_interval: int = 10,
         is_learning: bool = True,
+        opik: bool = False,
+        opik_project: str = "ace-framework",
+        opik_tags: list[str] | None = None,
     ) -> None:
         # Resolve skillbook
         if skillbook_path:
@@ -98,6 +103,29 @@ class ACELiteLLM:
         self._checkpoint_dir = checkpoint_dir
         self._checkpoint_interval = checkpoint_interval
 
+        # Opik observability (explicit opt-in — fail loudly)
+        self._opik_step: Any = None
+        if opik:
+            from ..steps.opik import OPIK_AVAILABLE, OpikStep, register_opik_litellm_callback
+
+            if not OPIK_AVAILABLE:
+                raise ImportError(
+                    "opik=True requires the 'opik' package. "
+                    "Install it with: pip install ace-framework[observability]"
+                )
+
+            self._opik_step = OpikStep(
+                project_name=opik_project,
+                tags=opik_tags,
+            )
+            if not self._opik_step.enabled:
+                raise RuntimeError(
+                    "OpikStep failed to initialize. Check your Opik configuration "
+                    "(~/.opik.config, OPIK_API_KEY, OPIK_WORKSPACE env vars)."
+                )
+            # Register LiteLLM-level callback for per-call token/cost tracking
+            register_opik_litellm_callback(project_name=opik_project)
+
         # Lazy-init caches
         self._ace: ACE | None = None
         self._analyser: TraceAnalyser | None = None
@@ -128,6 +156,9 @@ class ACELiteLLM:
         checkpoint_dir: Optional[Union[str, Path]] = None,
         checkpoint_interval: int = 10,
         is_learning: bool = True,
+        opik: bool = False,
+        opik_project: str = "ace-framework",
+        opik_tags: Optional[list[str]] = None,
         **llm_kwargs: Any,
     ) -> ACELiteLLM:
         """Build from a model string (creates LiteLLMClient + roles).
@@ -148,6 +179,10 @@ class ACELiteLLM:
             checkpoint_dir: Directory for checkpoint files.
             checkpoint_interval: Samples between checkpoint saves.
             is_learning: Whether learning is enabled.
+            opik: Enable Opik observability (pipeline traces +
+                LiteLLM per-call token/cost tracking).
+            opik_project: Opik project name.
+            opik_tags: Tags applied to every Opik trace.
             **llm_kwargs: Extra kwargs forwarded to ``LiteLLMClient``.
         """
         from ..providers import LiteLLMClient
@@ -170,11 +205,20 @@ class ACELiteLLM:
             checkpoint_dir=checkpoint_dir,
             checkpoint_interval=checkpoint_interval,
             is_learning=is_learning,
+            opik=opik,
+            opik_project=opik_project,
+            opik_tags=opik_tags,
         )
 
     # ------------------------------------------------------------------
     # Lazy-init runners
     # ------------------------------------------------------------------
+
+    def _get_extra_steps(self) -> list[Any] | None:
+        """Return extra pipeline steps (e.g. OpikStep) or None."""
+        if self._opik_step is not None:
+            return [self._opik_step]
+        return None
 
     def _get_ace(self, environment: TaskEnvironment | None = None) -> ACE:
         """Return (or build) the cached ACE runner."""
@@ -194,6 +238,7 @@ class ACELiteLLM:
                 dedup_interval=self._dedup_interval,
                 checkpoint_dir=self._checkpoint_dir,
                 checkpoint_interval=self._checkpoint_interval,
+                extra_steps=self._get_extra_steps(),
             )
         return self._ace
 
@@ -208,6 +253,7 @@ class ACELiteLLM:
                 dedup_interval=self._dedup_interval,
                 checkpoint_dir=self._checkpoint_dir,
                 checkpoint_interval=self._checkpoint_interval,
+                extra_steps=self._get_extra_steps(),
             )
         return self._analyser
 
@@ -260,9 +306,7 @@ class ACELiteLLM:
             RuntimeError: If learning is disabled.
         """
         if not self.is_learning:
-            raise RuntimeError(
-                "Learning is disabled. Call enable_learning() first."
-            )
+            raise RuntimeError("Learning is disabled. Call enable_learning() first.")
         return self._get_ace(environment).run(samples, epochs=epochs, wait=wait)
 
     def learn_from_traces(
@@ -286,9 +330,7 @@ class ACELiteLLM:
             RuntimeError: If learning is disabled.
         """
         if not self.is_learning:
-            raise RuntimeError(
-                "Learning is disabled. Call enable_learning() first."
-            )
+            raise RuntimeError("Learning is disabled. Call enable_learning() first.")
         return self._get_analyser().run(traces, epochs=epochs, wait=wait)
 
     def learn_from_feedback(
@@ -298,8 +340,9 @@ class ACELiteLLM:
     ) -> bool:
         """Learn from the last :meth:`ask` interaction.
 
-        Runs the Reflector and SkillManager directly (no pipeline) on
-        the most recent ``ask()`` call with the provided feedback.
+        Runs the standard ``learning_tail`` pipeline (ReflectStep,
+        TagStep, UpdateStep, ApplyStep) on the most recent ``ask()``
+        call with the provided feedback.
 
         Args:
             feedback: User feedback about the answer quality.
@@ -314,21 +357,37 @@ class ACELiteLLM:
 
         question, agent_output = self._last_interaction
 
-        reflection = self.reflector.reflect(
-            question=question,
-            agent_output=agent_output,
-            skillbook=self._skillbook,
-            ground_truth=ground_truth,
-            feedback=feedback,
+        # Build synthetic trace (same format EvaluateStep produces)
+        trace = {
+            "question": question,
+            "context": "",
+            "ground_truth": ground_truth,
+            "reasoning": agent_output.reasoning,
+            "answer": agent_output.final_answer,
+            "skill_ids": agent_output.skill_ids,
+            "feedback": feedback,
+        }
+
+        ctx = ACEStepContext(
+            skillbook=SkillbookView(self._skillbook),
+            trace=trace,
         )
-        sm_output = self.skill_manager.update_skills(
-            reflection=reflection,
-            skillbook=self._skillbook,
-            question_context=f"User interaction: {question}",
-            progress="Learning from user feedback",
+
+        # Same learning pipeline as learn() and learn_from_traces()
+        from pipeline import Pipeline
+
+        steps = learning_tail(
+            self.reflector,
+            self.skill_manager,
+            self._skillbook,
         )
-        self._skillbook.apply_update(sm_output.update)
-        return True
+        if self._opik_step is not None:
+            steps.append(self._opik_step)
+
+        pipe = Pipeline(steps)
+        results = pipe.run([ctx])
+        pipe.wait_for_background()  # ReflectStep has async_boundary=True
+        return len(results) > 0 and results[0].error is None
 
     # ------------------------------------------------------------------
     # Lifecycle

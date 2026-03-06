@@ -24,8 +24,6 @@ class Agent:
         llm: An LLM client that satisfies :class:`LLMClientLike`.
         prompt_template: Custom prompt template (defaults to
             :data:`AGENT_PROMPT`).
-        max_retries: Maximum validation retries (forwarded to the LLM
-            client if it supports it).
 
     Example::
 
@@ -67,7 +65,7 @@ class Agent:
             context: Additional context or requirements.
             skillbook: Current skillbook (duck-typed, needs ``as_prompt``).
             reflection: Optional reflection from a previous attempt.
-            **kwargs: Forwarded to the LLM client.
+            **kwargs: Accepted for protocol compatibility but not forwarded.
 
         Returns:
             :class:`AgentOutput` with reasoning, final_answer, and
@@ -81,7 +79,7 @@ class Agent:
         )
 
         output: AgentOutput = self.llm.complete_structured(
-            prompt, AgentOutput, **kwargs
+            prompt, AgentOutput, max_retries=self.max_retries
         )
         output.skill_ids = extract_cited_skill_ids(output.reasoning)
         return output

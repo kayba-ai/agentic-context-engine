@@ -23,6 +23,7 @@ Switch to an existing branch by checking out its worktree, or creating one if ne
    - Construct worktree path: `../<sanitized-branch-name>` (replace all `/` with `-`)
    - If remote-only branch (starts with `origin/`): `git worktree add <path> -b <local-name> <remote-name>`
    - If local branch: `git worktree add <path> <branch>`
+   - Symlink `.env`: if `<main-worktree>/.env` exists (get main worktree from `git worktree list --porcelain | head -1`), run `ln -s <main-worktree>/.env <new-worktree>/.env`
    - Show path and suggest `cd <path>`
 
 **On success (worktree exists), output:**
@@ -36,6 +37,7 @@ To switch to the worktree:
 **On success (worktree created from local branch), output:**
 ```
 ✓ Created worktree: <worktree-path>
+✓ Linked .env → <main-worktree>/.env
 
 To switch to the worktree:
   cd <worktree-path>
@@ -45,6 +47,7 @@ To switch to the worktree:
 ```
 ✓ Created local branch: <branch-name> (tracking origin/<branch-name>)
 ✓ Created worktree: <worktree-path>
+✓ Linked .env → <main-worktree>/.env
 
 To switch to the worktree:
   cd <worktree-path>

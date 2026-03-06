@@ -72,11 +72,8 @@ from ace_next import (
     SimpleEnvironment,
     TaskEnvironment,
     EnvironmentResult,
-    AgentOutput,
-    # Context types
-    ACEStepContext,
-    SkillbookView,
 )
+from ace_next.core import AgentOutput, ACEStepContext, SkillbookView
 
 print("All imports OK")
 
@@ -276,16 +273,13 @@ for epoch in range(1, 3):
 #
 # Under the hood, runners compose `Pipeline` objects from individual steps.
 # Here we build one by hand to see exactly what each step does.
+# All pipeline classes and steps are importable directly from `ace_next`.
 
 # %%
-from pipeline import Pipeline
-from ace_next.steps import (
+from ace_next import (
+    Pipeline,
     AgentStep,
     EvaluateStep,
-    ReflectStep,
-    TagStep,
-    UpdateStep,
-    ApplyStep,
     learning_tail,
 )
 

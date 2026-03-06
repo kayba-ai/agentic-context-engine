@@ -15,8 +15,8 @@ class ApplyStep:
     mutating a skillbook, and ApplyStep can be tested with a mock batch.
     """
 
-    requires = frozenset({"skill_manager_output"})
-    provides = frozenset()
+    requires: frozenset[str] = frozenset({"skill_manager_output"})
+    provides: frozenset[str] = frozenset()
 
     max_workers = 1
 
@@ -24,5 +24,7 @@ class ApplyStep:
         self.skillbook = skillbook
 
     def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
+        if ctx.skill_manager_output is None:
+            return ctx
         self.skillbook.apply_update(ctx.skill_manager_output)
         return ctx

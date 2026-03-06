@@ -1,3 +1,13 @@
+**By submitting a pull request to this repository, you agree to the terms below.**
+
+## Contributor Terms
+
+(a) The contribution is your original work and you have the right to submit it.
+(b) You license your contribution under the project's current license (MIT).
+(c) You grant the maintainers the right to relicense your contribution as part of the project under any future open-source or commercial license.
+
+---
+
 # Contributing to ACE Framework
 
 Thank you for your interest in contributing to the Agentic Context Engine! We welcome contributions from the community.
@@ -171,6 +181,3 @@ docs(readme): update installation instructions
 
 Feel free to open an issue for any questions or join the discussion in [GitHub Discussions](https://github.com/Kayba-ai/agentic-context-engine/discussions).
 
-## License
-
-By contributing, you agree that your contributions will be licensed under the MIT License.

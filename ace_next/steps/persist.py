@@ -19,8 +19,8 @@ class PersistStep:
     runs on every sample and writes in whatever format the target expects.
     """
 
-    requires = frozenset({"skillbook"})
-    provides = frozenset()
+    requires: frozenset[str] = frozenset({"skillbook"})
+    provides: frozenset[str] = frozenset()
 
     def __init__(self, target_path: str | Path, skillbook: Skillbook) -> None:
         self.target_path = Path(target_path)

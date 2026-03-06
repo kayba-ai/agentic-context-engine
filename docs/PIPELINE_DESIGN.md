@@ -36,21 +36,24 @@ Rules:
 
 ### Step protocol
 
-For static type checking, the framework exposes a `typing.Protocol`:
+For static type checking, the framework exposes a generic `typing.Protocol`:
 
 ```python
-from collections.abc import Set as AbstractSet
-from typing import Protocol, runtime_checkable
+from typing import Protocol, TypeVar, runtime_checkable
+
+Ctx = TypeVar("Ctx", bound=StepContext)
 
 @runtime_checkable
-class StepProtocol(Protocol):
-    requires: AbstractSet[str]
-    provides: AbstractSet[str]
+class StepProtocol(Protocol[Ctx]):
+    requires: frozenset[str]
+    provides: frozenset[str]
 
-    def __call__(self, ctx: StepContext) -> StepContext: ...
+    def __call__(self, ctx: Ctx) -> Ctx: ...
 ```
 
-`AbstractSet[str]` accepts both `set` and `frozenset` — steps declare plain set literals; the pipeline normalizes them to `frozenset` at construction time before doing any contract validation. `Pipeline` and `Branch` both satisfy this protocol, so they can be nested wherever a `Step` is expected without extra annotation. `@runtime_checkable` lets the pipeline validator use `isinstance(step, StepProtocol)` at construction time to give a clear error if a step is missing required attributes, rather than failing at call time.
+`StepProtocol` is generic over the context type. The base `StepProtocol` (or `StepProtocol[StepContext]`) is satisfied by `Pipeline` and `Branch`, so they can be nested wherever a step is expected. Domain-specific steps use the parameterized form — e.g. `StepProtocol[ACEStepContext]` — so that mypy validates the `__call__` signature against the concrete context subclass without needing `# type: ignore` comments.
+
+`@runtime_checkable` lets the pipeline validator use `isinstance(step, StepProtocol)` at construction time to give a clear error if a step is missing required attributes, rather than failing at call time. The type parameter is erased at runtime, so `isinstance` checks work the same as with a non-generic protocol.
 
 ### StepContext — immutability contract
 

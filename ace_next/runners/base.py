@@ -26,6 +26,19 @@ class ACERunner:
 
     - ``run()`` — public API with a subclass-specific signature.
     - ``_build_context()`` — maps a single input item to ``ACEStepContext``.
+
+    You can also construct an ``ACERunner`` directly with a hand-composed
+    pipeline::
+
+        from ace_next import Pipeline, ACERunner, AgentStep, learning_tail
+
+        pipe = Pipeline([AgentStep(agent), *learning_tail(reflector, sm, sb)])
+        runner = ACERunner(pipeline=pipe, skillbook=sb)
+
+    Attributes:
+        pipeline: The composed ``Pipeline`` instance.  Accessible for
+            inspection after construction.
+        skillbook: The ``Skillbook`` this runner operates on.
     """
 
     def __init__(
@@ -43,6 +56,10 @@ class ACERunner:
     def save(self, path: str) -> None:
         """Save the current skillbook to disk."""
         self.skillbook.save_to_file(path)
+
+    def load(self, path: str) -> None:
+        """Load a skillbook from disk, replacing the current one."""
+        self.skillbook = Skillbook.load_from_file(path)
 
     def wait_for_background(self, timeout: float | None = None) -> None:
         """Block until all background learning tasks complete.
@@ -90,6 +107,12 @@ class ACERunner:
         n: int | None = len(items) if isinstance(items, Sequence) else None
 
         for epoch in range(1, epochs + 1):
+            logger.info(
+                "Epoch %d/%d: processing %s samples",
+                epoch,
+                epochs,
+                n if n is not None else "unknown",
+            )
             contexts: list[ACEStepContext] = [
                 self._build_context(
                     item,

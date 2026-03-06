@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from pipeline.protocol import StepProtocol
+
+from ..core.context import ACEStepContext
 from ..protocols import (
     DeduplicationManagerLike,
     ReflectorLike,
@@ -16,6 +19,8 @@ from .apply import ApplyStep
 from .checkpoint import CheckpointStep
 from .deduplicate import DeduplicateStep
 from .evaluate import EvaluateStep
+from .export_markdown import ExportSkillbookMarkdownStep
+from .load_traces import LoadTracesStep
 from .observability import ObservabilityStep
 from .opik import OPIK_AVAILABLE, OpikStep, register_opik_litellm_callback
 from .persist import PersistStep
@@ -29,6 +34,8 @@ __all__ = [
     "CheckpointStep",
     "DeduplicateStep",
     "EvaluateStep",
+    "ExportSkillbookMarkdownStep",
+    "LoadTracesStep",
     "ObservabilityStep",
     "OPIK_AVAILABLE",
     "OpikStep",
@@ -50,7 +57,7 @@ def learning_tail(
     dedup_interval: int = 10,
     checkpoint_dir: str | Path | None = None,
     checkpoint_interval: int = 10,
-) -> list:
+) -> list[StepProtocol[ACEStepContext]]:
     """Return the standard ACE learning steps.
 
     Use this when building custom integrations that provide their own
@@ -66,16 +73,14 @@ def learning_tail(
     with optional DeduplicateStep and CheckpointStep appended when
     the corresponding config is provided.
     """
-    steps: list = [
+    steps: list[StepProtocol[ACEStepContext]] = [
         ReflectStep(reflector),
         TagStep(skillbook),
         UpdateStep(skill_manager),
         ApplyStep(skillbook),
     ]
     if dedup_manager:
-        steps.append(
-            DeduplicateStep(dedup_manager, skillbook, interval=dedup_interval)
-        )
+        steps.append(DeduplicateStep(dedup_manager, skillbook, interval=dedup_interval))
     if checkpoint_dir:
         steps.append(
             CheckpointStep(checkpoint_dir, skillbook, interval=checkpoint_interval)

@@ -27,8 +27,6 @@ class Reflector:
         llm: An LLM client that satisfies :class:`LLMClientLike`.
         prompt_template: Custom prompt template (defaults to
             :data:`REFLECTOR_PROMPT`).
-        max_retries: Maximum validation retries (forwarded to the LLM
-            client if it supports it).
 
     Example::
 
@@ -75,14 +73,12 @@ class Reflector:
                 ``get_skill``).
             ground_truth: Expected correct answer (if available).
             feedback: Environment feedback text.
-            **kwargs: Forwarded to the LLM client.
+            **kwargs: Accepted for protocol compatibility but not forwarded.
 
         Returns:
             :class:`ReflectorOutput` with analysis and skill tags.
         """
-        skillbook_excerpt = make_skillbook_excerpt(
-            skillbook, agent_output.skill_ids
-        )
+        skillbook_excerpt = make_skillbook_excerpt(skillbook, agent_output.skill_ids)
 
         if skillbook_excerpt:
             skillbook_context = f"Strategies Applied:\n{skillbook_excerpt}"
@@ -99,5 +95,5 @@ class Reflector:
         )
 
         return self.llm.complete_structured(
-            prompt, ReflectorOutput, **kwargs
+            prompt, ReflectorOutput, max_retries=self.max_retries
         )

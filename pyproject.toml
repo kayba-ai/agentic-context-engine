@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ace-framework"
-version = "0.8.3"
+version = "0.8.5"
 description = "Build self-improving AI agents that learn from experience"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -41,21 +41,29 @@ classifiers = [
 dependencies = [
     "litellm>=1.78.0",
     "pydantic>=2.0.0",
-    "python-dotenv>=1.0.0",
     "python-toon>=0.1.0",
-    "tenacity>=8.0.0",
-    "instructor>=1.0.0",
-    "browser-use>=0.9.1",
-    "boto3>=1.34.0",
-    "opik>=1.10.17",
 ]
 
 [project.optional-dependencies]
+claude-code = [
+    "python-dotenv>=1.0.0",
+    "tenacity>=8.0.0",
+]
+instructor = [
+    "instructor>=1.0.0",
+]
+deduplication = [
+    "numpy>=1.24.0",
+    "sentence-transformers>=2.2.0",
+]
 browser-use = [
     "browser-use>=0.9.0",
 ]
 observability = [
-    "opik>=1.8.0",
+    "opik>=1.10.23",
+]
+bedrock = [
+    "boto3>=1.42.50",
 ]
 langchain = [
     "langchain-openai>=0.3.35",
@@ -69,8 +77,14 @@ transformers = [
     "accelerate>=0.20.0",
 ]
 all = [
+    "python-dotenv>=1.0.0",
+    "tenacity>=8.0.0",
+    "instructor>=1.0.0",
+    "boto3>=1.42.50",
+    "numpy>=1.24.0",
+    "sentence-transformers>=2.2.0",
     "browser-use>=0.9.0",
-    "opik>=1.8.0",
+    "opik>=1.10.23",
     "langchain-openai>=0.3.35",
     "langchain-anthropic>=0.3.0",
     "langchain-litellm>=0.2.0",
@@ -79,9 +93,15 @@ all = [
     "torch>=2.0.0",
     "accelerate>=0.20.0",
 ]
+mcp = [
+    "mcp>=1.22.0",
+    "pydantic-settings>=2.0.0",
+    "tenacity>=8.0.0",
+]
 
 [project.scripts]
 ace-learn = "ace.integrations.claude_code.learner:main"
+ace-mcp = "ace_next.integrations.mcp.server:main"
 
 [project.urls]
 Homepage = "https://kayba.ai"
@@ -124,7 +144,7 @@ demos = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["ace", "ace.*"]
+include = ["ace", "ace.*", "ace_next", "ace_next.*", "pipeline", "pipeline.*"]
 
 [tool.setuptools.package-data]
 ace = ["py.typed"]
@@ -167,6 +187,8 @@ addopts = [
     "--strict-markers",
     "--tb=short",
     "--cov=ace",
+    "--cov=ace_next",
+    "--cov=pipeline",
     "--cov-report=term-missing",
     "--cov-report=html",
     "--cov-fail-under=25",

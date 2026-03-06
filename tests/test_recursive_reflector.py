@@ -420,28 +420,31 @@ class TestPromptDoesNotContainFullData(unittest.TestCase):
         self.assertIn("chars", initial_content.lower())
 
     def test_prompt_contains_preview_and_metadata_placeholders(self):
-        """Test that both v2 and v3 prompts contain preview and size metadata placeholders."""
+        """Test that both v2 and current prompts contain preview and size metadata placeholders."""
         from ace.reflector.prompts import REFLECTOR_RECURSIVE_PROMPT
-        from ace.reflector.prompts_rr_v3 import REFLECTOR_RECURSIVE_V3_PROMPT
+        from ace_next.rr.prompts import REFLECTOR_RECURSIVE_PROMPT as RR_PROMPT
 
         import re
 
-        for label, prompt in [
-            ("v2", REFLECTOR_RECURSIVE_PROMPT),
-            ("v3", REFLECTOR_RECURSIVE_V3_PROMPT),
+        for label, prompt, has_answer in [
+            ("v2", REFLECTOR_RECURSIVE_PROMPT, True),
+            ("current", RR_PROMPT, False),
         ]:
             with self.subTest(prompt_version=label):
                 # The prompt template should have placeholders for metadata
                 self.assertIn("{reasoning_length}", prompt)
-                self.assertIn("{answer_length}", prompt)
                 self.assertIn("{step_count}", prompt)
 
                 # The prompt should have preview placeholders
                 self.assertIn("{question_preview}", prompt)
                 self.assertIn("{reasoning_preview}", prompt)
-                self.assertIn("{answer_preview}", prompt)
                 self.assertIn("{ground_truth_preview}", prompt)
                 self.assertIn("{feedback_preview}", prompt)
+
+                # answer_preview is only in v2 (not in current prompt)
+                if has_answer:
+                    self.assertIn("{answer_length}", prompt)
+                    self.assertIn("{answer_preview}", prompt)
 
                 # Raw {reasoning}, {feedback}, etc. should NOT appear
                 self.assertIsNone(re.search(r"\{reasoning\}", prompt))
@@ -721,8 +724,6 @@ class TestPreviewInPrompt(unittest.TestCase):
         self.assertIn("Build me a weather app", initial_content)
         # Reasoning preview should appear
         self.assertIn("weather app using React", initial_content)
-        # Answer preview should appear
-        self.assertIn("Weather app complete", initial_content)
         # Feedback preview should appear
         self.assertIn("The app works correctly", initial_content)
 
@@ -896,13 +897,23 @@ class TestSandboxSecurity(unittest.TestCase):
         )
         self.assertIn("OK", result.stdout)
 
-    def test_getattr_not_in_builtins(self):
-        """Test that getattr, setattr, delattr are removed from builtins."""
-        self.assertNotIn("getattr", TraceSandbox.SAFE_BUILTINS)
+    def test_getattr_restricted_in_builtins(self):
+        """Test that getattr blocks dunder access and setattr/delattr are removed."""
+        # getattr placeholder is None in class-level SAFE_BUILTINS
+        # (replaced with safe_getattr in __init__)
+        self.assertIsNone(TraceSandbox.SAFE_BUILTINS.get("getattr"))
         self.assertNotIn("setattr", TraceSandbox.SAFE_BUILTINS)
         self.assertNotIn("delattr", TraceSandbox.SAFE_BUILTINS)
         # type is safe - it only returns an object's type, doesn't allow modification
         self.assertIn("type", TraceSandbox.SAFE_BUILTINS)
+
+        # After __init__, getattr in builtins should be safe_getattr
+        sandbox = TraceSandbox(trace=None)
+        builtins = sandbox.namespace["__builtins__"]
+        self.assertIsNotNone(builtins["getattr"])
+        # safe_getattr blocks dunder access
+        with self.assertRaises(AttributeError):
+            builtins["getattr"](object(), "__class__")
 
 
 @pytest.mark.unit

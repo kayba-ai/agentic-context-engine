@@ -31,8 +31,6 @@ class SkillManager:
         llm: An LLM client that satisfies :class:`LLMClientLike`.
         prompt_template: Custom prompt template (defaults to
             :data:`SKILL_MANAGER_PROMPT`).
-        max_retries: Maximum validation retries (forwarded to the LLM
-            client if it supports it).
 
     Example::
 
@@ -52,12 +50,10 @@ class SkillManager:
         prompt_template: str = SKILL_MANAGER_PROMPT,
         *,
         max_retries: int = 3,
-        token_budget: int | None = None,
     ) -> None:
         self.llm = llm
         self.prompt_template = prompt_template
         self.max_retries = max_retries
-        self.token_budget = token_budget
 
     def update_skills(
         self,
@@ -78,7 +74,7 @@ class SkillManager:
                 ``as_prompt``, ``stats``).
             question_context: Description of the task domain.
             progress: Current progress summary (e.g. ``"5/10 correct"``).
-            **kwargs: Forwarded to the LLM client.
+            **kwargs: Accepted for protocol compatibility but not forwarded.
 
         Returns:
             :class:`SkillManagerOutput` containing the update operations.
@@ -94,25 +90,14 @@ class SkillManager:
             ],
         }
 
-        skillbook_prompt = skillbook.as_prompt() or "(empty skillbook)"
-
-        stats = skillbook.stats()
-        if self.token_budget is not None:
-            token_estimate = len(skillbook_prompt) // 4
-            stats["token_estimate"] = token_estimate
-            stats["token_budget"] = self.token_budget
-            stats["over_budget"] = token_estimate > self.token_budget
-
         prompt = self.prompt_template.format(
             progress=progress,
-            stats=json.dumps(stats),
-            reflection=json.dumps(
-                reflection_data, ensure_ascii=False, indent=2
-            ),
-            skillbook=skillbook_prompt,
+            stats=json.dumps(skillbook.stats()),
+            reflection=json.dumps(reflection_data, ensure_ascii=False, indent=2),
+            skillbook=skillbook.as_prompt() or "(empty skillbook)",
             question_context=question_context,
         )
 
         return self.llm.complete_structured(
-            prompt, SkillManagerOutput, **kwargs
+            prompt, SkillManagerOutput, max_retries=self.max_retries
         )

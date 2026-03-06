@@ -17,11 +17,11 @@ class ObservabilityStep:
     ACE and TraceAnalyser pipelines.
     """
 
-    requires = frozenset({"skillbook"})
-    provides = frozenset()
+    requires: frozenset[str] = frozenset({"skillbook"})
+    provides: frozenset[str] = frozenset()
 
     def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
-        metrics: dict = {"skill_count": len(ctx.skillbook)}
+        metrics: dict = {"skill_count": len(ctx.skillbook) if ctx.skillbook else 0}
 
         if ctx.reflection:
             metrics["key_insight"] = ctx.reflection.key_insight
