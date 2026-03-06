@@ -6,7 +6,7 @@ generation for the 7-budget × 5-run × 25-snapshot experiment.
 
 Usage (from scripts/ directory):
     from analysis.skillbook_history import load_experiment
-    exp = load_experiment(Path("../results/variance_experiment"))
+    exp = load_experiment(Path("../results/variance_experiment_haiku_4.5"))
 """
 
 from __future__ import annotations
@@ -358,8 +358,11 @@ def load_run(run_dir: Path, budget_label: str, run_num: int) -> RunHistory:
 
     traces_info = history.run_info.get("traces", [])
 
-    # Load snapshots
-    snap_paths = sorted(run_dir.glob("skillbook_*.json"))
+    # Load snapshots (sort numerically to handle 3-digit indices correctly)
+    snap_paths = sorted(
+        run_dir.glob("skillbook_*.json"),
+        key=lambda p: int(p.stem.split("_")[1]),
+    )
     for i, path in enumerate(snap_paths):
         raw = load_snapshot_raw(path)
         skills = parse_skills(raw)
@@ -445,7 +448,7 @@ def compression_distribution(
 
     * Opus-compressed: ``skills``, ``md_chars``, ``md_tokens_tiktoken``
     * Raw source: ``raw_skills``, ``raw_md_tokens``
-    * Ratio: ``compression_pct`` (opus_tokens / raw_tokens * 100)
+    * Ratio: ``compression_pct`` — % of original (opus_tokens / raw_tokens * 100)
     """
     import re
     import statistics as _st
@@ -1317,7 +1320,7 @@ def plot_compression_distribution(experiment_dir: Path) -> plt.Figure:
     ax.legend(fontsize=7)
     ax.grid(True, alpha=0.3)
 
-    # Panel 3: Compression %
+    # Panel 3: % of Original
     ax = axes[2]
     comp_pcts = [comp_dist_data[b]["compression_pct_mean"] for b in BUDGET_ORDER]
     comp_pcts_std = [comp_dist_data[b]["compression_pct_std"] for b in BUDGET_ORDER]
@@ -1349,8 +1352,8 @@ def plot_compression_distribution(experiment_dir: Path) -> plt.Figure:
     ax.axhline(45, color="#9ca3af", linestyle="--", alpha=0.5, label="~45% average")
     ax.set_xscale("log")
     ax.set_xlabel("Token Budget")
-    ax.set_ylabel("Compression %")
-    ax.set_title("Opus Compression Ratio (compressed/raw)")
+    ax.set_ylabel("% of Original")
+    ax.set_title("Opus Compression (% of original)")
     ax.set_ylim(0, 70)
     ax.legend(fontsize=7)
     ax.grid(True, alpha=0.3)
@@ -1402,7 +1405,7 @@ def format_compression_table(experiment_dir: Path) -> str:
                 "Raw MD Tokens": f"{d['raw_md_tokens_mean']:.0f} \u00b1 {d['raw_md_tokens_std']:.0f}",
                 "Opus Skills": f"{d['skills_mean']:.1f} \u00b1 {d['skills_std']:.1f}",
                 "Opus MD Tokens": f"{d['md_tokens_tiktoken_mean']:.0f} \u00b1 {d['md_tokens_tiktoken_std']:.0f}",
-                "Compression %": f"{d['compression_pct_mean']:.1f}% \u00b1 {d['compression_pct_std']:.1f}%",
+                "% of Original": f"{d['compression_pct_mean']:.1f}% \u00b1 {d['compression_pct_std']:.1f}%",
                 "Consensus Skills": c.get("skills", ""),
                 "Consensus Tokens": c.get("md_tokens_tiktoken", ""),
             }
@@ -1420,9 +1423,29 @@ def format_compression_table(experiment_dir: Path) -> str:
 def generate_report(
     experiment: Experiment,
     output_dir: Path,
+    model_name: str | None = None,
 ) -> Path:
-    """Generate SKILLBOOK_HISTORY_ANALYSIS.md with computed values and figures."""
+    """Generate SKILLBOOK_HISTORY_ANALYSIS.md with computed values and figures.
+
+    Args:
+        experiment: Loaded experiment data.
+        output_dir: Directory to write the report and figures/ subdirectory.
+        model_name: Model name for the report header. If None, auto-detects
+            from config.json in experiment.experiment_dir.
+    """
     import pandas as pd
+
+    # Auto-detect model name from config.json if not provided
+    if model_name is None:
+        config_path = experiment.experiment_dir / "config.json"
+        if config_path.exists():
+            try:
+                cfg = json.loads(config_path.read_text(encoding="utf-8"))
+                model_name = cfg.get("model", "Unknown")
+            except (json.JSONDecodeError, KeyError):
+                model_name = "Unknown"
+        else:
+            model_name = "Unknown"
 
     figures_dir = output_dir / "figures"
     figures_dir.mkdir(parents=True, exist_ok=True)
@@ -1640,7 +1663,7 @@ Analysis of skillbook evolution across the variance experiment:
 
 ## Experiment Setup
 
-- **Model**: Claude Haiku 4.5 (Bedrock)
+- **Model**: {model_name}
 - **Budgets**: 500, 1000, 2000, 3000, 5000, 10000, unlimited
 - **Runs per budget**: 5
 - **Traces per run**: 25

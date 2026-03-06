@@ -6,14 +6,11 @@ levels) across 25 traces, processing one trace at a time with full
 skillbook history.  Deduplication enabled with threshold 0.7.
 
 Results:
-    results/variance_experiment/
+    results/variance_experiment_<model>/
     ├── config.json
     ├── no-budget/run_1/ ... run_5/
     ├── budget-500/run_1/ ... run_5/
-    ├── budget-1000/run_1/ ... run_5/
-    ├── budget-2000/run_1/ ... run_5/
-    ├── budget-3000/run_1/ ... run_5/
-    ├── budget-5000/run_1/ ... run_5/
+    ...
     └── budget-10000/run_1/ ... run_5/
 
 Each run_N/ contains:
@@ -22,8 +19,21 @@ Each run_N/ contains:
     run_info.json                             (per-trace stats)
 
 Usage:
-    # Run everything (~3.5 hours)
+    # Run everything with default model (Haiku 4.5) (~3.5 hours)
     uv run python scripts/run_variance_experiment.py
+
+    # Run with a specific model and output directory
+    uv run python scripts/run_variance_experiment.py \
+        --model "bedrock/us.anthropic.claude-sonnet-4-6" \
+        --output-dir results/variance_experiment_sonnet_4.6
+
+    # Use traces from a different directory (e.g., car-bench)
+    uv run python scripts/run_variance_experiment.py \
+        --traces-dir results/traces_car_bench \
+        --output-dir results/variance_experiment_car_haiku_4.5
+
+    # Quick smoke test (2 traces only)
+    uv run python scripts/run_variance_experiment.py --max-traces 2 --budgets 2000 --runs 1
 
     # Test: single run, no-budget only
     uv run python scripts/run_variance_experiment.py --test
@@ -85,10 +95,11 @@ DEDUP_THRESHOLD = 0.7
 DEDUP_INTERVAL = 5  # Dedup every 5 traces (matches prior experiments)
 
 TRACES_DIR = ROOT / "results" / "traces_25"
-RESULTS_DIR = ROOT / "results" / "variance_experiment"
+RESULTS_DIR = ROOT / "results" / "variance_experiment_haiku_4.5"
 
 BUDGETS: list[int | None] = [None, 500, 1000, 2000, 3000, 5000, 10000]
 RUNS_PER_BUDGET = 5
+MAX_TRACES: int | None = None  # None = use all traces
 
 # Tokenizer (reused)
 _enc = tiktoken.encoding_for_model("gpt-4")
@@ -178,15 +189,17 @@ def compute_skillbook_stats(skillbook: Skillbook) -> dict[str, Any]:
     }
 
 
-def is_run_complete(budget: int | None, run_num: int) -> bool:
-    """Check if a run has already completed (has run_info.json with all 25 traces)."""
+def is_run_complete(
+    budget: int | None, run_num: int, expected_traces: int = 25
+) -> bool:
+    """Check if a run has already completed (has run_info.json with expected traces)."""
     info_path = run_dir(budget, run_num) / "run_info.json"
     if not info_path.exists():
         return False
     try:
         with open(info_path) as f:
             info = json.load(f)
-        return len(info.get("traces", [])) == 25
+        return len(info.get("traces", [])) >= expected_traces
     except (json.JSONDecodeError, KeyError):
         return False
 
@@ -232,6 +245,7 @@ def execute_run(
         dedup_manager=dedup_manager,
         dedup_interval=DEDUP_INTERVAL,
     )
+    model_short = MODEL.split("/")[-1].split(":")[0]
     steps.append(
         OpikStep(
             project_name="ace-variance-experiment",
@@ -239,6 +253,7 @@ def execute_run(
                 "variance-experiment",
                 budget_label(budget),
                 f"run-{run_num}",
+                model_short,
             ],
         )
     )
@@ -265,8 +280,9 @@ def execute_run(
 
         n = snap_stats["skills"]
         toon = snap_stats["toon_tokens"]
+        total_traces = len(trace_dicts)
         print(
-            f"  [{i+1:2d}/25] {trace_name:<10s}  "
+            f"  [{i+1:2d}/{total_traces}] {trace_name:<10s}  "
             f"{n:3d} skills  {toon:5,} TOON  {trace_duration:.1f}s"
         )
 
@@ -441,7 +457,33 @@ def save_experiment_config(budgets: list[int | None], runs: list[int]) -> None:
 
 
 def main() -> None:
+    global MODEL, RESULTS_DIR, TRACES_DIR, MAX_TRACES
+
     parser = argparse.ArgumentParser(description="Variance experiment runner")
+    parser.add_argument(
+        "--model",
+        default=MODEL,
+        help=(
+            "LiteLLM model string "
+            "(default: bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0)"
+        ),
+    )
+    parser.add_argument(
+        "--output-dir",
+        default=None,
+        help="Output directory (default: results/variance_experiment_haiku_4.5)",
+    )
+    parser.add_argument(
+        "--traces-dir",
+        default=None,
+        help="Directory containing .toon trace files (default: results/traces_25)",
+    )
+    parser.add_argument(
+        "--max-traces",
+        type=int,
+        default=None,
+        help="Limit number of traces (for quick smoke tests)",
+    )
     parser.add_argument(
         "--test",
         action="store_true",
@@ -467,15 +509,28 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    # Apply --model, --output-dir, and --traces-dir overrides
+    MODEL = args.model
+    if args.output_dir:
+        RESULTS_DIR = Path(args.output_dir)
+        if not RESULTS_DIR.is_absolute():
+            RESULTS_DIR = ROOT / RESULTS_DIR
+    if args.traces_dir:
+        TRACES_DIR = Path(args.traces_dir)
+        if not TRACES_DIR.is_absolute():
+            TRACES_DIR = ROOT / TRACES_DIR
+    MAX_TRACES = args.max_traces
+
     # Validate API keys
     key = os.getenv("OPENAI_API_KEY", "")
     if not key or "your-" in key.lower():
         print("ERROR: valid OPENAI_API_KEY required for dedup embeddings!")
         return
 
-    aws_key = os.getenv("AWS_ACCESS_KEY_ID", "")
-    if not aws_key:
-        print("WARNING: AWS credentials may be needed for Bedrock model.")
+    if MODEL.startswith("bedrock/"):
+        aws_key = os.getenv("AWS_ACCESS_KEY_ID", "")
+        if not aws_key:
+            print("WARNING: AWS credentials may be needed for Bedrock model.")
 
     # Opik setup
     opik_ok = register_opik_litellm_callback(project_name="ace-variance-experiment")
@@ -500,6 +555,11 @@ def main() -> None:
 
     # Load traces
     trace_dicts, trace_names = load_traces()
+    if MAX_TRACES:
+        trace_dicts = trace_dicts[:MAX_TRACES]
+        trace_names = trace_names[:MAX_TRACES]
+    print(f"Model: {MODEL}")
+    print(f"Output: {RESULTS_DIR}")
     print(f"Loaded {len(trace_dicts)} traces from {TRACES_DIR}")
     print(f"Budgets: {[budget_label(b) for b in budgets]}")
     print(f"Runs: {runs}")
@@ -516,7 +576,9 @@ def main() -> None:
 
     for budget in budgets:
         for run_num in runs:
-            if args.resume and is_run_complete(budget, run_num):
+            if args.resume and is_run_complete(
+                budget, run_num, expected_traces=len(trace_dicts)
+            ):
                 print(f"\nSkipping {budget_label(budget)}/run_{run_num} (complete)")
                 skipped += 1
                 continue
@@ -534,7 +596,9 @@ def main() -> None:
                 )
 
         # Per-budget summary after all runs for this budget complete
-        if all(is_run_complete(budget, r) for r in runs):
+        if all(
+            is_run_complete(budget, r, expected_traces=len(trace_dicts)) for r in runs
+        ):
             generate_budget_summary(budget, runs)
 
     # Cross-budget summary
@@ -549,6 +613,33 @@ def main() -> None:
     if skipped:
         print(f"  ({skipped} runs skipped via --resume)")
     print(f"Results: {RESULTS_DIR}")
+
+    # Auto-generate analysis report and variance plot
+    try:
+        print(f"\n{'='*60}")
+        print("  Auto-generating analysis reports")
+        print(f"{'='*60}")
+
+        from analysis.skillbook_history import load_experiment, generate_report
+
+        exp = load_experiment(RESULTS_DIR)
+        report_path = generate_report(exp, output_dir=RESULTS_DIR, model_name=MODEL)
+        print(f"  Wrote {report_path}")
+    except Exception as exc:
+        print(f"  WARNING: Analysis report generation failed: {exc}")
+
+    try:
+        from plot_variance_experiment import generate_variance_plot
+
+        fig = generate_variance_plot(RESULTS_DIR)
+        out_png = RESULTS_DIR / "variance.png"
+        fig.savefig(out_png, dpi=150, bbox_inches="tight")
+        import matplotlib.pyplot as plt
+
+        plt.close(fig)
+        print(f"  Wrote {out_png}")
+    except Exception as exc:
+        print(f"  WARNING: Variance plot generation failed: {exc}")
 
 
 if __name__ == "__main__":

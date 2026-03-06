@@ -1,22 +1,36 @@
 #!/usr/bin/env python3
 """Variance experiment compression analysis.
 
-Loads all 34 valid skillbooks from the variance experiment (7 budgets x 5 runs,
-excluding no-budget/run_1 which used dedup_interval=1), computes:
+Loads all 35 skillbooks from the variance experiment (7 budgets x 5 runs), computes:
 
 1. Cross-budget section convergence (Part 1)
 2. Within-budget consistency — embedding similarity (Part 2)
 3. Consensus skillbook construction + median run identification (Part 3 prep)
+4. Consensus sub-sampling variance analysis (combinatorial subsets)
 
-Outputs structured tables and saves consensus skillbooks.
+Outputs structured tables, saves consensus skillbooks, and writes a markdown report.
+
+Usage:
+    uv run python scripts/analyze_variance_compression.py
+    uv run python scripts/analyze_variance_compression.py \
+        --experiment-dir results/variance_experiment_sonnet_4.6
+    uv run python scripts/analyze_variance_compression.py \
+        --experiment-dir results/variance_experiment_car_haiku_4.5 \
+        --budgets no-budget budget-500
 """
 
 from __future__ import annotations
 
+import argparse
 import json
+import io
+import statistics
 import sys
 from collections import defaultdict
+from itertools import combinations
 from pathlib import Path
+
+import tiktoken
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -27,10 +41,10 @@ from ace.deduplication.detector import SimilarityDetector
 from ace.skillbook import Skillbook
 
 # ---------------------------------------------------------------------------
-# Configuration
+# Configuration (defaults, overridden by CLI args)
 # ---------------------------------------------------------------------------
 
-RESULTS_DIR = PROJECT_ROOT / "results" / "variance_experiment"
+RESULTS_DIR = PROJECT_ROOT / "results" / "variance_experiment_haiku_4.5"
 BUDGETS = [
     "budget-500",
     "budget-1000",
@@ -43,14 +57,72 @@ BUDGETS = [
 BUDGET_ORDER = BUDGETS  # display order
 SIMILARITY_THRESHOLD = 0.7  # matching dedup threshold used during generation
 MIN_RUNS_FOR_STABLE = 3  # skill must appear in >= this many runs to be "stable"
-CONSENSUS_OUTPUT_DIR = PROJECT_ROOT / "results" / "variance_experiment" / "consensus"
+CONSENSUS_OUTPUT_DIR = RESULTS_DIR / "consensus"
+
+
+def _discover_budgets(results_dir: Path) -> list[str]:
+    """Discover budget directories on disk, returning them in a sensible order."""
+    if not results_dir.is_dir():
+        return []
+    budgets = []
+    for d in sorted(results_dir.iterdir()):
+        if not d.is_dir():
+            continue
+        name = d.name
+        if name.startswith("budget-") or name == "no-budget":
+            # Verify it has at least one run_N subdirectory
+            if any(sd.is_dir() and sd.name.startswith("run_") for sd in d.iterdir()):
+                budgets.append(name)
+
+    # Sort: budget-N numerically, then no-budget last
+    def _sort_key(b: str) -> tuple[int, int]:
+        if b == "no-budget":
+            return (1, 0)
+        try:
+            return (0, int(b.replace("budget-", "")))
+        except ValueError:
+            return (0, 999999)
+
+    return sorted(budgets, key=_sort_key)
 
 
 def get_valid_runs(budget: str) -> list[int]:
-    """Return valid run numbers for a budget (excludes no-budget/run_1)."""
-    if budget == "no-budget":
-        return [2, 3, 4, 5]
-    return [1, 2, 3, 4, 5]
+    """Return valid run numbers for a budget by discovering run_N dirs on disk."""
+    budget_path = RESULTS_DIR / budget
+    if not budget_path.is_dir():
+        return []
+    runs = []
+    for d in sorted(budget_path.iterdir()):
+        if d.is_dir() and d.name.startswith("run_"):
+            try:
+                run_num = int(d.name.split("_", 1)[1])
+                runs.append(run_num)
+            except (ValueError, IndexError):
+                continue
+    return runs or [1, 2, 3, 4, 5]  # fallback for backwards compat
+
+
+# Tokenizer (reused)
+_enc = tiktoken.encoding_for_model("gpt-4")
+
+
+def count_tokens(text: str) -> int:
+    return len(_enc.encode(text))
+
+
+def _agg(values: list[float | int]) -> dict:
+    """Compute mean/std/min/max for a list of numbers."""
+    if not values:
+        return {"mean": 0, "std": 0, "min": 0, "max": 0, "values": []}
+    m = statistics.mean(values)
+    s = statistics.stdev(values) if len(values) > 1 else 0.0
+    return {
+        "mean": round(m, 2),
+        "std": round(s, 2),
+        "min": min(values),
+        "max": max(values),
+        "values": values,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -68,7 +140,10 @@ def load_all_data() -> dict:
         data[budget] = {}
         for run_num in get_valid_runs(budget):
             run_dir = RESULTS_DIR / budget / f"run_{run_num}"
-            sb_path = run_dir / "skillbook_24.json"
+
+            # Find the final skillbook (highest-numbered skillbook_NN.json)
+            sb_files = sorted(run_dir.glob("skillbook_*.json"))
+            sb_path = sb_files[-1] if sb_files else run_dir / "skillbook_24.json"
             info_path = run_dir / "run_info.json"
             md_path = run_dir / "skills_final.md"
 
@@ -155,14 +230,18 @@ def cross_budget_section_analysis(data: dict) -> dict:
             count = sum(1 for secs in runs.values() if section in secs)
             section_presence[section][budget] = count / len(runs)
 
-    # Core sections: appear in >= 6/7 budgets with >= 50% run frequency
+    # Core sections: appear in >= ~85% of budgets with >= 50% run frequency
+    # Fringe sections: appear in <= ~30% of budgets
+    n_budgets = len(BUDGETS)
+    core_threshold = max(2, int(n_budgets * 0.85))
+    fringe_threshold = max(1, int(n_budgets * 0.3))
     core_sections = set()
     fringe_sections = set()
     for section, presence in section_presence.items():
         budgets_with_section = sum(1 for b in BUDGETS if presence.get(b, 0) >= 0.5)
-        if budgets_with_section >= 6:
+        if budgets_with_section >= core_threshold:
             core_sections.add(section)
-        elif budgets_with_section <= 2:
+        elif budgets_with_section <= fringe_threshold:
             fringe_sections.add(section)
 
     return {
@@ -180,15 +259,9 @@ def print_section_heatmap(analysis: dict):
     core = analysis["core_sections"]
     fringe = analysis["fringe_sections"]
 
-    # Column headers
+    # Column headers — derive short names dynamically
     short_names = {
-        "budget-500": "500",
-        "budget-1000": "1000",
-        "budget-2000": "2000",
-        "budget-3000": "3000",
-        "budget-5000": "5000",
-        "budget-10000": "10000",
-        "no-budget": "None",
+        b: b.replace("budget-", "").replace("no-budget", "None") for b in BUDGET_ORDER
     }
 
     header = (
@@ -267,13 +340,30 @@ def compute_skill_embedding_similarity(
             }
             continue
 
-        # Batch embed all skills
-        print(f"    Embedding {len(all_texts)} skills...")
-        embeddings = detector.compute_embeddings_batch(all_texts)
+        # Use cached embeddings where available, compute missing ones
+        cached = 0
+        to_embed_indices = []
+        to_embed_texts = []
+        embeddings = [None] * len(all_skills)
 
-        # Assign embeddings
         for i, (run_num, skill) in enumerate(all_skills):
-            skill.embedding = embeddings[i]
+            if skill.embedding is not None:
+                embeddings[i] = skill.embedding
+                cached += 1
+            else:
+                to_embed_indices.append(i)
+                to_embed_texts.append(all_texts[i])
+
+        if to_embed_texts:
+            print(
+                f"    Embedding {len(to_embed_texts)} skills " f"({cached} cached)..."
+            )
+            new_embeddings = detector.compute_embeddings_batch(to_embed_texts)
+            for j, idx in enumerate(to_embed_indices):
+                embeddings[idx] = new_embeddings[j]
+                all_skills[idx][1].embedding = new_embeddings[j]
+        else:
+            print(f"    All {cached} skills have cached embeddings")
 
         # Greedy clustering: assign each skill to first matching cluster
         clusters = (
@@ -422,7 +512,174 @@ def save_consensus_skillbooks(consensus: dict[str, Skillbook]):
 
 
 # ---------------------------------------------------------------------------
-# Step 6: Output summary tables
+# Step 6: Consensus sub-sampling variance
+# ---------------------------------------------------------------------------
+
+
+def _build_subset_consensus(
+    clusters: list[dict],
+    subset_runs: set[int],
+    threshold: int,
+) -> Skillbook:
+    """Build a consensus skillbook from a subset of runs.
+
+    Reuses existing clusters — filters members to the selected runs,
+    checks if run coverage >= threshold, and builds a new Skillbook.
+    """
+    sb = Skillbook()
+    for cluster in clusters:
+        # Filter members to the selected runs
+        subset_members = [
+            (run_num, skill, sim)
+            for run_num, skill, sim in cluster["members"]
+            if run_num in subset_runs
+        ]
+        # How many distinct runs in this subset have the skill?
+        subset_coverage = len(set(run_num for run_num, _, _ in subset_members))
+        if subset_coverage < threshold:
+            continue
+
+        rep = cluster["representative"]
+        total_helpful = sum(s.helpful for _, s, _ in subset_members)
+        total_harmful = sum(s.harmful for _, s, _ in subset_members)
+        total_neutral = sum(s.neutral for _, s, _ in subset_members)
+
+        sb.add_skill(
+            section=rep.section,
+            content=rep.content,
+            metadata={
+                "helpful": total_helpful,
+                "harmful": total_harmful,
+                "neutral": total_neutral,
+            },
+            justification=rep.justification,
+            evidence=rep.evidence,
+        )
+    return sb
+
+
+# k-configs: (k, threshold, label)
+_K_CONFIGS = [
+    (3, 2, "k3"),  # majority of 3 (~67%)
+    (4, 3, "k4"),  # majority of 4 (~75%), jackknife / leave-one-out
+]
+
+
+def compute_consensus_subsampling(
+    embedding_results: dict[str, dict],
+    data: dict,
+) -> dict:
+    """Compute consensus for every C(n,k) subset of runs per budget.
+
+    Returns: {budget: {"k3": {"subsets": [...], "agg": {...}}, "k4": {...}}}
+    """
+    results = {}
+    for budget in BUDGETS:
+        available_runs = sorted(data[budget].keys())
+        n = len(available_runs)
+        results[budget] = {}
+
+        for k, threshold, label in _K_CONFIGS:
+            if n < k:
+                print(f"  {budget}: skipping {label} (n={n} < k={k})")
+                results[budget][label] = None
+                continue
+
+            clusters = embedding_results[budget]["clusters"]
+            subsets = []
+
+            for combo in combinations(available_runs, k):
+                subset_runs = set(combo)
+                sb = _build_subset_consensus(clusters, subset_runs, threshold)
+
+                skill_count = len(sb.skills())
+                toon_text = sb.as_prompt()
+                toon_tokens = count_tokens(toon_text)
+                sections = set(s.section for s in sb.skills())
+                md_text = str(sb)
+
+                subsets.append(
+                    {
+                        "runs": sorted(subset_runs),
+                        "skill_count": skill_count,
+                        "toon_tokens": toon_tokens,
+                        "section_count": len(sections),
+                        "md_chars": len(md_text),
+                    }
+                )
+
+            # Aggregate
+            agg = {
+                "n": n,
+                "k": k,
+                "threshold": threshold,
+                "n_subsets": len(subsets),
+                "skill_count": _agg([s["skill_count"] for s in subsets]),
+                "toon_tokens": _agg([s["toon_tokens"] for s in subsets]),
+                "section_count": _agg([s["section_count"] for s in subsets]),
+                "md_chars": _agg([s["md_chars"] for s in subsets]),
+            }
+
+            results[budget][label] = {"subsets": subsets, "agg": agg}
+            print(
+                f"  {budget} {label}: C({n},{k})={len(subsets)} subsets, "
+                f"skills={agg['skill_count']['mean']:.1f} \u00b1 {agg['skill_count']['std']:.1f}, "
+                f"TOON={agg['toon_tokens']['mean']:.0f} \u00b1 {agg['toon_tokens']['std']:.0f}"
+            )
+
+    return results
+
+
+def print_subsampling_summary(subsampling_results: dict):
+    """Print formatted sub-sampling variance tables."""
+    for _, _, label in _K_CONFIGS:
+        # Check if any budget has data for this k
+        has_data = any(subsampling_results[b].get(label) is not None for b in BUDGETS)
+        if not has_data:
+            continue
+
+        k_config = next((k, t) for k, t, l in _K_CONFIGS if l == label)
+
+        print(f"\n{'=' * 100}")
+        print(
+            f"CONSENSUS SUB-SAMPLING: k={k_config[0]} "
+            f"(threshold \u2265{k_config[1]})"
+        )
+        print("=" * 100)
+
+        header = (
+            f"{'Budget':<12} {'n':>3} {'C(n,k)':>6} "
+            f"{'Skills':>16} {'TOON tokens':>20} "
+            f"{'Sections':>16} {'MD chars':>18}"
+        )
+        print(header)
+        print("-" * len(header))
+
+        for budget in BUDGET_ORDER:
+            entry = subsampling_results[budget].get(label)
+            if entry is None:
+                short = budget.replace("budget-", "").replace("no-budget", "None")
+                print(f"{short:<12} {'—':>3} {'—':>6}")
+                continue
+
+            agg = entry["agg"]
+            short = budget.replace("budget-", "").replace("no-budget", "None")
+            sk = agg["skill_count"]
+            tt = agg["toon_tokens"]
+            sc = agg["section_count"]
+            mc = agg["md_chars"]
+
+            print(
+                f"{short:<12} {agg['n']:>3} {agg['n_subsets']:>6} "
+                f"{sk['mean']:>7.1f} \u00b1 {sk['std']:<6.1f} "
+                f"{tt['mean']:>9.0f} \u00b1 {tt['std']:<8.0f} "
+                f"{sc['mean']:>7.1f} \u00b1 {sc['std']:<6.1f} "
+                f"{mc['mean']:>8.0f} \u00b1 {mc['std']:<7.0f}"
+            )
+
+
+# ---------------------------------------------------------------------------
+# Step 7: Output summary tables
 # ---------------------------------------------------------------------------
 
 
@@ -555,7 +812,11 @@ def print_consensus_details(consensus: dict[str, Skillbook]):
 def print_core_fringe_sections(section_analysis: dict):
     """Print core and fringe section lists."""
     print("\n" + "=" * 100)
-    print("CORE SECTIONS (present in >= 6/7 budgets at >= 50% run frequency)")
+    n_budgets = len(BUDGETS)
+    core_t = max(2, int(n_budgets * 0.85))
+    print(
+        f"CORE SECTIONS (present in >= {core_t}/{n_budgets} budgets at >= 50% run frequency)"
+    )
     print("=" * 100)
     for s in sorted(section_analysis["core_sections"]):
         print(f"  - {s}")
@@ -578,8 +839,52 @@ def print_core_fringe_sections(section_analysis: dict):
 
 
 def main():
+    global RESULTS_DIR, CONSENSUS_OUTPUT_DIR
+
+    parser = argparse.ArgumentParser(
+        description="Variance experiment compression analysis"
+    )
+    parser.add_argument(
+        "--experiment-dir",
+        default=None,
+        help="Experiment directory (default: results/variance_experiment_haiku_4.5)",
+    )
+    parser.add_argument(
+        "--budgets",
+        nargs="+",
+        default=None,
+        help=(
+            "Budget labels to analyse (e.g., no-budget budget-500). "
+            "Default: discover from disk or use all 7 standard budgets."
+        ),
+    )
+    parser.add_argument(
+        "--skip-subsampling",
+        action="store_true",
+        default=False,
+        help="Skip the consensus sub-sampling variance analysis (step 7/7).",
+    )
+    args = parser.parse_args()
+
+    if args.experiment_dir:
+        RESULTS_DIR = Path(args.experiment_dir)
+        if not RESULTS_DIR.is_absolute():
+            RESULTS_DIR = PROJECT_ROOT / RESULTS_DIR
+    CONSENSUS_OUTPUT_DIR = RESULTS_DIR / "consensus"
+
+    if args.budgets:
+        BUDGETS[:] = args.budgets
+        BUDGET_ORDER[:] = args.budgets
+    else:
+        # Try to discover budgets from disk
+        discovered = _discover_budgets(RESULTS_DIR)
+        if discovered:
+            BUDGETS[:] = discovered
+            BUDGET_ORDER[:] = discovered
+
     print("=" * 100)
     print("VARIANCE EXPERIMENT COMPRESSION ANALYSIS")
+    print(f"  Directory: {RESULTS_DIR}")
     print("=" * 100)
 
     # Initialize embedding detector
@@ -592,17 +897,17 @@ def main():
     detector = SimilarityDetector(config)
 
     # Step 1: Load data
-    print("\n[1/6] Loading data...")
+    print("\n[1/7] Loading data...")
     data = load_all_data()
     total_runs = sum(len(v) for v in data.values())
     print(f"  Loaded {total_runs} runs across {len(BUDGETS)} budgets")
 
     # Step 2: Identify median runs
-    print("\n[2/6] Identifying median runs...")
+    print("\n[2/7] Identifying median runs...")
     median_runs = identify_median_runs(data)
 
     # Step 3: Cross-budget section analysis
-    print("\n[3/6] Cross-budget section analysis...")
+    print("\n[3/7] Cross-budget section analysis...")
     section_analysis = cross_budget_section_analysis(data)
     print(f"  {len(section_analysis['all_sections'])} unique sections found")
     print(
@@ -611,26 +916,52 @@ def main():
     )
 
     # Step 4: Within-budget consistency
-    print("\n[4/6] Within-budget consistency (embeddings)...")
+    print("\n[4/7] Within-budget consistency (embeddings)...")
     embedding_results = compute_skill_embedding_similarity(data, detector)
 
     # Step 5: Build consensus skillbooks
-    print("\n[5/6] Building consensus skillbooks...")
+    print("\n[5/7] Building consensus skillbooks...")
     consensus = build_consensus_skillbooks(data, embedding_results)
 
-    # Step 6: Save and report
-    print("\n[6/6] Saving consensus skillbooks...")
+    # Step 6: Save consensus skillbooks
+    print("\n[6/7] Saving consensus skillbooks...")
     save_consensus_skillbooks(consensus)
 
-    # Print all tables
-    print_summary_table(
-        data, median_runs, section_analysis, embedding_results, consensus
-    )
-    print_section_heatmap(section_analysis)
-    print_stability_breakdown(embedding_results)
-    print_median_run_details(data, median_runs)
-    print_consensus_details(consensus)
-    print_core_fringe_sections(section_analysis)
+    # Step 7: Consensus sub-sampling variance
+    if args.skip_subsampling:
+        print("\n[7/7] Skipping consensus sub-sampling variance (--skip-subsampling).")
+        subsampling_results = {}
+    else:
+        print("\n[7/7] Consensus sub-sampling variance analysis...")
+        subsampling_results = compute_consensus_subsampling(embedding_results, data)
+
+    # Capture printed tables to both stdout and markdown
+    md_buf = io.StringIO()
+
+    import builtins
+
+    original_print = builtins.print
+
+    def tee_print(*a, **kw):
+        """Print to both stdout and markdown buffer."""
+        original_print(*a, **kw)
+        kw_buf = {**kw, "file": md_buf}
+        original_print(*a, **kw_buf)
+
+    builtins.print = tee_print  # type: ignore[assignment]
+    try:
+        print_summary_table(
+            data, median_runs, section_analysis, embedding_results, consensus
+        )
+        print_section_heatmap(section_analysis)
+        print_stability_breakdown(embedding_results)
+        print_median_run_details(data, median_runs)
+        print_consensus_details(consensus)
+        if not args.skip_subsampling:
+            print_subsampling_summary(subsampling_results)
+        print_core_fringe_sections(section_analysis)
+    finally:
+        builtins.print = original_print  # type: ignore[assignment]
 
     # Save machine-readable results
     results_path = CONSENSUS_OUTPUT_DIR / "analysis_results.json"
@@ -660,8 +991,46 @@ def main():
             "total_unique": len(section_analysis["all_sections"]),
         },
     }
+    if not args.skip_subsampling:
+        results["consensus_subsampling_summary"] = {
+            b: {
+                label: (entry["agg"] if entry is not None else None)
+                for label, entry in v.items()
+            }
+            for b, v in subsampling_results.items()
+        }
     results_path.write_text(json.dumps(results, indent=2, default=str))
     print(f"\nSaved analysis results to {results_path}")
+
+    if not args.skip_subsampling:
+        # Save detailed sub-sampling results (per-subset metrics)
+        subsampling_path = CONSENSUS_OUTPUT_DIR / "consensus_subsampling.json"
+        # Strip 'values' from agg to avoid bloat, keep per-subset detail
+        subsampling_export = {}
+        for b, v in subsampling_results.items():
+            subsampling_export[b] = {}
+            for label, entry in v.items():
+                if entry is None:
+                    subsampling_export[b][label] = None
+                    continue
+                subsampling_export[b][label] = {
+                    "agg": entry["agg"],
+                    "subsets": entry["subsets"],
+                }
+        subsampling_path.write_text(
+            json.dumps(subsampling_export, indent=2, default=str)
+        )
+        print(f"Saved sub-sampling detail to {subsampling_path}")
+
+    # Write markdown report
+    md_path = RESULTS_DIR / "COMPRESSION_ANALYSIS_variance.md"
+    md_content = (
+        "# Compression Analysis — Variance Experiment\n\n"
+        f"Directory: `{RESULTS_DIR}`\n\n"
+        "```\n" + md_buf.getvalue() + "```\n"
+    )
+    md_path.write_text(md_content, encoding="utf-8")
+    print(f"Saved markdown report to {md_path}")
 
     print("\nDone!")
 

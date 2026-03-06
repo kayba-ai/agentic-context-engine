@@ -5,15 +5,18 @@ with embedding=None in final snapshots (skillbook_24.json) of budget runs.
 
 Usage:
     uv run python scripts/backfill_embeddings.py
+    uv run python scripts/backfill_embeddings.py results/variance_experiment_sonnet_4.6
 """
 
+import argparse
 import json
 import sys
 from pathlib import Path
 
 import litellm
 
-EXPERIMENT_DIR = Path(__file__).parent.parent / "results" / "variance_experiment"
+ROOT = Path(__file__).resolve().parent.parent
+EXPERIMENT_DIR = ROOT / "results" / "variance_experiment_haiku_4.5"
 EMBEDDING_MODEL = "text-embedding-3-small"
 BUDGETS_TO_BACKFILL = [
     "budget-500",
@@ -61,6 +64,24 @@ def backfill_file(path: Path) -> int:
 
 
 def main():
+    global EXPERIMENT_DIR
+
+    parser = argparse.ArgumentParser(
+        description="Backfill embeddings into skillbook snapshots"
+    )
+    parser.add_argument(
+        "experiment_dir",
+        nargs="?",
+        default=None,
+        help="Experiment directory (default: results/variance_experiment_haiku_4.5)",
+    )
+    args = parser.parse_args()
+
+    if args.experiment_dir:
+        EXPERIMENT_DIR = Path(args.experiment_dir)
+        if not EXPERIMENT_DIR.is_absolute():
+            EXPERIMENT_DIR = ROOT / EXPERIMENT_DIR
+
     total = 0
     for budget in BUDGETS_TO_BACKFILL:
         budget_dir = EXPERIMENT_DIR / budget
