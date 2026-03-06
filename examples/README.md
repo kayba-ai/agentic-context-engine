@@ -8,7 +8,7 @@ Navigation guide for all ACE examples. Each directory has its own detailed READM
 
 - **[simple_ace_example.py](simple_ace_example.py)** - Minimal ACE usage (5 minutes)
 - **[seahorse_emoji_ace.py](seahorse_emoji_ace.py)** - Self-reflection demo
-- **[Quick Start Guide](../docs/QUICK_START.md)** - Step-by-step tutorial
+- **[Quick Start Guide](../docs/getting-started/quick-start.md)** - Step-by-step tutorial
 
 ## 🧩 Integrations
 
@@ -92,10 +92,12 @@ uv run python examples/browser-use/simple_ace_agent.py
 
 ## 📚 Documentation
 
-- **[Quick Start Guide](../docs/QUICK_START.md)** - 5-minute tutorial
-- **[Integration Guide](../docs/INTEGRATION_GUIDE.md)** - Add ACE to existing agents
-- **[API Reference](../docs/API_REFERENCE.md)** - Complete API
-- **[Complete ACE Guide](../docs/COMPLETE_GUIDE_TO_ACE.md)** - Deep dive
+> **Note:** Documentation has been reorganized. Previous top-level docs (`QUICK_START.md`, `INTEGRATION_GUIDE.md`, etc.) have moved to `docs/getting-started/`, `docs/guides/`, and `docs/api/`. Old versions are archived in `docs/old_docs/`.
+
+- **[Quick Start Guide](../docs/getting-started/quick-start.md)** - 5-minute tutorial
+- **[Integration Guide](../docs/guides/integration.md)** - Add ACE to existing agents
+- **[API Reference](../docs/api/index.md)** - Complete API
+- **[Complete ACE Guide](../docs/guides/complete-guide.md)** - Deep dive
 
 ## 🔧 Adapting Examples
 

@@ -59,7 +59,7 @@ class ACEAgent:
     Insight Level: Meso
         ACE sees the full browser execution trace (thoughts, actions, observations)
         without external ground truth. Learns from execution patterns rather than
-        correctness feedback. See docs/COMPLETE_GUIDE_TO_ACE.md for details.
+        correctness feedback. See docs/guides/complete-guide.md for details.
 
     Usage:
         # Simple usage

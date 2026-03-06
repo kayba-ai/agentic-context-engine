@@ -50,6 +50,8 @@ skill_manager = SkillManager(llm)
 
 ## See Also
 
-- [Prompt Engineering Guide](../../docs/PROMPT_ENGINEERING.md) - Advanced techniques
+> **Note:** Docs have been reorganized. Old top-level docs are archived in `docs/old_docs/`.
+
+- [Prompt Engineering Guide](../../docs/guides/prompts.md) - Advanced techniques
 - [Main Examples](../) - All ACE examples
-- [API Reference](../../docs/API_REFERENCE.md) - Prompt configuration options
+- [API Reference](../../docs/api/index.md) - Prompt configuration options

@@ -282,7 +282,7 @@ def main():
     print("- Use AgentExecutor for meso-level learning (richer insights)")
     print("- Simple chains only get micro-level learning")
     print("- ACE automatically detects AgentExecutor and enables meso mode")
-    print("\nSee docs/COMPLETE_GUIDE_TO_ACE.md for more on insight levels")
+    print("\nSee docs/concepts/insight-levels.md for more on insight levels")
 
 
 if __name__ == "__main__":

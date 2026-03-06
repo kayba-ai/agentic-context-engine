@@ -134,8 +134,131 @@ class ACELiteLLM:
         self._last_interaction: tuple[str, AgentOutput] | None = None
 
     # ------------------------------------------------------------------
-    # Alternative constructor
+    # Alternative constructors
     # ------------------------------------------------------------------
+
+    @classmethod
+    def from_setup(
+        cls,
+        *,
+        config_dir: str | Path | None = None,
+        validate: bool = False,
+        **kwargs: Any,
+    ) -> ACELiteLLM:
+        """Build from ace.toml + .env (created by ``ace setup``).
+
+        Looks for ``ace.toml`` in the current directory and parents.
+        Loads ``.env`` for API keys. Optionally validates each model
+        connection before proceeding.
+
+        Args:
+            config_dir: Explicit directory containing ace.toml.
+                If None, searches current directory and parents.
+            validate: If True, run a test LLM call for each configured
+                model before building. Raises on failure.
+            **kwargs: Extra kwargs forwarded to the constructor
+                (skillbook, environment, opik, etc.).
+
+        Raises:
+            FileNotFoundError: If no ace.toml is found.
+            ConnectionError: If validate=True and a model fails.
+        """
+        from ..providers.config import (
+            ACEModelConfig,
+            find_config,
+            load_config,
+            load_dotenv,
+        )
+
+        # Load .env first so keys are available
+        load_dotenv()
+
+        # Find and load ace.toml
+        if config_dir is not None:
+            config = load_config(config_dir)
+        else:
+            config_path = find_config()
+            if config_path is None:
+                raise FileNotFoundError(
+                    "No ace.toml found. Run `ace setup` to create one, "
+                    "or use ACELiteLLM.from_model() / ACELiteLLM.from_config()."
+                )
+            config = load_config(config_path.parent)
+
+        return cls.from_config(config, validate=validate, **kwargs)
+
+    @classmethod
+    def from_config(
+        cls,
+        config: Any,  # ACEModelConfig — Any to avoid circular import at module level
+        *,
+        validate: bool = False,
+        **kwargs: Any,
+    ) -> ACELiteLLM:
+        """Build from an ``ACEModelConfig`` with per-role model selection.
+
+        API keys are resolved from the environment (not from config).
+        Each role gets its own ``LiteLLMClient`` instance, allowing
+        different models for Agent, Reflector, and SkillManager.
+
+        Args:
+            config: An ``ACEModelConfig`` mapping roles to models.
+            validate: If True, validate each model connection first.
+            **kwargs: Extra kwargs forwarded to the constructor
+                (skillbook, environment, opik, etc.).
+
+        Example::
+
+            from ace_next.providers.config import ACEModelConfig, ModelConfig
+
+            config = ACEModelConfig(
+                default=ModelConfig(model="gpt-4o-mini"),
+                agent=ModelConfig(model="claude-sonnet-4-20250514"),
+            )
+            ace = ACELiteLLM.from_config(config)
+        """
+        from ..providers import LiteLLMClient
+        from ..providers.config import ACEModelConfig
+
+        if not isinstance(config, ACEModelConfig):
+            raise TypeError(f"Expected ACEModelConfig, got {type(config).__name__}")
+
+        if validate:
+            from ..providers.registry import validate_connection
+
+            seen: set[str] = set()
+            for role in ("agent", "reflector", "skill_manager"):
+                mc = config.for_role(role)
+                if mc.model in seen:
+                    continue
+                seen.add(mc.model)
+                result = validate_connection(mc.model)
+                if not result.success:
+                    raise ConnectionError(
+                        f"Model '{mc.model}' (for {role}) failed validation: "
+                        f"{result.error}"
+                    )
+
+        def _build_client(role: str) -> LiteLLMClient:
+            mc = config.for_role(role)
+            return LiteLLMClient(
+                model=mc.model,
+                temperature=mc.temperature,
+                max_tokens=mc.max_tokens,
+                **(mc.extra_params or {}),
+            )
+
+        agent_llm = _build_client("agent")
+        reflector_llm = _build_client("reflector")
+        sm_llm = _build_client("skill_manager")
+
+        return cls(
+            agent_llm,  # default llm (used by ask())
+            agent=Agent(agent_llm),
+            reflector=Reflector(reflector_llm),
+            skill_manager=SkillManager(sm_llm),
+            **kwargs,
+        )
 
     @classmethod
     def from_model(

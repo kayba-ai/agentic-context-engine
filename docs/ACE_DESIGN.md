@@ -240,6 +240,104 @@ Both `Reflector` and `RRStep` satisfy `ReflectorLike`. The runner and pipeline d
 
 ---
 
+## Model Configuration & API Key Management
+
+API keys and model selection are deliberately separated. Keys are infrastructure (environment variables, `.env` files). Model choices are application config (code or `ace.toml`). ACE never asks for both in the same place.
+
+### Principles
+
+1. **API keys never appear in ACE APIs** — no `api_key` parameter on any config class or constructor. Keys are resolved from the environment by LiteLLM at call time.
+2. **Per-role model selection** — Agent, Reflector, and SkillManager can each use different models. `ACEModelConfig` maps roles to `ModelConfig` instances.
+3. **Validate before running** — `ace setup` and `validate_connection()` make a tiny LLM call (3 tokens) to verify the key + model + network all work before the user writes any code.
+
+### Config types
+
+```python
+@dataclass
+class ModelConfig:
+    """Which model to use for a role. No secrets."""
+    model: str
+    temperature: float = 0.0
+    max_tokens: int = 2048
+    extra_params: dict[str, Any] | None = None
+
+@dataclass
+class ACEModelConfig:
+    """Model selection per ACE role."""
+    default: ModelConfig
+    agent: ModelConfig | None = None       # falls back to default
+    reflector: ModelConfig | None = None   # falls back to default
+    skill_manager: ModelConfig | None = None  # falls back to default
+
+    def for_role(self, role: str) -> ModelConfig: ...
+```
+
+Both live in `ace_next/providers/config.py`. `ACEModelConfig` serialises to/from `ace.toml` (committable, no secrets).
+
+### Construction paths
+
+`ACELiteLLM` now has four construction paths, from simplest to most flexible:
+
+| Constructor | Input | Use case |
+|---|---|---|
+| `ACELiteLLM.from_setup()` | `ace.toml` + `.env` (from `ace setup`) | Teams, CI, guided setup |
+| `ACELiteLLM.from_config(config)` | `ACEModelConfig` object | Per-role model selection in code |
+| `ACELiteLLM.from_model("gpt-4o")` | Model string | Quick start, single model |
+| `ACELiteLLM(llm, ...)` | Pre-built `LLMClientLike` | Full control, custom clients |
+
+`from_config()` builds a separate `LiteLLMClient` per role, so each role gets its own model and parameters. `from_model()` and `from_setup()` delegate to `from_config()` internally.
+
+### CLI
+
+The `ace` CLI (`ace_next/cli/setup.py`) provides four commands:
+
+| Command | What it does |
+|---|---|
+| `ace setup` | Interactive wizard: enter model name, provide API key, validate connection, assign per-role models. Saves `.env` + `ace.toml`. |
+| `ace models [query]` | Search LiteLLM's model registry (2,600+ models). Filter by `--provider`. Shows pricing and key status. |
+| `ace providers` | List providers with env var names and whether keys are configured. |
+| `ace validate <model>` | Test a model connection with a tiny LLM call. |
+
+### File layout
+
+| File | Secrets? | Committable? | Purpose |
+|---|---|---|---|
+| `.env` | Yes | No (gitignored) | API keys only |
+| `ace.toml` | No | Yes | Model names + parameters per role |
+
+### Registry (`ace_next/providers/registry.py`)
+
+- `validate_connection(model, api_key?)` — makes a 3-token LLM call to verify auth + model + network
+- `get_required_key(model)` — returns `(provider, env_var)` using LiteLLM's provider detection
+- `search_models(query?, provider?)` — searches LiteLLM's model cost database
+- `suggest_models(typo)` — fuzzy match for typos in model names
+- `available_providers()` — lists providers with key status
+
+### Example: `ace.toml`
+
+```toml
+[default]
+model = "gpt-4o-mini"
+
+[agent]
+model = "claude-sonnet-4-20250514"
+max_tokens = 4096
+
+[reflector]
+model = "gpt-4o-mini"
+```
+
+### Key resolution flow
+
+```
+API Key:  .env → os.environ → LiteLLM reads OPENAI_API_KEY / ANTHROPIC_API_KEY / etc.
+Model:    ace.toml → ACEModelConfig.for_role("agent") → LiteLLMClient(model=...)
+```
+
+No key ever touches ACE code. LiteLLM handles provider-specific key lookup internally.
+
+---
+
 ## Class Hierarchy
 
 ```

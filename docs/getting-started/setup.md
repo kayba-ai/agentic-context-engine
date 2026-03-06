@@ -1,244 +1,226 @@
-# ACE Framework Setup Guide
+# Setup
 
-Quick setup and configuration guide for ACE Framework.
+Configure your LLM provider and model selection for ACE.
 
-## Requirements
+## Guided Setup (Recommended)
 
-- **Python 3.12**
-- API key for your LLM provider (OpenAI, Anthropic, Google, etc.)
-
-Check Python version:
-```bash
-python --version  # Should show 3.12
-```
-
----
-
-## Installation
-
-### For Users
+The `ace setup` command walks you through configuration interactively — it validates the connection first, and only asks for credentials if needed.
 
 ```bash
-# Basic installation
-pip install ace-framework
-
-# With optional features
-pip install ace-framework[instructor]     # Structured outputs (Instructor)
-pip install ace-framework[langchain]      # LangChain integration
-pip install ace-framework[browser-use]    # Browser automation
-pip install ace-framework[claude-code]    # Claude Code CLI integration
-pip install ace-framework[observability]  # Opik monitoring + cost tracking
-pip install ace-framework[deduplication]  # Skill deduplication (embeddings)
-pip install ace-framework[transformers]   # Local model support
-pip install ace-framework[all]            # All features
+ace setup
 ```
 
-### For Contributors
+```
+ACE Setup
+
+Step 1: Choose your model
+
+  Examples: gpt-4o-mini, claude-sonnet-4-20250514, ollama/llama2
+  Search models: ace models <query>
+
+  Default model: gpt-4o-mini
+  v Connected! (gpt-4o-mini via openai, 203ms)
+    Using OPENAI_API_KEY
+
+Step 2: Role assignment
+
+  ACE uses three roles. You can assign a different model to each,
+  or use the same model for all (recommended to start).
+
+  Use this model for all roles? [Y/n]: n
+
+  Agent (executes tasks) [gpt-4o-mini]: claude-sonnet-4-20250514
+  ! No credentials found for anthropic
+  ANTHROPIC_API_KEY: sk-ant-...
+  v Connected! (claude-sonnet-4-20250514 via anthropic, 347ms)
+  v Saved credentials to .env
+
+  Reflector (analyses results) [gpt-4o-mini]:
+  Skill Manager (updates skillbook) [gpt-4o-mini]:
+
+v Saved model config to ace.toml
+
+  Configuration summary:
+    default:        gpt-4o-mini
+    agent:          claude-sonnet-4-20250514
+```
+
+The wizard tries the connection immediately — if your credentials are already in the environment (via `.env`, exported variables, or cloud auth like AWS), it just works. It only prompts for keys when the connection actually fails.
+
+This creates two files:
+
+| File | Contains | Commit to git? |
+|------|----------|----------------|
+| `.env` | API keys only | No (gitignore it) |
+| `ace.toml` | Model names per role | Yes (no secrets) |
+
+Then in your code:
+
+```python
+from ace_next import ACELiteLLM
+
+ace = ACELiteLLM.from_setup()
+answer = ace.ask("What is 2+2?")
+```
+
+## Manual Setup
+
+If you prefer not to use the CLI, set environment variables directly.
+
+### 1. Set API keys
+
+=== "Shell"
+
+    ```bash
+    export OPENAI_API_KEY="sk-..."
+    export ANTHROPIC_API_KEY="sk-ant-..."
+    ```
+
+=== ".env file"
+
+    ```bash
+    # .env (add to .gitignore)
+    OPENAI_API_KEY=sk-...
+    ANTHROPIC_API_KEY=sk-ant-...
+    ```
+
+### 2. Use in code
+
+```python
+from ace_next import ACELiteLLM
+
+# Single model for all roles
+ace = ACELiteLLM.from_model("gpt-4o-mini")
+```
+
+```python
+from ace_next import ACELiteLLM, ACEModelConfig, ModelConfig
+
+# Different models per role
+ace = ACELiteLLM.from_config(ACEModelConfig(
+    default=ModelConfig(model="gpt-4o-mini"),
+    agent=ModelConfig(model="claude-sonnet-4-20250514"),
+))
+```
+
+## Per-Role Model Selection
+
+ACE has three roles, each making LLM calls. You can assign different models to optimise cost vs quality:
+
+| Role | What it does | Recommendation |
+|------|-------------|----------------|
+| **Agent** | Executes tasks, produces answers | Strong reasoning model |
+| **Reflector** | Analyses results, extracts lessons | Good analysis, lower cost OK |
+| **Skill Manager** | Updates the skillbook | Structured output reliability |
+
+Example `ace.toml`:
+
+```toml
+[default]
+model = "gpt-4o-mini"
+
+[agent]
+model = "claude-sonnet-4-20250514"
+max_tokens = 4096
+
+[reflector]
+model = "gpt-4o-mini"
+```
+
+Roles without an explicit section use `[default]`.
+
+## Discovering Models
+
+### Search available models
+
+Use multiple terms to narrow results — all terms must match:
 
 ```bash
-git clone https://github.com/kayba-ai/agentic-context-engine
-cd agentic-context-engine
-uv sync  # Installs everything automatically (10-100x faster than pip)
+ace models claude             # All Claude models
+ace models haiku us           # Only US-region Haiku models
+ace models gpt 4o             # GPT-4o variants
+ace models --provider openai  # All OpenAI models
 ```
 
----
+Output shows model name, provider, pricing, and whether your API key is configured:
 
-## API Key Setup
+```
+Model                                         Provider        Input $/M  Output $/M  Key
+------------------------------------------------------------------------------------------
+us.anthropic.claude-haiku-4-5-20251001-v1:0   bedrock_converse $1.10      $5.50       v
+claude-haiku-4-5-20251001                     anthropic        $1.00      $5.00       x
 
-### Option 1: Environment Variable (Recommended)
+Showing 20 of 40 models. Narrow your search: ace models <query> or use --limit 40
+```
+
+### Validate a specific model
 
 ```bash
-# Set in your shell
-export OPENAI_API_KEY="sk-..."
-
-# Or create .env file
-echo "OPENAI_API_KEY=sk-..." > .env
+ace validate us.anthropic.claude-haiku-4-5-20251001-v1:0
 ```
 
-Load in Python:
-```python
-from dotenv import load_dotenv
-load_dotenv()  # Loads from .env file
-```
+Makes a tiny test call (3 tokens) to confirm the key, model, and network all work.
 
-### Option 2: Direct in Code
+## Supported Providers
 
-```python
-from ace import LiteLLMClient
+ACE uses [LiteLLM](https://docs.litellm.ai/) for model access. Any model string LiteLLM supports will work:
 
-client = LiteLLMClient(
-    model="gpt-4o-mini",
-    api_key="your-key-here"  # Not recommended for production
-)
-```
+| Provider | Model Example | Env Variable |
+|----------|--------------|--------------|
+| OpenAI | `gpt-4o-mini` | `OPENAI_API_KEY` |
+| Anthropic | `claude-sonnet-4-20250514` | `ANTHROPIC_API_KEY` |
+| AWS Bedrock | `us.anthropic.claude-haiku-4-5-20251001-v1:0` | `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` + `AWS_REGION_NAME` |
+| Google Gemini | `gemini/gemini-2.0-flash` | `GEMINI_API_KEY` |
+| DeepSeek | `deepseek/deepseek-chat` | `DEEPSEEK_API_KEY` |
+| Groq | `groq/llama-3.1-70b` | `GROQ_API_KEY` |
+| Ollama (local) | `ollama/llama2` | --- |
+| Azure OpenAI | `azure/gpt-4` | `AZURE_API_KEY` |
+| OpenRouter | `openrouter/anthropic/claude-3.5-sonnet` | `OPENROUTER_API_KEY` |
 
----
-
-## Provider Examples
-
-### OpenAI
-
-1. Get API key: [platform.openai.com](https://platform.openai.com)
-2. Set key: `export OPENAI_API_KEY="sk-..."`
-3. Use it:
-```python
-from ace import LiteLLMClient
-client = LiteLLMClient(model="gpt-4o-mini")
-```
-
-### Anthropic Claude
-
-1. Get API key: [console.anthropic.com](https://console.anthropic.com)
-2. Set key: `export ANTHROPIC_API_KEY="sk-ant-..."`
-3. Use it:
-```python
-client = LiteLLMClient(model="claude-3-5-sonnet-20241022")
-```
-
-### Google Gemini
-
-1. Get API key: [makersuite.google.com](https://makersuite.google.com)
-2. Set key: `export GOOGLE_API_KEY="AIza..."`
-3. Use it:
-```python
-client = LiteLLMClient(model="gemini-pro")
-```
-
-### Local Models (Ollama)
-
-1. Install Ollama: [ollama.ai](https://ollama.ai)
-2. Pull model: `ollama pull llama2`
-3. Use it:
-```python
-client = LiteLLMClient(model="ollama/llama2")
-```
-
-**Supported Providers:** 100+ via LiteLLM (AWS Bedrock, Azure, Cohere, Hugging Face, etc.)
-
----
-
-## Advanced Configuration
-
-### Custom LLM Parameters
-
-```python
-from ace import LiteLLMClient
-
-client = LiteLLMClient(
-    model="gpt-4o-mini",
-    temperature=0.7,
-    max_tokens=2048,
-    timeout=60  # seconds
-)
-```
-
-### Production Monitoring (Opik)
-
-```bash
-pip install ace-framework[observability]
-```
-
-Opik automatically tracks:
-- Token usage per LLM call
-- Cost per operation
-- Agent/Reflector/SkillManager performance
-- Skillbook evolution over time
-
-View dashboard: [comet.com/opik](https://www.comet.com/opik)
-
-### Skillbook Storage
-
-```python
-from ace import Skillbook
-
-# Save skillbook
-skillbook.save_to_file("my_skillbook.json")
-
-# Load skillbook
-skillbook = Skillbook.load_from_file("my_skillbook.json")
-
-# For production: Use database storage
-# PostgreSQL, SQLite, or vector stores supported
-```
-
-### Checkpoint Saving
-
-```python
-from ace import OfflineACE
-
-adapter = OfflineACE(
-    skillbook=skillbook,
-    agent=agent,
-    reflector=reflector,
-    skill_manager=skill_manager
-)
-
-# Save skillbook every 10 samples during training
-results = adapter.run(
-    samples,
-    environment,
-    checkpoint_interval=10,
-    checkpoint_dir="./checkpoints"
-)
-```
-
----
+100+ providers supported. Run `ace models` to search the full catalog.
 
 ## Troubleshooting
 
-### Import Errors
+### "No ace.toml found"
+
+Run `ace setup` or use `ACELiteLLM.from_model("gpt-4o-mini")` instead of `from_setup()`.
+
+### "Invalid API key"
 
 ```bash
-# Upgrade to latest version
-pip install --upgrade ace-framework
+# Re-validate
+ace validate gpt-4o-mini
 
-# Check installation
-pip show ace-framework
+# Re-run setup to fix
+ace setup
 ```
 
-### API Key Not Working
+### "Model not found"
+
+The model string may have a typo. `ace validate` and `ace setup` suggest alternatives:
 
 ```bash
-# Verify key is set
-echo $OPENAI_API_KEY
-
-# Test different model
-from ace import LiteLLMClient
-client = LiteLLMClient(model="gpt-3.5-turbo")  # Cheaper for testing
+ace validate claud-sonnet
+# x Model 'claud-sonnet' not found at the provider.
+# Did you mean:
+#   - claude-sonnet-4-20250514
+#   - claude-3-5-sonnet-20241022
 ```
 
-### Rate Limits
+### "Could not detect a provider"
 
-```python
-from ace import LiteLLMClient
+Use the `provider/model-name` format:
 
-# Add delays between calls
-import time
-time.sleep(1)  # 1 second between calls
-
-# Or use a cheaper/faster model
-client = LiteLLMClient(model="gpt-3.5-turbo")
+```bash
+# Instead of just "llama2":
+ollama/llama2
+groq/llama-3.1-70b
 ```
 
-### JSON Parse Failures
+Search for the correct model string: `ace models llama`
 
-```python
-# Increase max_tokens for SkillManager/Reflector
-from ace import SkillManager, Reflector
+## What to Read Next
 
-llm = LiteLLMClient(model="gpt-4o-mini", max_tokens=2048)  # Higher limit
-skill_manager = SkillManager(llm)
-reflector = Reflector(llm)
-```
-
----
-
-## Need More Help?
-
-- **GitHub Issues:** [github.com/kayba-ai/agentic-context-engine/issues](https://github.com/kayba-ai/agentic-context-engine/issues)
-- **Discord Community:** [discord.gg/mqCqH7sTyK](https://discord.gg/mqCqH7sTyK)
-- **Documentation:** [Complete Guide](../guides/complete-guide.md), [Quick Start](quick-start.md), [Integration Guide](../guides/integration.md)
-
----
-
-**Next Steps:** Check out the [Quick Start Guide](quick-start.md) to build your first self-learning agent!
+- [Quick Start](quick-start.md) --- build your first self-learning agent
+- [How ACE Works](../concepts/overview.md) --- understand the three-role architecture
+- [Integrations](../integrations/index.md) --- LangChain, Browser-Use, Claude Code

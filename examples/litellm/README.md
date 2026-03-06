@@ -89,5 +89,7 @@ ACELiteLLM(model="ollama/llama2")
 
 ## Next Steps
 
+> **Note:** Docs have been reorganized. Old top-level docs are archived in `docs/old_docs/`.
+
 - Check `../browser-use/` for automation examples
-- Read `docs/INTEGRATION_GUIDE.md` for advanced usage
+- Read `docs/guides/integration.md` for advanced usage

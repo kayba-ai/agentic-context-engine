@@ -100,6 +100,7 @@ mcp = [
 ]
 
 [project.scripts]
+ace = "ace_next.cli.setup:main"
 ace-learn = "ace.integrations.claude_code.learner:main"
 ace-mcp = "ace_next.integrations.mcp.server:main"
 

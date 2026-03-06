@@ -220,11 +220,13 @@ Check that:
 
 1. Run the examples to see ACE learning in action
 2. Adapt the patterns to your own LangChain chains/agents
-3. See [INTEGRATION_GUIDE.md](../../docs/INTEGRATION_GUIDE.md) for advanced patterns
-4. Check [API_REFERENCE.md](../../docs/API_REFERENCE.md) for complete API docs
+3. See [Integration Guide](../../docs/guides/integration.md) for advanced patterns
+4. Check [API Reference](../../docs/api/index.md) for complete API docs
 
 ## Resources
 
-- **Integration Guide**: `docs/INTEGRATION_GUIDE.md` (includes all integration patterns)
-- **API Reference**: `docs/API_REFERENCE.md`
+> **Note:** Docs have been reorganized. Old top-level docs are archived in `docs/old_docs/`.
+
+- **Integration Guide**: `docs/guides/integration.md` (includes all integration patterns)
+- **API Reference**: `docs/api/index.md`
 - **Discord Community**: Join our [Discord](https://discord.gg/mqCqH7sTyK)

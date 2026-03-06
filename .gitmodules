@@ -1,0 +1,3 @@
+[submodule "ace-eval"]
+	path = ace-eval
+	url = git@github.com:kayba-ai/ace-eval.git

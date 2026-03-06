@@ -13,7 +13,7 @@ When to Use ACELiteLLM:
 When NOT to Use ACELiteLLM:
 - Browser automation → Use ACEAgent (browser-use)
 - LangChain chains/agents → Use ACELangChain
-- Custom agentic system → Use integration pattern (see docs/INTEGRATION_GUIDE.md)
+- Custom agentic system → Use integration pattern (see docs/guides/integration.md)
 
 Example:
     from ace.integrations import ACELiteLLM
@@ -67,7 +67,7 @@ class ACELiteLLM:
         Uses the full ACE loop with TaskEnvironment for ground truth evaluation.
         The learn() method runs OfflineACE which evaluates correctness and
         learns from whether answers are right or wrong.
-        See docs/COMPLETE_GUIDE_TO_ACE.md for details.
+        See docs/guides/complete-guide.md for details.
 
     For other use cases:
     - ACEAgent (browser-use): Browser automation with learning (meso-level)

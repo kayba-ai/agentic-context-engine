@@ -44,50 +44,49 @@
 - **Python 3.12**
 - An API key for your LLM provider
 
-## API Key Setup
+## Configure Your LLM
 
-Set one of these environment variables depending on your provider:
+The recommended way to set up your API keys and model selection:
+
+```bash
+ace setup
+```
+
+This interactive wizard validates your API key and model, then saves config to `ace.toml` (model names, safe to commit) and `.env` (API keys, gitignored). See [Setup](setup.md) for full details.
+
+### Manual alternative
+
+If you prefer not to use the wizard, set environment variables directly:
 
 ```bash
 export OPENAI_API_KEY="sk-..."
-export ANTHROPIC_API_KEY="sk-ant-..."
-export GOOGLE_API_KEY="AIza..."
 ```
 
-Or create a `.env` file:
+Or create a `.env` file (add to `.gitignore`):
 
 ```bash
-echo "OPENAI_API_KEY=sk-..." > .env
+OPENAI_API_KEY=sk-...
 ```
-
-```python
-from dotenv import load_dotenv
-load_dotenv()  # Loads from .env
-```
-
-## Supported Providers
-
-ACE uses [LiteLLM](https://docs.litellm.ai/) for model access, supporting 100+ providers:
-
-| Provider | Model Example | Env Variable |
-|----------|--------------|--------------|
-| OpenAI | `gpt-4o-mini` | `OPENAI_API_KEY` |
-| Anthropic | `claude-sonnet-4-5-20250929` | `ANTHROPIC_API_KEY` |
-| Google | `gemini-pro` | `GOOGLE_API_KEY` |
-| Ollama (local) | `ollama/llama2` | — |
-| AWS Bedrock | `bedrock/anthropic.claude-v2` | AWS credentials |
-| Azure | `azure/gpt-4` | `AZURE_API_KEY` |
 
 ## Verify Installation
 
 ```python
 from ace_next import ACELiteLLM
 
+# Uses ace.toml + .env from `ace setup`
+agent = ACELiteLLM.from_setup()
+print(agent.ask("Hello!"))
+```
+
+Or without `ace setup`:
+
+```python
 agent = ACELiteLLM.from_model("gpt-4o-mini")
 print(agent.ask("Hello!"))
 ```
 
 ## What to Read Next
 
+- [Setup](setup.md) — configure models and API keys
 - [Quick Start](quick-start.md) — build your first self-learning agent
 - [How ACE Works](../concepts/overview.md) — understand the architecture

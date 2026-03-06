@@ -4,10 +4,12 @@ Get a self-learning agent running in under a minute.
 
 ## Simplest Example
 
+If you've run `ace setup` (see [Setup](setup.md)), you can load your config automatically:
+
 ```python
 from ace_next import ACELiteLLM
 
-agent = ACELiteLLM.from_model("gpt-4o-mini")
+agent = ACELiteLLM.from_setup()
 
 # Ask related questions — the agent learns patterns across them
 answer1 = agent.ask("If all cats are animals, is Felix (a cat) an animal?")
@@ -17,6 +19,12 @@ print(f"Learned {len(agent.skillbook.skills())} strategies")
 
 # Save and reload later
 agent.save("my_agent.json")
+```
+
+Or specify a model directly (API key must be in the environment):
+
+```python
+agent = ACELiteLLM.from_model("gpt-4o-mini")
 ```
 
 ## Choose Your Integration

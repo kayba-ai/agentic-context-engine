@@ -8,7 +8,7 @@ Please use prompts_v2_1.py for new projects, which includes:
 - Better structured reasoning templates
 - Enhanced meta-cognitive instructions
 
-For migration guide, see docs/PROMPTS.md
+For migration guide, see docs/guides/prompts.md
 
 These prompts incorporate best practices from production AI systems including:
 - Identity headers with metadata
@@ -31,7 +31,7 @@ from typing import Dict, Any, Optional
 warnings.warn(
     "prompts_v2 is deprecated and will be removed in a future version. "
     "Please use prompts_v2_1 instead for enhanced performance and features. "
-    "See docs/PROMPTS.md for migration guide.",
+    "See docs/guides/prompts.md for migration guide.",
     DeprecationWarning,
     stacklevel=2,
 )

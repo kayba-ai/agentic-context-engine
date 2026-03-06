@@ -92,7 +92,7 @@ skillbook.save_to_file("learned.json")
 ## See Also
 
 - Reference implementation: ace/integrations/browser_use.py
-- Full integration guide: docs/INTEGRATION_GUIDE.md
+- Full integration guide: docs/guides/integration.md
 - Out-of-box wrappers: ACELiteLLM, ACEAgent (browser-use), ACELangChain
 """
 
@@ -177,7 +177,7 @@ def wrap_skillbook_context(skillbook: Skillbook) -> str:
 
     See Also:
         - ace/integrations/browser_use.py: Reference implementation
-        - docs/INTEGRATION_GUIDE.md: Full integration guide
+        - docs/guides/integration.md: Full integration guide
     """
     return wrap_skillbook_for_external_agent(skillbook)
 
