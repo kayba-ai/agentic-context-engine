@@ -1,4 +1,4 @@
-<img src="assets/kayba-banner.png" alt="Kayba Logo" width="1080"/>
+<a href="https://kayba.ai"><img src="assets/kayba-banner.png" alt="Kayba - Make your agents self-improve from experience" width="1080"/></a>
 
 # Agentic Context Engine (ACE)
 
@@ -6,10 +6,6 @@
 [![Discord](https://img.shields.io/discord/1429935408145236131?label=Discord&logo=discord&logoColor=white&color=5865F2)](https://discord.gg/mqCqH7sTyK)
 [![Twitter Follow](https://img.shields.io/twitter/follow/kaybaai?style=social)](https://twitter.com/kaybaai)
 [![Documentation](https://img.shields.io/badge/docs-latest-blue.svg)](https://kayba-ai.github.io/agentic-context-engine/latest/)
-
-**AI agents that get smarter with every task**
-
-⭐ Star this repo if you find it useful!
 
 ### Want this without the setup? [kayba.ai](https://kayba.ai) is our hosted dashboard: upload traces, review learned skills, deploy improved prompts.
 
