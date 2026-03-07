@@ -60,7 +60,7 @@ from ace_next.protocols.deduplication import DeduplicationConfig
 from ace_next.providers.litellm import LiteLLMClient, LiteLLMConfig
 from ace_next.implementations.prompts import wrap_skillbook_for_external_agent
 from ace_next.steps import TagStep, UpdateStep, ApplyStep, DeduplicateStep
-from ace.reflector.prompts_rr_v5 import REFLECTOR_RECURSIVE_V5_PROMPT
+from ace_next.rr.prompts import REFLECTOR_RECURSIVE_PROMPT
 
 
 # ---------------------------------------------------------------------------
@@ -205,7 +205,7 @@ def main():
             max_iterations=60,
             max_llm_calls=60,
         ),
-        prompt_template=REFLECTOR_RECURSIVE_V5_PROMPT,
+        prompt_template=REFLECTOR_RECURSIVE_PROMPT,
         subagent_llm=subagent_llm,
     )
     skill_manager = SkillManager(llm=llm)

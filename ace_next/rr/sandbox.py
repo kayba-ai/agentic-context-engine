@@ -11,10 +11,12 @@ import re
 import math
 import signal
 import threading
+import time as _time_mod
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import redirect_stdout, redirect_stderr
 from dataclasses import dataclass
 from datetime import datetime, timedelta, date, time, timezone
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from .trace_context import TraceContext
 
@@ -174,6 +176,11 @@ class TraceSandbox:
         trace: Optional[TraceContext],
         llm_query_fn: Optional[Callable[[str], str]] = None,
         additional_globals: Optional[Dict[str, Any]] = None,
+        *,
+        parallel_max_concurrency: int = 10,
+        parallel_max_retries: int = 3,
+        parallel_retry_delay: float = 1.0,
+        parallel_timeout: Optional[float] = None,
     ) -> None:
         """Initialize the sandbox with trace and optional LLM query function.
 
@@ -181,9 +188,19 @@ class TraceSandbox:
             trace: TraceContext for trace exploration (can be None)
             llm_query_fn: Function to call for sub-LLM queries
             additional_globals: Extra variables to inject into the namespace
+            parallel_max_concurrency: Max concurrent workers for parallel_map
+            parallel_max_retries: Max retries per item in parallel_map
+            parallel_retry_delay: Base delay (seconds) for exponential backoff
+            parallel_timeout: Per-item timeout in seconds (None = no timeout)
         """
         self._final_value: Any = None
         self._final_called = False
+
+        # parallel_map configuration (infrastructure-side only)
+        self._parallel_max_concurrency = parallel_max_concurrency
+        self._parallel_max_retries = parallel_max_retries
+        self._parallel_retry_delay = parallel_retry_delay
+        self._parallel_timeout = parallel_timeout
 
         # Build the namespace
         self.namespace: Dict[str, Any] = {
@@ -193,6 +210,7 @@ class TraceSandbox:
             "FINAL": self._final,
             "FINAL_VAR": self._final_var,
             "SHOW_VARS": self._show_vars,
+            "parallel_map": self._parallel_map,
             # Safe stdlib modules
             "json": json,
             "re": re,
@@ -282,6 +300,80 @@ class TraceSandbox:
         }
         user_vars = [k for k in user_vars if k not in excluded]
         logger.debug("Available variables: %s", sorted(user_vars))
+
+    def _parallel_map(
+        self, fn: Callable[[Any], Any], inputs: list, *, return_exceptions: bool = False
+    ) -> List[Any]:
+        """Execute fn over inputs in parallel using a thread pool.
+
+        Concurrency, retries, backoff, and timeout are controlled by the
+        sandbox configuration — the agent cannot override them.
+
+        Args:
+            fn: A callable to apply to each input
+            inputs: Ordered list of inputs
+            return_exceptions: If True, failed items appear as exceptions in
+                the results list instead of raising immediately
+
+        Returns:
+            Ordered list of results (same length/order as inputs)
+
+        Raises:
+            Exception: Re-raises the first worker exception when
+                return_exceptions is False
+        """
+        if not inputs:
+            return []
+
+        max_concurrency = self._parallel_max_concurrency
+        max_retries = self._parallel_max_retries
+        retry_delay = self._parallel_retry_delay
+        timeout = self._parallel_timeout
+        semaphore = threading.Semaphore(max_concurrency)
+
+        def _worker(item: Any) -> Any:
+            semaphore.acquire()
+            try:
+                last_exc: Optional[Exception] = None
+                for attempt in range(max_retries + 1):
+                    try:
+                        return fn(item)
+                    except Exception as exc:
+                        last_exc = exc
+                        if attempt < max_retries:
+                            backoff = retry_delay * (2 ** attempt)
+                            _time_mod.sleep(backoff)
+                # All retries exhausted
+                raise last_exc  # type: ignore[misc]
+            finally:
+                semaphore.release()
+
+        pool_size = min(len(inputs), max_concurrency * 2)
+        results: List[Any] = [None] * len(inputs)
+        first_exc: Optional[Exception] = None
+        first_exc_idx: Optional[int] = None
+
+        with ThreadPoolExecutor(max_workers=pool_size) as pool:
+            futures = {
+                pool.submit(_worker, item): idx
+                for idx, item in enumerate(inputs)
+            }
+            for future in futures:
+                idx = futures[future]
+                try:
+                    results[idx] = future.result(timeout=timeout)
+                except Exception as exc:
+                    if return_exceptions:
+                        results[idx] = exc
+                    else:
+                        if first_exc is None or idx < (first_exc_idx or len(inputs)):
+                            first_exc = exc
+                            first_exc_idx = idx
+
+        if first_exc is not None and not return_exceptions:
+            raise first_exc
+
+        return results
 
     @property
     def final_value(self) -> Any:

@@ -9,6 +9,8 @@
 
 ### Want this without the setup? [kayba.ai](https://kayba.ai) is our hosted dashboard: upload traces, review learned skills, deploy improved prompts.
 
+> **🚀 ACE v2 is coming.** We're rebuilding the framework from the ground up — a cleaner architecture, a modular pipeline engine, first-class async support, and a dramatically simpler API. Everything you love about ACE, refined and supercharged. Follow the progress in [`ace_next/`](ace_next/) and [`pipeline/`](pipeline/), or join the [Discord](https://discord.gg/mqCqH7sTyK) to stay in the loop.
+
 ---
 
 ## What is ACE?

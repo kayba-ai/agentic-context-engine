@@ -894,5 +894,217 @@ class TestShowVarsFunction(unittest.TestCase):
         self.assertNotIn("__builtins__", log_output)
 
 
+@pytest.mark.unit
+class TestParallelMap(unittest.TestCase):
+    """Test parallel_map sandbox function."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.trace = TraceContext(steps=[], raw_reasoning="test")
+
+    def test_basic_ordered_results(self):
+        """Test that parallel_map returns results in input order."""
+        sandbox = TraceSandbox(trace=self.trace, llm_query_fn=None)
+        result = sandbox.execute(
+            """
+results = parallel_map(lambda x: x * 2, [1, 2, 3, 4, 5])
+FINAL(results)
+"""
+        )
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.final_value, [2, 4, 6, 8, 10])
+
+    def test_empty_inputs(self):
+        """Test that parallel_map handles empty input list."""
+        sandbox = TraceSandbox(trace=self.trace, llm_query_fn=None)
+        result = sandbox.execute(
+            """
+results = parallel_map(lambda x: x, [])
+FINAL(results)
+"""
+        )
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.final_value, [])
+
+    def test_single_input(self):
+        """Test parallel_map with a single input."""
+        sandbox = TraceSandbox(trace=self.trace, llm_query_fn=None)
+        result = sandbox.execute(
+            """
+results = parallel_map(lambda x: x + 10, [5])
+FINAL(results)
+"""
+        )
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.final_value, [15])
+
+    def test_exception_propagation(self):
+        """Test that exceptions propagate when return_exceptions=False."""
+        sandbox = TraceSandbox(
+            trace=self.trace,
+            llm_query_fn=None,
+            parallel_max_retries=0,
+        )
+        result = sandbox.execute(
+            """
+def fail_on_three(x):
+    if x == 3:
+        raise ValueError("bad value: 3")
+    return x
+
+results = parallel_map(fail_on_three, [1, 2, 3, 4])
+"""
+        )
+
+        self.assertFalse(result.success)
+        self.assertIsInstance(result.exception, ValueError)
+        self.assertIn("bad value: 3", str(result.exception))
+
+    def test_return_exceptions_true(self):
+        """Test that exceptions are captured in results with return_exceptions=True."""
+        sandbox = TraceSandbox(
+            trace=self.trace,
+            llm_query_fn=None,
+            parallel_max_retries=0,
+        )
+        result = sandbox.execute(
+            """
+def maybe_fail(x):
+    if x == 2:
+        raise ValueError("bad")
+    return x * 10
+
+results = parallel_map(maybe_fail, [1, 2, 3], return_exceptions=True)
+FINAL(results)
+"""
+        )
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.final_value[0], 10)
+        self.assertIsInstance(result.final_value[1], ValueError)
+        self.assertEqual(result.final_value[2], 30)
+
+    def test_retry_with_backoff(self):
+        """Test that parallel_map retries failing calls."""
+        sandbox = TraceSandbox(
+            trace=self.trace,
+            llm_query_fn=None,
+            parallel_max_retries=2,
+            parallel_retry_delay=0.01,
+        )
+        # Inject a counter dict to track attempts
+        attempt_counts = {}
+        sandbox.inject("attempt_counts", attempt_counts)
+
+        result = sandbox.execute(
+            """
+def flaky(x):
+    attempt_counts.setdefault(x, 0)
+    attempt_counts[x] += 1
+    if attempt_counts[x] < 3:
+        raise RuntimeError(f"attempt {attempt_counts[x]}")
+    return x * 10
+
+results = parallel_map(flaky, [1, 2])
+FINAL(results)
+"""
+        )
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.final_value, [10, 20])
+        # Each item should have been attempted 3 times
+        self.assertEqual(attempt_counts[1], 3)
+        self.assertEqual(attempt_counts[2], 3)
+
+    def test_concurrency_limited(self):
+        """Test that max_concurrency limits parallel execution."""
+        import time
+
+        sandbox = TraceSandbox(
+            trace=self.trace,
+            llm_query_fn=None,
+            parallel_max_concurrency=2,
+            parallel_max_retries=0,
+        )
+        # Inject threading for tracking
+        import threading as _threading
+
+        sandbox.inject("_threading", _threading)
+        sandbox.inject("_time", time)
+
+        result = sandbox.execute(
+            """
+peak = [0]
+current = [0]
+lock = _threading.Lock()
+
+def track_concurrency(x):
+    with lock:
+        current[0] += 1
+        if current[0] > peak[0]:
+            peak[0] = current[0]
+    _time.sleep(0.05)
+    with lock:
+        current[0] -= 1
+    return x
+
+results = parallel_map(track_concurrency, [1, 2, 3, 4, 5, 6])
+FINAL({"results": results, "peak": peak[0]})
+"""
+        )
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.final_value["results"], [1, 2, 3, 4, 5, 6])
+        self.assertLessEqual(result.final_value["peak"], 2)
+
+    def test_works_with_ask_llm(self):
+        """Test that parallel_map works with ask_llm as the mapped function."""
+
+        def mock_llm_query(prompt: str) -> str:
+            return f"Summary of: {prompt[:20]}"
+
+        sandbox = TraceSandbox(trace=self.trace, llm_query_fn=mock_llm_query)
+
+        result = sandbox.execute(
+            """
+batches = ["batch one data", "batch two data", "batch three data"]
+results = parallel_map(
+    lambda b: llm_query(f"Summarize: {b}"),
+    batches
+)
+FINAL(results)
+"""
+        )
+
+        self.assertTrue(result.success)
+        self.assertEqual(len(result.final_value), 3)
+        for r in result.final_value:
+            self.assertIn("Summary of:", r)
+
+    def test_retries_exhausted_raises(self):
+        """Test that exhausted retries raise the last exception."""
+        sandbox = TraceSandbox(
+            trace=self.trace,
+            llm_query_fn=None,
+            parallel_max_retries=1,
+            parallel_retry_delay=0.01,
+        )
+        result = sandbox.execute(
+            """
+def always_fail(x):
+    raise RuntimeError(f"fail {x}")
+
+results = parallel_map(always_fail, [1])
+"""
+        )
+
+        self.assertFalse(result.success)
+        self.assertIsInstance(result.exception, RuntimeError)
+        self.assertIn("fail 1", str(result.exception))
+
+
 if __name__ == "__main__":
     unittest.main()
