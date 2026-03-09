@@ -13,6 +13,10 @@
         <link rel="canonical" href="https://kayba-ai.github.io/agentic-context-engine/latest/getting-started/setup/">
       
       
+        <link rel="prev" href="../installation/">
+      
+      
+        <link rel="next" href="../quick-start/">
       
       
         
@@ -72,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#ace-framework-setup-guide" class="md-skip">
+        <a href="#setup" class="md-skip">
           Skip to content
         </a>
       
@@ -109,7 +113,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              ACE Framework Setup Guide
+              Setup
             
           </span>
         </div>
@@ -242,10 +246,12 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
+      <li class="md-tabs__item md-tabs__item--active">
         <a href="../installation/" class="md-tabs__link">
           
   
@@ -432,28 +438,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
         
           
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
-        
-          
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
             
   
   
@@ -471,7 +480,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_2">
             <span class="md-nav__icon md-icon"></span>
             
@@ -505,6 +514,264 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Setup
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#guided-setup-recommended" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Guided Setup (Recommended)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#manual-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Manual Setup
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Manual Setup">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-set-api-keys" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Set API keys
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-use-in-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Use in code
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#per-role-model-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-Role Model Selection
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#discovering-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Discovering Models
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Discovering Models">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#search-available-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Search available models
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#validate-a-specific-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validate a specific model
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#supported-providers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Supported Providers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#no-acetoml-found" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "No ace.toml found"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#invalid-api-key" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "Invalid API key"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#model-not-found" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "Model not found"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#could-not-detect-a-provider" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "Could not detect a provider"
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-to-read-next" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What to Read Next
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1543,10 +1810,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#requirements" class="md-nav__link">
+  <a href="#guided-setup-recommended" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Requirements
+        Guided Setup (Recommended)
       
     </span>
   </a>
@@ -1554,22 +1821,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#installation" class="md-nav__link">
+  <a href="#manual-setup" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Installation
+        Manual Setup
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Installation">
+    <nav class="md-nav" aria-label="Manual Setup">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#for-users" class="md-nav__link">
+  <a href="#1-set-api-keys" class="md-nav__link">
     <span class="md-ellipsis">
       
-        For Users
+        1. Set API keys
       
     </span>
   </a>
@@ -1577,10 +1844,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#for-contributors" class="md-nav__link">
+  <a href="#2-use-in-code" class="md-nav__link">
     <span class="md-ellipsis">
       
-        For Contributors
+        2. Use in code
       
     </span>
   </a>
@@ -1593,22 +1860,33 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#api-key-setup" class="md-nav__link">
+  <a href="#per-role-model-selection" class="md-nav__link">
     <span class="md-ellipsis">
       
-        API Key Setup
+        Per-Role Model Selection
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="API Key Setup">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#discovering-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Discovering Models
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Discovering Models">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#option-1-environment-variable-recommended" class="md-nav__link">
+  <a href="#search-available-models" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Option 1: Environment Variable (Recommended)
+        Search available models
       
     </span>
   </a>
@@ -1616,10 +1894,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#option-2-direct-in-code" class="md-nav__link">
+  <a href="#validate-a-specific-model" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Option 2: Direct in Code
+        Validate a specific model
       
     </span>
   </a>
@@ -1632,124 +1910,13 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#provider-examples" class="md-nav__link">
+  <a href="#supported-providers" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Provider Examples
+        Supported Providers
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Provider Examples">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#openai" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        OpenAI
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#anthropic-claude" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Anthropic Claude
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#google-gemini" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Google Gemini
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#local-models-ollama" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Local Models (Ollama)
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#advanced-configuration" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Advanced Configuration
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Advanced Configuration">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#custom-llm-parameters" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Custom LLM Parameters
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#production-monitoring-opik" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Production Monitoring (Opik)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#skillbook-storage" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Skillbook Storage
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#checkpoint-saving" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Checkpoint Saving
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -1766,10 +1933,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#import-errors" class="md-nav__link">
+  <a href="#no-acetoml-found" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Import Errors
+        "No ace.toml found"
       
     </span>
   </a>
@@ -1777,10 +1944,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#api-key-not-working" class="md-nav__link">
+  <a href="#invalid-api-key" class="md-nav__link">
     <span class="md-ellipsis">
       
-        API Key Not Working
+        "Invalid API key"
       
     </span>
   </a>
@@ -1788,10 +1955,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#rate-limits" class="md-nav__link">
+  <a href="#model-not-found" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Rate Limits
+        "Model not found"
       
     </span>
   </a>
@@ -1799,10 +1966,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#json-parse-failures" class="md-nav__link">
+  <a href="#could-not-detect-a-provider" class="md-nav__link">
     <span class="md-ellipsis">
       
-        JSON Parse Failures
+        "Could not detect a provider"
       
     </span>
   </a>
@@ -1815,10 +1982,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#need-more-help" class="md-nav__link">
+  <a href="#what-to-read-next" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Need More Help?
+        What to Read Next
       
     </span>
   </a>
@@ -1845,189 +2012,256 @@
   
 
 
-<h1 id="ace-framework-setup-guide">ACE Framework Setup Guide<a class="headerlink" href="#ace-framework-setup-guide" title="Permanent link">&para;</a></h1>
-<p>Quick setup and configuration guide for ACE Framework.</p>
-<h2 id="requirements">Requirements<a class="headerlink" href="#requirements" title="Permanent link">&para;</a></h2>
-<ul>
-<li><strong>Python 3.12</strong></li>
-<li>API key for your LLM provider (OpenAI, Anthropic, Google, etc.)</li>
-</ul>
-<p>Check Python version:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python<span class="w"> </span>--version<span class="w">  </span><span class="c1"># Should show 3.12</span>
-</code></pre></div></p>
-<hr />
-<h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h2>
-<h3 id="for-users">For Users<a class="headerlink" href="#for-users" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Basic installation</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>pip<span class="w"> </span>install<span class="w"> </span>ace-framework
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># With optional features</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>pip<span class="w"> </span>install<span class="w"> </span>ace-framework<span class="o">[</span>instructor<span class="o">]</span><span class="w">     </span><span class="c1"># Structured outputs (Instructor)</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>pip<span class="w"> </span>install<span class="w"> </span>ace-framework<span class="o">[</span>langchain<span class="o">]</span><span class="w">      </span><span class="c1"># LangChain integration</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>pip<span class="w"> </span>install<span class="w"> </span>ace-framework<span class="o">[</span>browser-use<span class="o">]</span><span class="w">    </span><span class="c1"># Browser automation</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>pip<span class="w"> </span>install<span class="w"> </span>ace-framework<span class="o">[</span>claude-code<span class="o">]</span><span class="w">    </span><span class="c1"># Claude Code CLI integration</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>pip<span class="w"> </span>install<span class="w"> </span>ace-framework<span class="o">[</span>observability<span class="o">]</span><span class="w">  </span><span class="c1"># Opik monitoring + cost tracking</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>pip<span class="w"> </span>install<span class="w"> </span>ace-framework<span class="o">[</span>deduplication<span class="o">]</span><span class="w">  </span><span class="c1"># Skill deduplication (embeddings)</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>pip<span class="w"> </span>install<span class="w"> </span>ace-framework<span class="o">[</span>transformers<span class="o">]</span><span class="w">   </span><span class="c1"># Local model support</span>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>pip<span class="w"> </span>install<span class="w"> </span>ace-framework<span class="o">[</span>all<span class="o">]</span><span class="w">            </span><span class="c1"># All features</span>
+<h1 id="setup">Setup<a class="headerlink" href="#setup" title="Permanent link">&para;</a></h1>
+<p>Configure your LLM provider and model selection for ACE.</p>
+<h2 id="guided-setup-recommended">Guided Setup (Recommended)<a class="headerlink" href="#guided-setup-recommended" title="Permanent link">&para;</a></h2>
+<p>The <code>ace setup</code> command walks you through configuration interactively — it validates the connection first, and only asks for credentials if needed.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>ace<span class="w"> </span>setup
 </code></pre></div>
-<h3 id="for-contributors">For Contributors<a class="headerlink" href="#for-contributors" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/kayba-ai/agentic-context-engine
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nb">cd</span><span class="w"> </span>agentic-context-engine
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>uv<span class="w"> </span>sync<span class="w">  </span><span class="c1"># Installs everything automatically (10-100x faster than pip)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>ACE Setup
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>Step 1: Choose your model
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  Examples: gpt-4o-mini, claude-sonnet-4-20250514, ollama/llama2
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>  Search models: ace models &lt;query&gt;
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>  Default model: gpt-4o-mini
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>  v Connected! (gpt-4o-mini via openai, 203ms)
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    Using OPENAI_API_KEY
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>Step 2: Role assignment
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>  ACE uses three roles. You can assign a different model to each,
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>  or use the same model for all (recommended to start).
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>  Use this model for all roles? [Y/n]: n
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>  Agent (executes tasks) [gpt-4o-mini]: claude-sonnet-4-20250514
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>  ! No credentials found for anthropic
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>  ANTHROPIC_API_KEY: sk-ant-...
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>  v Connected! (claude-sonnet-4-20250514 via anthropic, 347ms)
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>  v Saved credentials to .env
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>  Reflector (analyses results) [gpt-4o-mini]:
+<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>  Skill Manager (updates skillbook) [gpt-4o-mini]:
+<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>
+<a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a>v Saved model config to ace.toml
+<a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a>
+<a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a>  Configuration summary:
+<a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a>    default:        gpt-4o-mini
+<a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a>    agent:          claude-sonnet-4-20250514
 </code></pre></div>
-<hr />
-<h2 id="api-key-setup">API Key Setup<a class="headerlink" href="#api-key-setup" title="Permanent link">&para;</a></h2>
-<h3 id="option-1-environment-variable-recommended">Option 1: Environment Variable (Recommended)<a class="headerlink" href="#option-1-environment-variable-recommended" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Set in your shell</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">OPENAI_API_KEY</span><span class="o">=</span><span class="s2">&quot;sk-...&quot;</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># Or create .env file</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;OPENAI_API_KEY=sk-...&quot;</span><span class="w"> </span>&gt;<span class="w"> </span>.env
+<p>The wizard tries the connection immediately — if your credentials are already in the environment (via <code>.env</code>, exported variables, or cloud auth like AWS), it just works. It only prompts for keys when the connection actually fails.</p>
+<p>This creates two files:</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Contains</th>
+<th>Commit to git?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>.env</code></td>
+<td>API keys only</td>
+<td>No (gitignore it)</td>
+</tr>
+<tr>
+<td><code>ace.toml</code></td>
+<td>Model names per role</td>
+<td>Yes (no secrets)</td>
+</tr>
+</tbody>
+</table>
+<p>Then in your code:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next</span><span class="w"> </span><span class="kn">import</span> <span class="n">ACELiteLLM</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">ace</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_setup</span><span class="p">()</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">answer</span> <span class="o">=</span> <span class="n">ace</span><span class="o">.</span><span class="n">ask</span><span class="p">(</span><span class="s2">&quot;What is 2+2?&quot;</span><span class="p">)</span>
 </code></pre></div>
-<p>Load in Python:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">dotenv</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_dotenv</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">load_dotenv</span><span class="p">()</span>  <span class="c1"># Loads from .env file</span>
-</code></pre></div></p>
-<h3 id="option-2-direct-in-code">Option 2: Direct in Code<a class="headerlink" href="#option-2-direct-in-code" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace</span><span class="w"> </span><span class="kn">import</span> <span class="n">LiteLLMClient</span>
+<h2 id="manual-setup">Manual Setup<a class="headerlink" href="#manual-setup" title="Permanent link">&para;</a></h2>
+<p>If you prefer not to use the CLI, set environment variables directly.</p>
+<h3 id="1-set-api-keys">1. Set API keys<a class="headerlink" href="#1-set-api-keys" title="Permanent link">&para;</a></h3>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Shell</label><label for="__tabbed_1_2">.env file</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">OPENAI_API_KEY</span><span class="o">=</span><span class="s2">&quot;sk-...&quot;</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">ANTHROPIC_API_KEY</span><span class="o">=</span><span class="s2">&quot;sk-ant-...&quot;</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># .env (add to .gitignore)</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nv">OPENAI_API_KEY</span><span class="o">=</span>sk-...
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nv">ANTHROPIC_API_KEY</span><span class="o">=</span>sk-ant-...
+</code></pre></div>
+</div>
+</div>
+</div>
+<h3 id="2-use-in-code">2. Use in code<a class="headerlink" href="#2-use-in-code" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next</span><span class="w"> </span><span class="kn">import</span> <span class="n">ACELiteLLM</span>
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">client</span> <span class="o">=</span> <span class="n">LiteLLMClient</span><span class="p">(</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">,</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="n">api_key</span><span class="o">=</span><span class="s2">&quot;your-key-here&quot;</span>  <span class="c1"># Not recommended for production</span>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="p">)</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="c1"># Single model for all roles</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">ace</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">)</span>
 </code></pre></div>
-<hr />
-<h2 id="provider-examples">Provider Examples<a class="headerlink" href="#provider-examples" title="Permanent link">&para;</a></h2>
-<h3 id="openai">OpenAI<a class="headerlink" href="#openai" title="Permanent link">&para;</a></h3>
-<ol>
-<li>Get API key: <a href="https://platform.openai.com">platform.openai.com</a></li>
-<li>Set key: <code>export OPENAI_API_KEY="sk-..."</code></li>
-<li>Use it:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace</span><span class="w"> </span><span class="kn">import</span> <span class="n">LiteLLMClient</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">client</span> <span class="o">=</span> <span class="n">LiteLLMClient</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">)</span>
-</code></pre></div></li>
-</ol>
-<h3 id="anthropic-claude">Anthropic Claude<a class="headerlink" href="#anthropic-claude" title="Permanent link">&para;</a></h3>
-<ol>
-<li>Get API key: <a href="https://console.anthropic.com">console.anthropic.com</a></li>
-<li>Set key: <code>export ANTHROPIC_API_KEY="sk-ant-..."</code></li>
-<li>Use it:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">LiteLLMClient</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">&quot;claude-3-5-sonnet-20241022&quot;</span><span class="p">)</span>
-</code></pre></div></li>
-</ol>
-<h3 id="google-gemini">Google Gemini<a class="headerlink" href="#google-gemini" title="Permanent link">&para;</a></h3>
-<ol>
-<li>Get API key: <a href="https://makersuite.google.com">makersuite.google.com</a></li>
-<li>Set key: <code>export GOOGLE_API_KEY="AIza..."</code></li>
-<li>Use it:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">LiteLLMClient</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">&quot;gemini-pro&quot;</span><span class="p">)</span>
-</code></pre></div></li>
-</ol>
-<h3 id="local-models-ollama">Local Models (Ollama)<a class="headerlink" href="#local-models-ollama" title="Permanent link">&para;</a></h3>
-<ol>
-<li>Install Ollama: <a href="https://ollama.ai">ollama.ai</a></li>
-<li>Pull model: <code>ollama pull llama2</code></li>
-<li>Use it:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">LiteLLMClient</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">&quot;ollama/llama2&quot;</span><span class="p">)</span>
-</code></pre></div></li>
-</ol>
-<p><strong>Supported Providers:</strong> 100+ via LiteLLM (AWS Bedrock, Azure, Cohere, Hugging Face, etc.)</p>
-<hr />
-<h2 id="advanced-configuration">Advanced Configuration<a class="headerlink" href="#advanced-configuration" title="Permanent link">&para;</a></h2>
-<h3 id="custom-llm-parameters">Custom LLM Parameters<a class="headerlink" href="#custom-llm-parameters" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace</span><span class="w"> </span><span class="kn">import</span> <span class="n">LiteLLMClient</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="n">client</span> <span class="o">=</span> <span class="n">LiteLLMClient</span><span class="p">(</span>
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">,</span>
-<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>    <span class="n">temperature</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span>
-<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>    <span class="n">max_tokens</span><span class="o">=</span><span class="mi">2048</span><span class="p">,</span>
-<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>    <span class="n">timeout</span><span class="o">=</span><span class="mi">60</span>  <span class="c1"># seconds</span>
-<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next</span><span class="w"> </span><span class="kn">import</span> <span class="n">ACELiteLLM</span><span class="p">,</span> <span class="n">ACEModelConfig</span><span class="p">,</span> <span class="n">ModelConfig</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="c1"># Different models per role</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">ace</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="n">ACEModelConfig</span><span class="p">(</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="n">default</span><span class="o">=</span><span class="n">ModelConfig</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">),</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="n">agent</span><span class="o">=</span><span class="n">ModelConfig</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">&quot;claude-sonnet-4-20250514&quot;</span><span class="p">),</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="p">))</span>
 </code></pre></div>
-<h3 id="production-monitoring-opik">Production Monitoring (Opik)<a class="headerlink" href="#production-monitoring-opik" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>pip<span class="w"> </span>install<span class="w"> </span>ace-framework<span class="o">[</span>observability<span class="o">]</span>
+<h2 id="per-role-model-selection">Per-Role Model Selection<a class="headerlink" href="#per-role-model-selection" title="Permanent link">&para;</a></h2>
+<p>ACE has three roles, each making LLM calls. You can assign different models to optimise cost vs quality:</p>
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>What it does</th>
+<th>Recommendation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Agent</strong></td>
+<td>Executes tasks, produces answers</td>
+<td>Strong reasoning model</td>
+</tr>
+<tr>
+<td><strong>Reflector</strong></td>
+<td>Analyses results, extracts lessons</td>
+<td>Good analysis, lower cost OK</td>
+</tr>
+<tr>
+<td><strong>Skill Manager</strong></td>
+<td>Updates the skillbook</td>
+<td>Structured output reliability</td>
+</tr>
+</tbody>
+</table>
+<p>Example <code>ace.toml</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">[default]</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">model</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;gpt-4o-mini&quot;</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="k">[agent]</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="n">model</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;claude-sonnet-4-20250514&quot;</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="n">max_tokens</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4096</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="k">[reflector]</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="n">model</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;gpt-4o-mini&quot;</span>
 </code></pre></div>
-<p>Opik automatically tracks:
-- Token usage per LLM call
-- Cost per operation
-- Agent/Reflector/SkillManager performance
-- Skillbook evolution over time</p>
-<p>View dashboard: <a href="https://www.comet.com/opik">comet.com/opik</a></p>
-<h3 id="skillbook-storage">Skillbook Storage<a class="headerlink" href="#skillbook-storage" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace</span><span class="w"> </span><span class="kn">import</span> <span class="n">Skillbook</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="c1"># Save skillbook</span>
-<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="n">skillbook</span><span class="o">.</span><span class="n">save_to_file</span><span class="p">(</span><span class="s2">&quot;my_skillbook.json&quot;</span><span class="p">)</span>
-<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>
-<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="c1"># Load skillbook</span>
-<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="n">skillbook</span> <span class="o">=</span> <span class="n">Skillbook</span><span class="o">.</span><span class="n">load_from_file</span><span class="p">(</span><span class="s2">&quot;my_skillbook.json&quot;</span><span class="p">)</span>
-<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>
-<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="c1"># For production: Use database storage</span>
-<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="c1"># PostgreSQL, SQLite, or vector stores supported</span>
+<p>Roles without an explicit section use <code>[default]</code>.</p>
+<h2 id="discovering-models">Discovering Models<a class="headerlink" href="#discovering-models" title="Permanent link">&para;</a></h2>
+<h3 id="search-available-models">Search available models<a class="headerlink" href="#search-available-models" title="Permanent link">&para;</a></h3>
+<p>Use multiple terms to narrow results — all terms must match:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>ace<span class="w"> </span>models<span class="w"> </span>claude<span class="w">             </span><span class="c1"># All Claude models</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>ace<span class="w"> </span>models<span class="w"> </span>haiku<span class="w"> </span>us<span class="w">           </span><span class="c1"># Only US-region Haiku models</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>ace<span class="w"> </span>models<span class="w"> </span>gpt<span class="w"> </span>4o<span class="w">             </span><span class="c1"># GPT-4o variants</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>ace<span class="w"> </span>models<span class="w"> </span>--provider<span class="w"> </span>openai<span class="w">  </span><span class="c1"># All OpenAI models</span>
 </code></pre></div>
-<h3 id="checkpoint-saving">Checkpoint Saving<a class="headerlink" href="#checkpoint-saving" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace</span><span class="w"> </span><span class="kn">import</span> <span class="n">OfflineACE</span>
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>
-<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="n">adapter</span> <span class="o">=</span> <span class="n">OfflineACE</span><span class="p">(</span>
-<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>    <span class="n">skillbook</span><span class="o">=</span><span class="n">skillbook</span><span class="p">,</span>
-<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>    <span class="n">agent</span><span class="o">=</span><span class="n">agent</span><span class="p">,</span>
-<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>    <span class="n">reflector</span><span class="o">=</span><span class="n">reflector</span><span class="p">,</span>
-<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>    <span class="n">skill_manager</span><span class="o">=</span><span class="n">skill_manager</span>
-<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="p">)</span>
-<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>
-<a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="c1"># Save skillbook every 10 samples during training</span>
-<a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a><span class="n">results</span> <span class="o">=</span> <span class="n">adapter</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
-<a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a>    <span class="n">samples</span><span class="p">,</span>
-<a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a>    <span class="n">environment</span><span class="p">,</span>
-<a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a>    <span class="n">checkpoint_interval</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
-<a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a>    <span class="n">checkpoint_dir</span><span class="o">=</span><span class="s2">&quot;./checkpoints&quot;</span>
-<a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a><span class="p">)</span>
+<p>Output shows model name, provider, pricing, and whether your API key is configured:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>Model                                         Provider        Input $/M  Output $/M  Key
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>------------------------------------------------------------------------------------------
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>us.anthropic.claude-haiku-4-5-20251001-v1:0   bedrock_converse $1.10      $5.50       v
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>claude-haiku-4-5-20251001                     anthropic        $1.00      $5.00       x
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>Showing 20 of 40 models. Narrow your search: ace models &lt;query&gt; or use --limit 40
 </code></pre></div>
-<hr />
+<h3 id="validate-a-specific-model">Validate a specific model<a class="headerlink" href="#validate-a-specific-model" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>ace<span class="w"> </span>validate<span class="w"> </span>us.anthropic.claude-haiku-4-5-20251001-v1:0
+</code></pre></div>
+<p>Makes a tiny test call (3 tokens) to confirm the key, model, and network all work.</p>
+<h2 id="supported-providers">Supported Providers<a class="headerlink" href="#supported-providers" title="Permanent link">&para;</a></h2>
+<p>ACE uses <a href="https://docs.litellm.ai/">LiteLLM</a> for model access. Any model string LiteLLM supports will work:</p>
+<table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>Model Example</th>
+<th>Env Variable</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OpenAI</td>
+<td><code>gpt-4o-mini</code></td>
+<td><code>OPENAI_API_KEY</code></td>
+</tr>
+<tr>
+<td>Anthropic</td>
+<td><code>claude-sonnet-4-20250514</code></td>
+<td><code>ANTHROPIC_API_KEY</code></td>
+</tr>
+<tr>
+<td>AWS Bedrock</td>
+<td><code>us.anthropic.claude-haiku-4-5-20251001-v1:0</code></td>
+<td><code>AWS_ACCESS_KEY_ID</code> + <code>AWS_SECRET_ACCESS_KEY</code> + <code>AWS_REGION_NAME</code></td>
+</tr>
+<tr>
+<td>Google Gemini</td>
+<td><code>gemini/gemini-2.0-flash</code></td>
+<td><code>GEMINI_API_KEY</code></td>
+</tr>
+<tr>
+<td>DeepSeek</td>
+<td><code>deepseek/deepseek-chat</code></td>
+<td><code>DEEPSEEK_API_KEY</code></td>
+</tr>
+<tr>
+<td>Groq</td>
+<td><code>groq/llama-3.1-70b</code></td>
+<td><code>GROQ_API_KEY</code></td>
+</tr>
+<tr>
+<td>Ollama (local)</td>
+<td><code>ollama/llama2</code></td>
+<td>---</td>
+</tr>
+<tr>
+<td>Azure OpenAI</td>
+<td><code>azure/gpt-4</code></td>
+<td><code>AZURE_API_KEY</code></td>
+</tr>
+<tr>
+<td>OpenRouter</td>
+<td><code>openrouter/anthropic/claude-3.5-sonnet</code></td>
+<td><code>OPENROUTER_API_KEY</code></td>
+</tr>
+</tbody>
+</table>
+<p>100+ providers supported. Run <code>ace models</code> to search the full catalog.</p>
 <h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
-<h3 id="import-errors">Import Errors<a class="headerlink" href="#import-errors" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1"># Upgrade to latest version</span>
-<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>pip<span class="w"> </span>install<span class="w"> </span>--upgrade<span class="w"> </span>ace-framework
-<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
-<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="c1"># Check installation</span>
-<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>pip<span class="w"> </span>show<span class="w"> </span>ace-framework
+<h3 id="no-acetoml-found">"No ace.toml found"<a class="headerlink" href="#no-acetoml-found" title="Permanent link">&para;</a></h3>
+<p>Run <code>ace setup</code> or use <code>ACELiteLLM.from_model("gpt-4o-mini")</code> instead of <code>from_setup()</code>.</p>
+<h3 id="invalid-api-key">"Invalid API key"<a class="headerlink" href="#invalid-api-key" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># Re-validate</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>ace<span class="w"> </span>validate<span class="w"> </span>gpt-4o-mini
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="c1"># Re-run setup to fix</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>ace<span class="w"> </span>setup
 </code></pre></div>
-<h3 id="api-key-not-working">API Key Not Working<a class="headerlink" href="#api-key-not-working" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="c1"># Verify key is set</span>
-<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="nb">echo</span><span class="w"> </span><span class="nv">$OPENAI_API_KEY</span>
-<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>
-<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="c1"># Test different model</span>
-<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>from<span class="w"> </span>ace<span class="w"> </span>import<span class="w"> </span>LiteLLMClient
-<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="nv">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>LiteLLMClient<span class="o">(</span><span class="nv">model</span><span class="o">=</span><span class="s2">&quot;gpt-3.5-turbo&quot;</span><span class="o">)</span><span class="w">  </span><span class="c1"># Cheaper for testing</span>
+<h3 id="model-not-found">"Model not found"<a class="headerlink" href="#model-not-found" title="Permanent link">&para;</a></h3>
+<p>The model string may have a typo. <code>ace validate</code> and <code>ace setup</code> suggest alternatives:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>ace<span class="w"> </span>validate<span class="w"> </span>claud-sonnet
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="c1"># x Model &#39;claud-sonnet&#39; not found at the provider.</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="c1"># Did you mean:</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="c1">#   - claude-sonnet-4-20250514</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="c1">#   - claude-3-5-sonnet-20241022</span>
 </code></pre></div>
-<h3 id="rate-limits">Rate Limits<a class="headerlink" href="#rate-limits" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace</span><span class="w"> </span><span class="kn">import</span> <span class="n">LiteLLMClient</span>
-<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>
-<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="c1"># Add delays between calls</span>
-<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
-<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># 1 second between calls</span>
-<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>
-<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="c1"># Or use a cheaper/faster model</span>
-<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="n">client</span> <span class="o">=</span> <span class="n">LiteLLMClient</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">&quot;gpt-3.5-turbo&quot;</span><span class="p">)</span>
+<h3 id="could-not-detect-a-provider">"Could not detect a provider"<a class="headerlink" href="#could-not-detect-a-provider" title="Permanent link">&para;</a></h3>
+<p>Use the <code>provider/model-name</code> format:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># Instead of just &quot;llama2&quot;:</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>ollama/llama2
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>groq/llama-3.1-70b
 </code></pre></div>
-<h3 id="json-parse-failures">JSON Parse Failures<a class="headerlink" href="#json-parse-failures" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="c1"># Increase max_tokens for SkillManager/Reflector</span>
-<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace</span><span class="w"> </span><span class="kn">import</span> <span class="n">SkillManager</span><span class="p">,</span> <span class="n">Reflector</span>
-<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>
-<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="n">llm</span> <span class="o">=</span> <span class="n">LiteLLMClient</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">,</span> <span class="n">max_tokens</span><span class="o">=</span><span class="mi">2048</span><span class="p">)</span>  <span class="c1"># Higher limit</span>
-<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="n">skill_manager</span> <span class="o">=</span> <span class="n">SkillManager</span><span class="p">(</span><span class="n">llm</span><span class="p">)</span>
-<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="n">reflector</span> <span class="o">=</span> <span class="n">Reflector</span><span class="p">(</span><span class="n">llm</span><span class="p">)</span>
-</code></pre></div>
-<hr />
-<h2 id="need-more-help">Need More Help?<a class="headerlink" href="#need-more-help" title="Permanent link">&para;</a></h2>
+<p>Search for the correct model string: <code>ace models llama</code></p>
+<h2 id="what-to-read-next">What to Read Next<a class="headerlink" href="#what-to-read-next" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>GitHub Issues:</strong> <a href="https://github.com/kayba-ai/agentic-context-engine/issues">github.com/kayba-ai/agentic-context-engine/issues</a></li>
-<li><strong>Discord Community:</strong> <a href="https://discord.gg/mqCqH7sTyK">discord.gg/mqCqH7sTyK</a></li>
-<li><strong>Documentation:</strong> <a href="../../guides/complete-guide/">Complete Guide</a>, <a href="../quick-start/">Quick Start</a>, <a href="../../guides/integration/">Integration Guide</a></li>
+<li><a href="../quick-start/">Quick Start</a> --- build your first self-learning agent</li>
+<li><a href="../../concepts/overview/">How ACE Works</a> --- understand the three-role architecture</li>
+<li><a href="../../integrations/">Integrations</a> --- LangChain, Browser-Use, Claude Code</li>
 </ul>
-<hr />
-<p><strong>Next Steps:</strong> Check out the <a href="../quick-start/">Quick Start Guide</a> to build your first self-learning agent!</p>
 
 
 

@@ -16,7 +16,7 @@
         <link rel="prev" href="../..">
       
       
-        <link rel="next" href="../quick-start/">
+        <link rel="next" href="../setup/">
       
       
         
@@ -591,24 +591,30 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#api-key-setup" class="md-nav__link">
+  <a href="#configure-your-llm" class="md-nav__link">
     <span class="md-ellipsis">
       
-        API Key Setup
+        Configure Your LLM
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Configure Your LLM">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#manual-alternative" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Manual alternative
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#supported-providers" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Supported Providers
-      
-    </span>
-  </a>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -638,6 +644,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -1709,24 +1743,30 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#api-key-setup" class="md-nav__link">
+  <a href="#configure-your-llm" class="md-nav__link">
     <span class="md-ellipsis">
       
-        API Key Setup
+        Configure Your LLM
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Configure Your LLM">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#manual-alternative" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Manual alternative
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#supported-providers" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Supported Providers
-      
-    </span>
-  </a>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1815,69 +1855,32 @@
 <li><strong>Python 3.12</strong></li>
 <li>An API key for your LLM provider</li>
 </ul>
-<h2 id="api-key-setup">API Key Setup<a class="headerlink" href="#api-key-setup" title="Permanent link">&para;</a></h2>
-<p>Set one of these environment variables depending on your provider:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">OPENAI_API_KEY</span><span class="o">=</span><span class="s2">&quot;sk-...&quot;</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">ANTHROPIC_API_KEY</span><span class="o">=</span><span class="s2">&quot;sk-ant-...&quot;</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nb">export</span><span class="w"> </span><span class="nv">GOOGLE_API_KEY</span><span class="o">=</span><span class="s2">&quot;AIza...&quot;</span>
+<h2 id="configure-your-llm">Configure Your LLM<a class="headerlink" href="#configure-your-llm" title="Permanent link">&para;</a></h2>
+<p>The recommended way to set up your API keys and model selection:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>ace<span class="w"> </span>setup
 </code></pre></div>
-<p>Or create a <code>.env</code> file:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;OPENAI_API_KEY=sk-...&quot;</span><span class="w"> </span>&gt;<span class="w"> </span>.env
+<p>This interactive wizard validates your API key and model, then saves config to <code>ace.toml</code> (model names, safe to commit) and <code>.env</code> (API keys, gitignored). See <a href="../setup/">Setup</a> for full details.</p>
+<h3 id="manual-alternative">Manual alternative<a class="headerlink" href="#manual-alternative" title="Permanent link">&para;</a></h3>
+<p>If you prefer not to use the wizard, set environment variables directly:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">OPENAI_API_KEY</span><span class="o">=</span><span class="s2">&quot;sk-...&quot;</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">dotenv</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_dotenv</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">load_dotenv</span><span class="p">()</span>  <span class="c1"># Loads from .env</span>
+<p>Or create a <code>.env</code> file (add to <code>.gitignore</code>):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nv">OPENAI_API_KEY</span><span class="o">=</span>sk-...
 </code></pre></div>
-<h2 id="supported-providers">Supported Providers<a class="headerlink" href="#supported-providers" title="Permanent link">&para;</a></h2>
-<p>ACE uses <a href="https://docs.litellm.ai/">LiteLLM</a> for model access, supporting 100+ providers:</p>
-<table>
-<thead>
-<tr>
-<th>Provider</th>
-<th>Model Example</th>
-<th>Env Variable</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>OpenAI</td>
-<td><code>gpt-4o-mini</code></td>
-<td><code>OPENAI_API_KEY</code></td>
-</tr>
-<tr>
-<td>Anthropic</td>
-<td><code>claude-sonnet-4-5-20250929</code></td>
-<td><code>ANTHROPIC_API_KEY</code></td>
-</tr>
-<tr>
-<td>Google</td>
-<td><code>gemini-pro</code></td>
-<td><code>GOOGLE_API_KEY</code></td>
-</tr>
-<tr>
-<td>Ollama (local)</td>
-<td><code>ollama/llama2</code></td>
-<td>—</td>
-</tr>
-<tr>
-<td>AWS Bedrock</td>
-<td><code>bedrock/anthropic.claude-v2</code></td>
-<td>AWS credentials</td>
-</tr>
-<tr>
-<td>Azure</td>
-<td><code>azure/gpt-4</code></td>
-<td><code>AZURE_API_KEY</code></td>
-</tr>
-</tbody>
-</table>
 <h2 id="verify-installation">Verify Installation<a class="headerlink" href="#verify-installation" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next</span><span class="w"> </span><span class="kn">import</span> <span class="n">ACELiteLLM</span>
 <a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">)</span>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="nb">print</span><span class="p">(</span><span class="n">agent</span><span class="o">.</span><span class="n">ask</span><span class="p">(</span><span class="s2">&quot;Hello!&quot;</span><span class="p">))</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="c1"># Uses ace.toml + .env from `ace setup`</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_setup</span><span class="p">()</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">agent</span><span class="o">.</span><span class="n">ask</span><span class="p">(</span><span class="s2">&quot;Hello!&quot;</span><span class="p">))</span>
+</code></pre></div>
+<p>Or without <code>ace setup</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">)</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">agent</span><span class="o">.</span><span class="n">ask</span><span class="p">(</span><span class="s2">&quot;Hello!&quot;</span><span class="p">))</span>
 </code></pre></div>
 <h2 id="what-to-read-next">What to Read Next<a class="headerlink" href="#what-to-read-next" title="Permanent link">&para;</a></h2>
 <ul>
+<li><a href="../setup/">Setup</a> — configure models and API keys</li>
 <li><a href="../quick-start/">Quick Start</a> — build your first self-learning agent</li>
 <li><a href="../../concepts/overview/">How ACE Works</a> — understand the architecture</li>
 </ul>
