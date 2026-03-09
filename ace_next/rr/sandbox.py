@@ -329,34 +329,27 @@ class TraceSandbox:
         max_retries = self._parallel_max_retries
         retry_delay = self._parallel_retry_delay
         timeout = self._parallel_timeout
-        semaphore = threading.Semaphore(max_concurrency)
 
         def _worker(item: Any) -> Any:
-            semaphore.acquire()
-            try:
-                last_exc: Optional[Exception] = None
-                for attempt in range(max_retries + 1):
-                    try:
-                        return fn(item)
-                    except Exception as exc:
-                        last_exc = exc
-                        if attempt < max_retries:
-                            backoff = retry_delay * (2 ** attempt)
-                            _time_mod.sleep(backoff)
-                # All retries exhausted
-                raise last_exc  # type: ignore[misc]
-            finally:
-                semaphore.release()
+            last_exc: Optional[Exception] = None
+            for attempt in range(max_retries + 1):
+                try:
+                    return fn(item)
+                except Exception as exc:
+                    last_exc = exc
+                    if attempt < max_retries:
+                        backoff = retry_delay * (2**attempt)
+                        _time_mod.sleep(backoff)
+            raise last_exc  # type: ignore[misc]
 
-        pool_size = min(len(inputs), max_concurrency * 2)
+        pool_size = min(len(inputs), max_concurrency)
         results: List[Any] = [None] * len(inputs)
         first_exc: Optional[Exception] = None
         first_exc_idx: Optional[int] = None
 
         with ThreadPoolExecutor(max_workers=pool_size) as pool:
             futures = {
-                pool.submit(_worker, item): idx
-                for idx, item in enumerate(inputs)
+                pool.submit(_worker, item): idx for idx, item in enumerate(inputs)
             }
             for future in futures:
                 idx = futures[future]
@@ -366,7 +359,7 @@ class TraceSandbox:
                     if return_exceptions:
                         results[idx] = exc
                     else:
-                        if first_exc is None or idx < (first_exc_idx or len(inputs)):
+                        if first_exc_idx is None or idx < first_exc_idx:
                             first_exc = exc
                             first_exc_idx = idx
 
