@@ -1159,6 +1159,7 @@ results = parallel_map(fail_first, [0, 1, 2])
         self.assertIsInstance(result.exception, ValueError)
         self.assertIn("index-zero-fail", str(result.exception))
 
+    def test_retries_exhausted_raises(self):
         """Test that exhausted retries raise the last exception."""
         sandbox = TraceSandbox(
             trace=self.trace,
