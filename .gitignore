@@ -110,3 +110,6 @@ site/
 
 # Sensitive/private data (NEVER commit!)
 .private/
+
+# GSD planning artifacts (NEVER commit!)
+.planning/
