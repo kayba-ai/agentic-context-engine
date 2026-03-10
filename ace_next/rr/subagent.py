@@ -29,8 +29,11 @@ Example usage in sandbox code:
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional
+
+logger = logging.getLogger(__name__)
 
 
 # --- Mode-specific subagent prompts ---
@@ -308,9 +311,14 @@ def create_ask_llm_function(
         """
         if budget is not None:
             if not budget.consume():
+                logger.info("[ask_llm] budget exhausted (%d calls)", budget._max_calls)
                 return f"(Max {budget._max_calls} LLM calls exceeded - continue with available data)"
         elif subagent.call_count >= max_calls:
             return f"(Max {max_calls} sub-agent calls exceeded - continue with available data)"
+        logger.info(
+            "[ask_llm] mode=%s q=%s ctx=%d chars",
+            mode, question[:80], len(context),
+        )
         return subagent.ask(question, context, mode=mode)
 
     # Attach metadata for introspection

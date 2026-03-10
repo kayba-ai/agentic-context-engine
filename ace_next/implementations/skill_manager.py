@@ -36,7 +36,7 @@ class SkillManager:
 
         sm = SkillManager(llm)
         output = sm.update_skills(
-            reflection=reflection_output,
+            reflections=(reflection_output,),
             skillbook=skillbook,
             question_context="Math problem solving",
             progress="5/10 correct",
@@ -97,7 +97,7 @@ class SkillManager:
         prompt = self.prompt_template.format(
             progress=progress,
             stats=json.dumps(skillbook.stats()),
-            reflection=json.dumps(reflections_data, ensure_ascii=False, indent=2),
+            reflections=json.dumps(reflections_data, ensure_ascii=False, indent=2),
             skillbook=skillbook.as_prompt() or "(empty skillbook)",
             question_context=question_context,
         )

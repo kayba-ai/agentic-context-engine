@@ -431,20 +431,23 @@ class TestPromptDoesNotContainFullData(unittest.TestCase):
             ("current", RR_PROMPT, False),
         ]:
             with self.subTest(prompt_version=label):
-                # The prompt template should have placeholders for metadata
-                self.assertIn("{reasoning_length}", prompt)
-                self.assertIn("{step_count}", prompt)
-
-                # The prompt should have preview placeholders
-                self.assertIn("{question_preview}", prompt)
-                self.assertIn("{reasoning_preview}", prompt)
-                self.assertIn("{ground_truth_preview}", prompt)
-                self.assertIn("{feedback_preview}", prompt)
-
-                # answer_preview is only in v2 (not in current prompt)
-                if has_answer:
+                if label == "v2":
+                    # v2 prompt still has inline placeholders
+                    self.assertIn("{reasoning_length}", prompt)
+                    self.assertIn("{step_count}", prompt)
+                    self.assertIn("{question_preview}", prompt)
+                    self.assertIn("{reasoning_preview}", prompt)
+                    self.assertIn("{ground_truth_preview}", prompt)
+                    self.assertIn("{feedback_preview}", prompt)
                     self.assertIn("{answer_length}", prompt)
                     self.assertIn("{answer_preview}", prompt)
+                else:
+                    # Current prompt uses dynamic previews (batch-aware)
+                    self.assertIn("{traces_description}", prompt)
+                    self.assertIn("{traces_previews}", prompt)
+                    self.assertIn("{batch_variables}", prompt)
+                    self.assertIn("{step_count}", prompt)
+                    self.assertIn("{skillbook_length}", prompt)
 
                 # Raw {reasoning}, {feedback}, etc. should NOT appear
                 self.assertIsNone(re.search(r"\{reasoning\}", prompt))

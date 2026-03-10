@@ -123,18 +123,11 @@ The `prompt_template` is formatted with these variables:
 
 | Variable | Type | Description |
 |----------|------|-------------|
-| `{question_length}` | `int` | Character count of the question |
-| `{question_preview}` | `str` | Truncated preview (150 chars max) |
-| `{reasoning_length}` | `int` | Character count of agent reasoning |
-| `{reasoning_preview}` | `str` | Truncated preview |
-| `{answer_length}` | `int` | Character count of agent answer |
-| `{answer_preview}` | `str` | Truncated preview |
-| `{ground_truth_length}` | `int` | Character count of ground truth |
-| `{ground_truth_preview}` | `str` | Truncated preview |
-| `{feedback_length}` | `int` | Character count of feedback |
-| `{feedback_preview}` | `str` | Truncated preview |
+| `{traces_description}` | `str` | Human-readable summary of the traces (single: schema keys; batch: task count) |
+| `{step_count}` | `int` | Total number of trace steps (summed across tasks in batch mode) |
 | `{skillbook_length}` | `int` | Character count of skillbook text |
-| `{step_count}` | `int` | Number of trace steps |
+| `{batch_variables}` | `str` | Extra sandbox variable table row for batch mode (empty string in single-trace mode) |
+| `{traces_previews}` | `str` | Markdown table of trace previews (single: per-field; batch: per-task with message count) |
 
 ---
 
@@ -220,7 +213,7 @@ Lightweight `exec()`-based sandbox for running LLM-generated Python code. Locate
 | Variable | Type | Description |
 |----------|------|-------------|
 | `trace` | `TraceContext \| None` | The agent execution trace |
-| `traces` | `dict` | Canonical traces dict (question, ground_truth, feedback, steps) |
+| `traces` | `dict` | Canonical traces dict — single-trace `{question, ground_truth, feedback, steps}` or batch `{tasks: [{task_id, trace}]}` |
 | `skillbook` | `str` | Skillbook text via `as_prompt()` |
 | `ask_llm` | `Callable` | Sub-agent query function (see [Sub-Agent](#sub-agent)) |
 | `llm_query` | `Callable` | Alias for `ask_llm(prompt, "")` (backward compat) |
@@ -557,9 +550,57 @@ This is a recovery mechanism — it often salvages partial analysis that would o
 
 ---
 
+## Batch Mode
+
+When `RRStep.__call__` receives a batch trace (a dict with a `"tasks"` key), it runs a **single REPL session** that analyzes all tasks. The RR uses `parallel_map` + `ask_llm` to explore tasks concurrently within that session.
+
+### Detection
+
+A trace is a batch when `isinstance(trace, dict) and "tasks" in trace`. The `"tasks"` value is a list of `{"task_id": str, "trace": list}` dicts — one per task in the batch.
+
+### Single-Session Design
+
+The full batch trace is passed directly to `_run_reflection`. The sandbox's `traces` variable contains:
+
+```python
+{
+    "tasks": [
+        {"task_id": "task_0", "trace": [{"role": "user", "content": "..."}, ...]},
+        {"task_id": "task_1", "trace": [...]},
+        ...
+    ]
+}
+```
+
+The RR prompt instructs the LLM to:
+1. Discover all tasks and their schema in one iteration.
+2. Use `parallel_map(fn, tasks)` to fan out `ask_llm` analysis across tasks concurrently.
+3. Identify cross-task patterns.
+4. Return a `FINAL()` dict with a `"tasks"` list containing per-task results.
+
+`_split_batch_reflection` then parses the single `ReflectorOutput` into per-task outputs. If the FINAL doesn't contain per-task results, the single reflection is duplicated as a fallback.
+
+### Output
+
+Returns `ctx.replace(reflections=(refl_0, refl_1, ..., refl_n))` where `reflections[i]` corresponds to `tasks[i]`.
+
+### Cost
+
+1 batch = 1 REPL session regardless of task count. The session runs up to N iterations of main LLM calls. Within iterations, `ask_llm()` sub-agent calls (via `parallel_map`) analyze individual tasks concurrently.
+
+For a batch of 5 tasks with 10 iterations and sub-agent calls fanned out via `parallel_map`, cost is ~10 main calls + ~15-20 sub-agent calls = **~30 LLM calls** total. Sub-agent calls run in parallel so wall-clock time is dominated by the main iteration loop.
+
+### Single-Task Backward Compatibility
+
+When the trace does not have a `"tasks"` key, `__call__` follows the existing single-trace path and returns a 1-tuple `reflections=(reflection,)`.
+
+---
+
 ## Traces Dict
 
-The canonical data structure passed to the sandbox as the `traces` variable:
+The canonical data structure passed to the sandbox as the `traces` variable.
+
+### Single-trace mode
 
 ```python
 {
@@ -576,6 +617,31 @@ The canonical data structure passed to the sandbox as the `traces` variable:
     ],
 }
 ```
+
+### Batch mode
+
+When the trace has a `"tasks"` key, the sandbox receives the full batch:
+
+```python
+{
+    "tasks": [
+        {
+            "task_id": str,
+            "trace": [            # Per-task message list
+                {
+                    "role": str,
+                    "content": str,
+                    "tool_calls": [...]  # Optional, preserved when present
+                },
+                ...
+            ]
+        },
+        ...
+    ]
+}
+```
+
+Batch traces are built by `BatchOrchestrator.build_batch_trace()` in the eval pipeline. Tool calls are preserved in the same format as the single-trace `context_bridge`.
 
 ---
 

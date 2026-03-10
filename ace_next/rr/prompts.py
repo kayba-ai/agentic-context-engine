@@ -28,16 +28,11 @@ injected into future agents' prompts. Identify WHAT the agent did that mattered 
 ## Variables
 | Variable | Description | Size |
 |----------|-------------|------|
-| `traces` | Dict with keys: question, ground_truth, feedback, steps (List[Dict]) | {step_count} steps |
+| `traces` | {traces_description} | {step_count} steps |
 | `skillbook` | Current strategies (string) | {skillbook_length} chars |
-
+{batch_variables}
 ### Previews
-| Field | Preview | Size |
-|-------|---------|------|
-| `traces["question"]` | "{question_preview}" | {question_length} chars |
-| first step | "{reasoning_preview}..." | {reasoning_length} chars |
-| `traces["ground_truth"]` | "{ground_truth_preview}" | {ground_truth_length} chars |
-| `traces["feedback"]` | "{feedback_preview}..." | {feedback_length} chars |
+{traces_previews}
 
 ## Functions
 | Function | Purpose |
@@ -64,58 +59,97 @@ Code is for extracting, batching, and formatting data to feed into ask_llm.
 Understand the data shape and inventory. Do NOT judge outcomes yet — just catalog what you have.
 Also search for agent operating rules, policy, or instructions embedded in the trace data — understanding what the agent was *supposed* to do is essential for evaluating what it *actually* did.
 **Complete discovery in this single iteration — do NOT split schema exploration across multiple iterations.**
+
+**Batch mode:** If `traces` has a `"tasks"` key, you are analyzing ALL tasks in a single session.
+- `traces["tasks"]` — list of `{{"task_id": str, "trace": list}}` dicts
+- Each task's `"trace"` is a list of role/content message dicts
+Use `parallel_map` with `ask_llm` to analyze tasks concurrently. Look for cross-task patterns.
+Your FINAL output must include a `"tasks"` list with per-task results (see output schema).
+
 ```python
 print("Keys:", traces.keys())
+is_batch = "tasks" in traces
 steps = traces.get("steps", [])
-print(f"{{len(steps)}} steps")
-# Build trace_idx: trace_id → list index (use this in deep-dives to avoid index-vs-ID confusion)
-trace_idx = {{}}
-agent_rules = ""  # Model can populate after seeing large strings
-if steps:
-    # Schema: nested keys, 3 levels deep
-    sample = steps[0]
-    if isinstance(sample, dict):
-        schema = {{}}
-        for k, v in sample.items():
-            if isinstance(v, dict):
-                sub = {{}}
-                for k2, v2 in list(v.items())[:5]:
-                    if isinstance(v2, dict):
-                        sub[k2] = list(v2.keys())[:5]
-                    elif isinstance(v2, list) and v2:
-                        sub[k2] = f"list[{{len(v2)}}]"
-                    else:
-                        sub[k2] = type(v2).__name__
-                schema[k] = sub
-            elif isinstance(v, list) and v and isinstance(v[0], dict):
-                schema[k] = list(v[0].keys())[:5]
-            else:
-                schema[k] = f"{{type(v).__name__}}: {{repr(v)[:50]}}"
-        print("Schema:", json.dumps(schema, default=str))
-    # Per-trace inventory table + build trace_idx
-    for j, s in enumerate(steps):
-        msg_count = len(s.get("messages", s.get("steps", []))) if isinstance(s, dict) else "?"
-        trace_id = s.get("id", s.get("name", f"trace_{{j}}")) if isinstance(s, dict) else f"trace_{{j}}"
-        trace_idx[trace_id] = j
-        print(f"  [{{j}}] id={{trace_id}}  messages={{msg_count}}")
-    print(f"trace_idx built: {{len(trace_idx)}} entries")
-    # Surface large embedded strings (rules, policy, instructions often live here)
+print(f"batch_mode={{is_batch}}")
+
+if is_batch:
+    # Batch mode: all tasks in one session
+    tasks = traces["tasks"]
+    print(f"Batch of {{len(tasks)}} tasks:")
+    for t in tasks:
+        tr = t.get("trace", [])
+        print(f"  {{t.get('task_id', '?')}}: {{len(tr)}} messages")
+    # Schema from first task's trace
+    schema = {{}}
+    first_trace = tasks[0].get("trace", []) if tasks else []
+    if first_trace and isinstance(first_trace[0], dict):
+        schema = {{k: type(v).__name__ for k, v in first_trace[0].items()}}
+    print("Message schema:", json.dumps(schema, default=str))
+    # Surface large embedded strings across tasks
     large_strings = []
-    for s in steps[:3]:
-        if not isinstance(s, dict): continue
-        queue = [(k, v) for k, v in s.items()]
-        while queue:
-            k, v = queue.pop(0)
-            if isinstance(v, str) and len(v) > 500:
-                large_strings.append((k, len(v)))
-            elif isinstance(v, dict):
-                queue.extend(v.items())
+    for t in tasks[:2]:
+        for s in t.get("trace", [])[:3]:
+            if not isinstance(s, dict): continue
+            for k, v in s.items():
+                if isinstance(v, str) and len(v) > 500:
+                    large_strings.append((t.get("task_id", "?"), k, len(v)))
     if large_strings:
-        large_strings.sort(key=lambda x: -x[1])
-        for name, size in large_strings[:10]:
-            print(f"  Large string: '{{name}}' ({{size}} chars)")
-    else:
-        print("No large embedded strings found")
+        large_strings.sort(key=lambda x: -x[2])
+        for tid, name, size in large_strings[:10]:
+            print(f"  Large string: {{tid}}/{{name}} ({{size}} chars)")
+    agent_rules = ""
+    trace_idx = {{}}
+    steps = []  # Not used in batch mode — iterate traces["tasks"] instead
+else:
+    # Single-trace mode
+    # Build trace_idx: trace_id → list index (use this in deep-dives to avoid index-vs-ID confusion)
+    trace_idx = {{}}
+    agent_rules = ""  # Model can populate after seeing large strings
+    if steps:
+        # Schema: nested keys, 3 levels deep
+        sample = steps[0]
+        if isinstance(sample, dict):
+            schema = {{}}
+            for k, v in sample.items():
+                if isinstance(v, dict):
+                    sub = {{}}
+                    for k2, v2 in list(v.items())[:5]:
+                        if isinstance(v2, dict):
+                            sub[k2] = list(v2.keys())[:5]
+                        elif isinstance(v2, list) and v2:
+                            sub[k2] = f"list[{{len(v2)}}]"
+                        else:
+                            sub[k2] = type(v2).__name__
+                    schema[k] = sub
+                elif isinstance(v, list) and v and isinstance(v[0], dict):
+                    schema[k] = list(v[0].keys())[:5]
+                else:
+                    schema[k] = f"{{type(v).__name__}}: {{repr(v)[:50]}}"
+            print("Schema:", json.dumps(schema, default=str))
+        # Per-trace inventory table + build trace_idx
+        for j, s in enumerate(steps):
+            msg_count = len(s.get("messages", s.get("steps", []))) if isinstance(s, dict) else "?"
+            trace_id = s.get("id", s.get("name", f"trace_{{j}}")) if isinstance(s, dict) else f"trace_{{j}}"
+            trace_idx[trace_id] = j
+            print(f"  [{{j}}] id={{trace_id}}  messages={{msg_count}}")
+        print(f"trace_idx built: {{len(trace_idx)}} entries")
+        # Surface large embedded strings (rules, policy, instructions often live here)
+        large_strings = []
+        for s in steps[:3]:
+            if not isinstance(s, dict): continue
+            queue = [(k, v) for k, v in s.items()]
+            while queue:
+                k, v = queue.pop(0)
+                if isinstance(v, str) and len(v) > 500:
+                    large_strings.append((k, len(v)))
+                elif isinstance(v, dict):
+                    queue.extend(v.items())
+        if large_strings:
+            large_strings.sort(key=lambda x: -x[1])
+            for name, size in large_strings[:10]:
+                print(f"  Large string: '{{name}}' ({{size}} chars)")
+        else:
+            print("No large embedded strings found")
 ```
 
 ### Step 1.5: Adapt (ask_llm, iteration 2)
@@ -278,6 +312,7 @@ This always works regardless of data format.
 - **Failure traces:** Focus on WHERE the agent went wrong and WHY
 - **Success traces:** Was there anything non-obvious? If routine, extract zero learnings
 - **Multiple traces:** Look for cross-cutting patterns, not just individual issues
+- **Batch mode (`is_batch=True`):** Analyze ALL tasks via `parallel_map`. Use `ask_llm` per task, then look for cross-task patterns. Your FINAL must include a `"tasks"` list with per-task results.
 </strategy>
 
 <output_schema>
@@ -308,7 +343,7 @@ result = {{
 FINAL_VAR("result")
 ```
 
-### Required fields
+### Required fields (single-task mode)
 - `reasoning` — what happened and why
 - `key_insight` — single most transferable learning
 - `extracted_learnings` — list of `{{"learning": str, "atomicity_score": float, "evidence": str}}`
@@ -316,6 +351,24 @@ FINAL_VAR("result")
 
 Optional: `error_identification`, `root_cause_analysis`, `correct_approach` (include for failures).
 Every learning MUST have a non-empty `evidence` field citing specific trace details.
+
+### Batch mode output
+When `is_batch=True`, wrap per-task results in a `"tasks"` list. Each entry has the same fields as single-task mode plus `"task_id"`:
+```python
+result = {{
+    "tasks": [
+        {{
+            "task_id": "task_0",
+            "reasoning": "...",
+            "key_insight": "...",
+            "extracted_learnings": [...],
+            "skill_tags": [],
+        }},
+        # ... one per task
+    ]
+}}
+FINAL_VAR("result")
+```
 </output_schema>
 
 <output_rules>

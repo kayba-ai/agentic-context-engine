@@ -485,8 +485,8 @@ All strategies must derive from the ACTUAL TASK EXECUTION described in the refle
 ### Skillbook Statistics
 {stats}
 
-### Recent Reflection Analysis (EXTRACT LEARNINGS FROM THIS)
-{reflection}
+### Recent Reflections Analysis (EXTRACT LEARNINGS FROM THIS)
+{reflections}
 
 ### Current Skillbook State
 {skillbook}
