@@ -478,6 +478,8 @@ Retry logic is the responsibility of individual steps, not the pipeline.
 
 **Monitoring:** `background_stats()` returns a `dict` with `active` and `completed` counts for background threads. Thread-safe — can be called from any thread while the pipeline is running. This is the public API for monitoring background progress; callers should not access `_bg_lock` or `_bg_threads` directly.
 
+**Foreground progress:** `run()` and `run_async()` accept an optional `on_sample_done` callback (`Callable[[SampleResult], None] | None`). It fires once per context after foreground steps complete (or fail), before background steps start. The callback must not block the event loop — lightweight operations like `tqdm.update()` are fine. Defaults to `None` (no-op). This is the foreground-side complement to `background_stats()`.
+
 ---
 
 ## Summary Table
