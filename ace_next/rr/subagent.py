@@ -222,6 +222,7 @@ class SubAgentLLM:
         llm = self.subagent_llm if self.subagent_llm is not None else self.main_llm
 
         # Call the LLM
+        llm_metadata: Dict[str, Any] = {}
         try:
             response = llm.complete(
                 prompt,
@@ -229,10 +230,11 @@ class SubAgentLLM:
                 temperature=temperature or self.config.temperature,
             )
             result = response.text
+            llm_metadata = getattr(response, "raw", None) or {}
         except Exception as e:
             result = f"(Sub-agent error: {e})"
 
-        # Record the call
+        # Record the call (including LLM telemetry for downstream tracing)
         self._call_history.append(
             {
                 "call_number": self._call_count,
@@ -240,6 +242,9 @@ class SubAgentLLM:
                 "context_length": len(context),
                 "response_length": len(result),
                 "mode": mode,
+                "model": llm_metadata.get("model"),
+                "usage": llm_metadata.get("usage"),
+                "cost": llm_metadata.get("cost"),
             }
         )
 
@@ -315,9 +320,10 @@ def create_ask_llm_function(
                 return f"(Max {budget._max_calls} LLM calls exceeded - continue with available data)"
         elif subagent.call_count >= max_calls:
             return f"(Max {max_calls} sub-agent calls exceeded - continue with available data)"
+        q_preview = question[:70].replace("\n", " ")
         logger.info(
-            "[ask_llm] mode=%s q=%s ctx=%d chars",
-            mode, question[:80], len(context),
+            "  ask_llm (%s) | %s | ctx=%d chars",
+            mode, q_preview, len(context),
         )
         return subagent.ask(question, context, mode=mode)
 

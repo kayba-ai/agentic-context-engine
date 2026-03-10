@@ -4,6 +4,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Guidelines
 
+### Pipeline-First Development (MANDATORY)
+**All new functionality MUST be implemented as pipeline Steps composed via the Pipeline engine.** Do NOT write standalone scripts, ad-hoc loops, or inline logic that bypasses the pipeline. Before writing any code:
+
+1. Read `docs/PIPELINE_DESIGN.md` to understand the Step → Pipeline → Branch model.
+2. Implement logic as a `Step` class with `requires`/`provides` declarations and a `__call__(self, ctx) -> ctx` method.
+3. Compose steps using `Pipeline().then(...)` and `.branch(...)` — never manual for-loops or direct function chaining.
+4. Use `StepContext.replace()` for immutable context updates — never mutate context directly.
+5. Put integration-specific data in `metadata`, not new context fields, unless the field is shared across multiple pipelines.
+
+**Anti-patterns to reject:**
+- Writing a function that calls multiple steps manually instead of composing them in a Pipeline
+- Inline reflection/evaluation logic instead of creating a ReflectStep or EvaluateStep
+- Ad-hoc `ThreadPoolExecutor` usage instead of `async_boundary` and `max_workers` on steps
+- Standalone scripts that duplicate pipeline functionality without using the pipeline engine
+- Bypassing `requires`/`provides` contracts by accessing context fields not declared in `requires`
+
+If a task seems like it cannot fit the pipeline model, explain why to the user before proceeding — do not silently circumvent it.
+
 ### Core Code Protection
 **Do NOT modify core modules (`ace/`, `ace_next/core/`, `pipeline/`) without explicit user approval.** Before proposing any change to these directories:
 1. Read the relevant design docs (`docs/ACE_DESIGN.md`, `docs/PIPELINE_DESIGN.md`) thoroughly.

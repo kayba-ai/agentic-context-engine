@@ -39,6 +39,55 @@ def _preview(text: str | None, max_len: int = 150) -> str:
     return snippet.replace("{", "{{").replace("}", "}}")
 
 
+def _format_iteration_log(
+    iteration: int,
+    max_iterations: int,
+    status: str,
+    code: str | None,
+    stdout: str | None,
+    stderr: str | None,
+) -> str:
+    """Build a clean, multi-line log message for an RR iteration."""
+    is_final = status == "FINAL"
+    icon = "✓" if is_final else "→"
+    label = f"FINAL" if is_final else f"iter"
+
+    header = f"[RR {label} {iteration}/{max_iterations}] {icon}"
+
+    lines = [header]
+
+    # Code preview — show first 2 meaningful lines
+    if code:
+        code_lines = [l for l in code.strip().splitlines() if l.strip()][:2]
+        if code_lines:
+            lines.append(f"  code  │ {code_lines[0][:100]}")
+            for cl in code_lines[1:]:
+                lines.append(f"        │ {cl[:100]}")
+            total_code_lines = len(code.strip().splitlines())
+            if total_code_lines > 2:
+                lines.append(f"        │ … ({total_code_lines - 2} more lines)")
+
+    # Stdout preview — show first 3 lines
+    if stdout:
+        out_lines = [l for l in stdout.strip().splitlines() if l.strip()][:3]
+        if out_lines:
+            lines.append(f"  out   │ {out_lines[0][:120]}")
+            for ol in out_lines[1:]:
+                lines.append(f"        │ {ol[:120]}")
+            total_out_lines = len(stdout.strip().splitlines())
+            if total_out_lines > 3:
+                lines.append(f"        │ … ({total_out_lines - 3} more lines)")
+
+    # Stderr — only if present
+    if stderr:
+        err_lines = stderr.strip().splitlines()[:2]
+        lines.append(f"  err   │ {err_lines[0][:120]}")
+        for el in err_lines[1:]:
+            lines.append(f"        │ {el[:120]}")
+
+    return "\n".join(lines)
+
+
 class RRStep(SubRunner[ACEStepContext]):
     """Recursive Reflector as a pipeline step (SubRunner pattern).
 
@@ -100,19 +149,21 @@ class RRStep(SubRunner[ACEStepContext]):
                     "stdout": stdout,
                     "stderr": stderr,
                     "terminated": rr_ctx.terminated,
+                    "llm_metadata": rr_ctx.llm_metadata,
                 }
             )
 
             # Structured iteration logging
             status = "FINAL" if rr_ctx.terminated else "continue"
-            code_preview = (rr_ctx.code or "")[:120].replace("\n", " ")
-            out_preview = (stdout or "")[:200].replace("\n", " | ")
-            logger.info(
-                "[RR iter %d/%d] %s | code: %s | out: %s",
-                i + 1, self.max_iterations, status, code_preview, out_preview,
+            log_msg = _format_iteration_log(
+                iteration=i + 1,
+                max_iterations=self.max_iterations,
+                status=status,
+                code=rr_ctx.code,
+                stdout=stdout,
+                stderr=stderr,
             )
-            if stderr:
-                logger.info("[RR iter %d] stderr: %s", i + 1, stderr[:200])
+            logger.info("\n%s", log_msg)
 
             if self._is_done(ctx):
                 return self._extract_result(ctx)
@@ -513,9 +564,14 @@ class RRStep(SubRunner[ACEStepContext]):
         trace_obj: Any,
     ) -> str:
         """Format the prompt template with previews and metadata."""
+        import json as _json
+
         is_batch = isinstance(traces, dict) and "tasks" in traces
 
         t_steps = traces.get("steps", []) if not is_batch else []
+
+        # Compute total trace size in chars for size-adaptive prompts
+        trace_size_chars = len(_json.dumps(traces, default=str))
 
         skillbook_text = ""
         if skillbook is not None:
@@ -560,6 +616,9 @@ class RRStep(SubRunner[ACEStepContext]):
                 ),
                 step_count=total_steps,
                 skillbook_length=len(skillbook_text),
+                trace_size_chars=trace_size_chars,
+                max_iterations=self.max_iterations,
+                task_count=len(tasks),
             )
         else:
             # Single-trace mode: original format
@@ -589,6 +648,9 @@ class RRStep(SubRunner[ACEStepContext]):
                     len(t_steps) if t_steps else (len(trace_obj) if trace_obj else 0)
                 ),
                 skillbook_length=len(skillbook_text),
+                trace_size_chars=trace_size_chars,
+                max_iterations=self.max_iterations,
+                task_count=1,
             )
 
         return self.prompt_template.format(**fmt_kwargs)

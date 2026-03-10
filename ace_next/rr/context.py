@@ -23,6 +23,7 @@ class RRIterationContext(StepContext):
 
     # LLMCallStep output
     llm_response: str | None = None
+    llm_metadata: dict[str, Any] | None = None  # model, usage, cost from LLM response
 
     # ExtractCodeStep output
     code: str | None = None

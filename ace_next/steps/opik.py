@@ -147,7 +147,7 @@ class OpikStep:
                     host=host or None,
                 )
             except Exception as exc:
-                logger.debug("OpikStep: failed to create Opik client: %s", exc)
+                logger.warning("OpikStep: failed to create Opik client: %s", exc)
                 self.enabled = False
 
     def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
