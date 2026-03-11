@@ -2285,7 +2285,7 @@
 <tbody>
 <tr>
 <td><code>requires</code></td>
-<td><code>{"reflection"}</code></td>
+<td><code>{"reflections"}</code></td>
 </tr>
 <tr>
 <td><code>provides</code></td>
@@ -2323,7 +2323,7 @@
 <p><strong>Behaviour:</strong>
 - Soft-imports <code>opik</code> — gracefully degrades to a no-op when the package is absent.
 - Explicit opt-in only — Opik is never auto-enabled just because the package is installed.
-- Reads <code>ctx.reflection.raw["rr_trace"]</code> for per-iteration data and sub-agent call history.
+- Iterates <code>ctx.reflections</code> and reads <code>reflection.raw["rr_trace"]</code> from each for per-iteration data and sub-agent call history.
 - Call <code>flush()</code> after the pipeline finishes to drain buffered traces before the process exits.</p>
 <p><strong>Parent trace metadata:</strong></p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="p">{</span>

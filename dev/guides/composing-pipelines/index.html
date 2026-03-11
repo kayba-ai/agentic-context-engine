@@ -1816,7 +1816,7 @@ steps — or writing custom ones.</p>
 contract that declares what context fields it reads and writes:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>AgentStep ─────&gt; EvaluateStep ─────&gt; ReflectStep ─────&gt; TagStep ─────&gt; UpdateStep ─────&gt; ApplyStep
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  provides:        provides:           provides:          (metadata)    provides:         (mutates
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>  agent_output     trace                reflection                      skill_manager     skillbook)
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>  agent_output     trace                reflections                     skill_manager     skillbook)
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>                                                                        _output
 </code></pre></div>
 <p>The pipeline validates these contracts at construction time — if a step requires
@@ -1971,7 +1971,7 @@ in two ways:</p>
 <a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="n">ace</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="p">(</span><span class="n">llm</span><span class="p">,</span> <span class="n">reflector</span><span class="o">=</span><span class="n">RRStep</span><span class="p">(</span><span class="n">llm</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">RRConfig</span><span class="p">(</span><span class="n">max_iterations</span><span class="o">=</span><span class="mi">10</span><span class="p">)))</span>
 </code></pre></div>
 <h3 id="as-a-pipeline-step">As a pipeline step<a class="headerlink" href="#as-a-pipeline-step" title="Permanent link">&para;</a></h3>
-<p>Place it directly in a pipeline (it provides <code>reflection</code>):</p>
+<p>Place it directly in a pipeline (it provides <code>reflections</code>):</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pipeline</span><span class="p">,</span> <span class="n">learning_tail</span><span class="p">,</span> <span class="n">SkillManager</span><span class="p">,</span> <span class="n">Skillbook</span><span class="p">,</span> <span class="n">LiteLLMClient</span>
 <a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next.rr</span><span class="w"> </span><span class="kn">import</span> <span class="n">RRStep</span><span class="p">,</span> <span class="n">RRConfig</span><span class="p">,</span> <span class="n">RROpikStep</span>
 <a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
@@ -1982,7 +1982,7 @@ in two ways:</p>
 <a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="n">pipe</span> <span class="o">=</span> <span class="n">Pipeline</span><span class="p">([</span>
 <a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>    <span class="n">MyExecuteStep</span><span class="p">(),</span>
 <a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>    <span class="n">MyToTrace</span><span class="p">(),</span>
-<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>    <span class="n">rr</span><span class="p">,</span>  <span class="c1"># replaces ReflectStep — provides &quot;reflection&quot;</span>
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>    <span class="n">rr</span><span class="p">,</span>  <span class="c1"># replaces ReflectStep — provides &quot;reflections&quot;</span>
 <a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>    <span class="o">*</span><span class="n">learning_tail</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">SkillManager</span><span class="p">(</span><span class="n">llm</span><span class="p">),</span> <span class="n">skillbook</span><span class="p">)[</span><span class="mi">1</span><span class="p">:],</span>  <span class="c1"># skip ReflectStep</span>
 <a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a>    <span class="n">RROpikStep</span><span class="p">(</span><span class="n">project_name</span><span class="o">=</span><span class="s2">&quot;my-project&quot;</span><span class="p">),</span>  <span class="c1"># optional observability</span>
 <a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a><span class="p">])</span>

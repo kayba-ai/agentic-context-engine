@@ -2097,6 +2097,78 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#batch-mode_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Batch Mode
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Batch Mode">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#detection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Detection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#single-session-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Single-Session Design
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cost" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cost
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#single-task-backward-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Single-Task Backward Compatibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#traces-dict" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2104,6 +2176,34 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Traces Dict">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#single-trace-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Single-trace mode
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#batch-mode_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Batch mode
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -2318,7 +2418,7 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">RRStep</span><span class="p">(</span><span class="n">SubRunner</span><span class="p">):</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="c1"># StepProtocol — place in any Pipeline</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="n">requires</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;trace&quot;</span><span class="p">,</span> <span class="s2">&quot;skillbook&quot;</span><span class="p">})</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">provides</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;reflection&quot;</span><span class="p">})</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">provides</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;reflections&quot;</span><span class="p">})</span>
 <a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
 <a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">ACEStepContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ACEStepContext</span><span class="p">:</span> <span class="o">...</span>
 <a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>
@@ -2413,54 +2513,14 @@
 </thead>
 <tbody>
 <tr>
-<td><code>{question_length}</code></td>
-<td><code>int</code></td>
-<td>Character count of the question</td>
-</tr>
-<tr>
-<td><code>{question_preview}</code></td>
+<td><code>{traces_description}</code></td>
 <td><code>str</code></td>
-<td>Truncated preview (150 chars max)</td>
+<td>Human-readable summary of the traces (single: schema keys; batch: task count)</td>
 </tr>
 <tr>
-<td><code>{reasoning_length}</code></td>
+<td><code>{step_count}</code></td>
 <td><code>int</code></td>
-<td>Character count of agent reasoning</td>
-</tr>
-<tr>
-<td><code>{reasoning_preview}</code></td>
-<td><code>str</code></td>
-<td>Truncated preview</td>
-</tr>
-<tr>
-<td><code>{answer_length}</code></td>
-<td><code>int</code></td>
-<td>Character count of agent answer</td>
-</tr>
-<tr>
-<td><code>{answer_preview}</code></td>
-<td><code>str</code></td>
-<td>Truncated preview</td>
-</tr>
-<tr>
-<td><code>{ground_truth_length}</code></td>
-<td><code>int</code></td>
-<td>Character count of ground truth</td>
-</tr>
-<tr>
-<td><code>{ground_truth_preview}</code></td>
-<td><code>str</code></td>
-<td>Truncated preview</td>
-</tr>
-<tr>
-<td><code>{feedback_length}</code></td>
-<td><code>int</code></td>
-<td>Character count of feedback</td>
-</tr>
-<tr>
-<td><code>{feedback_preview}</code></td>
-<td><code>str</code></td>
-<td>Truncated preview</td>
+<td>Total number of trace steps (summed across tasks in batch mode)</td>
 </tr>
 <tr>
 <td><code>{skillbook_length}</code></td>
@@ -2468,9 +2528,14 @@
 <td>Character count of skillbook text</td>
 </tr>
 <tr>
-<td><code>{step_count}</code></td>
-<td><code>int</code></td>
-<td>Number of trace steps</td>
+<td><code>{batch_variables}</code></td>
+<td><code>str</code></td>
+<td>Extra sandbox variable table row for batch mode (empty string in single-trace mode)</td>
+</tr>
+<tr>
+<td><code>{traces_previews}</code></td>
+<td><code>str</code></td>
+<td>Markdown table of trace previews (single: per-field; batch: per-task with message count)</td>
 </tr>
 </tbody>
 </table>
@@ -2612,7 +2677,7 @@
 <tr>
 <td><code>traces</code></td>
 <td><code>dict</code></td>
-<td>Canonical traces dict (question, ground_truth, feedback, steps)</td>
+<td>Canonical traces dict — single-trace <code>{question, ground_truth, feedback, steps}</code> or batch <code>{tasks: [{task_id, trace}]}</code></td>
 </tr>
 <tr>
 <td><code>skillbook</code></td>
@@ -3112,75 +3177,124 @@
 </ol>
 <p>This is a recovery mechanism — it often salvages partial analysis that would otherwise be lost.</p>
 <hr />
-<h2 id="traces-dict">Traces Dict<a class="headerlink" href="#traces-dict" title="Permanent link">&para;</a></h2>
-<p>The canonical data structure passed to the sandbox as the <code>traces</code> variable:</p>
+<h2 id="batch-mode_1">Batch Mode<a class="headerlink" href="#batch-mode_1" title="Permanent link">&para;</a></h2>
+<p>When <code>RRStep.__call__</code> receives a batch trace (a dict with a <code>"tasks"</code> key), it runs a <strong>single REPL session</strong> that analyzes all tasks. The RR uses <code>parallel_map</code> + <code>ask_llm</code> to explore tasks concurrently within that session.</p>
+<h3 id="detection">Detection<a class="headerlink" href="#detection" title="Permanent link">&para;</a></h3>
+<p>A trace is a batch when <code>isinstance(trace, dict) and "tasks" in trace</code>. The <code>"tasks"</code> value is a list of <code>{"task_id": str, "trace": list}</code> dicts — one per task in the batch.</p>
+<h3 id="single-session-design">Single-Session Design<a class="headerlink" href="#single-session-design" title="Permanent link">&para;</a></h3>
+<p>The full batch trace is passed directly to <code>_run_reflection</code>. The sandbox's <code>traces</code> variable contains:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="p">{</span>
-<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>    <span class="s2">&quot;question&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>              <span class="c1"># The question/task</span>
-<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>    <span class="s2">&quot;ground_truth&quot;</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>   <span class="c1"># Expected answer</span>
-<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>    <span class="s2">&quot;feedback&quot;</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>       <span class="c1"># Environment feedback</span>
-<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>    <span class="s2">&quot;steps&quot;</span><span class="p">:</span> <span class="p">[</span>                    <span class="c1"># Agent execution steps</span>
-<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>        <span class="p">{</span>
-<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>            <span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;agent&quot;</span><span class="p">,</span>
-<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>            <span class="s2">&quot;reasoning&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a>            <span class="s2">&quot;answer&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a>            <span class="s2">&quot;skill_ids&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
-<a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a>        <span class="p">}</span>
-<a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a>    <span class="p">],</span>
-<a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a><span class="p">}</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>    <span class="s2">&quot;tasks&quot;</span><span class="p">:</span> <span class="p">[</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>        <span class="p">{</span><span class="s2">&quot;task_id&quot;</span><span class="p">:</span> <span class="s2">&quot;task_0&quot;</span><span class="p">,</span> <span class="s2">&quot;trace&quot;</span><span class="p">:</span> <span class="p">[{</span><span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;user&quot;</span><span class="p">,</span> <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="s2">&quot;...&quot;</span><span class="p">},</span> <span class="o">...</span><span class="p">]},</span>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>        <span class="p">{</span><span class="s2">&quot;task_id&quot;</span><span class="p">:</span> <span class="s2">&quot;task_1&quot;</span><span class="p">,</span> <span class="s2">&quot;trace&quot;</span><span class="p">:</span> <span class="p">[</span><span class="o">...</span><span class="p">]},</span>
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>        <span class="o">...</span>
+<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>    <span class="p">]</span>
+<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="p">}</span>
 </code></pre></div>
+<p>The RR prompt instructs the LLM to:
+1. Discover all tasks and their schema in one iteration.
+2. Use <code>parallel_map(fn, tasks)</code> to fan out <code>ask_llm</code> analysis across tasks concurrently.
+3. Identify cross-task patterns.
+4. Return a <code>FINAL()</code> dict with a <code>"tasks"</code> list containing per-task results.</p>
+<p><code>_split_batch_reflection</code> then parses the single <code>ReflectorOutput</code> into per-task outputs. If the FINAL doesn't contain per-task results, the single reflection is duplicated as a fallback.</p>
+<h3 id="output">Output<a class="headerlink" href="#output" title="Permanent link">&para;</a></h3>
+<p>Returns <code>ctx.replace(reflections=(refl_0, refl_1, ..., refl_n))</code> where <code>reflections[i]</code> corresponds to <code>tasks[i]</code>.</p>
+<h3 id="cost">Cost<a class="headerlink" href="#cost" title="Permanent link">&para;</a></h3>
+<p>1 batch = 1 REPL session regardless of task count. The session runs up to N iterations of main LLM calls. Within iterations, <code>ask_llm()</code> sub-agent calls (via <code>parallel_map</code>) analyze individual tasks concurrently.</p>
+<p>For a batch of 5 tasks with 10 iterations and sub-agent calls fanned out via <code>parallel_map</code>, cost is ~10 main calls + ~15-20 sub-agent calls = <strong>~30 LLM calls</strong> total. Sub-agent calls run in parallel so wall-clock time is dominated by the main iteration loop.</p>
+<h3 id="single-task-backward-compatibility">Single-Task Backward Compatibility<a class="headerlink" href="#single-task-backward-compatibility" title="Permanent link">&para;</a></h3>
+<p>When the trace does not have a <code>"tasks"</code> key, <code>__call__</code> follows the existing single-trace path and returns a 1-tuple <code>reflections=(reflection,)</code>.</p>
+<hr />
+<h2 id="traces-dict">Traces Dict<a class="headerlink" href="#traces-dict" title="Permanent link">&para;</a></h2>
+<p>The canonical data structure passed to the sandbox as the <code>traces</code> variable.</p>
+<h3 id="single-trace-mode">Single-trace mode<a class="headerlink" href="#single-trace-mode" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="p">{</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>    <span class="s2">&quot;question&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>              <span class="c1"># The question/task</span>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>    <span class="s2">&quot;ground_truth&quot;</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>   <span class="c1"># Expected answer</span>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>    <span class="s2">&quot;feedback&quot;</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>       <span class="c1"># Environment feedback</span>
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>    <span class="s2">&quot;steps&quot;</span><span class="p">:</span> <span class="p">[</span>                    <span class="c1"># Agent execution steps</span>
+<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>        <span class="p">{</span>
+<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>            <span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;agent&quot;</span><span class="p">,</span>
+<a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>            <span class="s2">&quot;reasoning&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a>            <span class="s2">&quot;answer&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a>            <span class="s2">&quot;skill_ids&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+<a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a>        <span class="p">}</span>
+<a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a>    <span class="p">],</span>
+<a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a><span class="p">}</span>
+</code></pre></div>
+<h3 id="batch-mode_2">Batch mode<a class="headerlink" href="#batch-mode_2" title="Permanent link">&para;</a></h3>
+<p>When the trace has a <code>"tasks"</code> key, the sandbox receives the full batch:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="p">{</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>    <span class="s2">&quot;tasks&quot;</span><span class="p">:</span> <span class="p">[</span>
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>        <span class="p">{</span>
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>            <span class="s2">&quot;task_id&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>            <span class="s2">&quot;trace&quot;</span><span class="p">:</span> <span class="p">[</span>            <span class="c1"># Per-task message list</span>
+<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>                <span class="p">{</span>
+<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a>                    <span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a>                    <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a>                    <span class="s2">&quot;tool_calls&quot;</span><span class="p">:</span> <span class="p">[</span><span class="o">...</span><span class="p">]</span>  <span class="c1"># Optional, preserved when present</span>
+<a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a>                <span class="p">},</span>
+<a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a>                <span class="o">...</span>
+<a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a>            <span class="p">]</span>
+<a id="__codelineno-18-13" name="__codelineno-18-13" href="#__codelineno-18-13"></a>        <span class="p">},</span>
+<a id="__codelineno-18-14" name="__codelineno-18-14" href="#__codelineno-18-14"></a>        <span class="o">...</span>
+<a id="__codelineno-18-15" name="__codelineno-18-15" href="#__codelineno-18-15"></a>    <span class="p">]</span>
+<a id="__codelineno-18-16" name="__codelineno-18-16" href="#__codelineno-18-16"></a><span class="p">}</span>
+</code></pre></div>
+<p>Batch traces are built by <code>BatchOrchestrator.build_batch_trace()</code> in the eval pipeline. Tool calls are preserved in the same format as the single-trace <code>context_bridge</code>.</p>
 <hr />
 <h2 id="rr_trace-output-schema">rr_trace Output Schema<a class="headerlink" href="#rr_trace-output-schema" title="Permanent link">&para;</a></h2>
 <p>After <code>run_loop()</code> completes, <code>RRStep</code> enriches <code>ReflectorOutput.raw["rr_trace"]</code> with execution metadata:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="p">{</span>
-<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>    <span class="s2">&quot;iterations&quot;</span><span class="p">:</span> <span class="p">[</span>               <span class="c1"># Per-iteration log</span>
-<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>        <span class="p">{</span>
-<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>            <span class="s2">&quot;iteration&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>     <span class="c1"># 0-indexed</span>
-<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>            <span class="s2">&quot;code&quot;</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>   <span class="c1"># Code sent to sandbox</span>
-<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>            <span class="s2">&quot;stdout&quot;</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="c1"># Captured stdout</span>
-<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>            <span class="s2">&quot;stderr&quot;</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="c1"># Captured stderr</span>
-<a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>            <span class="s2">&quot;terminated&quot;</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>   <span class="c1"># Whether FINAL() was accepted</span>
-<a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a>        <span class="p">},</span>
-<a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a>        <span class="o">...</span>
-<a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a>    <span class="p">],</span>
-<a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a>    <span class="s2">&quot;subagent_calls&quot;</span><span class="p">:</span> <span class="p">[</span>           <span class="c1"># Sub-agent call history</span>
-<a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a>        <span class="p">{</span>
-<a id="__codelineno-17-14" name="__codelineno-17-14" href="#__codelineno-17-14"></a>            <span class="s2">&quot;call_number&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-<a id="__codelineno-17-15" name="__codelineno-17-15" href="#__codelineno-17-15"></a>            <span class="s2">&quot;question&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-17-16" name="__codelineno-17-16" href="#__codelineno-17-16"></a>            <span class="s2">&quot;context_length&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-<a id="__codelineno-17-17" name="__codelineno-17-17" href="#__codelineno-17-17"></a>            <span class="s2">&quot;response_length&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-<a id="__codelineno-17-18" name="__codelineno-17-18" href="#__codelineno-17-18"></a>            <span class="s2">&quot;mode&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>          <span class="c1"># &quot;analysis&quot; or &quot;deep_dive&quot;</span>
-<a id="__codelineno-17-19" name="__codelineno-17-19" href="#__codelineno-17-19"></a>        <span class="p">},</span>
-<a id="__codelineno-17-20" name="__codelineno-17-20" href="#__codelineno-17-20"></a>        <span class="o">...</span>
-<a id="__codelineno-17-21" name="__codelineno-17-21" href="#__codelineno-17-21"></a>    <span class="p">],</span>
-<a id="__codelineno-17-22" name="__codelineno-17-22" href="#__codelineno-17-22"></a>    <span class="s2">&quot;total_iterations&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-<a id="__codelineno-17-23" name="__codelineno-17-23" href="#__codelineno-17-23"></a>    <span class="s2">&quot;timed_out&quot;</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
-<a id="__codelineno-17-24" name="__codelineno-17-24" href="#__codelineno-17-24"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="p">{</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>    <span class="s2">&quot;iterations&quot;</span><span class="p">:</span> <span class="p">[</span>               <span class="c1"># Per-iteration log</span>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>        <span class="p">{</span>
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>            <span class="s2">&quot;iteration&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>     <span class="c1"># 0-indexed</span>
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>            <span class="s2">&quot;code&quot;</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>   <span class="c1"># Code sent to sandbox</span>
+<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>            <span class="s2">&quot;stdout&quot;</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="c1"># Captured stdout</span>
+<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a>            <span class="s2">&quot;stderr&quot;</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="c1"># Captured stderr</span>
+<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a>            <span class="s2">&quot;terminated&quot;</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>   <span class="c1"># Whether FINAL() was accepted</span>
+<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a>        <span class="p">},</span>
+<a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a>        <span class="o">...</span>
+<a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a>    <span class="p">],</span>
+<a id="__codelineno-19-12" name="__codelineno-19-12" href="#__codelineno-19-12"></a>    <span class="s2">&quot;subagent_calls&quot;</span><span class="p">:</span> <span class="p">[</span>           <span class="c1"># Sub-agent call history</span>
+<a id="__codelineno-19-13" name="__codelineno-19-13" href="#__codelineno-19-13"></a>        <span class="p">{</span>
+<a id="__codelineno-19-14" name="__codelineno-19-14" href="#__codelineno-19-14"></a>            <span class="s2">&quot;call_number&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+<a id="__codelineno-19-15" name="__codelineno-19-15" href="#__codelineno-19-15"></a>            <span class="s2">&quot;question&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-19-16" name="__codelineno-19-16" href="#__codelineno-19-16"></a>            <span class="s2">&quot;context_length&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+<a id="__codelineno-19-17" name="__codelineno-19-17" href="#__codelineno-19-17"></a>            <span class="s2">&quot;response_length&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+<a id="__codelineno-19-18" name="__codelineno-19-18" href="#__codelineno-19-18"></a>            <span class="s2">&quot;mode&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>          <span class="c1"># &quot;analysis&quot; or &quot;deep_dive&quot;</span>
+<a id="__codelineno-19-19" name="__codelineno-19-19" href="#__codelineno-19-19"></a>        <span class="p">},</span>
+<a id="__codelineno-19-20" name="__codelineno-19-20" href="#__codelineno-19-20"></a>        <span class="o">...</span>
+<a id="__codelineno-19-21" name="__codelineno-19-21" href="#__codelineno-19-21"></a>    <span class="p">],</span>
+<a id="__codelineno-19-22" name="__codelineno-19-22" href="#__codelineno-19-22"></a>    <span class="s2">&quot;total_iterations&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+<a id="__codelineno-19-23" name="__codelineno-19-23" href="#__codelineno-19-23"></a>    <span class="s2">&quot;timed_out&quot;</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+<a id="__codelineno-19-24" name="__codelineno-19-24" href="#__codelineno-19-24"></a><span class="p">}</span>
 </code></pre></div>
 <p>This structure is consumed by <code>RROpikStep</code> for observability and can be inspected by users for debugging.</p>
 <hr />
 <h2 id="rropikstep">RROpikStep<a class="headerlink" href="#rropikstep" title="Permanent link">&para;</a></h2>
 <p>Side-effect step for logging RR traces to Opik. Located in <code>ace_next/rr/opik.py</code>.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next.rr</span><span class="w"> </span><span class="kn">import</span> <span class="n">RROpikStep</span>
-<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>
-<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="c1"># Place after RRStep in the pipeline</span>
-<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="n">steps</span> <span class="o">=</span> <span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">rr_step</span><span class="p">,</span> <span class="n">RROpikStep</span><span class="p">(</span><span class="n">project_name</span><span class="o">=</span><span class="s2">&quot;my-project&quot;</span><span class="p">)]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next.rr</span><span class="w"> </span><span class="kn">import</span> <span class="n">RROpikStep</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="c1"># Place after RRStep in the pipeline</span>
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="n">steps</span> <span class="o">=</span> <span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">rr_step</span><span class="p">,</span> <span class="n">RROpikStep</span><span class="p">(</span><span class="n">project_name</span><span class="o">=</span><span class="s2">&quot;my-project&quot;</span><span class="p">)]</span>
 </code></pre></div>
 <h3 id="step-contract">Step Contract<a class="headerlink" href="#step-contract" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="n">requires</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;reflection&quot;</span><span class="p">})</span>
-<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="n">provides</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">()</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="n">requires</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;reflections&quot;</span><span class="p">})</span>
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="n">provides</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">()</span>
 </code></pre></div>
 <h3 id="behaviour">Behaviour<a class="headerlink" href="#behaviour" title="Permanent link">&para;</a></h3>
 <ul>
-<li>Reads <code>ctx.reflection.raw["rr_trace"]</code> — the dict populated by <code>RRStep</code>.</li>
+<li>Iterates over <code>ctx.reflections</code> and reads <code>reflection.raw["rr_trace"]</code> from each — the dict populated by <code>RRStep</code>.</li>
 <li>Creates one Opik trace per RR invocation with child spans per iteration.</li>
 <li>Gracefully degrades to a no-op when Opik is not installed or <code>OPIK_DISABLED=true</code>.</li>
 <li><strong>Explicit opt-in only</strong> — Opik is never auto-enabled.</li>
 </ul>
 <h3 id="trace-hierarchy">Trace Hierarchy<a class="headerlink" href="#trace-hierarchy" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>rr_reflect (trace)
-<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>├── rr_iteration_0 (span)    ← code, stdout, stderr
-<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>├── rr_iteration_1 (span)
-<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a>└── rr_iteration_2 (span)    ← FINAL called here
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>rr_reflect (trace)
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>├── rr_iteration_0 (span)    ← code, stdout, stderr
+<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>├── rr_iteration_1 (span)
+<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a>└── rr_iteration_2 (span)    ← FINAL called here
 </code></pre></div>
 <h3 id="environment-variables">Environment Variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h3>
 <table>
@@ -3215,45 +3329,45 @@
 </table>
 <h3 id="metadata">Metadata<a class="headerlink" href="#metadata" title="Permanent link">&para;</a></h3>
 <p>Parent trace metadata includes:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="p">{</span>
-<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>    <span class="s2">&quot;total_iterations&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>    <span class="s2">&quot;subagent_call_count&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>   <span class="c1"># Only when sub-agent calls exist</span>
-<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>    <span class="s2">&quot;subagent_calls&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">],</span> <span class="c1"># Full call history</span>
-<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="p">{</span>
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>    <span class="s2">&quot;total_iterations&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>    <span class="s2">&quot;subagent_call_count&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>   <span class="c1"># Only when sub-agent calls exist</span>
+<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a>    <span class="s2">&quot;subagent_calls&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">],</span> <span class="c1"># Full call history</span>
+<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a><span class="p">}</span>
 </code></pre></div>
 <h3 id="flush">flush()<a class="headerlink" href="#flush" title="Permanent link">&para;</a></h3>
 <p>Call <code>flush()</code> after the pipeline finishes to drain buffered traces before the process exits.</p>
 <hr />
 <h2 id="public-api">Public API<a class="headerlink" href="#public-api" title="Permanent link">&para;</a></h2>
 <p>All exports from <code>ace_next.rr</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next.rr</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>    <span class="c1"># Core</span>
-<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>    <span class="n">RRStep</span><span class="p">,</span>                  <span class="c1"># Main entry point (SubRunner + StepProtocol + ReflectorLike)</span>
-<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a>    <span class="n">RRConfig</span><span class="p">,</span>                <span class="c1"># Configuration (alias for RecursiveConfig)</span>
-<a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a>    <span class="n">RRIterationContext</span><span class="p">,</span>      <span class="c1"># Per-iteration frozen context</span>
-<a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a>    <span class="n">RROpikStep</span><span class="p">,</span>              <span class="c1"># Opik observability step (lazy-imported)</span>
-<a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a>
-<a id="__codelineno-22-8" name="__codelineno-22-8" href="#__codelineno-22-8"></a>    <span class="c1"># Inner pipeline steps</span>
-<a id="__codelineno-22-9" name="__codelineno-22-9" href="#__codelineno-22-9"></a>    <span class="n">LLMCallStep</span><span class="p">,</span>
-<a id="__codelineno-22-10" name="__codelineno-22-10" href="#__codelineno-22-10"></a>    <span class="n">ExtractCodeStep</span><span class="p">,</span>
-<a id="__codelineno-22-11" name="__codelineno-22-11" href="#__codelineno-22-11"></a>    <span class="n">SandboxExecStep</span><span class="p">,</span>
-<a id="__codelineno-22-12" name="__codelineno-22-12" href="#__codelineno-22-12"></a>    <span class="n">CheckResultStep</span><span class="p">,</span>
-<a id="__codelineno-22-13" name="__codelineno-22-13" href="#__codelineno-22-13"></a>
-<a id="__codelineno-22-14" name="__codelineno-22-14" href="#__codelineno-22-14"></a>    <span class="c1"># Sandbox</span>
-<a id="__codelineno-22-15" name="__codelineno-22-15" href="#__codelineno-22-15"></a>    <span class="n">TraceSandbox</span><span class="p">,</span>
-<a id="__codelineno-22-16" name="__codelineno-22-16" href="#__codelineno-22-16"></a>    <span class="n">ExecutionResult</span><span class="p">,</span>
-<a id="__codelineno-22-17" name="__codelineno-22-17" href="#__codelineno-22-17"></a>    <span class="n">ExecutionTimeoutError</span><span class="p">,</span>
-<a id="__codelineno-22-18" name="__codelineno-22-18" href="#__codelineno-22-18"></a>
-<a id="__codelineno-22-19" name="__codelineno-22-19" href="#__codelineno-22-19"></a>    <span class="c1"># Sub-agent</span>
-<a id="__codelineno-22-20" name="__codelineno-22-20" href="#__codelineno-22-20"></a>    <span class="n">SubAgentLLM</span><span class="p">,</span>
-<a id="__codelineno-22-21" name="__codelineno-22-21" href="#__codelineno-22-21"></a>    <span class="n">SubAgentConfig</span><span class="p">,</span>
-<a id="__codelineno-22-22" name="__codelineno-22-22" href="#__codelineno-22-22"></a>    <span class="n">CallBudget</span><span class="p">,</span>
-<a id="__codelineno-22-23" name="__codelineno-22-23" href="#__codelineno-22-23"></a>    <span class="n">create_ask_llm_function</span><span class="p">,</span>
-<a id="__codelineno-22-24" name="__codelineno-22-24" href="#__codelineno-22-24"></a>
-<a id="__codelineno-22-25" name="__codelineno-22-25" href="#__codelineno-22-25"></a>    <span class="c1"># Trace</span>
-<a id="__codelineno-22-26" name="__codelineno-22-26" href="#__codelineno-22-26"></a>    <span class="n">TraceContext</span><span class="p">,</span>
-<a id="__codelineno-22-27" name="__codelineno-22-27" href="#__codelineno-22-27"></a>    <span class="n">TraceStep</span><span class="p">,</span>
-<a id="__codelineno-22-28" name="__codelineno-22-28" href="#__codelineno-22-28"></a><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace_next.rr</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>    <span class="c1"># Core</span>
+<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>    <span class="n">RRStep</span><span class="p">,</span>                  <span class="c1"># Main entry point (SubRunner + StepProtocol + ReflectorLike)</span>
+<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a>    <span class="n">RRConfig</span><span class="p">,</span>                <span class="c1"># Configuration (alias for RecursiveConfig)</span>
+<a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a>    <span class="n">RRIterationContext</span><span class="p">,</span>      <span class="c1"># Per-iteration frozen context</span>
+<a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a>    <span class="n">RROpikStep</span><span class="p">,</span>              <span class="c1"># Opik observability step (lazy-imported)</span>
+<a id="__codelineno-24-7" name="__codelineno-24-7" href="#__codelineno-24-7"></a>
+<a id="__codelineno-24-8" name="__codelineno-24-8" href="#__codelineno-24-8"></a>    <span class="c1"># Inner pipeline steps</span>
+<a id="__codelineno-24-9" name="__codelineno-24-9" href="#__codelineno-24-9"></a>    <span class="n">LLMCallStep</span><span class="p">,</span>
+<a id="__codelineno-24-10" name="__codelineno-24-10" href="#__codelineno-24-10"></a>    <span class="n">ExtractCodeStep</span><span class="p">,</span>
+<a id="__codelineno-24-11" name="__codelineno-24-11" href="#__codelineno-24-11"></a>    <span class="n">SandboxExecStep</span><span class="p">,</span>
+<a id="__codelineno-24-12" name="__codelineno-24-12" href="#__codelineno-24-12"></a>    <span class="n">CheckResultStep</span><span class="p">,</span>
+<a id="__codelineno-24-13" name="__codelineno-24-13" href="#__codelineno-24-13"></a>
+<a id="__codelineno-24-14" name="__codelineno-24-14" href="#__codelineno-24-14"></a>    <span class="c1"># Sandbox</span>
+<a id="__codelineno-24-15" name="__codelineno-24-15" href="#__codelineno-24-15"></a>    <span class="n">TraceSandbox</span><span class="p">,</span>
+<a id="__codelineno-24-16" name="__codelineno-24-16" href="#__codelineno-24-16"></a>    <span class="n">ExecutionResult</span><span class="p">,</span>
+<a id="__codelineno-24-17" name="__codelineno-24-17" href="#__codelineno-24-17"></a>    <span class="n">ExecutionTimeoutError</span><span class="p">,</span>
+<a id="__codelineno-24-18" name="__codelineno-24-18" href="#__codelineno-24-18"></a>
+<a id="__codelineno-24-19" name="__codelineno-24-19" href="#__codelineno-24-19"></a>    <span class="c1"># Sub-agent</span>
+<a id="__codelineno-24-20" name="__codelineno-24-20" href="#__codelineno-24-20"></a>    <span class="n">SubAgentLLM</span><span class="p">,</span>
+<a id="__codelineno-24-21" name="__codelineno-24-21" href="#__codelineno-24-21"></a>    <span class="n">SubAgentConfig</span><span class="p">,</span>
+<a id="__codelineno-24-22" name="__codelineno-24-22" href="#__codelineno-24-22"></a>    <span class="n">CallBudget</span><span class="p">,</span>
+<a id="__codelineno-24-23" name="__codelineno-24-23" href="#__codelineno-24-23"></a>    <span class="n">create_ask_llm_function</span><span class="p">,</span>
+<a id="__codelineno-24-24" name="__codelineno-24-24" href="#__codelineno-24-24"></a>
+<a id="__codelineno-24-25" name="__codelineno-24-25" href="#__codelineno-24-25"></a>    <span class="c1"># Trace</span>
+<a id="__codelineno-24-26" name="__codelineno-24-26" href="#__codelineno-24-26"></a>    <span class="n">TraceContext</span><span class="p">,</span>
+<a id="__codelineno-24-27" name="__codelineno-24-27" href="#__codelineno-24-27"></a>    <span class="n">TraceStep</span><span class="p">,</span>
+<a id="__codelineno-24-28" name="__codelineno-24-28" href="#__codelineno-24-28"></a><span class="p">)</span>
 </code></pre></div>
 <p><code>RROpikStep</code> is lazy-imported via <code>__getattr__</code> to avoid pulling in the <code>opik</code> package at module load time.</p>
 

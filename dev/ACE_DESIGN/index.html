@@ -3104,7 +3104,7 @@
 <a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>    <span class="n">skillbook</span><span class="p">:</span> <span class="n">SkillbookView</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 <a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    <span class="n">trace</span><span class="p">:</span> <span class="nb">object</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 <a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>    <span class="n">agent_output</span><span class="p">:</span> <span class="n">AgentOutput</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>    <span class="n">reflection</span><span class="p">:</span> <span class="n">ReflectorOutput</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>    <span class="n">reflections</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">ReflectorOutput</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">()</span>
 <a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>    <span class="n">skill_manager_output</span><span class="p">:</span> <span class="n">UpdateBatch</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 <a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>    <span class="n">epoch</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
 <a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>    <span class="n">total_epochs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
@@ -3112,6 +3112,7 @@
 <a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>    <span class="n">total_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 <a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>    <span class="n">global_sample_index</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
 </code></pre></div>
+<p>The <code>reflections</code> field is a tuple of <code>ReflectorOutput</code> instances. In single-trace mode, this is a 1-tuple. In batch mode (e.g. when <code>RRStep</code> receives a trace dict with a <code>"tasks"</code> list), the reflector produces one <code>ReflectorOutput</code> per trace and <code>reflections</code> holds the full batch. Downstream steps (<code>TagStep</code>, <code>UpdateStep</code>) iterate over the tuple uniformly — no special-casing for single vs batch. An empty tuple means no reflection has run yet.</p>
 <p>The <code>trace</code> field holds the raw execution record from any external system — a browser-use <code>AgentHistoryList</code>, a LangChain result dict, a Claude Code transcript, or any arbitrary Python object. It has no enforced schema. The Reflector receives the raw trace and is responsible for making sense of it — this gives maximum flexibility for analysis without constraining trace format. Extraction helpers can be added later as an optional layer if needed.</p>
 <p><strong>What goes on the context vs what gets injected:</strong></p>
 <table>
@@ -3140,7 +3141,7 @@
 </tr>
 <tr>
 <td><strong>Examples</strong></td>
-<td><code>agent_output</code>, <code>reflection</code>, <code>skillbook</code> (view)</td>
+<td><code>agent_output</code>, <code>reflections</code>, <code>skillbook</code> (view)</td>
 <td><code>skillbook</code> (real), <code>environment</code>, <code>dedup_manager</code></td>
 </tr>
 <tr>
@@ -3178,7 +3179,7 @@
 </tr>
 <tr>
 <td><code>SkillManagerLike</code></td>
-<td><code>update_skills(reflection, skillbook, question_context, progress, **kwargs) → SkillManagerOutput</code></td>
+<td><code>update_skills(reflections, skillbook, question_context, progress, **kwargs) → SkillManagerOutput</code></td>
 <td><code>UpdateStep</code></td>
 <td><code>SkillManager</code></td>
 </tr>
@@ -3809,13 +3810,13 @@
 <td><strong>ReflectStep</strong></td>
 <td><code>trace</code>, <code>skillbook</code></td>
 <td><code>reflector</code></td>
-<td><code>reflection</code></td>
+<td><code>reflections</code></td>
 <td>None (pure)</td>
 <td>3; <code>async_boundary = True</code></td>
 </tr>
 <tr>
 <td><strong>TagStep</strong></td>
-<td><code>reflection</code></td>
+<td><code>reflections</code></td>
 <td><code>skillbook</code> (real)</td>
 <td>—</td>
 <td>Tags skills on skillbook</td>
@@ -3823,7 +3824,7 @@
 </tr>
 <tr>
 <td><strong>UpdateStep</strong></td>
-<td><code>reflection</code>, <code>skillbook</code></td>
+<td><code>reflections</code>, <code>skillbook</code></td>
 <td><code>skill_manager</code></td>
 <td><code>skill_manager_output</code></td>
 <td>None (pure)</td>
@@ -3863,7 +3864,7 @@
 </tr>
 <tr>
 <td><strong>RROpikStep</strong></td>
-<td><code>reflection</code></td>
+<td><code>reflections</code></td>
 <td><code>project_name</code>, <code>tags</code></td>
 <td>—</td>
 <td>Logs RR REPL traces to Opik (hierarchical)</td>
@@ -3904,7 +3905,7 @@
 </tbody>
 </table>
 <p><strong>Requires vs Injected:</strong> <code>Requires</code> lists context fields read by the step — validated by the pipeline engine at construction time. The <code>skillbook</code> field on the context is a <code>SkillbookView</code> (read-only). Steps that <strong>write</strong> to the skillbook (TagStep, ApplyStep, DeduplicateStep, CheckpointStep) receive the real <code>Skillbook</code> via constructor injection — marked as "(real)" in the table. These injected dependencies are not tracked by <code>requires</code>/<code>provides</code>.</p>
-<p><strong><code>trace</code> as the universal learning input:</strong> The learning tail's <em>entry point</em> (ReflectStep) requires only <code>trace</code> and <code>skillbook</code> from the context — subsequent steps in the tail chain off ReflectStep's output (<code>reflection</code>). In the standard ACE pipeline, <code>EvaluateStep</code> bundles the structured fields (<code>sample</code>, <code>agent_output</code>, and optionally environment feedback) into a <code>trace</code> dict. In TraceAnalyser, <code>_build_context</code> places the raw trace directly. In integrations, the execute step provides <code>trace</code> from its framework's native output. This means the learning tail is agnostic to trace format — <code>ReflectStep</code> passes <code>ctx.trace</code> to the Reflector, which is responsible for making sense of whatever it receives.</p>
+<p><strong><code>trace</code> as the universal learning input:</strong> The learning tail's <em>entry point</em> (ReflectStep) requires only <code>trace</code> and <code>skillbook</code> from the context — subsequent steps in the tail chain off ReflectStep's output (<code>reflections</code>). In the standard ACE pipeline, <code>EvaluateStep</code> bundles the structured fields (<code>sample</code>, <code>agent_output</code>, and optionally environment feedback) into a <code>trace</code> dict. In TraceAnalyser, <code>_build_context</code> places the raw trace directly. In integrations, the execute step provides <code>trace</code> from its framework's native output. This means the learning tail is agnostic to trace format — <code>ReflectStep</code> passes <code>ctx.trace</code> to the Reflector, which is responsible for making sense of whatever it receives.</p>
 <p>Steps with <code>provides = —</code> are pure side-effect steps (<code>provides = frozenset()</code>). They mutate shared state (skillbook) or write to external systems (disk, Opik) but add no new fields to the context. <code>OpikStep</code> is not included in <code>learning_tail()</code> — users append it explicitly to keep observability decoupled from core learning.</p>
 <h3 id="agentstep">AgentStep<a class="headerlink" href="#agentstep" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">AgentStep</span><span class="p">:</span>
@@ -3952,7 +3953,7 @@
 <h3 id="reflectstep">ReflectStep<a class="headerlink" href="#reflectstep" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">ReflectStep</span><span class="p">:</span>
 <a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a>    <span class="n">requires</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;trace&quot;</span><span class="p">,</span> <span class="s2">&quot;skillbook&quot;</span><span class="p">})</span>
-<a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a>    <span class="n">provides</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;reflection&quot;</span><span class="p">})</span>
+<a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a>    <span class="n">provides</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;reflections&quot;</span><span class="p">})</span>
 <a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a>
 <a id="__codelineno-28-5" name="__codelineno-28-5" href="#__codelineno-28-5"></a>    <span class="n">async_boundary</span> <span class="o">=</span> <span class="kc">True</span>
 <a id="__codelineno-28-6" name="__codelineno-28-6" href="#__codelineno-28-6"></a>    <span class="n">max_workers</span> <span class="o">=</span> <span class="mi">3</span>
@@ -3986,12 +3987,12 @@
 <a id="__codelineno-28-34" name="__codelineno-28-34" href="#__codelineno-28-34"></a>                <span class="n">trace</span><span class="o">=</span><span class="n">trace</span><span class="p">,</span>
 <a id="__codelineno-28-35" name="__codelineno-28-35" href="#__codelineno-28-35"></a>            <span class="p">)</span>
 <a id="__codelineno-28-36" name="__codelineno-28-36" href="#__codelineno-28-36"></a>
-<a id="__codelineno-28-37" name="__codelineno-28-37" href="#__codelineno-28-37"></a>        <span class="k">return</span> <span class="n">ctx</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">reflection</span><span class="o">=</span><span class="n">reflection</span><span class="p">)</span>
+<a id="__codelineno-28-37" name="__codelineno-28-37" href="#__codelineno-28-37"></a>        <span class="k">return</span> <span class="n">ctx</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">reflections</span><span class="o">=</span><span class="p">(</span><span class="n">reflection</span><span class="p">,))</span>
 </code></pre></div>
-<p>Pure — produces a reflection object, no side effects. Handles two trace formats: (1) when <code>ctx.trace</code> is a dict (from EvaluateStep or a ToTrace converter), it extracts known fields and calls the Reflector's existing API with typed arguments; (2) when <code>ctx.trace</code> is any other object (from TraceAnalyser or integrations without a converter), it passes the raw trace via <code>**kwargs</code> — the Reflector accepts it for protocol compatibility but does not forward it to the LLM. Integration-specific traces should always go through a ToTrace converter step that produces the standardised dict. Declares <code>async_boundary = True</code> — everything from here onward runs in a background thread pool. This lets the execute head return fast while learning continues.</p>
+<p>Pure — produces a 1-tuple of <code>ReflectorOutput</code>, no side effects. Handles two trace formats: (1) when <code>ctx.trace</code> is a dict (from EvaluateStep or a ToTrace converter), it extracts known fields and calls the Reflector's existing API with typed arguments; (2) when <code>ctx.trace</code> is any other object (from TraceAnalyser or integrations without a converter), it passes the raw trace via <code>**kwargs</code> — the Reflector accepts it for protocol compatibility but does not forward it to the LLM. Integration-specific traces should always go through a ToTrace converter step that produces the standardised dict. Declares <code>async_boundary = True</code> — everything from here onward runs in a background thread pool. This lets the execute head return fast while learning continues. <code>RRStep</code> also provides <code>reflections</code> — in batch mode it may produce a tuple with more than one element.</p>
 <h3 id="tagstep">TagStep<a class="headerlink" href="#tagstep" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">TagStep</span><span class="p">:</span>
-<a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a>    <span class="n">requires</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;reflection&quot;</span><span class="p">})</span>
+<a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a>    <span class="n">requires</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;reflections&quot;</span><span class="p">})</span>
 <a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a>    <span class="n">provides</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">()</span>
 <a id="__codelineno-29-4" name="__codelineno-29-4" href="#__codelineno-29-4"></a>
 <a id="__codelineno-29-5" name="__codelineno-29-5" href="#__codelineno-29-5"></a>    <span class="n">max_workers</span> <span class="o">=</span> <span class="mi">1</span>
@@ -4000,20 +4001,21 @@
 <a id="__codelineno-29-8" name="__codelineno-29-8" href="#__codelineno-29-8"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">skillbook</span> <span class="o">=</span> <span class="n">skillbook</span>
 <a id="__codelineno-29-9" name="__codelineno-29-9" href="#__codelineno-29-9"></a>
 <a id="__codelineno-29-10" name="__codelineno-29-10" href="#__codelineno-29-10"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">ACEStepContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ACEStepContext</span><span class="p">:</span>
-<a id="__codelineno-29-11" name="__codelineno-29-11" href="#__codelineno-29-11"></a>        <span class="k">for</span> <span class="n">tag</span> <span class="ow">in</span> <span class="n">ctx</span><span class="o">.</span><span class="n">reflection</span><span class="o">.</span><span class="n">skill_tags</span><span class="p">:</span>
-<a id="__codelineno-29-12" name="__codelineno-29-12" href="#__codelineno-29-12"></a>            <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-29-13" name="__codelineno-29-13" href="#__codelineno-29-13"></a>                <span class="bp">self</span><span class="o">.</span><span class="n">skillbook</span><span class="o">.</span><span class="n">tag_skill</span><span class="p">(</span><span class="n">tag</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">tag</span><span class="o">.</span><span class="n">tag</span><span class="p">)</span>
-<a id="__codelineno-29-14" name="__codelineno-29-14" href="#__codelineno-29-14"></a>            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
-<a id="__codelineno-29-15" name="__codelineno-29-15" href="#__codelineno-29-15"></a>                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;TagStep: skill_id </span><span class="si">%r</span><span class="s2"> not found, skipping tag </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">tag</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">tag</span><span class="o">.</span><span class="n">tag</span><span class="p">)</span>
-<a id="__codelineno-29-16" name="__codelineno-29-16" href="#__codelineno-29-16"></a>        <span class="k">return</span> <span class="n">ctx</span>
+<a id="__codelineno-29-11" name="__codelineno-29-11" href="#__codelineno-29-11"></a>        <span class="k">for</span> <span class="n">reflection</span> <span class="ow">in</span> <span class="n">ctx</span><span class="o">.</span><span class="n">reflections</span><span class="p">:</span>
+<a id="__codelineno-29-12" name="__codelineno-29-12" href="#__codelineno-29-12"></a>            <span class="k">for</span> <span class="n">tag</span> <span class="ow">in</span> <span class="n">reflection</span><span class="o">.</span><span class="n">skill_tags</span><span class="p">:</span>
+<a id="__codelineno-29-13" name="__codelineno-29-13" href="#__codelineno-29-13"></a>                <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-29-14" name="__codelineno-29-14" href="#__codelineno-29-14"></a>                    <span class="bp">self</span><span class="o">.</span><span class="n">skillbook</span><span class="o">.</span><span class="n">tag_skill</span><span class="p">(</span><span class="n">tag</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">tag</span><span class="o">.</span><span class="n">tag</span><span class="p">)</span>
+<a id="__codelineno-29-15" name="__codelineno-29-15" href="#__codelineno-29-15"></a>                <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+<a id="__codelineno-29-16" name="__codelineno-29-16" href="#__codelineno-29-16"></a>                    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;TagStep: skill_id </span><span class="si">%r</span><span class="s2"> not found, skipping tag </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">tag</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">tag</span><span class="o">.</span><span class="n">tag</span><span class="p">)</span>
+<a id="__codelineno-29-17" name="__codelineno-29-17" href="#__codelineno-29-17"></a>        <span class="k">return</span> <span class="n">ctx</span>
 </code></pre></div>
-<p>Side-effect step — tags skills on <code>self.skillbook</code> (the real <code>Skillbook</code>, injected via constructor — not the <code>SkillbookView</code> on the context). <code>max_workers = 1</code> serialises skillbook writes. Hallucinated skill IDs from the Reflector are logged at <code>WARNING</code> level rather than silently swallowed — this provides a diagnostic signal without aborting the pipeline.</p>
+<p>Side-effect step — tags skills on <code>self.skillbook</code> (the real <code>Skillbook</code>, injected via constructor — not the <code>SkillbookView</code> on the context). Iterates over all reflections in the tuple — in single-trace mode this is a 1-tuple, in batch mode it covers all per-trace reflections. <code>max_workers = 1</code> serialises skillbook writes. Hallucinated skill IDs from the Reflector are logged at <code>WARNING</code> level rather than silently swallowed — this provides a diagnostic signal without aborting the pipeline.</p>
 <p>Separated from ReflectStep so that:
 - ReflectStep is a pure function (LLM call → reflection object) and can be tested without a skillbook.
 - TagStep can be tested with a mock reflection without an LLM.</p>
 <h3 id="updatestep">UpdateStep<a class="headerlink" href="#updatestep" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">UpdateStep</span><span class="p">:</span>
-<a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a>    <span class="n">requires</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;reflection&quot;</span><span class="p">,</span> <span class="s2">&quot;skillbook&quot;</span><span class="p">})</span>
+<a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a>    <span class="n">requires</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;reflections&quot;</span><span class="p">,</span> <span class="s2">&quot;skillbook&quot;</span><span class="p">})</span>
 <a id="__codelineno-30-3" name="__codelineno-30-3" href="#__codelineno-30-3"></a>    <span class="n">provides</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;skill_manager_output&quot;</span><span class="p">})</span>
 <a id="__codelineno-30-4" name="__codelineno-30-4" href="#__codelineno-30-4"></a>
 <a id="__codelineno-30-5" name="__codelineno-30-5" href="#__codelineno-30-5"></a>    <span class="n">max_workers</span> <span class="o">=</span> <span class="mi">1</span>
@@ -4022,13 +4024,15 @@
 <a id="__codelineno-30-8" name="__codelineno-30-8" href="#__codelineno-30-8"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">skill_manager</span> <span class="o">=</span> <span class="n">skill_manager</span>
 <a id="__codelineno-30-9" name="__codelineno-30-9" href="#__codelineno-30-9"></a>
 <a id="__codelineno-30-10" name="__codelineno-30-10" href="#__codelineno-30-10"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">ACEStepContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ACEStepContext</span><span class="p">:</span>
-<a id="__codelineno-30-11" name="__codelineno-30-11" href="#__codelineno-30-11"></a>        <span class="n">output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">skill_manager</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
-<a id="__codelineno-30-12" name="__codelineno-30-12" href="#__codelineno-30-12"></a>            <span class="n">reflection</span><span class="o">=</span><span class="n">ctx</span><span class="o">.</span><span class="n">reflection</span><span class="p">,</span>     <span class="c1"># ReflectorOutput</span>
+<a id="__codelineno-30-11" name="__codelineno-30-11" href="#__codelineno-30-11"></a>        <span class="n">output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">skill_manager</span><span class="o">.</span><span class="n">update_skills</span><span class="p">(</span>
+<a id="__codelineno-30-12" name="__codelineno-30-12" href="#__codelineno-30-12"></a>            <span class="n">reflections</span><span class="o">=</span><span class="n">ctx</span><span class="o">.</span><span class="n">reflections</span><span class="p">,</span>   <span class="c1"># tuple[ReflectorOutput, ...]</span>
 <a id="__codelineno-30-13" name="__codelineno-30-13" href="#__codelineno-30-13"></a>            <span class="n">skillbook</span><span class="o">=</span><span class="n">ctx</span><span class="o">.</span><span class="n">skillbook</span><span class="p">,</span>       <span class="c1"># SkillbookView (read-only)</span>
-<a id="__codelineno-30-14" name="__codelineno-30-14" href="#__codelineno-30-14"></a>        <span class="p">)</span>
-<a id="__codelineno-30-15" name="__codelineno-30-15" href="#__codelineno-30-15"></a>        <span class="k">return</span> <span class="n">ctx</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">skill_manager_output</span><span class="o">=</span><span class="n">output</span><span class="p">)</span>
+<a id="__codelineno-30-14" name="__codelineno-30-14" href="#__codelineno-30-14"></a>            <span class="n">question_context</span><span class="o">=...</span><span class="p">,</span>
+<a id="__codelineno-30-15" name="__codelineno-30-15" href="#__codelineno-30-15"></a>            <span class="n">progress</span><span class="o">=...</span><span class="p">,</span>
+<a id="__codelineno-30-16" name="__codelineno-30-16" href="#__codelineno-30-16"></a>        <span class="p">)</span>
+<a id="__codelineno-30-17" name="__codelineno-30-17" href="#__codelineno-30-17"></a>        <span class="k">return</span> <span class="n">ctx</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">skill_manager_output</span><span class="o">=</span><span class="n">output</span><span class="o">.</span><span class="n">update</span><span class="p">)</span>
 </code></pre></div>
-<p>Pure — generates update operations from the <code>ReflectorOutput</code> and the current skillbook state. The Reflector has already done the heavy lifting of analysing the trace; the SkillManager turns those insights into concrete skillbook operations (ADD, UPDATE, TAG, REMOVE). Does not mutate the skillbook. <code>max_workers = 1</code> because the skill manager reads the current skillbook state and concurrent calls would see stale data.</p>
+<p>Pure — generates update operations from the reflections tuple and the current skillbook state. The Reflector has already done the heavy lifting of analysing the trace; the SkillManager turns those insights into concrete skillbook operations (ADD, UPDATE, TAG, REMOVE). When the tuple contains multiple reflections (batch mode), the SkillManager sees all of them in one call — enabling cross-trace pattern recognition and reducing duplicate skill entries. Does not mutate the skillbook. <code>max_workers = 1</code> because the skill manager reads the current skillbook state and concurrent calls would see stale data.</p>
 <h3 id="applystep">ApplyStep<a class="headerlink" href="#applystep" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">ApplyStep</span><span class="p">:</span>
 <a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a>    <span class="n">requires</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;skill_manager_output&quot;</span><span class="p">})</span>
@@ -4106,7 +4110,7 @@
 <a id="__codelineno-34-9" name="__codelineno-34-9" href="#__codelineno-34-9"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
 </code></pre></div>
 <p>Explicit, opt-in observability step — creates an Opik trace per sample with pipeline metadata, agent output, reflection insights, and skill manager operations. <strong>Does NOT register the LiteLLM callback</strong> — call <code>register_opik_litellm_callback()</code> separately if you also want per-LLM-call token/cost tracking. Two independent tracing modes: (1) pipeline step (this class) — client-agnostic, reads <code>ACEStepContext</code> fields; (2) LiteLLM callback (<code>register_opik_litellm_callback</code>) — LiteLLM-specific, registers <code>OpikLogger</code> on <code>litellm.callbacks</code>.</p>
-<p>Only requires <code>skillbook</code> (always present). Reads other context fields (<code>reflection</code>, <code>skill_manager_output</code>, <code>trace</code>, <code>agent_output</code>) with guards — they may or may not be populated depending on pipeline shape. When used directly, gracefully degrades to a no-op when Opik is not installed or <code>OPIK_DISABLED=true</code>. When used via <code>ACELiteLLM(opik=True)</code>, <strong>fails loudly</strong> — raises <code>ImportError</code> if the package is missing, <code>RuntimeError</code> if client init fails.</p>
+<p>Only requires <code>skillbook</code> (always present). Reads other context fields (<code>reflections</code>, <code>skill_manager_output</code>, <code>trace</code>, <code>agent_output</code>) with guards — they may or may not be populated depending on pipeline shape. When used directly, gracefully degrades to a no-op when Opik is not installed or <code>OPIK_DISABLED=true</code>. When used via <code>ACELiteLLM(opik=True)</code>, <strong>fails loudly</strong> — raises <code>ImportError</code> if the package is missing, <code>RuntimeError</code> if client init fails.</p>
 <p>Passes <code>OPIK_API_KEY</code>, <code>OPIK_WORKSPACE</code>, and <code>OPIK_URL_OVERRIDE</code> explicitly from environment variables — does <strong>not</strong> depend on the global <code>~/.opik.config</code> file.</p>
 <p>Call <code>flush()</code> after the pipeline finishes to drain buffered traces before the process exits (the Opik client batches sends asynchronously).</p>
 <p><strong>Not wired into <code>learning_tail()</code>.</strong> Users append it via <code>extra_steps</code> on <code>from_roles()</code>, or manually after calling <code>learning_tail()</code>:</p>
@@ -4133,7 +4137,7 @@
 </code></pre></div>
 <h3 id="rropikstep">RROpikStep<a class="headerlink" href="#rropikstep" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">RROpikStep</span><span class="p">:</span>
-<a id="__codelineno-36-2" name="__codelineno-36-2" href="#__codelineno-36-2"></a>    <span class="n">requires</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;reflection&quot;</span><span class="p">})</span>
+<a id="__codelineno-36-2" name="__codelineno-36-2" href="#__codelineno-36-2"></a>    <span class="n">requires</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;reflections&quot;</span><span class="p">})</span>
 <a id="__codelineno-36-3" name="__codelineno-36-3" href="#__codelineno-36-3"></a>    <span class="n">provides</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">()</span>
 <a id="__codelineno-36-4" name="__codelineno-36-4" href="#__codelineno-36-4"></a>
 <a id="__codelineno-36-5" name="__codelineno-36-5" href="#__codelineno-36-5"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
@@ -4142,7 +4146,7 @@
 <a id="__codelineno-36-8" name="__codelineno-36-8" href="#__codelineno-36-8"></a>        <span class="n">tags</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <a id="__codelineno-36-9" name="__codelineno-36-9" href="#__codelineno-36-9"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
 </code></pre></div>
-<p>Dedicated observability step for the Recursive Reflector. Reads <code>ctx.reflection.raw["rr_trace"]</code> — a dict populated by <code>RRStep</code> containing per-iteration REPL data and sub-agent call history — and creates a hierarchical Opik trace with child spans per iteration.</p>
+<p>Dedicated observability step for the Recursive Reflector. Iterates over <code>ctx.reflections</code> and reads <code>reflection.raw["rr_trace"]</code> from each — a dict populated by <code>RRStep</code> containing per-iteration REPL data and sub-agent call history — and creates a hierarchical Opik trace with child spans per iteration.</p>
 <p>Follows the same patterns as <code>OpikStep</code>: explicit opt-in only, soft-imports <code>opik</code>, respects <code>OPIK_DISABLED</code> env var, gracefully degrades to a no-op. Located in <code>ace_next/rr/opik.py</code> (co-located with the RR module, not in <code>ace_next/steps/</code>).</p>
 <p><strong>Trace hierarchy:</strong></p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a>rr_reflect (trace)
@@ -4298,11 +4302,11 @@
 <a id="__codelineno-46-9" name="__codelineno-46-9" href="#__codelineno-46-9"></a><span class="c1"># reflection.key_insight, reflection.skill_tags, reflection.extracted_learnings</span>
 </code></pre></div>
 <h3 id="skillmanager">SkillManager<a class="headerlink" href="#skillmanager" title="Permanent link">&para;</a></h3>
-<p>Transforms reflections into actionable skillbook updates. Serializes the <code>ReflectorOutput</code> into a JSON dict, formats the prompt with progress and skillbook stats, and calls <code>llm.complete_structured(prompt, SkillManagerOutput)</code>.</p>
+<p>Transforms reflections into actionable skillbook updates. Serializes each <code>ReflectorOutput</code> in the tuple into a JSON dict, formats the prompt with progress and skillbook stats, and calls <code>llm.complete_structured(prompt, SkillManagerOutput)</code>.</p>
 <p><strong>No dedup integration</strong> — in <code>ace_next</code>, deduplication is handled by a separate <code>DeduplicateStep</code> in the pipeline. The SkillManager only produces <code>SkillManagerOutput</code>; it does not call a dedup manager itself.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-47-1" name="__codelineno-47-1" href="#__codelineno-47-1"></a><span class="n">sm</span> <span class="o">=</span> <span class="n">SkillManager</span><span class="p">(</span><span class="n">llm</span><span class="p">)</span>
 <a id="__codelineno-47-2" name="__codelineno-47-2" href="#__codelineno-47-2"></a><span class="n">output</span> <span class="o">=</span> <span class="n">sm</span><span class="o">.</span><span class="n">update_skills</span><span class="p">(</span>
-<a id="__codelineno-47-3" name="__codelineno-47-3" href="#__codelineno-47-3"></a>    <span class="n">reflection</span><span class="o">=</span><span class="n">reflection_output</span><span class="p">,</span>
+<a id="__codelineno-47-3" name="__codelineno-47-3" href="#__codelineno-47-3"></a>    <span class="n">reflections</span><span class="o">=</span><span class="p">(</span><span class="n">reflection_output</span><span class="p">,),</span>
 <a id="__codelineno-47-4" name="__codelineno-47-4" href="#__codelineno-47-4"></a>    <span class="n">skillbook</span><span class="o">=</span><span class="n">skillbook</span><span class="p">,</span>
 <a id="__codelineno-47-5" name="__codelineno-47-5" href="#__codelineno-47-5"></a>    <span class="n">question_context</span><span class="o">=</span><span class="s2">&quot;Math problem solving&quot;</span><span class="p">,</span>
 <a id="__codelineno-47-6" name="__codelineno-47-6" href="#__codelineno-47-6"></a>    <span class="n">progress</span><span class="o">=</span><span class="s2">&quot;5/10 correct&quot;</span><span class="p">,</span>
