@@ -2,7 +2,7 @@
 
 import click
 
-from ace.cli.cloud import upload, insights, prompts, status, materialize, batch
+from ace.cli.cloud import upload, insights, prompts, status, materialize, batch, setup
 
 
 @click.group()
@@ -18,6 +18,7 @@ cli.add_command(prompts)
 cli.add_command(status)
 cli.add_command(materialize)
 cli.add_command(batch)
+cli.add_command(setup)
 
 
 def main():

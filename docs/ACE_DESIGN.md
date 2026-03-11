@@ -28,6 +28,7 @@ Implemented in `ace_next/` (parallel to `ace/` for easy rollback). The package i
 | LLM providers (`LiteLLMClient`, `InstructorClient`, `LangChainLiteLLMClient`, `ClaudeCodeLLMClient`) | Done | `ace_next/providers/` |
 | Recursive Reflector | Done | `ace_next/rr/` (SubRunner base in `ace_next/core/`) |
 | MCP Server (optional) | Done | `ace_next/integrations/mcp/` |
+| Hosted API CLI (`kayba`) | Done | `ace/cli/` (docs: `docs/integrations/hosted-api.md`) |
 
 ---
 

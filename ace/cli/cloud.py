@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.resources
 import json
 import sys
 import time
@@ -668,6 +669,39 @@ def batch(
 
     # Print prompt to stdout for Claude Code
     click.echo(prompt_text)
+
+
+# ---------------------------------------------------------------------------
+# setup
+# ---------------------------------------------------------------------------
+
+
+@click.command()
+@click.option(
+    "--append-to",
+    type=click.Path(),
+    default=None,
+    help="Append instructions to this file (default: print to stdout). "
+    "Recommended: AGENTS.md (universal), CLAUDE.md, .cursorrules.",
+)
+def setup(append_to):
+    """Print or install Kayba CLI instructions for coding agents."""
+    snippet = (
+        importlib.resources.files("ace.cli.commands")
+        .joinpath("kayba-agent-instructions.md")
+        .read_text(encoding="utf-8")
+    )
+
+    if append_to:
+        path = Path(append_to)
+        mode = "a" if path.exists() else "w"
+        with path.open(mode, encoding="utf-8") as f:
+            if mode == "a":
+                f.write("\n\n")
+            f.write(snippet)
+        click.echo(f"Appended Kayba CLI instructions to {path}")
+    else:
+        click.echo(snippet)
 
 
 # ---------------------------------------------------------------------------

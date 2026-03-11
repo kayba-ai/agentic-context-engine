@@ -147,6 +147,7 @@ include = ["ace", "ace.*", "ace_next", "ace_next.*", "pipeline", "pipeline.*"]
 
 [tool.setuptools.package-data]
 ace = ["py.typed"]
+"ace.cli" = ["commands/*.md"]
 "ace.integrations.claude_code" = ["commands/*.md"]
 
 [tool.black]

@@ -883,5 +883,46 @@ class TestBatchCommand(unittest.TestCase):
             self.assertIn("--upload requires --apply", result.output)
 
 
+# ---------------------------------------------------------------------------
+# Setup command
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestSetupCommand(unittest.TestCase):
+    """Test kayba setup command."""
+
+    def setUp(self):
+        self.runner = CliRunner()
+
+    def test_setup_prints_snippet(self):
+        result = self.runner.invoke(cli, ["setup"])
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("Kayba CLI", result.output)
+        self.assertIn("kayba upload", result.output)
+        self.assertIn("kayba insights generate", result.output)
+        self.assertIn("Typical workflow", result.output)
+
+    def test_setup_append_to_new_file(self):
+        with tempfile.TemporaryDirectory() as d:
+            target = os.path.join(d, "AGENTS.md")
+            result = self.runner.invoke(cli, ["setup", "--append-to", target])
+            self.assertEqual(result.exit_code, 0, result.output)
+            self.assertIn("Appended", result.output)
+            content = Path(target).read_text()
+            self.assertIn("Kayba CLI", content)
+            self.assertIn("kayba upload", content)
+
+    def test_setup_append_to_existing_file(self):
+        with tempfile.TemporaryDirectory() as d:
+            target = os.path.join(d, "AGENTS.md")
+            Path(target).write_text("# Existing content\n")
+            result = self.runner.invoke(cli, ["setup", "--append-to", target])
+            self.assertEqual(result.exit_code, 0, result.output)
+            content = Path(target).read_text()
+            self.assertTrue(content.startswith("# Existing content\n"))
+            self.assertIn("Kayba CLI", content)
+
+
 if __name__ == "__main__":
     unittest.main()

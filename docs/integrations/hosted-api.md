@@ -162,6 +162,22 @@ Options:
 | `--min-batch-size N` | Minimum traces per batch (default: 10) |
 | `--max-batch-size N` | Maximum traces per batch (default: 30) |
 
+### Agent setup
+
+```bash
+# Print CLI instructions to stdout
+kayba setup
+
+# Append to a project agent file
+kayba setup --append-to AGENTS.md
+```
+
+Options:
+
+| Flag | Description |
+|------|-------------|
+| `--append-to FILE` | Append instructions to file instead of printing (recommended: `AGENTS.md`) |
+
 ## End-to-end workflow
 
 ```bash
@@ -227,6 +243,21 @@ prompt = client.get_prompt(prompts[0]["id"])
 | `POST` | `/prompts/generate` | `generate_prompt()` |
 | `GET` | `/prompts` | `list_prompts()` |
 | `GET` | `/prompts/:id` | `get_prompt()` |
+
+## Coding agent setup
+
+**Quick (current session):** Tell your coding agent to run `kayba setup`. The agent will see
+the full CLI reference in its context and know how to use every command.
+
+**Persistent (all future sessions):** Append instructions to your project's agent file:
+
+```bash
+kayba setup --append-to AGENTS.md      # universal (Claude Code, Cursor, Copilot, Windsurf, etc.)
+kayba setup --append-to CLAUDE.md      # Claude Code only
+kayba setup --append-to .cursorrules   # Cursor only
+```
+
+`AGENTS.md` is the recommended target — it's the universal standard supported by 20+ coding agents.
 
 ## Environment variables
 
