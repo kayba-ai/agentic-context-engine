@@ -5,7 +5,8 @@ The Kayba hosted API lets you upload traces, generate insights, and pull optimis
 ## Prerequisites
 
 1. A Kayba API key (set `KAYBA_API_KEY` or pass `--api-key` to every command).
-2. Install the `cloud` extra:
+2. An Anthropic API key (set `ANTHROPIC_API_KEY`) — used server-side for LLM calls when generating insights.
+3. Install the `cloud` extra:
 
 ```bash
 pip install ace-framework[cloud]
