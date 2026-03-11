@@ -89,6 +89,16 @@ def has_sentence_transformers() -> bool:
     return _check_import("sentence_transformers")
 
 
+def has_click() -> bool:
+    """Check if Click CLI framework is available."""
+    return _check_import("click")
+
+
+def has_requests() -> bool:
+    """Check if requests HTTP library is available."""
+    return _check_import("requests")
+
+
 def get_available_features() -> Dict[str, bool]:
     """
     Get a dictionary of all available features.
@@ -112,6 +122,8 @@ def get_available_features() -> Dict[str, bool]:
         "instructor": has_instructor(),
         "numpy": has_numpy(),
         "sentence_transformers": has_sentence_transformers(),
+        "click": has_click(),
+        "requests": has_requests(),
     }
 
 
