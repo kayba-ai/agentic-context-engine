@@ -28,7 +28,7 @@ class ReflectStep:
     """
 
     requires = frozenset({"trace", "skillbook"})
-    provides = frozenset({"reflection"})
+    provides = frozenset({"reflections"})
 
     async_boundary = True
     max_workers = 3
@@ -63,4 +63,4 @@ class ReflectStep:
                 trace=trace,
             )
 
-        return ctx.replace(reflection=reflection)
+        return ctx.replace(reflections=(reflection,))

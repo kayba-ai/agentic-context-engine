@@ -18,7 +18,7 @@ class SkillManagerLike(Protocol):
     def update_skills(
         self,
         *,
-        reflection: ReflectorOutput,
+        reflections: tuple[ReflectorOutput, ...],
         skillbook: Any,
         question_context: str,
         progress: str,

@@ -71,8 +71,8 @@ def main():
     result_ctx: ACEStepContext = pipe(ctx)  # type: ignore[assignment]
 
     # --- Print results ---
-    assert result_ctx.reflection is not None
-    r = result_ctx.reflection
+    assert len(result_ctx.reflections) > 0
+    r = result_ctx.reflections[0]
     print(f"\n  Key insight: {r.key_insight}")
     print(f"  Learnings: {len(r.extracted_learnings)}")
 

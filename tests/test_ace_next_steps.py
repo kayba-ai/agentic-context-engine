@@ -75,7 +75,7 @@ class MockSkillManager:
     def update_skills(
         self,
         *,
-        reflection: ReflectorOutput,
+        reflections: tuple[ReflectorOutput, ...],
         skillbook: Any,
         question_context: str,
         progress: str,
@@ -83,7 +83,7 @@ class MockSkillManager:
     ) -> SkillManagerOutput:
         self.calls.append(
             {
-                "reflection": reflection,
+                "reflections": reflections,
                 "question_context": question_context,
                 "progress": progress,
             }
@@ -117,7 +117,7 @@ class TestReflectStep:
         )
 
         result = step(ctx)
-        assert result.reflection is not None
+        assert len(result.reflections) == 1
         assert len(reflector.calls) == 1
         call = reflector.calls[0]
         assert call["question"] == "What is 2+2?"
@@ -138,7 +138,7 @@ class TestReflectStep:
         )
 
         result = step(ctx)
-        assert result.reflection is not None
+        assert len(result.reflections) == 1
         assert len(reflector.calls) == 1
         call = reflector.calls[0]
         assert call["question"] == ""
@@ -149,7 +149,7 @@ class TestReflectStep:
         step = ReflectStep(MockReflector())
         assert "trace" in step.requires
         assert "skillbook" in step.requires
-        assert "reflection" in step.provides
+        assert "reflections" in step.provides
         assert step.async_boundary is True
         assert step.max_workers == 3
 
@@ -174,7 +174,7 @@ class TestTagStep:
                 SkillTag(id="writing-001", tag="harmful"),
             ],
         )
-        ctx = ACEStepContext(reflection=reflection)
+        ctx = ACEStepContext(reflections=(reflection,))
         step = TagStep(sb)
         step(ctx)
 
@@ -192,7 +192,7 @@ class TestTagStep:
                 SkillTag(id="nonexistent-001", tag="helpful"),
             ],
         )
-        ctx = ACEStepContext(reflection=reflection)
+        ctx = ACEStepContext(reflections=(reflection,))
         step = TagStep(sb)
 
         result = step(ctx)
@@ -210,7 +210,7 @@ class TestTagStep:
                 SkillTag(id="math-001", tag="invalid_tag"),
             ],
         )
-        ctx = ACEStepContext(reflection=reflection)
+        ctx = ACEStepContext(reflections=(reflection,))
         step = TagStep(sb)
 
         with caplog.at_level(logging.WARNING):
@@ -219,10 +219,46 @@ class TestTagStep:
         assert result is ctx
         assert "math-001" in caplog.text
 
+    def test_multiple_reflections_tags_all(self):
+        """TagStep iterates ALL reflections in the tuple, not just the first."""
+        sb = Skillbook()
+        sb.add_skill("math", "content", skill_id="math-001")
+        sb.add_skill("writing", "content", skill_id="writing-001")
+
+        r1 = ReflectorOutput(
+            reasoning="r",
+            correct_approach="c",
+            key_insight="k",
+            skill_tags=[SkillTag(id="math-001", tag="helpful")],
+        )
+        r2 = ReflectorOutput(
+            reasoning="r",
+            correct_approach="c",
+            key_insight="k",
+            skill_tags=[SkillTag(id="writing-001", tag="harmful")],
+        )
+        ctx = ACEStepContext(reflections=(r1, r2))
+        step = TagStep(sb)
+        step(ctx)
+
+        assert sb.get_skill("math-001").helpful == 1
+        assert sb.get_skill("writing-001").harmful == 1
+
+    def test_empty_reflections_is_noop(self):
+        """Empty reflections tuple should be a safe no-op."""
+        sb = Skillbook()
+        sb.add_skill("math", "content", skill_id="math-001")
+        ctx = ACEStepContext(reflections=())
+        step = TagStep(sb)
+        result = step(ctx)
+        assert result is ctx
+        assert sb.get_skill("math-001").helpful == 0
+        assert sb.get_skill("math-001").harmful == 0
+
     def test_provides_and_requires(self):
         sb = Skillbook()
         step = TagStep(sb)
-        assert "reflection" in step.requires
+        assert "reflections" in step.requires
         assert len(step.provides) == 0
         assert step.max_workers == 1
 
@@ -245,7 +281,7 @@ class TestUpdateStep:
         )
         trace = {"question": "What is 2+2?", "context": "math quiz"}
         ctx = ACEStepContext(
-            reflection=reflection,
+            reflections=(reflection,),
             skillbook=SkillbookView(sb),
             trace=trace,
             epoch=2,
@@ -274,7 +310,7 @@ class TestUpdateStep:
             key_insight="k",
         )
         ctx = ACEStepContext(
-            reflection=reflection,
+            reflections=(reflection,),
             skillbook=SkillbookView(sb),
             trace="raw string trace",
         )
@@ -282,9 +318,26 @@ class TestUpdateStep:
         step(ctx)
         assert sm.calls[0]["question_context"] == ""
 
+    def test_forwards_full_reflections_tuple(self):
+        """UpdateStep forwards the entire reflections tuple to the skill manager."""
+        sm = MockSkillManager()
+        step = UpdateStep(sm)
+        sb = Skillbook()
+
+        r1 = ReflectorOutput(reasoning="r1", correct_approach="c", key_insight="k1")
+        r2 = ReflectorOutput(reasoning="r2", correct_approach="c", key_insight="k2")
+        ctx = ACEStepContext(
+            reflections=(r1, r2),
+            skillbook=SkillbookView(sb),
+        )
+
+        step(ctx)
+        assert len(sm.calls) == 1
+        assert sm.calls[0]["reflections"] == (r1, r2)
+
     def test_provides_and_requires(self):
         step = UpdateStep(MockSkillManager())
-        assert "reflection" in step.requires
+        assert "reflections" in step.requires
         assert "skillbook" in step.requires
         assert "skill_manager_output" in step.provides
         assert step.max_workers == 1

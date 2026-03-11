@@ -20,7 +20,7 @@ class TagStep:
     Hallucinated skill IDs are logged at WARNING rather than aborting.
     """
 
-    requires: frozenset[str] = frozenset({"reflection"})
+    requires: frozenset[str] = frozenset({"reflections"})
     provides: frozenset[str] = frozenset()
 
     max_workers = 1
@@ -29,15 +29,14 @@ class TagStep:
         self.skillbook = skillbook
 
     def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
-        if not ctx.reflection:
-            return ctx
-        for skill_tag in ctx.reflection.skill_tags:
-            try:
-                self.skillbook.tag_skill(skill_tag.id, skill_tag.tag)
-            except (ValueError, KeyError):
-                logger.warning(
-                    "TagStep: skill_id %r not found, skipping tag %r",
-                    skill_tag.id,
-                    skill_tag.tag,
-                )
+        for reflection in ctx.reflections:
+            for skill_tag in reflection.skill_tags:
+                try:
+                    self.skillbook.tag_skill(skill_tag.id, skill_tag.tag)
+                except (ValueError, KeyError):
+                    logger.warning(
+                        "TagStep: skill_id %r not found, skipping tag %r",
+                        skill_tag.id,
+                        skill_tag.tag,
+                    )
         return ctx

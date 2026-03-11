@@ -391,7 +391,7 @@ class TestACEStepContext:
         assert ctx.skillbook is None
         assert ctx.trace is None
         assert ctx.agent_output is None
-        assert ctx.reflection is None
+        assert ctx.reflections == ()
         assert ctx.skill_manager_output is None
         assert ctx.epoch == 1
         assert ctx.total_epochs == 1

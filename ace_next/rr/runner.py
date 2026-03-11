@@ -39,6 +39,55 @@ def _preview(text: str | None, max_len: int = 150) -> str:
     return snippet.replace("{", "{{").replace("}", "}}")
 
 
+def _format_iteration_log(
+    iteration: int,
+    max_iterations: int,
+    status: str,
+    code: str | None,
+    stdout: str | None,
+    stderr: str | None,
+) -> str:
+    """Build a clean, multi-line log message for an RR iteration."""
+    is_final = status == "FINAL"
+    icon = "✓" if is_final else "→"
+    label = f"FINAL" if is_final else f"iter"
+
+    header = f"[RR {label} {iteration}/{max_iterations}] {icon}"
+
+    lines = [header]
+
+    # Code preview — show first 2 meaningful lines
+    if code:
+        code_lines = [l for l in code.strip().splitlines() if l.strip()][:2]
+        if code_lines:
+            lines.append(f"  code  │ {code_lines[0][:100]}")
+            for cl in code_lines[1:]:
+                lines.append(f"        │ {cl[:100]}")
+            total_code_lines = len(code.strip().splitlines())
+            if total_code_lines > 2:
+                lines.append(f"        │ … ({total_code_lines - 2} more lines)")
+
+    # Stdout preview — show first 3 lines
+    if stdout:
+        out_lines = [l for l in stdout.strip().splitlines() if l.strip()][:3]
+        if out_lines:
+            lines.append(f"  out   │ {out_lines[0][:120]}")
+            for ol in out_lines[1:]:
+                lines.append(f"        │ {ol[:120]}")
+            total_out_lines = len(stdout.strip().splitlines())
+            if total_out_lines > 3:
+                lines.append(f"        │ … ({total_out_lines - 3} more lines)")
+
+    # Stderr — only if present
+    if stderr:
+        err_lines = stderr.strip().splitlines()[:2]
+        lines.append(f"  err   │ {err_lines[0][:120]}")
+        for el in err_lines[1:]:
+            lines.append(f"        │ {el[:120]}")
+
+    return "\n".join(lines)
+
+
 class RRStep(SubRunner[ACEStepContext]):
     """Recursive Reflector as a pipeline step (SubRunner pattern).
 
@@ -53,7 +102,7 @@ class RRStep(SubRunner[ACEStepContext]):
 
     # StepProtocol
     requires = frozenset({"trace", "skillbook"})
-    provides = frozenset({"reflection"})
+    provides = frozenset({"reflections"})
 
     def __init__(
         self,
@@ -91,19 +140,30 @@ class RRStep(SubRunner[ACEStepContext]):
             rr_ctx: RRIterationContext = ctx  # type: ignore[assignment]
 
             exec_result = rr_ctx.exec_result
+            stdout = getattr(exec_result, "stdout", None) if exec_result else None
+            stderr = getattr(exec_result, "stderr", None) if exec_result else None
             iteration_log.append(
                 {
                     "iteration": i,
                     "code": rr_ctx.code,
-                    "stdout": (
-                        getattr(exec_result, "stdout", None) if exec_result else None
-                    ),
-                    "stderr": (
-                        getattr(exec_result, "stderr", None) if exec_result else None
-                    ),
+                    "stdout": stdout,
+                    "stderr": stderr,
                     "terminated": rr_ctx.terminated,
+                    "llm_metadata": rr_ctx.llm_metadata,
                 }
             )
+
+            # Structured iteration logging
+            status = "FINAL" if rr_ctx.terminated else "continue"
+            log_msg = _format_iteration_log(
+                iteration=i + 1,
+                max_iterations=self.max_iterations,
+                status=status,
+                code=rr_ctx.code,
+                stdout=stdout,
+                stderr=stderr,
+            )
+            logger.info("\n%s", log_msg)
 
             if self._is_done(ctx):
                 return self._extract_result(ctx)
@@ -177,9 +237,19 @@ class RRStep(SubRunner[ACEStepContext]):
     # ------------------------------------------------------------------
 
     def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
-        """Run the Recursive Reflector and attach the reflection to *ctx*."""
+        """Run the Recursive Reflector and attach the reflection(s) to *ctx*.
+
+        When the trace is a batch dict (has a ``"tasks"`` key), a single
+        REPL session analyzes all tasks.  The RR uses ``parallel_map`` +
+        ``ask_llm`` to explore tasks concurrently.  Per-task results are
+        parsed from the ``FINAL()`` output into individual
+        ``ReflectorOutput`` objects.
+        """
         trace = ctx.trace or {}
-        if isinstance(trace, dict):
+        if isinstance(trace, dict) and "tasks" in trace:
+            reflections = self._run_batch_reflections(trace, ctx.skillbook)
+            return ctx.replace(reflections=reflections)
+        elif isinstance(trace, dict):
             reflection = self._run_reflection(
                 traces=trace,
                 question=trace.get("question", ""),
@@ -192,7 +262,97 @@ class RRStep(SubRunner[ACEStepContext]):
                 skillbook=ctx.skillbook,
                 trace=trace,
             )
-        return ctx.replace(reflection=reflection)
+        return ctx.replace(reflections=(reflection,))
+
+    # ------------------------------------------------------------------
+    # Batch reflection
+    # ------------------------------------------------------------------
+
+    def _run_batch_reflections(
+        self,
+        batch_trace: dict[str, Any],
+        skillbook: Any,
+    ) -> tuple[ReflectorOutput, ...]:
+        """Run a single REPL session for all tasks in a batch.
+
+        The RR sees the full batch (all tasks) in one session and uses
+        ``ask_llm`` + ``parallel_map`` to analyze them concurrently.
+        Returns per-task ``ReflectorOutput`` objects parsed from the
+        single ``FINAL()`` output.
+        """
+        tasks = batch_trace["tasks"]
+
+        # Single REPL session with the full batch trace
+        reflection = self._run_reflection(
+            traces=batch_trace,
+            skillbook=skillbook,
+        )
+
+        # Split the batch result into per-task ReflectorOutputs
+        return self._split_batch_reflection(reflection, tasks)
+
+    def _split_batch_reflection(
+        self,
+        reflection: ReflectorOutput,
+        tasks: list[dict[str, Any]],
+    ) -> tuple[ReflectorOutput, ...]:
+        """Extract per-task ReflectorOutputs from a batch FINAL result.
+
+        The FINAL dict should contain a ``"tasks"`` key with per-task
+        results.  If missing, the single reflection is duplicated for
+        all tasks with task_id metadata.
+        """
+        task_results = reflection.raw.get("tasks", [])
+
+        if not task_results or len(task_results) != len(tasks):
+            # Fallback: duplicate the single reflection for each task
+            logger.warning(
+                "Batch FINAL missing per-task results (got %d, expected %d); "
+                "duplicating single reflection",
+                len(task_results) if task_results else 0,
+                len(tasks),
+            )
+            fallback = []
+            for i, task in enumerate(tasks):
+                r = reflection.model_copy(deep=True)
+                r.raw["task_id"] = task.get("task_id", f"task_{i}")
+                fallback.append(r)
+            return tuple(fallback)
+
+        # Build a ReflectorOutput per task from the batch results
+        reflections: list[ReflectorOutput] = []
+        rr_trace = reflection.raw.get("rr_trace", {})
+        for i, (task, tr) in enumerate(zip(tasks, task_results)):
+            task_id = task.get("task_id", f"task_{i}")
+            if not isinstance(tr, dict):
+                tr = {}
+            learnings = tr.get("extracted_learnings", tr.get("learnings", []))
+            reflections.append(
+                ReflectorOutput(
+                    reasoning=tr.get("reasoning", reflection.reasoning),
+                    error_identification=str(tr.get("error_identification", "")),
+                    root_cause_analysis=tr.get("root_cause_analysis", ""),
+                    correct_approach=tr.get(
+                        "correct_approach", reflection.correct_approach
+                    ),
+                    key_insight=tr.get("key_insight", reflection.key_insight),
+                    extracted_learnings=[
+                        ExtractedLearning(
+                            learning=l.get("learning", ""),
+                            atomicity_score=float(l.get("atomicity_score", 0.0)),
+                            evidence=l.get("evidence", ""),
+                        )
+                        for l in learnings
+                        if isinstance(l, dict)
+                    ],
+                    raw={
+                        **tr,
+                        "task_id": task_id,
+                        "rr_trace": rr_trace,
+                    },
+                )
+            )
+        return tuple(reflections)
 
     # ------------------------------------------------------------------
     # ReflectorLike protocol
@@ -396,15 +556,14 @@ class RRStep(SubRunner[ACEStepContext]):
         trace_obj: Any,
     ) -> str:
         """Format the prompt template with previews and metadata."""
-        t_question = traces.get("question", "")
-        t_ground_truth = traces.get("ground_truth")
-        t_feedback = traces.get("feedback")
-        t_steps = traces.get("steps", [])
-        first_agent: dict[str, str] = next(
-            (s for s in t_steps if s.get("role") == "agent"), {}
-        )
-        t_reasoning = first_agent.get("reasoning", "")
-        t_answer = first_agent.get("answer", "")
+        import json as _json
+
+        is_batch = isinstance(traces, dict) and "tasks" in traces
+
+        t_steps = traces.get("steps", []) if not is_batch else []
+
+        # Compute total trace size in chars for size-adaptive prompts
+        trace_size_chars = len(_json.dumps(traces, default=str))
 
         skillbook_text = ""
         if skillbook is not None:
@@ -413,22 +572,77 @@ class RRStep(SubRunner[ACEStepContext]):
             else:
                 skillbook_text = str(skillbook)
 
-        return self.prompt_template.format(
-            question_length=len(t_question),
-            question_preview=_preview(t_question),
-            reasoning_length=len(t_reasoning) if t_reasoning else 0,
-            reasoning_preview=_preview(t_reasoning),
-            answer_length=len(t_answer) if t_answer else 0,
-            answer_preview=_preview(t_answer),
-            ground_truth_length=len(t_ground_truth) if t_ground_truth else 0,
-            ground_truth_preview=_preview(t_ground_truth),
-            feedback_length=len(t_feedback) if t_feedback else 0,
-            feedback_preview=_preview(t_feedback),
-            skillbook_length=len(skillbook_text),
-            step_count=(
-                len(t_steps) if t_steps else (len(trace_obj) if trace_obj else 0)
-            ),
-        )
+        if is_batch:
+            # Batch mode: all tasks in one REPL session
+            tasks = traces["tasks"]
+            total_steps = sum(len(t.get("trace", [])) for t in tasks)
+            # Build per-task preview rows
+            preview_rows = []
+            for t in tasks:
+                tid = t.get("task_id", "?")
+                tr = t.get("trace", [])
+                first_msg = ""
+                if tr and isinstance(tr[0], dict):
+                    first_msg = tr[0].get("content", "")
+                preview_rows.append(
+                    f"| `{tid}` | {len(tr)} messages | "
+                    f'"{_preview(first_msg, 80)}" |'
+                )
+
+            fmt_kwargs = dict(
+                traces_description=(
+                    f"Batch of {len(tasks)} tasks. "
+                    f"Keys: tasks (list of {{task_id, trace}})"
+                ),
+                batch_variables=(
+                    f'| `traces["tasks"]` | All tasks in this batch '
+                    f"(list of {{task_id, trace}}) | "
+                    f"{len(tasks)} tasks |\n"
+                ),
+                traces_previews=(
+                    f"| Task | Steps | First message |\n"
+                    f"|------|-------|---------------|\n" + "\n".join(preview_rows)
+                ),
+                step_count=total_steps,
+                skillbook_length=len(skillbook_text),
+                trace_size_chars=trace_size_chars,
+                max_iterations=self.max_iterations,
+                task_count=len(tasks),
+            )
+        else:
+            # Single-trace mode: original format
+            t_question = traces.get("question", "")
+            t_ground_truth = traces.get("ground_truth")
+            t_feedback = traces.get("feedback")
+            first_agent: dict[str, str] = next(
+                (s for s in t_steps if s.get("role") == "agent"), {}
+            )
+            t_reasoning = first_agent.get("reasoning", "")
+
+            fmt_kwargs = dict(
+                traces_description=(
+                    "Dict with keys: question, ground_truth, feedback, "
+                    "steps (List[Dict])"
+                ),
+                batch_variables="",
+                traces_previews=(
+                    f"| Field | Preview | Size |\n"
+                    f"|-------|---------|------|\n"
+                    f'| `traces["question"]` | "{_preview(t_question)}" | {len(t_question)} chars |\n'
+                    f'| first step | "{_preview(t_reasoning)}..." | {len(t_reasoning) if t_reasoning else 0} chars |\n'
+                    f'| `traces["ground_truth"]` | "{_preview(t_ground_truth)}" | {len(t_ground_truth) if t_ground_truth else 0} chars |\n'
+                    f'| `traces["feedback"]` | "{_preview(t_feedback)}..." | {len(t_feedback) if t_feedback else 0} chars |'
+                ),
+                step_count=(
+                    len(t_steps) if t_steps else (len(trace_obj) if trace_obj else 0)
+                ),
+                skillbook_length=len(skillbook_text),
+                trace_size_chars=trace_size_chars,
+                max_iterations=self.max_iterations,
+                task_count=1,
+            )
+
+        return self.prompt_template.format(**fmt_kwargs)
 
     # ------------------------------------------------------------------
     # Timeout fallback

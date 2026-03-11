@@ -72,7 +72,7 @@ class MockSkillManager:
     def update_skills(
         self,
         *,
-        reflection: ReflectorOutput,
+        reflections: tuple[ReflectorOutput, ...],
         skillbook: Any,
         question_context: str,
         progress: str,
@@ -80,7 +80,7 @@ class MockSkillManager:
     ) -> SkillManagerOutput:
         self.calls.append(
             {
-                "reflection": reflection,
+                "reflections": reflections,
                 "question_context": question_context,
                 "progress": progress,
             }

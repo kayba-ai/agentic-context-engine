@@ -208,16 +208,19 @@ class RecursiveReflector:
         # Build initial prompt with previews and metadata
         # Full data is injected into sandbox - previews provide grounding
         initial_prompt = self.prompt_template.format(
-            question_length=len(t_question),
-            question_preview=_preview(t_question),
-            reasoning_length=len(t_reasoning) if t_reasoning else 0,
-            reasoning_preview=_preview(t_reasoning),
-            answer_length=len(t_answer) if t_answer else 0,
-            answer_preview=_preview(t_answer),
-            ground_truth_length=len(t_ground_truth) if t_ground_truth else 0,
-            ground_truth_preview=_preview(t_ground_truth),
-            feedback_length=len(t_feedback) if t_feedback else 0,
-            feedback_preview=_preview(t_feedback),
+            traces_description=(
+                "Dict with keys: question, ground_truth, feedback, "
+                "steps (List[Dict])"
+            ),
+            batch_variables="",
+            traces_previews=(
+                f"| Field | Preview | Size |\n"
+                f"|-------|---------|------|\n"
+                f'| `traces["question"]` | "{_preview(t_question)}" | {len(t_question)} chars |\n'
+                f'| first step | "{_preview(t_reasoning)}..." | {len(t_reasoning) if t_reasoning else 0} chars |\n'
+                f'| `traces["ground_truth"]` | "{_preview(t_ground_truth)}" | {len(t_ground_truth) if t_ground_truth else 0} chars |\n'
+                f'| `traces["feedback"]` | "{_preview(t_feedback)}..." | {len(t_feedback) if t_feedback else 0} chars |'
+            ),
             skillbook_length=len(skillbook_text),
             step_count=len(t_steps) if t_steps else (len(trace) if trace else 0),
         )

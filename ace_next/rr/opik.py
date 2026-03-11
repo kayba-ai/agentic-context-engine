@@ -1,8 +1,9 @@
 """RROpikStep -- log Recursive Reflector traces to Opik.
 
-Pure side-effect step that reads ``ctx.reflection.raw["rr_trace"]``
-(populated by :class:`RRStep`) and creates a hierarchical Opik trace
-with child spans per REPL iteration.
+Pure side-effect step that iterates ``ctx.reflections`` and reads
+``reflection.raw["rr_trace"]`` from each (populated by :class:`RRStep`)
+to create a hierarchical Opik trace with child spans per REPL iteration
+and sub-agent call.
 
 Place after ``RRStep`` in the pipeline.  Gracefully degrades to a
 no-op when Opik is not installed or is disabled.
@@ -11,16 +12,19 @@ no-op when Opik is not installed or is disabled.
 opt-in signal.  Opik is never auto-enabled just because the package
 is installed.
 
+This step replaces the need for a separate LiteLLM Opik callback --
+all LLM telemetry (model, tokens, cost) is captured from the
+``LLMResponse.raw`` metadata that flows through the iteration log
+and sub-agent call history.
+
 Resulting trace hierarchy::
 
     rr_reflect (trace)
-    +-- rr_iteration_0 (span)
+    +-- rr_iteration_0 (span)  — LLM call: model, tokens, cost
     +-- rr_iteration_1 (span)
-    +-- rr_iteration_2 (span)   <-- FINAL called here
-
-Each iteration span logs: code sent to sandbox, stdout/stderr,
-terminated flag.  Sub-agent call history is attached to the parent
-trace metadata.
+    +-- rr_iteration_2 (span)  <-- FINAL called here
+    +-- subagent_call_1 (span) — sub-agent LLM call details
+    +-- subagent_call_2 (span)
 """
 
 from __future__ import annotations
@@ -55,16 +59,21 @@ def _opik_disabled() -> bool:
 class RROpikStep:
     """Log Recursive Reflector REPL traces to Opik.
 
-    Pure side-effect step -- reads ``ctx.reflection.raw["rr_trace"]``
-    and creates one Opik trace per RR invocation with child spans per
-    iteration.  Never mutates the context.
+    Pure side-effect step -- iterates ``ctx.reflections`` and reads
+    ``reflection.raw["rr_trace"]`` from each to create one Opik trace
+    per reflection with child spans per iteration and sub-agent call.
+    Never mutates the context.
+
+    All LLM telemetry (model, tokens, cost) is read from
+    ``llm_metadata`` fields already captured in the iteration log and
+    sub-agent call history -- no separate LiteLLM callback needed.
 
     Args:
         project_name: Opik project name.
         tags: Tags applied to every trace.
     """
 
-    requires: frozenset[str] = frozenset({"reflection"})
+    requires: frozenset[str] = frozenset({"reflections"})
     provides: frozenset[str] = frozenset()
 
     def __init__(
@@ -89,24 +98,24 @@ class RROpikStep:
                     host=host or None,
                 )
             except Exception as exc:
-                logger.debug("RROpikStep: failed to create Opik client: %s", exc)
+                logger.warning("RROpikStep: failed to create Opik client: %s", exc)
                 self.enabled = False
 
     def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
         if not self.enabled:
             return ctx
 
-        if not ctx.reflection:
-            return ctx
+        for reflection in ctx.reflections:
+            rr_trace = reflection.raw.get("rr_trace")
+            if not rr_trace:
+                continue
+            try:
+                self._log_trace(ctx, reflection, rr_trace)
+            except Exception as exc:
+                logger.debug("RROpikStep: failed to log trace (non-critical): %s", exc)
 
-        rr_trace = ctx.reflection.raw.get("rr_trace")
-        if not rr_trace:
-            return ctx
-
-        try:
-            self._log_trace(ctx, rr_trace)
-        except Exception as exc:
-            logger.debug("RROpikStep: failed to log trace (non-critical): %s", exc)
+        # Flush after each sample so traces appear in Opik in real time
+        self.flush()
 
         return ctx
 
@@ -114,14 +123,19 @@ class RROpikStep:
     # Private helpers
     # ------------------------------------------------------------------
 
-    def _log_trace(self, ctx: ACEStepContext, rr_trace: dict[str, Any]) -> None:
+    def _log_trace(
+        self,
+        ctx: ACEStepContext,
+        reflection: Any,
+        rr_trace: dict[str, Any],
+    ) -> None:
         """Build and send an Opik trace with child spans from RR data."""
         iterations = rr_trace.get("iterations", [])
         subagent_calls = rr_trace.get("subagent_calls", [])
 
         trace_input = self._build_input(ctx)
-        trace_output = self._build_output(ctx, rr_trace)
-        metadata = self._build_metadata(rr_trace, subagent_calls)
+        trace_output = self._build_output(reflection, rr_trace)
+        metadata = self._build_metadata(rr_trace, iterations, subagent_calls)
         tags = list(self.tags)
 
         assert self._client is not None
@@ -134,26 +148,82 @@ class RROpikStep:
             project_name=self.project_name,
         )
 
-        # Create a child span per iteration
+        # Child span per REPL iteration (includes LLM call telemetry)
         for entry in iterations:
-            span_input = {"code": entry.get("code")}
-            span_output = {
-                "stdout": entry.get("stdout"),
-                "stderr": entry.get("stderr"),
-            }
-            span_metadata = {
-                "iteration": entry.get("iteration"),
-                "terminated": entry.get("terminated", False),
-            }
-            span = trace.span(
-                name=f"rr_iteration_{entry.get('iteration', '?')}",
-                input=span_input,
-                output=span_output,
-                metadata=span_metadata,
-            )
-            span.end()
+            self._log_iteration_span(trace, entry)
+
+        # Child span per sub-agent call
+        for call in subagent_calls:
+            self._log_subagent_span(trace, call)
 
         trace.end()
+
+    def _log_iteration_span(
+        self, trace: Any, entry: dict[str, Any]
+    ) -> None:
+        """Create a child span for a single REPL iteration."""
+        llm_meta = entry.get("llm_metadata") or {}
+        usage = llm_meta.get("usage") or {}
+
+        span_input = {"code": entry.get("code")}
+        span_output = {
+            "stdout": entry.get("stdout"),
+            "stderr": entry.get("stderr"),
+        }
+        span_metadata: dict[str, Any] = {
+            "iteration": entry.get("iteration"),
+            "terminated": entry.get("terminated", False),
+        }
+
+        # LLM telemetry
+        if llm_meta.get("model"):
+            span_metadata["model"] = llm_meta["model"]
+        if usage:
+            span_metadata["usage"] = usage
+        if llm_meta.get("cost") is not None:
+            span_metadata["cost"] = llm_meta["cost"]
+        if llm_meta.get("provider"):
+            span_metadata["provider"] = llm_meta["provider"]
+
+        span = trace.span(
+            name=f"rr_iteration_{entry.get('iteration', '?')}",
+            input=span_input,
+            output=span_output,
+            metadata=span_metadata,
+        )
+        span.end()
+
+    def _log_subagent_span(
+        self, trace: Any, call: dict[str, Any]
+    ) -> None:
+        """Create a child span for a single sub-agent LLM call."""
+        usage = call.get("usage") or {}
+
+        span_input = {
+            "question": call.get("question"),
+            "context_length": call.get("context_length"),
+        }
+        span_output = {
+            "response_length": call.get("response_length"),
+        }
+        span_metadata: dict[str, Any] = {
+            "call_number": call.get("call_number"),
+            "mode": call.get("mode"),
+        }
+        if call.get("model"):
+            span_metadata["model"] = call["model"]
+        if usage:
+            span_metadata["usage"] = usage
+        if call.get("cost") is not None:
+            span_metadata["cost"] = call["cost"]
+
+        span = trace.span(
+            name=f"subagent_call_{call.get('call_number', '?')}",
+            input=span_input,
+            output=span_output,
+            metadata=span_metadata,
+        )
+        span.end()
 
     def _build_input(self, ctx: ACEStepContext) -> dict[str, Any]:
         """Extract input data from the context."""
@@ -167,14 +237,14 @@ class RROpikStep:
         return result
 
     def _build_output(
-        self, ctx: ACEStepContext, rr_trace: dict[str, Any]
+        self, reflection: Any, rr_trace: dict[str, Any]
     ) -> dict[str, Any]:
         """Extract output data from the reflection."""
-        result: dict[str, Any] = {}
-        if ctx.reflection:
-            result["key_insight"] = ctx.reflection.key_insight
-            result["reasoning"] = ctx.reflection.reasoning[:500]
-            result["learnings_count"] = len(ctx.reflection.extracted_learnings)
+        result: dict[str, Any] = {
+            "key_insight": reflection.key_insight,
+            "reasoning": reflection.reasoning[:500],
+            "learnings_count": len(reflection.extracted_learnings),
+        }
         if rr_trace.get("timed_out"):
             result["timed_out"] = True
         return result
@@ -182,15 +252,49 @@ class RROpikStep:
     def _build_metadata(
         self,
         rr_trace: dict[str, Any],
+        iterations: list[dict[str, Any]],
         subagent_calls: list[dict[str, Any]],
     ) -> dict[str, Any]:
-        """Build metadata dict for the parent trace."""
+        """Build metadata dict for the parent trace with aggregated LLM stats."""
         metadata: dict[str, Any] = {
             "total_iterations": rr_trace.get("total_iterations", 0),
         }
+
+        # Aggregate token/cost totals across all LLM calls
+        total_prompt_tokens = 0
+        total_completion_tokens = 0
+        total_cost = 0.0
+        model = None
+
+        for entry in iterations:
+            llm_meta = entry.get("llm_metadata") or {}
+            usage = llm_meta.get("usage") or {}
+            total_prompt_tokens += usage.get("prompt_tokens", 0) or 0
+            total_completion_tokens += usage.get("completion_tokens", 0) or 0
+            if llm_meta.get("cost") is not None:
+                total_cost += llm_meta["cost"]
+            if not model and llm_meta.get("model"):
+                model = llm_meta["model"]
+
+        for call in subagent_calls:
+            usage = call.get("usage") or {}
+            total_prompt_tokens += usage.get("prompt_tokens", 0) or 0
+            total_completion_tokens += usage.get("completion_tokens", 0) or 0
+            if call.get("cost") is not None:
+                total_cost += call["cost"]
+
+        if model:
+            metadata["model"] = model
+        if total_prompt_tokens or total_completion_tokens:
+            metadata["total_prompt_tokens"] = total_prompt_tokens
+            metadata["total_completion_tokens"] = total_completion_tokens
+            metadata["total_tokens"] = total_prompt_tokens + total_completion_tokens
+        if total_cost:
+            metadata["total_cost"] = total_cost
+
         if subagent_calls:
             metadata["subagent_call_count"] = len(subagent_calls)
-            metadata["subagent_calls"] = subagent_calls
+
         return metadata
 
     def flush(self) -> None:

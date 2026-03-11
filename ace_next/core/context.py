@@ -115,7 +115,7 @@ class ACEStepContext(StepContext):
     skillbook: SkillbookView | None = None
     trace: object | None = None
     agent_output: AgentOutput | None = None
-    reflection: ReflectorOutput | None = None
+    reflections: tuple[ReflectorOutput, ...] = ()
     skill_manager_output: UpdateBatch | None = None
 
     # -- Progress tracking --

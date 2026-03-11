@@ -207,8 +207,8 @@ for r in results2:
         ctx = r.output
         print(f"  Q: {r.sample.question}")
         print(f"  A: {ctx.agent_output.final_answer if ctx.agent_output else 'N/A'}")
-        if ctx.reflection:
-            print(f"  Insight: {ctx.reflection.key_insight}")
+        if ctx.reflections:
+            print(f"  Insight: {ctx.reflections[0].key_insight}")
         print()
 
 # %% [markdown]
@@ -335,7 +335,7 @@ for r in results_manual:
             f"  Agent answer:      {out.agent_output.final_answer if out.agent_output else 'N/A'}"
         )
         print(
-            f"  Reflector insight:  {out.reflection.key_insight if out.reflection else 'N/A'}"
+            f"  Reflector insight:  {out.reflections[0].key_insight if out.reflections else 'N/A'}"
         )
         print(f"  Skills now:        {skillbook5.stats()}")
 

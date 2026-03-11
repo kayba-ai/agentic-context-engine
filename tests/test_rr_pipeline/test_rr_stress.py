@@ -109,7 +109,7 @@ class TestLoopLifecycle:
                 feedback="Correct!",
             )
         )
-        result = result_ctx.reflection
+        result = result_ctx.reflections[0]
         assert isinstance(result, ReflectorOutput)
         assert result.key_insight == "insight"
         assert llm.call_count == 2
@@ -120,8 +120,8 @@ class TestLoopLifecycle:
         llm = MockLLM([premature, EXPLORE, FINAL_GOOD])
         rr = _make_rr(llm)
         result_ctx = rr(_make_ctx())
-        assert result_ctx.reflection is not None
-        assert result_ctx.reflection.key_insight == "insight"
+        assert len(result_ctx.reflections) == 1
+        assert result_ctx.reflections[0].key_insight == "insight"
         assert llm.call_count == 3
 
     def test_max_iterations_timeout(self):
@@ -129,9 +129,9 @@ class TestLoopLifecycle:
         llm = MockLLM([EXPLORE] * 3)
         rr = _make_rr(llm, max_iterations=3, enable_fallback_synthesis=False)
         result_ctx = rr(_make_ctx())
-        assert result_ctx.reflection is not None
-        assert isinstance(result_ctx.reflection, ReflectorOutput)
-        assert "max iterations" in result_ctx.reflection.reasoning.lower()
+        assert len(result_ctx.reflections) == 1
+        assert isinstance(result_ctx.reflections[0], ReflectorOutput)
+        assert "max iterations" in result_ctx.reflections[0].reasoning.lower()
 
     def test_budget_exhaustion_stops_gracefully(self):
         """Budget runs out mid-loop — LLM should NOT be called."""
@@ -161,17 +161,17 @@ class TestLoopLifecycle:
         llm = MockLLM([raw])
         rr = _make_rr(llm)
         result_ctx = rr(_make_ctx())
-        assert result_ctx.reflection is not None
-        assert result_ctx.reflection.key_insight == "di"
+        assert len(result_ctx.reflections) == 1
+        assert result_ctx.reflections[0].key_insight == "di"
 
     def test_empty_llm_response_gets_feedback(self):
         """Empty response triggers retry feedback, then FINAL succeeds."""
         llm = MockLLM(["", EXPLORE, FINAL_GOOD])
         rr = _make_rr(llm)
         result_ctx = rr(_make_ctx())
-        assert result_ctx.reflection is not None
-        assert isinstance(result_ctx.reflection, ReflectorOutput)
-        assert result_ctx.reflection.key_insight == "insight"
+        assert len(result_ctx.reflections) == 1
+        assert isinstance(result_ctx.reflections[0], ReflectorOutput)
+        assert result_ctx.reflections[0].key_insight == "insight"
         assert llm.call_count == 3
 
     def test_20_iterations_message_accumulation(self):
@@ -179,8 +179,8 @@ class TestLoopLifecycle:
         llm = MockLLM([EXPLORE] * 20)
         rr = _make_rr(llm, max_iterations=20, enable_fallback_synthesis=False)
         result_ctx = rr(_make_ctx())
-        assert result_ctx.reflection is not None
-        assert "max iterations" in result_ctx.reflection.reasoning.lower()
+        assert len(result_ctx.reflections) == 1
+        assert "max iterations" in result_ctx.reflections[0].reasoning.lower()
         assert llm.call_count == 20
 
 
@@ -348,8 +348,8 @@ class TestEntryPoints:
         }
         ctx = ACEStepContext(trace=traces, skillbook=SkillbookView(Skillbook()))
         result_ctx = rr(ctx)
-        assert isinstance(result_ctx.reflection, ReflectorOutput)
-        assert result_ctx.reflection.key_insight == "insight"
+        assert isinstance(result_ctx.reflections[0], ReflectorOutput)
+        assert result_ctx.reflections[0].key_insight == "insight"
 
     def test_run_loop_direct_with_all_kwargs(self):
         """run_loop() standalone with full kwargs produces valid output."""

@@ -100,10 +100,10 @@ FINAL({
         )
         result_ctx = rr(ctx)
 
-        assert result_ctx.reflection is not None
-        assert isinstance(result_ctx.reflection, ReflectorOutput)
-        assert result_ctx.reflection.key_insight == "Simple arithmetic handled well"
-        assert len(result_ctx.reflection.extracted_learnings) == 1
+        assert len(result_ctx.reflections) == 1
+        assert isinstance(result_ctx.reflections[0], ReflectorOutput)
+        assert result_ctx.reflections[0].key_insight == "Simple arithmetic handled well"
+        assert len(result_ctx.reflections[0].extracted_learnings) == 1
         assert llm.call_count == 2
 
     def test_timeout_produces_output(self):
@@ -122,9 +122,9 @@ FINAL({
         ctx = _make_ctx(question="What is 2+2?", answer="4", ground_truth="4")
         result_ctx = rr(ctx)
 
-        assert result_ctx.reflection is not None
-        assert isinstance(result_ctx.reflection, ReflectorOutput)
-        assert "max iterations" in result_ctx.reflection.reasoning.lower()
+        assert len(result_ctx.reflections) == 1
+        assert isinstance(result_ctx.reflections[0], ReflectorOutput)
+        assert "max iterations" in result_ctx.reflections[0].reasoning.lower()
 
     def test_premature_final_rejected_then_accepted(self):
         """FINAL on iteration 0 is rejected; on iteration 1 it's accepted."""
@@ -146,8 +146,8 @@ FINAL({
 
         result_ctx = rr(_make_ctx())
 
-        assert result_ctx.reflection is not None
-        assert result_ctx.reflection.key_insight == "explored"
+        assert len(result_ctx.reflections) == 1
+        assert result_ctx.reflections[0].key_insight == "explored"
         assert llm.call_count == 3  # premature + explore + final
 
     def test_direct_json_response(self):
@@ -166,18 +166,33 @@ FINAL({
 
         result_ctx = rr(_make_ctx())
 
-        assert result_ctx.reflection is not None
-        assert result_ctx.reflection.key_insight == "insight"
+        assert len(result_ctx.reflections) == 1
+        assert result_ctx.reflections[0].key_insight == "insight"
 
     def test_step_protocol_attributes(self):
         llm = MockLLM()
         rr = RRStep(llm)
         assert "trace" in rr.requires
         assert "skillbook" in rr.requires
-        assert "reflection" in rr.provides
+        assert "reflections" in rr.provides
+        assert "reflection" not in rr.provides
+
+    def test_inner_context_uses_singular_reflection(self):
+        """RRIterationContext.reflection (inner) is separate from ACEStepContext.reflections (outer)."""
+        from ace_next.rr.context import RRIterationContext
+        from ace_next.rr.steps import CheckResultStep
+
+        # Inner context has singular 'reflection'
+        inner = RRIterationContext()
+        assert hasattr(inner, "reflection")
+        assert not hasattr(inner, "reflections")
+
+        # CheckResultStep provides singular 'reflection' (inner)
+        assert "reflection" in CheckResultStep.provides
+        assert "reflections" not in CheckResultStep.provides
 
     def test_call_produces_reflection_on_context(self):
-        """RRStep.__call__ populates ctx.reflection."""
+        """RRStep.__call__ populates ctx.reflections."""
         explore = '```python\nprint("exploring")\n```'
         final = """```python
 FINAL({
@@ -204,9 +219,9 @@ FINAL({
         )
         result_ctx = rr(ctx)
 
-        assert result_ctx.reflection is not None
-        assert isinstance(result_ctx.reflection, ReflectorOutput)
-        assert result_ctx.reflection.key_insight == "step test"
+        assert len(result_ctx.reflections) == 1
+        assert isinstance(result_ctx.reflections[0], ReflectorOutput)
+        assert result_ctx.reflections[0].key_insight == "step test"
 
 
 @pytest.mark.unit
@@ -313,9 +328,9 @@ FINAL({
 
         result_ctx = rr(_make_ctx())
 
-        assert result_ctx.reflection is not None
-        assert "rr_trace" in result_ctx.reflection.raw
-        rr_trace = result_ctx.reflection.raw["rr_trace"]
+        assert len(result_ctx.reflections) == 1
+        assert "rr_trace" in result_ctx.reflections[0].raw
+        rr_trace = result_ctx.reflections[0].raw["rr_trace"]
         assert rr_trace["total_iterations"] == 2
         assert rr_trace["timed_out"] is False
         assert len(rr_trace["iterations"]) == 2
@@ -339,9 +354,9 @@ FINAL({
 
         result_ctx = rr(_make_ctx())
 
-        assert result_ctx.reflection is not None
-        assert "rr_trace" in result_ctx.reflection.raw
-        rr_trace = result_ctx.reflection.raw["rr_trace"]
+        assert len(result_ctx.reflections) == 1
+        assert "rr_trace" in result_ctx.reflections[0].raw
+        rr_trace = result_ctx.reflections[0].raw["rr_trace"]
         assert rr_trace["total_iterations"] == 2
         assert rr_trace["timed_out"] is True
 
@@ -356,8 +371,8 @@ FINAL({"reasoning": "r", "key_insight": "k", "correct_approach": "a"})
 
         result_ctx = rr(_make_ctx())
 
-        assert result_ctx.reflection is not None
-        it0 = result_ctx.reflection.raw["rr_trace"]["iterations"][0]
+        assert len(result_ctx.reflections) == 1
+        it0 = result_ctx.reflections[0].raw["rr_trace"]["iterations"][0]
         assert it0["code"] is not None
         assert "hello" in (it0["stdout"] or "")
 
@@ -376,7 +391,7 @@ class TestRROpikStep:
             assert not step.enabled
 
     def test_noop_when_no_reflection(self):
-        """RROpikStep returns ctx unchanged when reflection is None."""
+        """RROpikStep returns ctx unchanged when reflections is empty."""
         from ace_next.rr.opik import RROpikStep
 
         step = RROpikStep(project_name="test")
@@ -392,5 +407,5 @@ class TestRROpikStep:
         from ace_next.rr.opik import RROpikStep
 
         step = RROpikStep(project_name="test")
-        assert "reflection" in step.requires
+        assert "reflections" in step.requires
         assert len(step.provides) == 0

@@ -36,7 +36,7 @@ class SkillManager:
 
         sm = SkillManager(llm)
         output = sm.update_skills(
-            reflection=reflection_output,
+            reflections=(reflection_output,),
             skillbook=skillbook,
             question_context="Math problem solving",
             progress="5/10 correct",
@@ -58,18 +58,19 @@ class SkillManager:
     def update_skills(
         self,
         *,
-        reflection: ReflectorOutput,
+        reflections: tuple[ReflectorOutput, ...],
         skillbook: Any,
         question_context: str,
         progress: str,
         **kwargs: Any,
     ) -> SkillManagerOutput:
-        """Generate update operations based on the reflection.
+        """Generate update operations based on the reflections.
 
         This method signature matches :class:`SkillManagerLike`.
 
         Args:
-            reflection: The Reflector's analysis.
+            reflections: Tuple of Reflector analyses (1-tuple for single,
+                N-tuple for batch).
             skillbook: Current skillbook (duck-typed, needs
                 ``as_prompt``, ``stats``).
             question_context: Description of the task domain.
@@ -79,21 +80,24 @@ class SkillManager:
         Returns:
             :class:`SkillManagerOutput` containing the update operations.
         """
-        reflection_data = {
-            "reasoning": reflection.reasoning,
-            "error_identification": reflection.error_identification,
-            "root_cause_analysis": reflection.root_cause_analysis,
-            "correct_approach": reflection.correct_approach,
-            "key_insight": reflection.key_insight,
-            "extracted_learnings": [
-                l.model_dump() for l in reflection.extracted_learnings
-            ],
-        }
+        reflections_data = [
+            {
+                "reasoning": r.reasoning,
+                "error_identification": r.error_identification,
+                "root_cause_analysis": r.root_cause_analysis,
+                "correct_approach": r.correct_approach,
+                "key_insight": r.key_insight,
+                "extracted_learnings": [
+                    l.model_dump() for l in r.extracted_learnings
+                ],
+            }
+            for r in reflections
+        ]
 
         prompt = self.prompt_template.format(
             progress=progress,
             stats=json.dumps(skillbook.stats()),
-            reflection=json.dumps(reflection_data, ensure_ascii=False, indent=2),
+            reflections=json.dumps(reflections_data, ensure_ascii=False, indent=2),
             skillbook=skillbook.as_prompt() or "(empty skillbook)",
             question_context=question_context,
         )

@@ -147,7 +147,7 @@ class OpikStep:
                     host=host or None,
                 )
             except Exception as exc:
-                logger.debug("OpikStep: failed to create Opik client: %s", exc)
+                logger.warning("OpikStep: failed to create Opik client: %s", exc)
                 self.enabled = False
 
     def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
@@ -227,9 +227,11 @@ class OpikStep:
             "skill_count": len(ctx.skillbook) if ctx.skillbook else 0,
         }
 
-        if ctx.reflection:
-            metadata["key_insight"] = ctx.reflection.key_insight
-            metadata["learnings_count"] = len(ctx.reflection.extracted_learnings)
+        if ctx.reflections:
+            metadata["key_insight"] = ctx.reflections[-1].key_insight
+            metadata["learnings_count"] = sum(
+                len(r.extracted_learnings) for r in ctx.reflections
+            )
 
         if ctx.skill_manager_output:
             ops = ctx.skill_manager_output.operations

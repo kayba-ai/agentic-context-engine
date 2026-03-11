@@ -22,7 +22,7 @@ A `Step` is the smallest unit of work. It receives a `StepContext`, does one foc
 ```python
 class MyStep:
     requires = {"agent_output"}   # fields it reads
-    provides = {"reflection"}     # fields it writes
+    provides = {"reflections"}    # fields it writes
 
     def __call__(self, ctx: StepContext) -> StepContext:
         ...
@@ -94,7 +94,7 @@ class ACEContext(StepContext):
     # Produced by steps (None until the providing step runs)
     agent_output: AgentOutput | None = None
     environment_result: EnvironmentResult | None = None
-    reflection: ReflectorOutput | None = None
+    reflections: tuple[ReflectorOutput, ...] = ()
     skill_manager_output: UpdateBatch | None = None
 
     # Runner bookkeeping
@@ -477,6 +477,8 @@ Retry logic is the responsibility of individual steps, not the pipeline.
 **Shutdown:** `wait_for_background(timeout=N)` raises `TimeoutError` if background steps have not drained within `N` seconds. Individual step implementations are responsible for their own per-call timeouts (e.g. LLM API call timeouts).
 
 **Monitoring:** `background_stats()` returns a `dict` with `active` and `completed` counts for background threads. Thread-safe — can be called from any thread while the pipeline is running. This is the public API for monitoring background progress; callers should not access `_bg_lock` or `_bg_threads` directly.
+
+**Foreground progress:** `run()` and `run_async()` accept an optional `on_sample_done` callback (`Callable[[SampleResult], None] | None`). It fires once per context after foreground steps complete (or fail), before background steps start. The callback must not block the event loop — lightweight operations like `tqdm.update()` are fine. Defaults to `None` (no-op). This is the foreground-side complement to `background_stats()`.
 
 ---
 

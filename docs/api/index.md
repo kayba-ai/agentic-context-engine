@@ -164,7 +164,7 @@ from ace_next import SkillManager
 
 skill_manager = SkillManager(llm)
 sm_output = skill_manager.update_skills(
-    reflection=reflection,
+    reflections=(reflection,),
     skillbook=skillbook,
     question_context="Math problems",
     progress="3/5 correct",

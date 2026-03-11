@@ -88,8 +88,8 @@ def demo_wrong_answer():
     )
 
     result_ctx = rr(ctx)
-    assert result_ctx.reflection is not None
-    result = result_ctx.reflection
+    assert len(result_ctx.reflections) > 0
+    result = result_ctx.reflections[0]
 
     print(f"\n  --- Result ---")
     print(f"  Reasoning: {result.reasoning[:200]}")
@@ -154,7 +154,7 @@ def demo_pipeline_step():
     )
 
     result_ctx = rr(ctx)
-    r = result_ctx.reflection
+    r = result_ctx.reflections[0]
 
     print(f"\n  --- Result ---")
     print(f"  Reasoning: {r.reasoning[:200]}")

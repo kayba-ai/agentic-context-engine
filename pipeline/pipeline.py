@@ -6,7 +6,7 @@ import asyncio
 import threading
 import time
 import warnings
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
@@ -315,7 +315,10 @@ class Pipeline:
     # ------------------------------------------------------------------
 
     def run(
-        self, contexts: Iterable[StepContext], workers: int = 1
+        self,
+        contexts: Iterable[StepContext],
+        workers: int = 1,
+        on_sample_done: Callable[[SampleResult], None] | None = None,
     ) -> list[SampleResult]:
         """Process *contexts* through the pipeline (sync entry point).
 
@@ -331,18 +334,38 @@ class Pipeline:
 
         Every context produces exactly one ``SampleResult`` — nothing is
         dropped silently.
+
+        Args:
+            contexts: Input contexts to process.
+            workers: Maximum number of contexts processed concurrently.
+            on_sample_done: Optional callback invoked after each sample
+                completes its foreground steps (or fails).  Receives the
+                ``SampleResult``.  Must not block the event loop.
         """
-        return asyncio.run(self.run_async(contexts, workers=workers))
+        return asyncio.run(
+            self.run_async(contexts, workers=workers, on_sample_done=on_sample_done)
+        )
 
     # ------------------------------------------------------------------
     # run_async() — async entry point
     # ------------------------------------------------------------------
 
     async def run_async(
-        self, contexts: Iterable[StepContext], workers: int = 1
+        self,
+        contexts: Iterable[StepContext],
+        workers: int = 1,
+        on_sample_done: Callable[[SampleResult], None] | None = None,
     ) -> list[SampleResult]:
         """Async entry point; use ``await pipe.run_async(contexts)`` from
-        coroutine contexts (e.g. inside browser-use tasks)."""
+        coroutine contexts (e.g. inside browser-use tasks).
+
+        Args:
+            contexts: Input contexts to process.
+            workers: Maximum number of contexts processed concurrently.
+            on_sample_done: Optional callback invoked after each sample
+                completes its foreground steps (or fails).  Receives the
+                ``SampleResult``.  Must not block the event loop.
+        """
         boundary_idx = self._find_boundary_index()
         if boundary_idx is None:
             foreground_steps = self._steps
@@ -371,6 +394,8 @@ class Pipeline:
                 except Exception as exc:
                     result.error = exc
                     result.failed_at = last_step_name
+                    if on_sample_done is not None:
+                        on_sample_done(result)
                     return result
 
                 if background_steps:
@@ -379,6 +404,8 @@ class Pipeline:
                 else:
                     result.output = ctx
 
+                if on_sample_done is not None:
+                    on_sample_done(result)
                 return result
 
         return list(await asyncio.gather(*[process_one(c) for c in contexts]))

@@ -15,7 +15,7 @@ class UpdateStep:
     concurrent calls would see stale data.
     """
 
-    requires = frozenset({"reflection", "skillbook"})
+    requires = frozenset({"reflections", "skillbook"})
     provides = frozenset({"skill_manager_output"})
 
     max_workers = 1
@@ -36,9 +36,8 @@ class UpdateStep:
             c = ctx.trace.get("context", "")
             question_context = f"{q}\n{c}".strip() if c else q
 
-        assert ctx.reflection is not None
         output = self.skill_manager.update_skills(
-            reflection=ctx.reflection,
+            reflections=ctx.reflections,
             skillbook=ctx.skillbook,
             question_context=question_context,
             progress=progress,

@@ -23,7 +23,7 @@ contract that declares what context fields it reads and writes:
 ```
 AgentStep ─────> EvaluateStep ─────> ReflectStep ─────> TagStep ─────> UpdateStep ─────> ApplyStep
   provides:        provides:           provides:          (metadata)    provides:         (mutates
-  agent_output     trace                reflection                      skill_manager     skillbook)
+  agent_output     trace                reflections                     skill_manager     skillbook)
                                                                         _output
 ```
 
@@ -224,7 +224,7 @@ ace = ACELiteLLM(llm, reflector=RRStep(llm, config=RRConfig(max_iterations=10)))
 
 ### As a pipeline step
 
-Place it directly in a pipeline (it provides `reflection`):
+Place it directly in a pipeline (it provides `reflections`):
 
 ```python
 from ace_next import Pipeline, learning_tail, SkillManager, Skillbook, LiteLLMClient
@@ -237,7 +237,7 @@ rr = RRStep(llm, config=RRConfig(max_iterations=15))
 pipe = Pipeline([
     MyExecuteStep(),
     MyToTrace(),
-    rr,  # replaces ReflectStep — provides "reflection"
+    rr,  # replaces ReflectStep — provides "reflections"
     *learning_tail(None, SkillManager(llm), skillbook)[1:],  # skip ReflectStep
     RROpikStep(project_name="my-project"),  # optional observability
 ])

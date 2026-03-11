@@ -69,7 +69,10 @@ class LLMCallStep:
                 "LLM returned empty response on iteration %d", ctx.iteration + 1
             )
 
-        return ctx.replace(llm_response=response_text)
+        # Capture LLM telemetry (model, usage, cost) for downstream tracing
+        llm_metadata = getattr(response, "raw", None) or {}
+
+        return ctx.replace(llm_response=response_text, llm_metadata=llm_metadata)
 
 
 # ---------------------------------------------------------------------------

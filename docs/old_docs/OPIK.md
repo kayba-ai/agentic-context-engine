@@ -337,7 +337,7 @@ rr_reflect (trace)
 
 | Field | Value |
 |-------|-------|
-| `requires` | `{"reflection"}` |
+| `requires` | `{"reflections"}` |
 | `provides` | `{}` (pure side-effect) |
 
 **Environment variables:**
@@ -352,7 +352,7 @@ rr_reflect (trace)
 **Behaviour:**
 - Soft-imports `opik` — gracefully degrades to a no-op when the package is absent.
 - Explicit opt-in only — Opik is never auto-enabled just because the package is installed.
-- Reads `ctx.reflection.raw["rr_trace"]` for per-iteration data and sub-agent call history.
+- Iterates `ctx.reflections` and reads `reflection.raw["rr_trace"]` from each for per-iteration data and sub-agent call history.
 - Call `flush()` after the pipeline finishes to drain buffered traces before the process exits.
 
 **Parent trace metadata:**

@@ -23,9 +23,11 @@ class ObservabilityStep:
     def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
         metrics: dict = {"skill_count": len(ctx.skillbook) if ctx.skillbook else 0}
 
-        if ctx.reflection:
-            metrics["key_insight"] = ctx.reflection.key_insight
-            metrics["learnings_count"] = len(ctx.reflection.extracted_learnings)
+        if ctx.reflections:
+            metrics["key_insight"] = ctx.reflections[-1].key_insight
+            metrics["learnings_count"] = sum(
+                len(r.extracted_learnings) for r in ctx.reflections
+            )
         if ctx.skill_manager_output:
             metrics["operations_count"] = len(ctx.skill_manager_output.operations)
         if ctx.trace:
