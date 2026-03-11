@@ -162,6 +162,22 @@ Options:
 | `--min-batch-size N` | Minimum traces per batch (default: 10) |
 | `--max-batch-size N` | Maximum traces per batch (default: 30) |
 
+### Agent setup
+
+```bash
+# Print CLI instructions to stdout
+kayba setup
+
+# Append to a project agent file
+kayba setup --append-to AGENTS.md
+```
+
+Options:
+
+| Flag | Description |
+|------|-------------|
+| `--append-to FILE` | Append instructions to file instead of printing (recommended: `AGENTS.md`) |
+
 ## End-to-end workflow
 
 ```bash
