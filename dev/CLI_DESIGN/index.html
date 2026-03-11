@@ -19,7 +19,7 @@
       
       
       <link rel="icon" href="../assets/Kayba_logo_rounded.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.5">
     
     
 <title>ACE Documentation</title>
@@ -1848,6 +1848,100 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#kayba-cli-kayba" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Kayba CLI (kayba)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Kayba CLI (kayba)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#entry-point_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Entry point
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architecture
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Commands
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#authentication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Authentication
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#kaybaclient" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        KaybaClient
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#batch-command" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Batch command
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#relationship-to-ace-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Relationship to ace setup
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#lazy-import-strategy" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2457,6 +2551,106 @@
 <a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>  ace models --provider openai  All OpenAI models
 </code></pre></div>
 <hr />
+<h2 id="kayba-cli-kayba">Kayba CLI (<code>kayba</code>)<a class="headerlink" href="#kayba-cli-kayba" title="Permanent link">&para;</a></h2>
+<p>A separate entry point (<code>kayba</code>) provides commands for the Kayba hosted API. It is implemented with Click in <code>ace/cli/</code>.</p>
+<h3 id="entry-point_1">Entry point<a class="headerlink" href="#entry-point_1" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="k">[project.scripts]</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="n">kayba</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;ace.cli:main&quot;</span>
+</code></pre></div>
+<p><code>ace.cli:main</code> creates a Click group with commands registered directly (no intermediate subgroup).</p>
+<h3 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>ace/cli/
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>  __init__.py       # Click group, registers commands directly
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>  client.py         # KaybaClient — HTTP client for the hosted API
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>  cloud.py          # Click commands: upload, insights, prompts, status, materialize, batch
+</code></pre></div>
+<h3 id="commands">Commands<a class="headerlink" href="#commands" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>kayba upload PATHS...            Upload trace files (files, dirs, or stdin)
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>kayba insights generate          Trigger insight generation
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>kayba insights list              List insights (--status, --section, --json)
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>kayba insights triage            Accept/reject insights (--accept, --reject, --accept-all)
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>kayba prompts generate           Generate prompt from accepted insights
+<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>kayba prompts list               List prompt versions
+<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>kayba prompts pull               Download a prompt (--id, --pretty, -o)
+<a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>kayba status JOB_ID              Check job status (--wait, --interval)
+<a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a>kayba materialize JOB_ID         Materialise job results into skillbook
+<a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a>kayba batch PATHS...             Pre-batch traces for Recursive Reflector
+</code></pre></div>
+<h3 id="authentication">Authentication<a class="headerlink" href="#authentication" title="Permanent link">&para;</a></h3>
+<p>All commands accept <code>--api-key</code> and <code>--base-url</code>. Defaults:
+- API key: <code>KAYBA_API_KEY</code> env var
+- Base URL: <code>KAYBA_API_URL</code> env var, then <code>https://use.kayba.ai/api</code></p>
+<h3 id="kaybaclient">KaybaClient<a class="headerlink" href="#kaybaclient" title="Permanent link">&para;</a></h3>
+<p><code>ace.cli.client.KaybaClient</code> wraps the hosted API with a <code>requests.Session</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Endpoint</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>upload_traces(traces)</code></td>
+<td><code>POST /traces</code></td>
+<td>Upload trace files</td>
+</tr>
+<tr>
+<td><code>generate_insights(...)</code></td>
+<td><code>POST /insights/generate</code></td>
+<td>Start async insight generation</td>
+</tr>
+<tr>
+<td><code>list_insights(...)</code></td>
+<td><code>GET /insights</code></td>
+<td>List insights with filters</td>
+</tr>
+<tr>
+<td><code>triage_insight(id, status)</code></td>
+<td><code>PATCH /insights/:id</code></td>
+<td>Accept or reject an insight</td>
+</tr>
+<tr>
+<td><code>get_job(job_id)</code></td>
+<td><code>GET /jobs/:id</code></td>
+<td>Get job status</td>
+</tr>
+<tr>
+<td><code>materialize_job(job_id)</code></td>
+<td><code>POST /jobs/:id</code></td>
+<td>Materialise completed job</td>
+</tr>
+<tr>
+<td><code>generate_prompt(...)</code></td>
+<td><code>POST /prompts/generate</code></td>
+<td>Generate prompt from insights</td>
+</tr>
+<tr>
+<td><code>list_prompts()</code></td>
+<td><code>GET /prompts</code></td>
+<td>List all prompt versions</td>
+</tr>
+<tr>
+<td><code>get_prompt(prompt_id)</code></td>
+<td><code>GET /prompts/:id</code></td>
+<td>Get prompt by ID</td>
+</tr>
+</tbody>
+</table>
+<p>Errors are raised as <code>KaybaAPIError(code, message, status_code)</code>.</p>
+<h3 id="batch-command">Batch command<a class="headerlink" href="#batch-command" title="Permanent link">&para;</a></h3>
+<p>The <code>batch</code> command operates in two modes:</p>
+<ol>
+<li><strong>Prepare</strong> (default): collect traces, extract metadata, generate a classification prompt for an LLM to fill in batch assignments. Writes a skeleton <code>batches.json</code>.</li>
+<li><strong>Apply</strong> (<code>--apply FILE</code>): validate a batch plan JSON against the trace set, optionally upload each batch (<code>--upload</code>).</li>
+</ol>
+<p>Validation checks: min/max batch size, all traces assigned, no duplicates, no unknown files.</p>
+<h3 id="relationship-to-ace-setup">Relationship to <code>ace setup</code><a class="headerlink" href="#relationship-to-ace-setup" title="Permanent link">&para;</a></h3>
+<p>The <code>ace</code> entry point (<code>ace_next.cli.setup:main</code>) handles local model configuration.
+The <code>kayba</code> entry point (<code>ace.cli:main</code>) handles hosted API operations.
+They are independent — <code>kayba</code> does not require <code>ace.toml</code> or any local LLM setup.</p>
+<hr />
 <h2 id="lazy-import-strategy">Lazy Import Strategy<a class="headerlink" href="#lazy-import-strategy" title="Permanent link">&para;</a></h2>
 <h3 id="problem">Problem<a class="headerlink" href="#problem" title="Permanent link">&para;</a></h3>
 <p><code>import ace_next</code> eagerly imported all submodules, including <code>litellm</code> (~1.5s). This made the CLI unusable (~2s startup for a simple <code>ace --help</code>).</p>
@@ -2475,45 +2669,50 @@
 </ol>
 <p>Result: <code>ace --help</code> runs in ~50ms. LiteLLM is only imported when the user actually searches, validates, or sets up.</p>
 <h3 id="pattern">Pattern<a class="headerlink" href="#pattern" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span>
-<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>
-<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
-<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">.heavy_module</span><span class="w"> </span><span class="kn">import</span> <span class="n">HeavyClass</span>  <span class="c1"># IDE autocomplete</span>
-<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>
-<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="n">_LAZY_IMPORTS</span> <span class="o">=</span> <span class="p">{</span>
-<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a>    <span class="s2">&quot;HeavyClass&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;package.heavy_module&quot;</span><span class="p">,</span> <span class="s2">&quot;HeavyClass&quot;</span><span class="p">),</span>
-<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="p">}</span>
-<a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a>
-<a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="k">def</span><span class="w"> </span><span class="fm">__getattr__</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">object</span><span class="p">:</span>
-<a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a>    <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">_LAZY_IMPORTS</span><span class="p">:</span>
-<a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a>        <span class="n">module_path</span><span class="p">,</span> <span class="n">attr</span> <span class="o">=</span> <span class="n">_LAZY_IMPORTS</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
-<a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a>        <span class="kn">import</span><span class="w"> </span><span class="nn">importlib</span>
-<a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a>        <span class="n">module</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span><span class="p">(</span><span class="n">module_path</span><span class="p">)</span>
-<a id="__codelineno-15-15" name="__codelineno-15-15" href="#__codelineno-15-15"></a>        <span class="n">value</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">attr</span><span class="p">)</span>
-<a id="__codelineno-15-16" name="__codelineno-15-16" href="#__codelineno-15-16"></a>        <span class="nb">globals</span><span class="p">()[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>  <span class="c1"># cache for subsequent access</span>
-<a id="__codelineno-15-17" name="__codelineno-15-17" href="#__codelineno-15-17"></a>        <span class="k">return</span> <span class="n">value</span>
-<a id="__codelineno-15-18" name="__codelineno-15-18" href="#__codelineno-15-18"></a>    <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">.heavy_module</span><span class="w"> </span><span class="kn">import</span> <span class="n">HeavyClass</span>  <span class="c1"># IDE autocomplete</span>
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>
+<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="n">_LAZY_IMPORTS</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a>    <span class="s2">&quot;HeavyClass&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;package.heavy_module&quot;</span><span class="p">,</span> <span class="s2">&quot;HeavyClass&quot;</span><span class="p">),</span>
+<a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a><span class="p">}</span>
+<a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a>
+<a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a><span class="k">def</span><span class="w"> </span><span class="fm">__getattr__</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">object</span><span class="p">:</span>
+<a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a>    <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">_LAZY_IMPORTS</span><span class="p">:</span>
+<a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a>        <span class="n">module_path</span><span class="p">,</span> <span class="n">attr</span> <span class="o">=</span> <span class="n">_LAZY_IMPORTS</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+<a id="__codelineno-18-13" name="__codelineno-18-13" href="#__codelineno-18-13"></a>        <span class="kn">import</span><span class="w"> </span><span class="nn">importlib</span>
+<a id="__codelineno-18-14" name="__codelineno-18-14" href="#__codelineno-18-14"></a>        <span class="n">module</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span><span class="p">(</span><span class="n">module_path</span><span class="p">)</span>
+<a id="__codelineno-18-15" name="__codelineno-18-15" href="#__codelineno-18-15"></a>        <span class="n">value</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">attr</span><span class="p">)</span>
+<a id="__codelineno-18-16" name="__codelineno-18-16" href="#__codelineno-18-16"></a>        <span class="nb">globals</span><span class="p">()[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>  <span class="c1"># cache for subsequent access</span>
+<a id="__codelineno-18-17" name="__codelineno-18-17" href="#__codelineno-18-17"></a>        <span class="k">return</span> <span class="n">value</span>
+<a id="__codelineno-18-18" name="__codelineno-18-18" href="#__codelineno-18-18"></a>    <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
 </code></pre></div>
 <hr />
 <h2 id="file-map">File Map<a class="headerlink" href="#file-map" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>ace_next/
-<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>  __init__.py                     # lazy re-exports for all ace_next symbols
-<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>  cli/
-<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>    __init__.py                   # &quot;ACE CLI — setup and management commands.&quot;
-<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>    setup.py                      # main(), run_setup(), _cmd_models(), _cmd_validate(), _cmd_config()
-<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>  providers/
-<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>    __init__.py                   # lazy re-exports (config eager, rest lazy)
-<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>    config.py                     # ModelConfig, ACEModelConfig, TOML/env I/O
-<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a>    registry.py                   # provider detection, model search, validation
-<a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a>    litellm.py                    # LiteLLMClient (runtime, not CLI)
-<a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a>    instructor.py                 # InstructorClient (runtime, not CLI)
-<a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a>    langchain.py                  # LangChainLiteLLMClient (optional)
-<a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a>    claude_code.py                # ClaudeCodeLLMClient (optional)
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>ace/cli/
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>  __init__.py                   # Click group, registers commands directly
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>  client.py                     # KaybaClient HTTP client
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>  cloud.py                      # upload, insights, prompts, status, materialize, batch
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>
+<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>ace_next/
+<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a>  __init__.py                     # lazy re-exports for all ace_next symbols
+<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a>  cli/
+<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a>    __init__.py                   # &quot;ACE CLI — setup and management commands.&quot;
+<a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a>    setup.py                      # main(), run_setup(), _cmd_models(), _cmd_validate(), _cmd_config()
+<a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a>  providers/
+<a id="__codelineno-19-12" name="__codelineno-19-12" href="#__codelineno-19-12"></a>    __init__.py                   # lazy re-exports (config eager, rest lazy)
+<a id="__codelineno-19-13" name="__codelineno-19-13" href="#__codelineno-19-13"></a>    config.py                     # ModelConfig, ACEModelConfig, TOML/env I/O
+<a id="__codelineno-19-14" name="__codelineno-19-14" href="#__codelineno-19-14"></a>    registry.py                   # provider detection, model search, validation
+<a id="__codelineno-19-15" name="__codelineno-19-15" href="#__codelineno-19-15"></a>    litellm.py                    # LiteLLMClient (runtime, not CLI)
+<a id="__codelineno-19-16" name="__codelineno-19-16" href="#__codelineno-19-16"></a>    instructor.py                 # InstructorClient (runtime, not CLI)
+<a id="__codelineno-19-17" name="__codelineno-19-17" href="#__codelineno-19-17"></a>    langchain.py                  # LangChainLiteLLMClient (optional)
+<a id="__codelineno-19-18" name="__codelineno-19-18" href="#__codelineno-19-18"></a>    claude_code.py                # ClaudeCodeLLMClient (optional)
 </code></pre></div>
 <p>Generated files:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>project-root/
-<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>  ace.toml                        # model config (commit this)
-<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>  .env                            # API keys (gitignore this)
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>project-root/
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>  ace.toml                        # model config (commit this)
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>  .env                            # API keys (gitignore this)
 </code></pre></div>
 <hr />
 <h2 id="known-issues">Known Issues<a class="headerlink" href="#known-issues" title="Permanent link">&para;</a></h2>
