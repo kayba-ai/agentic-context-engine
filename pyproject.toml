@@ -92,6 +92,12 @@ all = [
     "transformers>=4.30.0",
     "torch>=2.0.0",
     "accelerate>=0.20.0",
+    "click>=8.1.0",
+    "requests>=2.31.0",
+]
+cloud = [
+    "click>=8.1.0",
+    "requests>=2.31.0",
 ]
 mcp = [
     "mcp>=1.22.0",
@@ -101,6 +107,7 @@ mcp = [
 
 [project.scripts]
 ace = "ace_next.cli.setup:main"
+kayba = "ace.cli:main"
 ace-learn = "ace.integrations.claude_code.learner:main"
 ace-mcp = "ace_next.integrations.mcp.server:main"
 
@@ -120,6 +127,7 @@ dev = [
     "pre-commit>=3.0.0",
     "git-changelog>=2.5.0",
     "boto3>=1.42.50",
+    "types-requests>=2.32.4.20260107",
 ]
 tau-bench = [
     "tau2 @ git+https://github.com/sierra-research/tau2-bench.git",
@@ -139,6 +147,7 @@ include = ["ace", "ace.*", "ace_next", "ace_next.*", "pipeline", "pipeline.*"]
 
 [tool.setuptools.package-data]
 ace = ["py.typed"]
+"ace.cli" = ["commands/*.md"]
 "ace.integrations.claude_code" = ["commands/*.md"]
 
 [tool.black]
@@ -188,4 +197,5 @@ markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests as integration tests",
     "unit: marks tests as unit tests",
+    "requires_api: marks tests that need live API credentials",
 ]

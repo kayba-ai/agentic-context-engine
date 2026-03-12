@@ -13,6 +13,7 @@ ACE provides runners for popular agentic frameworks. Each runner adds self-impro
 | [OpenClaw](openclaw.md) | OpenClaw transcripts | JSONL trace files | Meso |
 | [MCP Server](mcp.md) | MCP (stdio) | Tool calls | Micro |
 | [Opik](opik.md) | Opik observability | — | Monitoring |
+| [Hosted API](hosted-api.md) | Kayba hosted API | Trace files | Cloud |
 
 ## The Pattern
 
@@ -60,4 +61,5 @@ All runners share these capabilities:
 - **Want to monitor costs and traces?** Add [Opik](opik.md)
 - **Learning from OpenClaw session transcripts?** Use [OpenClaw](openclaw.md)
 - **Exposing ACE as an MCP tool provider?** Use the [MCP Server](mcp.md)
+- **Want to use the hosted API instead of running locally?** Use the [Hosted API](hosted-api.md) CLI
 - **Using a different framework?** See the [Integration Guide](../guides/integration.md) to build a custom runner

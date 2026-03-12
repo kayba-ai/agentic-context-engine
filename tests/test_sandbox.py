@@ -1084,6 +1084,81 @@ FINAL(results)
         for r in result.final_value:
             self.assertIn("Summary of:", r)
 
+    def test_parallel_timeout(self):
+        """Test that parallel_timeout kills slow workers."""
+        sandbox = TraceSandbox(
+            trace=self.trace,
+            llm_query_fn=None,
+            parallel_max_retries=0,
+            parallel_timeout=0.5,
+        )
+        import time
+
+        sandbox.inject("_time", time)
+
+        result = sandbox.execute(
+            """
+def slow(x):
+    _time.sleep(10)
+    return x
+
+results = parallel_map(slow, [1])
+"""
+        )
+
+        self.assertFalse(result.success)
+        # concurrent.futures raises TimeoutError when future.result(timeout=) expires
+        self.assertIsNotNone(result.exception)
+
+    def test_mixed_success_and_exception_with_return_exceptions(self):
+        """Test that successful items are preserved alongside exceptions."""
+        sandbox = TraceSandbox(
+            trace=self.trace,
+            llm_query_fn=None,
+            parallel_max_retries=0,
+        )
+        result = sandbox.execute(
+            """
+def maybe_fail(x):
+    if x % 2 == 0:
+        raise ValueError(f"even: {x}")
+    return x * 100
+
+results = parallel_map(maybe_fail, [1, 2, 3, 4, 5], return_exceptions=True)
+FINAL(results)
+"""
+        )
+
+        self.assertTrue(result.success)
+        vals = result.final_value
+        self.assertEqual(vals[0], 100)
+        self.assertIsInstance(vals[1], ValueError)
+        self.assertEqual(vals[2], 300)
+        self.assertIsInstance(vals[3], ValueError)
+        self.assertEqual(vals[4], 500)
+
+    def test_first_exc_idx_zero(self):
+        """Regression: when item at index 0 fails, it should be the reported exception."""
+        sandbox = TraceSandbox(
+            trace=self.trace,
+            llm_query_fn=None,
+            parallel_max_retries=0,
+        )
+        result = sandbox.execute(
+            """
+def fail_first(x):
+    if x == 0:
+        raise ValueError("index-zero-fail")
+    return x
+
+results = parallel_map(fail_first, [0, 1, 2])
+"""
+        )
+
+        self.assertFalse(result.success)
+        self.assertIsInstance(result.exception, ValueError)
+        self.assertIn("index-zero-fail", str(result.exception))
+
     def test_retries_exhausted_raises(self):
         """Test that exhausted retries raise the last exception."""
         sandbox = TraceSandbox(

@@ -148,6 +148,8 @@ class TestGetAvailableFeatures(unittest.TestCase):
             "instructor",
             "numpy",
             "sentence_transformers",
+            "click",
+            "requests",
         }
         self.assertEqual(set(result.keys()), expected_keys)
 
