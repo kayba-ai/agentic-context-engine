@@ -43,6 +43,7 @@ PROVIDER_MODEL_EXAMPLES: dict[str, str] = {
     "ollama": "ollama/llama2",
     "azure": "azure/gpt-4",
     "openrouter": "openrouter/anthropic/claude-3.5-sonnet",
+    "minimax": "openai/MiniMax-M2.5",
 }
 
 
@@ -208,6 +209,7 @@ PROVIDER_KEY_ENV: dict[str, str | list[str]] = {
     "huggingface": "HUGGINGFACE_API_KEY",
     "perplexity": "PERPLEXITYAI_API_KEY",
     "anyscale": "ANYSCALE_API_KEY",
+    "minimax": "MINIMAX_API_KEY",
 }
 
 

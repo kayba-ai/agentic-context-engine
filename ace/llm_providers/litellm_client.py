@@ -652,7 +652,9 @@ class LiteLLMClient(LLMClient):
         """Infer provider from model name."""
         model_lower = model.lower()
 
-        if "gpt" in model_lower or "openai" in model_lower:
+        if "minimax" in model_lower:
+            return "minimax"
+        elif "gpt" in model_lower or "openai" in model_lower:
             return "openai"
         elif "claude" in model_lower or "anthropic" in model_lower:
             return "anthropic"
@@ -703,6 +705,9 @@ class LiteLLMClient(LLMClient):
             "mistral-7b",
             "mistral-medium",
             "mixtral-8x7b",
+            # MiniMax (via OpenAI-compatible endpoint)
+            "openai/MiniMax-M2.5",
+            "openai/MiniMax-M2.5-highspeed",
             # Note: Many more models are supported
             # See: https://docs.litellm.ai/docs/providers
         ]

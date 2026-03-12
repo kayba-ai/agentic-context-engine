@@ -176,6 +176,7 @@ ACE uses [LiteLLM](https://docs.litellm.ai/) for model access. Any model string 
 | Ollama (local) | `ollama/llama2` | --- |
 | Azure OpenAI | `azure/gpt-4` | `AZURE_API_KEY` |
 | OpenRouter | `openrouter/anthropic/claude-3.5-sonnet` | `OPENROUTER_API_KEY` |
+| MiniMax | `openai/MiniMax-M2.5` | `MINIMAX_API_KEY` |
 
 100+ providers supported. Run `ace models` to search the full catalog.
 
