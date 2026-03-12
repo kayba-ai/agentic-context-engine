@@ -312,12 +312,12 @@ class RRStep(SubRunner[ACEStepContext]):
                 len(task_results) if task_results else 0,
                 len(tasks),
             )
-            reflections = []
+            fallback = []
             for i, task in enumerate(tasks):
                 r = reflection.model_copy(deep=True)
                 r.raw["task_id"] = task.get("task_id", f"task_{i}")
-                reflections.append(r)
-            return tuple(reflections)
+                fallback.append(r)
+            return tuple(fallback)
 
         # Build a ReflectorOutput per task from the batch results
         reflections: list[ReflectorOutput] = []
@@ -330,24 +330,16 @@ class RRStep(SubRunner[ACEStepContext]):
             reflections.append(
                 ReflectorOutput(
                     reasoning=tr.get("reasoning", reflection.reasoning),
-                    error_identification=str(
-                        tr.get("error_identification", "")
-                    ),
-                    root_cause_analysis=tr.get(
-                        "root_cause_analysis", ""
-                    ),
+                    error_identification=str(tr.get("error_identification", "")),
+                    root_cause_analysis=tr.get("root_cause_analysis", ""),
                     correct_approach=tr.get(
                         "correct_approach", reflection.correct_approach
                     ),
-                    key_insight=tr.get(
-                        "key_insight", reflection.key_insight
-                    ),
+                    key_insight=tr.get("key_insight", reflection.key_insight),
                     extracted_learnings=[
                         ExtractedLearning(
                             learning=l.get("learning", ""),
-                            atomicity_score=float(
-                                l.get("atomicity_score", 0.0)
-                            ),
+                            atomicity_score=float(l.get("atomicity_score", 0.0)),
                             evidence=l.get("evidence", ""),
                         )
                         for l in learnings
@@ -583,9 +575,7 @@ class RRStep(SubRunner[ACEStepContext]):
         if is_batch:
             # Batch mode: all tasks in one REPL session
             tasks = traces["tasks"]
-            total_steps = sum(
-                len(t.get("trace", [])) for t in tasks
-            )
+            total_steps = sum(len(t.get("trace", [])) for t in tasks)
             # Build per-task preview rows
             preview_rows = []
             for t in tasks:
@@ -596,7 +586,7 @@ class RRStep(SubRunner[ACEStepContext]):
                     first_msg = tr[0].get("content", "")
                 preview_rows.append(
                     f"| `{tid}` | {len(tr)} messages | "
-                    f"\"{_preview(first_msg, 80)}\" |"
+                    f'"{_preview(first_msg, 80)}" |'
                 )
 
             fmt_kwargs = dict(
@@ -605,14 +595,13 @@ class RRStep(SubRunner[ACEStepContext]):
                     f"Keys: tasks (list of {{task_id, trace}})"
                 ),
                 batch_variables=(
-                    f"| `traces[\"tasks\"]` | All tasks in this batch "
+                    f'| `traces["tasks"]` | All tasks in this batch '
                     f"(list of {{task_id, trace}}) | "
                     f"{len(tasks)} tasks |\n"
                 ),
                 traces_previews=(
                     f"| Task | Steps | First message |\n"
-                    f"|------|-------|---------------|\n"
-                    + "\n".join(preview_rows)
+                    f"|------|-------|---------------|\n" + "\n".join(preview_rows)
                 ),
                 step_count=total_steps,
                 skillbook_length=len(skillbook_text),
@@ -639,10 +628,10 @@ class RRStep(SubRunner[ACEStepContext]):
                 traces_previews=(
                     f"| Field | Preview | Size |\n"
                     f"|-------|---------|------|\n"
-                    f"| `traces[\"question\"]` | \"{_preview(t_question)}\" | {len(t_question)} chars |\n"
-                    f"| first step | \"{_preview(t_reasoning)}...\" | {len(t_reasoning) if t_reasoning else 0} chars |\n"
-                    f"| `traces[\"ground_truth\"]` | \"{_preview(t_ground_truth)}\" | {len(t_ground_truth) if t_ground_truth else 0} chars |\n"
-                    f"| `traces[\"feedback\"]` | \"{_preview(t_feedback)}...\" | {len(t_feedback) if t_feedback else 0} chars |"
+                    f'| `traces["question"]` | "{_preview(t_question)}" | {len(t_question)} chars |\n'
+                    f'| first step | "{_preview(t_reasoning)}..." | {len(t_reasoning) if t_reasoning else 0} chars |\n'
+                    f'| `traces["ground_truth"]` | "{_preview(t_ground_truth)}" | {len(t_ground_truth) if t_ground_truth else 0} chars |\n'
+                    f'| `traces["feedback"]` | "{_preview(t_feedback)}..." | {len(t_feedback) if t_feedback else 0} chars |'
                 ),
                 step_count=(
                     len(t_steps) if t_steps else (len(trace_obj) if trace_obj else 0)
