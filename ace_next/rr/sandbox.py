@@ -485,7 +485,9 @@ class TraceSandbox:
     def _execute_no_timeout(self, code: str) -> ExecutionResult:
         """Execute code without timeout enforcement.
 
-        Fallback when multiprocessing is unavailable or fails.
+        Uses a thread-safe stdout/stderr capture that overrides builtins
+        in the exec namespace rather than redirecting the global sys.stdout.
+        This avoids races when multiple sandboxes run in parallel threads.
 
         Args:
             code: Python code to execute
@@ -496,7 +498,25 @@ class TraceSandbox:
         stdout_buf = io.StringIO()
         stderr_buf = io.StringIO()
 
+        # Thread-safe capture: override print in __builtins__ so sandbox
+        # code writes to our buffer, not the global sys.stdout.
+        builtins_dict = self.namespace.get("__builtins__", {})
+        saved_print = builtins_dict.get("print") if isinstance(builtins_dict, dict) else None
+
+        def _local_print(*args: Any, sep: str = " ", end: str = "\n", file: Any = None, flush: bool = False) -> None:
+            target = file if file is not None else stdout_buf
+            target.write(sep.join(str(a) for a in args) + end)
+            if flush:
+                target.flush()
+
+        if isinstance(builtins_dict, dict):
+            builtins_dict["print"] = _local_print
+
         try:
+            # Also use redirect_stdout/stderr to catch any code that
+            # writes to sys.stdout directly (e.g. via imported libraries).
+            # In threaded contexts this is best-effort but the namespace
+            # override above handles the common print() case.
             with redirect_stdout(stdout_buf), redirect_stderr(stderr_buf):
                 exec(code, self.namespace, self.namespace)
         except StopIteration:
@@ -510,6 +530,10 @@ class TraceSandbox:
                 final_value=self._final_value,
                 exception=e,
             )
+        finally:
+            # Restore original print in __builtins__
+            if isinstance(builtins_dict, dict) and saved_print is not None:
+                builtins_dict["print"] = saved_print
 
         return ExecutionResult(
             stdout=stdout_buf.getvalue(),
