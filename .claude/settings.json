@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(uv run pytest:*)",
-      "Bash(uv run black:*)"
+      "Bash(uv run black:*)",
+      "Bash(python *)",
+      "Bash(python3 *)",
+      "Bash(uv run python *)"
     ]
   },
   "hooks": {
