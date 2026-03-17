@@ -1855,6 +1855,150 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#pipeline-hooks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pipeline Hooks
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Pipeline Hooks">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#separation-of-concerns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Separation of concerns
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hook-protocol" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hook protocol
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pipeline-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pipeline integration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#branch-and-nesting-behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Branch and nesting behavior
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-progress-streaming-for-a-web-app" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example: progress streaming for a web app
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cancellation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cancellation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Cancellation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cancellationtoken" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CancellationToken
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pipeline-integration_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pipeline integration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-cancellation-does-not-do" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What cancellation does NOT do
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pipelinecancelled" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PipelineCancelled
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-web-app-cancel-endpoint" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example: web app cancel endpoint
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#summary-table" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2319,6 +2463,159 @@ Controlled by <code>max_workers</code> on the step. Each step class has a single
 <p><strong>Monitoring:</strong> <code>background_stats()</code> returns a <code>dict</code> with <code>active</code> and <code>completed</code> counts for background threads. Thread-safe — can be called from any thread while the pipeline is running. This is the public API for monitoring background progress; callers should not access <code>_bg_lock</code> or <code>_bg_threads</code> directly.</p>
 <p><strong>Foreground progress:</strong> <code>run()</code> and <code>run_async()</code> accept an optional <code>on_sample_done</code> callback (<code>Callable[[SampleResult], None] | None</code>). It fires once per context after foreground steps complete (or fail), before background steps start. The callback must not block the event loop — lightweight operations like <code>tqdm.update()</code> are fine. Defaults to <code>None</code> (no-op). This is the foreground-side complement to <code>background_stats()</code>.</p>
 <hr />
+<h2 id="pipeline-hooks">Pipeline Hooks<a class="headerlink" href="#pipeline-hooks" title="Permanent link">&para;</a></h2>
+<p>Hooks let external code observe pipeline execution without modifying data flow. They solve a different problem than steps: steps transform data (<code>StepContext</code> in, <code>StepContext</code> out), hooks observe transitions (step started, step finished).</p>
+<p>The motivating use case is hosted/web deployments that need operational concerns — progress streaming, metrics, logging, billing — wired into the pipeline without modifying the step chain or the pipeline engine for each new concern.</p>
+<h3 id="separation-of-concerns">Separation of concerns<a class="headerlink" href="#separation-of-concerns" title="Permanent link">&para;</a></h3>
+<p>The pipeline has three distinct concerns, each with its own mechanism:</p>
+<table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>Mechanism</th>
+<th>Who owns it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Data flow</td>
+<td>Steps (<code>requires</code>/<code>provides</code>, <code>__call__</code>)</td>
+<td>Step author</td>
+</tr>
+<tr>
+<td>Observation</td>
+<td>Hooks (<code>before_step</code>/<code>after_step</code>)</td>
+<td>Deployment environment</td>
+</tr>
+<tr>
+<td>Lifecycle control</td>
+<td><code>cancel_token</code> (see Cancellation below)</td>
+<td>Caller</td>
+</tr>
+</tbody>
+</table>
+<p>Steps own data. Hooks observe execution. Cancellation controls lifecycle. These three never overlap — a hook cannot modify context, and cancellation is not a hook.</p>
+<h3 id="hook-protocol">Hook protocol<a class="headerlink" href="#hook-protocol" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="nd">@runtime_checkable</span>
+<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">PipelineHook</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">before_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">step_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">StepContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+<a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">after_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">step_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">StepContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+</code></pre></div>
+<p><strong>Design constraints:</strong></p>
+<ul>
+<li><strong><code>-&gt; None</code>, not <code>-&gt; StepContext</code></strong> — hooks observe, they do not transform. Context flow stays exclusively in the step chain via <code>requires</code>/<code>provides</code>. This eliminates the "second communication channel" problem — hooks cannot inject data that a later step silently depends on.</li>
+<li><strong><code>step_name: str</code></strong>, not the step object — hooks know what ran, but cannot call, inspect, or mutate the step instance. This prevents hooks from becoming an implicit dependency of step behavior.</li>
+<li><strong>Non-blocking</strong> — hooks must not block the event loop. They are in the hot path between steps. Heavy work (HTTP POST, disk write) should be dispatched to a background task or queue, not done inline. Same constraint as <code>on_sample_done</code>.</li>
+<li><strong>No ordering guarantees between hooks</strong> — hooks in the list are called sequentially in insertion order, but a hook must not depend on side effects of another hook. If ordering matters, combine them into one hook.</li>
+<li><strong>Exception isolation</strong> — if a hook raises, the pipeline logs the error and continues. A broken metrics hook must not kill the pipeline. Hook exceptions are never surfaced in <code>SampleResult</code>.</li>
+</ul>
+<h3 id="pipeline-integration">Pipeline integration<a class="headerlink" href="#pipeline-integration" title="Permanent link">&para;</a></h3>
+<p>Hooks are set at construction time — they are structural, like steps. A pipeline's observation behavior is fixed for its lifetime.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">Pipeline</span><span class="p">:</span>
+<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">steps</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">hooks</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_hooks</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">hooks</span> <span class="ow">or</span> <span class="p">[])</span>
+<a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a>        <span class="o">...</span>
+</code></pre></div>
+<p>The step execution loop calls hooks around each foreground step:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="n">foreground_steps</span><span class="p">:</span>
+<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a>    <span class="n">step_name</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="n">step</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span>
+<a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a>    <span class="k">for</span> <span class="n">hook</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hooks</span><span class="p">:</span>
+<a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a>        <span class="n">hook</span><span class="o">.</span><span class="n">before_step</span><span class="p">(</span><span class="n">step_name</span><span class="p">,</span> <span class="n">ctx</span><span class="p">)</span>
+<a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a>    <span class="n">ctx</span> <span class="o">=</span> <span class="k">await</span> <span class="n">step</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+<a id="__codelineno-27-6" name="__codelineno-27-6" href="#__codelineno-27-6"></a>    <span class="k">for</span> <span class="n">hook</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hooks</span><span class="p">:</span>
+<a id="__codelineno-27-7" name="__codelineno-27-7" href="#__codelineno-27-7"></a>        <span class="n">hook</span><span class="o">.</span><span class="n">after_step</span><span class="p">(</span><span class="n">step_name</span><span class="p">,</span> <span class="n">ctx</span><span class="p">)</span>
+</code></pre></div>
+<p>Hooks fire for <strong>foreground steps only</strong>. Background steps (after <code>async_boundary</code>) do not trigger hooks — the caller has already moved on, and hook callbacks from background threads would violate the non-blocking contract. Background observability is handled via <code>background_stats()</code>.</p>
+<h3 id="branch-and-nesting-behavior">Branch and nesting behavior<a class="headerlink" href="#branch-and-nesting-behavior" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Branch:</strong> hooks fire once for the <code>Branch</code> step as a whole (<code>step_name = "Branch"</code>), not for each inner step of each child pipeline. Branch children are an internal implementation detail — hooks observe the outer pipeline's step sequence only. This keeps hook output predictable regardless of how many branches exist or how deep they nest.</li>
+<li><strong>Nested Pipeline-as-Step:</strong> same rule. The outer pipeline fires hooks for the nested pipeline step (<code>step_name = "MySubPipeline"</code>), not for its inner steps. If the nested pipeline has its own hooks, those fire independently within its own execution.</li>
+</ul>
+<h3 id="example-progress-streaming-for-a-web-app">Example: progress streaming for a web app<a class="headerlink" href="#example-progress-streaming-for-a-web-app" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">ProgressHook</span><span class="p">:</span>
+<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Pushes step events to an async queue for SSE streaming.&quot;&quot;&quot;</span>
+<a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a>
+<a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">queue</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">Queue</span><span class="p">):</span>
+<a id="__codelineno-28-5" name="__codelineno-28-5" href="#__codelineno-28-5"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_queue</span> <span class="o">=</span> <span class="n">queue</span>
+<a id="__codelineno-28-6" name="__codelineno-28-6" href="#__codelineno-28-6"></a>
+<a id="__codelineno-28-7" name="__codelineno-28-7" href="#__codelineno-28-7"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">before_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">step_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">StepContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-28-8" name="__codelineno-28-8" href="#__codelineno-28-8"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_queue</span><span class="o">.</span><span class="n">put_nowait</span><span class="p">({</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;step_started&quot;</span><span class="p">,</span> <span class="s2">&quot;step&quot;</span><span class="p">:</span> <span class="n">step_name</span><span class="p">})</span>
+<a id="__codelineno-28-9" name="__codelineno-28-9" href="#__codelineno-28-9"></a>
+<a id="__codelineno-28-10" name="__codelineno-28-10" href="#__codelineno-28-10"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">after_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">step_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">StepContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-28-11" name="__codelineno-28-11" href="#__codelineno-28-11"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_queue</span><span class="o">.</span><span class="n">put_nowait</span><span class="p">({</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;step_done&quot;</span><span class="p">,</span> <span class="s2">&quot;step&quot;</span><span class="p">:</span> <span class="n">step_name</span><span class="p">})</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="c1"># Web endpoint wiring (not part of pipeline/)</span>
+<a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a><span class="n">queue</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">Queue</span><span class="p">()</span>
+<a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a><span class="n">pipe</span> <span class="o">=</span> <span class="n">Pipeline</span><span class="p">(</span><span class="n">steps</span><span class="p">,</span> <span class="n">hooks</span><span class="o">=</span><span class="p">[</span><span class="n">ProgressHook</span><span class="p">(</span><span class="n">queue</span><span class="p">)])</span>
+<a id="__codelineno-29-4" name="__codelineno-29-4" href="#__codelineno-29-4"></a><span class="n">asyncio</span><span class="o">.</span><span class="n">create_task</span><span class="p">(</span><span class="n">pipe</span><span class="o">.</span><span class="n">run_async</span><span class="p">(</span><span class="n">contexts</span><span class="p">))</span>
+<a id="__codelineno-29-5" name="__codelineno-29-5" href="#__codelineno-29-5"></a><span class="c1"># SSE endpoint reads from queue</span>
+</code></pre></div>
+<p>The hook implementation lives in the hosted deployment code, not in <code>pipeline/</code>. The pipeline engine provides the protocol and the call sites — nothing more.</p>
+<hr />
+<h2 id="cancellation">Cancellation<a class="headerlink" href="#cancellation" title="Permanent link">&para;</a></h2>
+<p><code>cancel_token</code> lets a caller stop a running pipeline between steps. The motivating use case is a web app where the user clicks "Stop" and the server needs to halt processing without waiting for the remaining steps or samples to complete.</p>
+<h3 id="cancellationtoken">CancellationToken<a class="headerlink" href="#cancellationtoken" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">CancellationToken</span><span class="p">:</span>
+<a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Thread-safe cancellation signal.&quot;&quot;&quot;</span>
+<a id="__codelineno-30-3" name="__codelineno-30-3" href="#__codelineno-30-3"></a>
+<a id="__codelineno-30-4" name="__codelineno-30-4" href="#__codelineno-30-4"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-30-5" name="__codelineno-30-5" href="#__codelineno-30-5"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_cancelled</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Event</span><span class="p">()</span>
+<a id="__codelineno-30-6" name="__codelineno-30-6" href="#__codelineno-30-6"></a>
+<a id="__codelineno-30-7" name="__codelineno-30-7" href="#__codelineno-30-7"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">cancel</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-30-8" name="__codelineno-30-8" href="#__codelineno-30-8"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Signal cancellation. Thread-safe, idempotent.&quot;&quot;&quot;</span>
+<a id="__codelineno-30-9" name="__codelineno-30-9" href="#__codelineno-30-9"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_cancelled</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
+<a id="__codelineno-30-10" name="__codelineno-30-10" href="#__codelineno-30-10"></a>
+<a id="__codelineno-30-11" name="__codelineno-30-11" href="#__codelineno-30-11"></a>    <span class="nd">@property</span>
+<a id="__codelineno-30-12" name="__codelineno-30-12" href="#__codelineno-30-12"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">is_cancelled</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<a id="__codelineno-30-13" name="__codelineno-30-13" href="#__codelineno-30-13"></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cancelled</span><span class="o">.</span><span class="n">is_set</span><span class="p">()</span>
+</code></pre></div>
+<p><code>threading.Event</code> rather than <code>asyncio.Event</code> because the token must be cancellable from any thread — a web endpoint handler, a background task, a signal handler. The pipeline checks it synchronously between steps, so no async machinery is needed.</p>
+<h3 id="pipeline-integration_1">Pipeline integration<a class="headerlink" href="#pipeline-integration_1" title="Permanent link">&para;</a></h3>
+<p><code>cancel_token</code> is passed per-invocation on <code>run()</code> and <code>run_async()</code>, not on <code>__init__</code>. A token is scoped to a single execution — each web request creates a fresh token. The pipeline object stays reusable across runs.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a><span class="n">pipe</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">contexts</span><span class="p">,</span> <span class="n">cancel_token</span><span class="o">=</span><span class="n">token</span><span class="p">)</span>
+<a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a><span class="k">await</span> <span class="n">pipe</span><span class="o">.</span><span class="n">run_async</span><span class="p">(</span><span class="n">contexts</span><span class="p">,</span> <span class="n">cancel_token</span><span class="o">=</span><span class="n">token</span><span class="p">)</span>
+</code></pre></div>
+<p>The runner checks the token at two points:</p>
+<ol>
+<li><strong>Before each foreground step</strong> — if cancelled, the current sample gets <code>error=PipelineCancelled()</code> and <code>failed_at</code> set to the step that would have run next.</li>
+<li><strong>Before each new sample</strong> — if cancelled, remaining samples are not started. Samples already in-flight (via <code>workers &gt; 1</code>) complete their current step but are cancelled before the next one.</li>
+</ol>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a><span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="n">foreground_steps</span><span class="p">:</span>
+<a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a>    <span class="k">if</span> <span class="n">cancel_token</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">cancel_token</span><span class="o">.</span><span class="n">is_cancelled</span><span class="p">:</span>
+<a id="__codelineno-32-3" name="__codelineno-32-3" href="#__codelineno-32-3"></a>        <span class="n">result</span><span class="o">.</span><span class="n">error</span> <span class="o">=</span> <span class="n">PipelineCancelled</span><span class="p">()</span>
+<a id="__codelineno-32-4" name="__codelineno-32-4" href="#__codelineno-32-4"></a>        <span class="n">result</span><span class="o">.</span><span class="n">failed_at</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="n">step</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span>
+<a id="__codelineno-32-5" name="__codelineno-32-5" href="#__codelineno-32-5"></a>        <span class="k">return</span> <span class="n">result</span>
+<a id="__codelineno-32-6" name="__codelineno-32-6" href="#__codelineno-32-6"></a>    <span class="n">ctx</span> <span class="o">=</span> <span class="k">await</span> <span class="n">step</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="what-cancellation-does-not-do">What cancellation does NOT do<a class="headerlink" href="#what-cancellation-does-not-do" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>It does not interrupt a running step.</strong> If <code>AgentStep</code> is mid-LLM-call, that call runs to completion. Cancellation is checked <em>between</em> steps, not <em>within</em> them. Steps that need intra-step cancellation (e.g. long-running browser automation) can accept the token directly and check it in their own loops — but this is a step-level concern, not a pipeline-level one.</li>
+<li><strong>It does not cancel background steps.</strong> Background work (after <code>async_boundary</code>) runs in separate threads and is not interrupted. <code>wait_for_background()</code> still works normally. If you need to cancel background work, shut down the step-class executors directly.</li>
+<li><strong>It does not affect hooks.</strong> Hooks still fire for the step that was executing when cancellation was detected — <code>after_step</code> is called, then the cancellation check runs before the <em>next</em> step.</li>
+</ul>
+<h3 id="pipelinecancelled">PipelineCancelled<a class="headerlink" href="#pipelinecancelled" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">PipelineCancelled</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+<a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Raised (internally) when a cancel_token is triggered between steps.</span>
+<a id="__codelineno-33-3" name="__codelineno-33-3" href="#__codelineno-33-3"></a>
+<a id="__codelineno-33-4" name="__codelineno-33-4" href="#__codelineno-33-4"></a><span class="sd">    Surfaces in ``SampleResult.error`` — never propagated to the caller</span>
+<a id="__codelineno-33-5" name="__codelineno-33-5" href="#__codelineno-33-5"></a><span class="sd">    of ``run()`` / ``run_async()``.  Callers check for this type to</span>
+<a id="__codelineno-33-6" name="__codelineno-33-6" href="#__codelineno-33-6"></a><span class="sd">    distinguish cancellation from step failures.</span>
+<a id="__codelineno-33-7" name="__codelineno-33-7" href="#__codelineno-33-7"></a><span class="sd">    &quot;&quot;&quot;</span>
+</code></pre></div>
+<p><code>PipelineCancelled</code> follows the same error-handling pattern as step exceptions: it is caught per-sample and recorded in <code>SampleResult</code>, not propagated. The runner continues to the next sample (which will also be cancelled if the token is still set). This means <code>run()</code> always returns a complete list of <code>SampleResult</code> — some successful, some failed, some cancelled.</p>
+<h3 id="example-web-app-cancel-endpoint">Example: web app cancel endpoint<a class="headerlink" href="#example-web-app-cancel-endpoint" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a><span class="c1"># Start a run</span>
+<a id="__codelineno-34-2" name="__codelineno-34-2" href="#__codelineno-34-2"></a><span class="n">token</span> <span class="o">=</span> <span class="n">CancellationToken</span><span class="p">()</span>
+<a id="__codelineno-34-3" name="__codelineno-34-3" href="#__codelineno-34-3"></a><span class="n">active_runs</span><span class="p">[</span><span class="n">run_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">token</span>
+<a id="__codelineno-34-4" name="__codelineno-34-4" href="#__codelineno-34-4"></a><span class="n">task</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">create_task</span><span class="p">(</span><span class="n">pipe</span><span class="o">.</span><span class="n">run_async</span><span class="p">(</span><span class="n">contexts</span><span class="p">,</span> <span class="n">cancel_token</span><span class="o">=</span><span class="n">token</span><span class="p">))</span>
+<a id="__codelineno-34-5" name="__codelineno-34-5" href="#__codelineno-34-5"></a>
+<a id="__codelineno-34-6" name="__codelineno-34-6" href="#__codelineno-34-6"></a><span class="c1"># Cancel endpoint</span>
+<a id="__codelineno-34-7" name="__codelineno-34-7" href="#__codelineno-34-7"></a><span class="nd">@app</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">&quot;/runs/</span><span class="si">{run_id}</span><span class="s2">/cancel&quot;</span><span class="p">)</span>
+<a id="__codelineno-34-8" name="__codelineno-34-8" href="#__codelineno-34-8"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">cancel_run</span><span class="p">(</span><span class="n">run_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<a id="__codelineno-34-9" name="__codelineno-34-9" href="#__codelineno-34-9"></a>    <span class="n">active_runs</span><span class="p">[</span><span class="n">run_id</span><span class="p">]</span><span class="o">.</span><span class="n">cancel</span><span class="p">()</span>
+<a id="__codelineno-34-10" name="__codelineno-34-10" href="#__codelineno-34-10"></a>    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="s2">&quot;cancelling&quot;</span><span class="p">}</span>
+</code></pre></div>
+<hr />
 <h2 id="summary-table">Summary Table<a class="headerlink" href="#summary-table" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2354,6 +2651,18 @@ Controlled by <code>max_workers</code> on the step. Each step class has a single
 <td>inherits parent context</td>
 <td>via <code>StepContext</code></td>
 </tr>
+<tr>
+<td><code>PipelineHook</code></td>
+<td>observation point</td>
+<td>runs in caller thread</td>
+<td><code>-&gt; None</code> (read-only)</td>
+</tr>
+<tr>
+<td><code>CancellationToken</code></td>
+<td>lifecycle signal</td>
+<td>thread-safe (<code>threading.Event</code>)</td>
+<td>checked between steps</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -2373,6 +2682,14 @@ Four alternatives to plain set class attributes were considered:</p>
 <li>Decomposed signature / Hamilton-style (steps receive named fields as parameters instead of <code>StepContext</code>): elegant zero-annotation contracts — <code>requires</code> and <code>provides</code> are inferred from function signature at zero cost. Rejected because it loses explicit ordering control (order is inferred from data dependencies, not declared; independent steps have undefined order), collapses the two-tier <code>StepContext</code>/<code>metadata</code> structure into a flat dict (integration-specific data collides with shared fields), and makes side-effect steps with no consumed output impossible to anchor in the sequence.</li>
 </ul>
 <p>Plain set class attributes with pipeline normalization to <code>frozenset</code> at construction time is the right balance: explicit, readable, no inheritance required, and the ordering and context model stay intact.</p>
+<p><strong>Alternative hook/cancellation designs:</strong>
+Three alternatives to the observation-only <code>PipelineHook</code> + separate <code>cancel_token</code> design were considered:</p>
+<ul>
+<li>Context-modifying hooks (<code>before_step</code> returns <code>StepContext</code>): hooks could transform context between steps — powerful but creates a second data-flow channel invisible to <code>requires</code>/<code>provides</code> validation. A hook could inject a field that a later step silently depends on, and the pipeline validator would not catch the dependency. Rejected to preserve the invariant that all data flow goes through the step chain.</li>
+<li>Cancellation as a hook (<code>CancellationHook</code> that raises in <code>before_step</code>): keeps everything in one mechanism, but mixes observation and control. If hooks are supposed to be safe to fail (exception isolation), a cancellation hook that <em>must</em> propagate its exception breaks that contract. Rejected — cancellation is a lifecycle concern, not an observation concern, so it gets its own parameter.</li>
+<li>Cancellation via <code>metadata</code> on <code>StepContext</code>: put a <code>CancellationToken</code> in <code>metadata</code> and have each step check it. Follows "behavior on the step" but couples every step to a cancellation concept, and steps that forget to check it silently ignore cancellation. Rejected — cancellation should be guaranteed by the pipeline, not opt-in per step.</li>
+<li>Additional <code>run_async</code> callback parameters (no hook protocol): add <code>on_step_done</code> and <code>cancel_token</code> as parameters on <code>run()</code>/<code>run_async()</code>, following the <code>on_sample_done</code> precedent. Minimal and consistent, but each new operational concern (metrics, billing, auth context) requires adding another parameter to the pipeline's public API, which accumulates over time. The hook protocol pays a small upfront design cost to avoid this parameter growth.</li>
+</ul>
 <hr />
 <h2 id="external-libraries-considered">External Libraries Considered<a class="headerlink" href="#external-libraries-considered" title="Permanent link">&para;</a></h2>
 <p>This pattern is known as <strong>Pipes and Filters</strong>. Several open source libraries implement variants of it. None were adopted — reasons below.</p>
