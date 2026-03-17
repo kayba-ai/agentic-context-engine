@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import threading
 import time
 import warnings
@@ -12,8 +13,8 @@ from typing import Any
 
 from .branch import Branch, MergeStrategy
 from .context import StepContext
-from .errors import PipelineConfigError, PipelineOrderError
-from .protocol import SampleResult
+from .errors import CancellationToken, PipelineCancelled, PipelineConfigError, PipelineOrderError
+from .protocol import PipelineHook, SampleResult
 
 
 # ---------------------------------------------------------------------------
@@ -71,14 +72,41 @@ class Pipeline:
     step inside another pipeline without extra annotation.
     """
 
-    def __init__(self, steps: list | None = None) -> None:
+    def __init__(
+        self,
+        steps: list | None = None,
+        hooks: list[PipelineHook] | None = None,
+    ) -> None:
         self._steps: list = list(steps or [])
+        self._hooks: list[PipelineHook] = list(hooks or [])
         self.requires, self.provides = self._infer_contracts(self._steps)
         self._validate_steps(self._steps)
 
         # Background thread tracking (per Pipeline instance)
         self._bg_threads: list[threading.Thread] = []
         self._bg_lock = threading.Lock()
+
+    # ------------------------------------------------------------------
+    # Hook helpers
+    # ------------------------------------------------------------------
+
+    def _fire_before(self, step_name: str, ctx: StepContext) -> None:
+        for hook in self._hooks:
+            try:
+                hook.before_step(step_name, ctx)
+            except Exception:
+                logging.getLogger(__name__).exception(
+                    "Hook %s.before_step raised — ignoring", type(hook).__name__
+                )
+
+    def _fire_after(self, step_name: str, ctx: StepContext) -> None:
+        for hook in self._hooks:
+            try:
+                hook.after_step(step_name, ctx)
+            except Exception:
+                logging.getLogger(__name__).exception(
+                    "Hook %s.after_step raised — ignoring", type(hook).__name__
+                )
 
     # ------------------------------------------------------------------
     # Contract inference
@@ -319,6 +347,7 @@ class Pipeline:
         contexts: Iterable[StepContext],
         workers: int = 1,
         on_sample_done: Callable[[SampleResult], None] | None = None,
+        cancel_token: CancellationToken | None = None,
     ) -> list[SampleResult]:
         """Process *contexts* through the pipeline (sync entry point).
 
@@ -341,9 +370,17 @@ class Pipeline:
             on_sample_done: Optional callback invoked after each sample
                 completes its foreground steps (or fails).  Receives the
                 ``SampleResult``.  Must not block the event loop.
+            cancel_token: Optional cancellation signal.  Checked before
+                each step and each new sample.  Pass a fresh token per
+                invocation; the pipeline object stays reusable.
         """
         return asyncio.run(
-            self.run_async(contexts, workers=workers, on_sample_done=on_sample_done)
+            self.run_async(
+                contexts,
+                workers=workers,
+                on_sample_done=on_sample_done,
+                cancel_token=cancel_token,
+            )
         )
 
     # ------------------------------------------------------------------
@@ -355,6 +392,7 @@ class Pipeline:
         contexts: Iterable[StepContext],
         workers: int = 1,
         on_sample_done: Callable[[SampleResult], None] | None = None,
+        cancel_token: CancellationToken | None = None,
     ) -> list[SampleResult]:
         """Async entry point; use ``await pipe.run_async(contexts)`` from
         coroutine contexts (e.g. inside browser-use tasks).
@@ -365,6 +403,8 @@ class Pipeline:
             on_sample_done: Optional callback invoked after each sample
                 completes its foreground steps (or fails).  Receives the
                 ``SampleResult``.  Must not block the event loop.
+            cancel_token: Optional cancellation signal.  Checked before
+                each step and each new sample.
         """
         boundary_idx = self._find_boundary_index()
         if boundary_idx is None:
@@ -384,13 +424,29 @@ class Pipeline:
                 last_step_name: str | None = None
                 try:
                     for step in foreground_steps:
-                        last_step_name = type(step).__name__
+                        step_name = type(step).__name__
+
+                        # Cancel check — before each step
+                        if cancel_token is not None and cancel_token.is_cancelled:
+                            result.error = PipelineCancelled(
+                                f"Cancelled before {step_name}"
+                            )
+                            result.failed_at = step_name
+                            if on_sample_done is not None:
+                                on_sample_done(result)
+                            return result
+
+                        last_step_name = step_name
+                        self._fire_before(step_name, ctx)
+
                         if asyncio.iscoroutinefunction(step.__call__):
                             ctx = await step(ctx)
                         elif hasattr(step, "__call_async__"):
                             ctx = await step.__call_async__(ctx)
                         else:
                             ctx = await asyncio.to_thread(step, ctx)
+
+                        self._fire_after(step_name, ctx)
                 except Exception as exc:
                     result.error = exc
                     result.failed_at = last_step_name
