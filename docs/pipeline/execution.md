@@ -32,7 +32,19 @@ Each mechanism is independent. They compose freely — you can have async steps 
     results = await pipe.run_async(contexts, workers=4)
     ```
 
+=== "With cancellation"
+
+    ```python
+    from pipeline import CancellationToken
+
+    token = CancellationToken()
+    results = pipe.run(contexts, workers=4, cancel_token=token)
+    # Call token.cancel() from another thread to stop processing
+    ```
+
 `run()` is a thin wrapper that calls `asyncio.run(self.run_async(...))`. Both accept the same parameters and return `list[SampleResult]`.
+
+Optional parameters: `on_sample_done` (callback after each sample), `cancel_token` (stop between steps). See [API Reference](api-reference.md) for full signatures.
 
 ---
 

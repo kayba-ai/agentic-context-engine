@@ -13,7 +13,7 @@ from typing import Any
 
 from .branch import Branch, MergeStrategy
 from .context import StepContext
-from .errors import CancellationToken, PipelineCancelled, PipelineConfigError, PipelineOrderError
+from .errors import CancellationToken, PipelineCancelled, PipelineConfigError, PipelineOrderError, cancel_token_var
 from .protocol import PipelineHook, SampleResult
 
 
@@ -464,4 +464,10 @@ class Pipeline:
                     on_sample_done(result)
                 return result
 
-        return list(await asyncio.gather(*[process_one(c) for c in contexts]))
+        # Set the contextvar so code inside steps (e.g. LLM clients) can
+        # read the cancel token without explicit parameter passing.
+        _reset = cancel_token_var.set(cancel_token)
+        try:
+            return list(await asyncio.gather(*[process_one(c) for c in contexts]))
+        finally:
+            cancel_token_var.reset(_reset)

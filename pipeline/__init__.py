@@ -11,6 +11,7 @@ Public surface::
         StepContext,
         SampleResult,
         CancellationToken,
+        cancel_token_var,
         PipelineOrderError,
         PipelineConfigError,
         PipelineCancelled,
@@ -20,7 +21,7 @@ Public surface::
 
 from .branch import Branch, MergeStrategy
 from .context import StepContext
-from .errors import BranchError, CancellationToken, PipelineCancelled, PipelineConfigError, PipelineOrderError
+from .errors import BranchError, CancellationToken, PipelineCancelled, PipelineConfigError, PipelineOrderError, cancel_token_var
 from .pipeline import Pipeline
 from .protocol import PipelineHook, SampleResult, StepProtocol
 
@@ -33,6 +34,7 @@ __all__ = [
     "StepContext",
     "SampleResult",
     "CancellationToken",
+    "cancel_token_var",
     "PipelineOrderError",
     "PipelineConfigError",
     "PipelineCancelled",

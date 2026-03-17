@@ -1,4 +1,4 @@
-"""Tests for PipelineHook and CancellationToken."""
+"""Tests for PipelineHook, CancellationToken, and cancel_token_var."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ from pipeline import (
     PipelineHook,
     SampleResult,
     StepContext,
+    cancel_token_var,
 )
 
 
@@ -294,3 +295,100 @@ class TestPipelineCancellation:
         assert r.output is None
         assert isinstance(r.error, PipelineCancelled)
         assert r.failed_at is not None
+
+
+# ==================================================================
+# cancel_token_var contextvar tests
+# ==================================================================
+
+
+class TestCancelTokenVar:
+    def test_contextvar_is_none_by_default(self):
+        assert cancel_token_var.get(None) is None
+
+    def test_contextvar_set_during_pipeline_run(self):
+        """Steps can read the cancel_token_var set by the pipeline."""
+        observed_tokens = []
+
+        class TokenReadingStep:
+            requires = frozenset()
+            provides = frozenset()
+
+            def __call__(self, ctx: StepContext) -> StepContext:
+                observed_tokens.append(cancel_token_var.get(None))
+                return ctx
+
+        token = CancellationToken()
+        pipe = Pipeline([TokenReadingStep()])
+        pipe.run([StepContext(sample=1)], cancel_token=token)
+
+        assert len(observed_tokens) == 1
+        assert observed_tokens[0] is token
+
+    def test_contextvar_is_none_without_cancel_token(self):
+        """When no cancel_token is passed, the contextvar is None inside steps."""
+        observed_tokens = []
+
+        class TokenReadingStep:
+            requires = frozenset()
+            provides = frozenset()
+
+            def __call__(self, ctx: StepContext) -> StepContext:
+                observed_tokens.append(cancel_token_var.get(None))
+                return ctx
+
+        pipe = Pipeline([TokenReadingStep()])
+        pipe.run([StepContext(sample=1)])
+
+        assert len(observed_tokens) == 1
+        assert observed_tokens[0] is None
+
+    def test_contextvar_reset_after_run(self):
+        """The contextvar is reset after run() completes."""
+        token = CancellationToken()
+        pipe = Pipeline([PassthroughStep()])
+        pipe.run([StepContext(sample=1)], cancel_token=token)
+
+        # After run, the contextvar should be back to default
+        assert cancel_token_var.get(None) is None
+
+    def test_contextvar_visible_across_multiple_steps(self):
+        """All steps in the same pipeline run see the same token."""
+        observed_tokens = []
+
+        class TokenReadingStep:
+            requires = frozenset()
+            provides = frozenset()
+
+            def __call__(self, ctx: StepContext) -> StepContext:
+                observed_tokens.append(cancel_token_var.get(None))
+                return ctx
+
+        token = CancellationToken()
+        pipe = Pipeline([TokenReadingStep(), TokenReadingStep(), TokenReadingStep()])
+        pipe.run([StepContext(sample=1)], cancel_token=token)
+
+        assert len(observed_tokens) == 3
+        assert all(t is token for t in observed_tokens)
+
+    def test_contextvar_per_sample(self):
+        """Each sample in the same run sees the same token."""
+        observed_tokens = []
+
+        class TokenReadingStep:
+            requires = frozenset()
+            provides = frozenset()
+
+            def __call__(self, ctx: StepContext) -> StepContext:
+                observed_tokens.append(cancel_token_var.get(None))
+                return ctx
+
+        token = CancellationToken()
+        pipe = Pipeline([TokenReadingStep()])
+        pipe.run(
+            [StepContext(sample=i) for i in range(3)],
+            cancel_token=token,
+        )
+
+        assert len(observed_tokens) == 3
+        assert all(t is token for t in observed_tokens)

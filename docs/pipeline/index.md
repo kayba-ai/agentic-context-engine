@@ -42,6 +42,8 @@ Steps declare what data they read and write. The pipeline validates ordering at 
 - **Immutable context** — Steps receive a frozen context and return a new one via `.replace()`, making concurrent execution safe by default
 - **Declared concurrency** — Parallelism is configured on the step (`max_workers`, `async_boundary`), not the pipeline
 - **Per-sample error isolation** — One failing sample never blocks others; every sample produces a result
+- **Observation hooks** — `PipelineHook` lets external code observe step transitions without modifying data flow (progress streaming, metrics, logging)
+- **Cancellation** — `CancellationToken` stops a running pipeline between steps; `cancel_token_var` makes the token readable inside steps for intra-step cancellation
 
 ---
 
@@ -149,7 +151,7 @@ This is critical for pipelines where early steps produce user-facing output quic
 The pipeline engine is included in the project with no extra dependencies:
 
 ```python
-from pipeline import Pipeline, Branch, StepContext, MergeStrategy
+from pipeline import Pipeline, Branch, StepContext, MergeStrategy, PipelineHook, CancellationToken
 ```
 
 !!! tip "Using the Pipeline Engine with ACE"
