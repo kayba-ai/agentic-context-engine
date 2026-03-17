@@ -127,9 +127,11 @@ class OpikStep:
         self,
         project_name: str = "ace-framework",
         tags: list[str] | None = None,
+        thread_id: str | None = None,
     ) -> None:
         self.project_name = project_name
         self.tags = tags or ["ace"]
+        self.thread_id = thread_id
         self._client: Any | None = None
         self.enabled = OPIK_AVAILABLE and not _opik_disabled()
 
@@ -174,8 +176,14 @@ class OpikStep:
         tags = self.tags + [f"epoch-{ctx.epoch}"]
 
         assert self._client is not None
-        trace = self._client.trace(
-            name="ace_pipeline",
+        # Build informative trace name from context
+        trace_name = "ace_pipeline"
+        if isinstance(ctx.trace, dict):
+            q = ctx.trace.get("question", "")
+            if q:
+                trace_name = f"pipeline: {q[:80]}"
+        trace_kwargs: dict[str, Any] = dict(
+            name=trace_name,
             input=trace_input,
             output=trace_output,
             metadata=metadata,
@@ -183,6 +191,9 @@ class OpikStep:
             tags=tags,
             project_name=self.project_name,
         )
+        if self.thread_id:
+            trace_kwargs["thread_id"] = self.thread_id
+        trace = self._client.trace(**trace_kwargs)
         trace.end()
 
     def _build_input(self, ctx: ACEStepContext) -> dict[str, Any]:

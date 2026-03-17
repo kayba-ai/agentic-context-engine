@@ -80,9 +80,11 @@ class RROpikStep:
         self,
         project_name: str = "ace-rr",
         tags: list[str] | None = None,
+        thread_id: str | None = None,
     ) -> None:
         self.project_name = project_name
         self.tags = tags or ["ace", "rr"]
+        self.thread_id = thread_id
         self._client: Any | None = None
         self.enabled = OPIK_AVAILABLE and not _opik_disabled()
 
@@ -139,14 +141,23 @@ class RROpikStep:
         tags = list(self.tags)
 
         assert self._client is not None
-        trace = self._client.trace(
-            name="rr_reflect",
+        # Build informative trace name
+        trace_name = "rr_reflect"
+        if isinstance(ctx.trace, dict):
+            q = ctx.trace.get("question", "")
+            if q:
+                trace_name = f"rr: {q[:80]}"
+        trace_kwargs: dict[str, Any] = dict(
+            name=trace_name,
             input=trace_input,
             output=trace_output,
             metadata=metadata,
             tags=tags,
             project_name=self.project_name,
         )
+        if self.thread_id:
+            trace_kwargs["thread_id"] = self.thread_id
+        trace = self._client.trace(**trace_kwargs)
 
         # Child span per REPL iteration (includes LLM call telemetry)
         for entry in iterations:
