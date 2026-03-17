@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.7] - 2026-03-17
+
+### Added
+- **Improved Opik trace naming** — traces now display the question text (first 80 chars) instead of generic names like "ace_pipeline" or "rr_reflect"
+- **Thread ID support for Opik** — `OpikStep` and `RROpikStep` accept an optional `thread_id` parameter for grouping related traces
+
 ## [0.8.5] - 2026-03-04
 
 ### Added
@@ -277,6 +283,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Type hints and modern Python practices
 - MIT licensed for open source use
 
+[0.8.7]: https://github.com/Kayba-ai/agentic-context-engine/compare/v0.8.6...v0.8.7
 [0.8.5]: https://github.com/Kayba-ai/agentic-context-engine/compare/v0.8.4...v0.8.5
 [0.8.4]: https://github.com/Kayba-ai/agentic-context-engine/compare/v0.8.3...v0.8.4
 [0.8.3]: https://github.com/Kayba-ai/agentic-context-engine/compare/v0.8.2...v0.8.3
