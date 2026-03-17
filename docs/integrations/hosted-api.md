@@ -166,11 +166,17 @@ Options:
 ### Agent setup
 
 ```bash
-# Print CLI instructions to stdout
+# Print CLI instructions and install pipeline skills
 kayba setup
 
 # Append to a project agent file
 kayba setup --append-to AGENTS.md
+
+# Skip skill installation
+kayba setup --no-skills
+
+# Install into a different project
+kayba setup --project-dir /path/to/project
 ```
 
 Options:
@@ -178,6 +184,10 @@ Options:
 | Flag | Description |
 |------|-------------|
 | `--append-to FILE` | Append instructions to file instead of printing (recommended: `AGENTS.md`) |
+| `--skills/--no-skills` | Install Claude Code pipeline skills (default: enabled) |
+| `--project-dir DIR` | Project root directory (default: current directory) |
+
+By default `kayba setup` copies the **kayba-pipeline** skill into `.claude/skills/`. This skill orchestrates a 7-stage evaluation pipeline (analyze traces → compute metrics → build rubric → plan fixes → HITL review → apply fixes → verify). See [Claude Code](claude-code.md#pipeline-skill) for details.
 
 ## End-to-end workflow
 
@@ -248,7 +258,8 @@ prompt = client.get_prompt(prompts[0]["id"])
 ## Coding agent setup
 
 **Quick (current session):** Tell your coding agent to run `kayba setup`. The agent will see
-the full CLI reference in its context and know how to use every command.
+the full CLI reference in its context and know how to use every command. The pipeline skill is
+also installed to `.claude/skills/`, giving Claude Code access to the 7-stage evaluation pipeline.
 
 **Persistent (all future sessions):** Append instructions to your project's agent file:
 
@@ -259,6 +270,8 @@ kayba setup --append-to .cursorrules   # Cursor only
 ```
 
 `AGENTS.md` is the recommended target — it's the universal standard supported by 20+ coding agents.
+
+To skip skill installation (e.g. for non-Claude-Code agents), pass `--no-skills`.
 
 ## Environment variables
 

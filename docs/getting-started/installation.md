@@ -85,6 +85,16 @@ agent = ACELiteLLM.from_model("gpt-4o-mini")
 print(agent.ask("Hello!"))
 ```
 
+## Set Up Coding Agent Skills (Optional)
+
+If you use Claude Code, install the Kayba pipeline skill:
+
+```bash
+kayba setup
+```
+
+This installs the evaluation pipeline skill to `.claude/skills/` and prints CLI instructions. See [Hosted API](../integrations/hosted-api.md) for details.
+
 ## What to Read Next
 
 - [Setup](setup.md) — configure models and API keys

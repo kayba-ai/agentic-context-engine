@@ -65,6 +65,30 @@ runner.get_strategies()                     # View learned strategies
 3. **Extract trace** — ACE reads the Claude Code execution transcript
 4. **LEARN** — Reflector analyzes the trace, SkillManager updates the skillbook
 
+## Pipeline Skill
+
+The **kayba-pipeline** skill gives Claude Code a 7-stage evaluation and improvement pipeline that can be triggered directly from the chat. Install it with:
+
+```bash
+kayba setup
+```
+
+This copies the skill into `.claude/skills/kayba-pipeline/`. The pipeline stages are:
+
+1. **Analyze traces** — extract patterns from agent execution transcripts
+2. **Compute metrics** — score traces against quality dimensions
+3. **Build rubric** — generate a structured evaluation rubric
+4. **Plan fixes** — propose concrete improvements
+5. **HITL review** — optional human-in-the-loop approval gate
+6. **Apply fixes** — execute the approved changes
+7. **Verify** — confirm fixes pass the rubric
+
+Trigger the pipeline by saying **"run the pipeline"** or **"kayba pipeline"** in Claude Code with a traces folder in your project.
+
+To skip skill installation: `kayba setup --no-skills`. See [Hosted API](hosted-api.md#agent-setup) for all `kayba setup` options.
+
+## How It Works (continued)
+
 The agent learns project-specific patterns like:
 
 - Code style and conventions
