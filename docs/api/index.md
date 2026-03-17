@@ -291,6 +291,8 @@ response = client.complete("Hello")
 
 Supports all [LiteLLM providers](https://docs.litellm.ai/) (OpenAI, Anthropic, Google, Ollama, etc.).
 
+When a `cancel_token_var` is set by the pipeline (via `run(cancel_token=...)`), `LiteLLMClient` automatically switches to streaming mode internally, checking the token between chunks for fast cancellation. Cost and usage metadata are preserved via `litellm.stream_chunk_builder()`.
+
 ### InstructorClient
 
 Wraps any LLM client with Pydantic validation for more reliable structured outputs.

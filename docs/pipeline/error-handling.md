@@ -156,6 +156,28 @@ for r in results:
         print(f"Background failure at {r.failed_at}: {r.error}")
 ```
 
+### PipelineCancelled
+
+When a `cancel_token` is triggered, remaining steps and samples are cancelled with `PipelineCancelled`:
+
+```python
+from pipeline import CancellationToken, PipelineCancelled
+
+token = CancellationToken()
+# ... later, from another thread or endpoint:
+token.cancel()
+
+results = pipe.run(contexts, cancel_token=token)
+
+for r in results:
+    if isinstance(r.error, PipelineCancelled):
+        print(f"Sample '{r.sample}' was cancelled before {r.failed_at}")
+    elif r.error:
+        print(f"Sample '{r.sample}' failed at {r.failed_at}: {r.error}")
+```
+
+Cancellation is checked **between** steps — a running step always completes. `PipelineCancelled` follows the same `SampleResult` pattern as step errors: it is caught per-sample, not propagated.
+
 ### BranchError
 
 When one or more branch pipelines fail, a `BranchError` is raised with the full list of failures:

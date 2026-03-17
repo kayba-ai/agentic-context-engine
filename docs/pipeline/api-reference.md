@@ -96,12 +96,13 @@ Ordered sequence of steps. Satisfies `StepProtocol` — can be nested inside oth
 #### Constructor
 
 ```python
-Pipeline(steps: list | None = None)
+Pipeline(steps: list | None = None, hooks: list[PipelineHook] | None = None)
 ```
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `steps` | `list \| None` | `None` | Optional initial list of steps |
+| `hooks` | `list[PipelineHook] \| None` | `None` | Observation-only hooks fired around each foreground step |
 
 Validates step ordering and infers contracts at construction time.
 
@@ -155,6 +156,8 @@ def run(
     self,
     contexts: Iterable[StepContext],
     workers: int = 1,
+    on_sample_done: Callable[[SampleResult], None] | None = None,
+    cancel_token: CancellationToken | None = None,
 ) -> list[SampleResult]
 ```
 
@@ -164,10 +167,12 @@ Process contexts through the pipeline (sync entry point).
 |-----------|------|---------|-------------|
 | `contexts` | `Iterable[StepContext]` | — | Input contexts to process |
 | `workers` | `int` | `1` | Max concurrent samples in foreground steps |
+| `on_sample_done` | `Callable \| None` | `None` | Callback after each sample's foreground steps complete (or fail). Must not block. |
+| `cancel_token` | `CancellationToken \| None` | `None` | Cancellation signal. Checked before each step and each new sample. Pass a fresh token per invocation. |
 
 **Returns:** `list[SampleResult]` — one result per input context
 
-**Notes:** Calls `asyncio.run(self.run_async(...))` internally. For background steps, call `wait_for_background()` after this returns.
+**Notes:** Calls `asyncio.run(self.run_async(...))` internally. For background steps, call `wait_for_background()` after this returns. When `cancel_token` is provided, also sets `cancel_token_var` so code inside steps (e.g. LLM clients) can read it.
 
 ---
 
@@ -178,6 +183,8 @@ async def run_async(
     self,
     contexts: Iterable[StepContext],
     workers: int = 1,
+    on_sample_done: Callable[[SampleResult], None] | None = None,
+    cancel_token: CancellationToken | None = None,
 ) -> list[SampleResult]
 ```
 
@@ -302,7 +309,79 @@ Async fan-out via `asyncio.gather`. Sync children are wrapped with `asyncio.to_t
 
 ---
 
+## `pipeline.protocol`  — Hooks
+
+### `PipelineHook`
+
+Observation-only protocol fired around each foreground step. Hooks cannot modify context — both methods return `None`.
+
+```python
+@runtime_checkable
+class PipelineHook(Protocol):
+    def before_step(self, step_name: str, ctx: StepContext) -> None: ...
+    def after_step(self, step_name: str, ctx: StepContext) -> None: ...
+```
+
+| Method | Parameters | Description |
+|--------|-----------|-------------|
+| `before_step` | `step_name: str, ctx: StepContext` | Called before each foreground step executes |
+| `after_step` | `step_name: str, ctx: StepContext` | Called after each foreground step completes |
+
+**Notes:**
+
+- `step_name` is `type(step).__name__` — hooks know what ran but cannot inspect or mutate the step instance
+- Hooks fire for foreground steps only — background steps (after `async_boundary`) do not trigger hooks
+- If a hook raises, the pipeline logs the error and continues — a broken hook never kills the pipeline
+- For `Branch` steps, hooks fire once for `"Branch"` as a whole, not for inner steps
+
+---
+
 ## `pipeline.errors`
+
+### `CancellationToken`
+
+Thread-safe cancellation signal. Create a fresh token per `run()` invocation.
+
+```python
+class CancellationToken:
+    def cancel(self) -> None: ...
+
+    @property
+    def is_cancelled(self) -> bool: ...
+```
+
+| Method / Property | Description |
+|-------------------|-------------|
+| `cancel()` | Signal cancellation. Thread-safe, idempotent. |
+| `is_cancelled` | `True` after `cancel()` has been called. |
+
+---
+
+### `cancel_token_var`
+
+`ContextVar` set by `Pipeline.run_async()` so code inside steps (e.g. LLM clients) can read the current cancel token without parameter changes.
+
+```python
+cancel_token_var: ContextVar[CancellationToken | None]  # default: None
+```
+
+**Notes:**
+
+- Set before steps run, reset after `run_async()` completes
+- `asyncio.to_thread()` copies contextvars automatically — visible in sync steps too
+- Read with `cancel_token_var.get(None)` — returns `None` when no pipeline is running
+
+---
+
+### `PipelineCancelled`
+
+```python
+class PipelineCancelled(Exception): ...
+```
+
+A `cancel_token` was triggered. Surfaces in `SampleResult.error` — never propagated to the caller of `run()`. Callers check `isinstance(result.error, PipelineCancelled)` to distinguish cancellation from step failures.
+
+---
 
 ### `PipelineOrderError`
 

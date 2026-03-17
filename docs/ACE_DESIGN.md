@@ -1893,6 +1893,69 @@ trace 2:  [build_context] ──fire──► [ReflectStep] [TagStep] [UpdateSte
 
 No custom `AsyncLearningPipeline` class, no manual thread management, no `asyncio.create_task` for background learning. The pipeline engine handles all of it.
 
+### Cancellation
+
+ACE inherits cancellation support from the pipeline engine. Two levels work together:
+
+**Between steps (pipeline level):**  Pass a `CancellationToken` to `run()` / `run_async()`. The pipeline checks it before each foreground step. See `PIPELINE_DESIGN.md § Cancellation` for the full mechanism.
+
+**Within LLM calls (client level):**  `LiteLLMClient` reads `cancel_token_var` (a `contextvars.ContextVar` set by the pipeline).  When a token is present, `complete()` switches to `stream=True` internally, accumulates chunks, and checks the token between chunks.  When no token is set (standalone use, no pipeline), the blocking API is used — preserving full usage/cost metadata that is not reliably available in streaming mode across all providers.
+
+The caller sees no difference — `complete()` returns a complete `LLMResponse`, `complete_structured()` returns a validated Pydantic model.  The streaming switch is transparent.
+
+```
+Pipeline.run(contexts, cancel_token=token)
+  │
+  ├─ [check token] ← between-step (pipeline)
+  │
+  ├─ AgentStep
+  │    └─ Agent.generate()
+  │         └─ llm.complete_structured()
+  │              └─ llm.complete()       ← streaming internally
+  │                   └─ for chunk in litellm.completion(stream=True):
+  │                        [check token] ← within-step (client)
+  │
+  ├─ [check token] ← between-step (pipeline)
+  │
+  └─ ReflectStep ...
+```
+
+**How the token flows without parameter changes:**  The pipeline sets `cancel_token_var` (a `ContextVar`) before running steps. `LiteLLMClient.complete()` reads it. No changes to steps, roles, or protocols — the contextvar bridges the gap. `asyncio.to_thread()` automatically copies context variables to worker threads, so sync steps work too. See `PIPELINE_DESIGN.md § Contextvar bridge` for details.
+
+**Why conditional streaming, not streaming by default:**  The non-streaming `litellm.completion()` response includes `usage`, `_hidden_params["response_cost"]`, and other metadata that is not reliably available in streaming mode across all providers.  Always streaming would break cost tracking for every user — not just web deployments.  The conditional (`if cancel_token_var is set → stream, else → block`) preserves full metadata for standalone use while enabling intra-step cancellation when a pipeline provides a token.
+
+**Stream response reconstruction:**  When the streaming path is used, `_call_completion` collects all chunks and passes them to `litellm.stream_chunk_builder(chunks)`, which returns the **same `ModelResponse` type** as the blocking `completion()` call.  This means metadata extraction is a single code path — no duplication between streaming and blocking.  Cost is computed via a fallback chain: `response._hidden_params["response_cost"]` (set by blocking path) → `litellm.completion_cost(completion_response=response)` (works for both paths) → `None`.
+
+```python
+def _call_completion(self, call_params):
+    token = cancel_token_var.get(None)
+
+    if token is not None:
+        response = self._stream_with_cancel(call_params, token)
+    elif self.router:
+        response = self.router.completion(**call_params)
+    else:
+        response = completion(**call_params)
+
+    # ONE metadata path — identical for blocking and streaming
+    text = response.choices[0].message.content or ""
+    metadata = {
+        "model": response.model,
+        "usage": response.usage.model_dump() if response.usage else None,
+        "cost": self._compute_cost(response),
+        "provider": self._get_provider_from_model(response.model),
+    }
+    return LLMResponse(text=text, raw=metadata)
+
+def _stream_with_cancel(self, call_params, token):
+    chunks = []
+    for chunk in completion(**{**call_params, "stream": True}):
+        if token.is_cancelled:
+            raise PipelineCancelled("Cancelled during LLM call")
+        chunks.append(chunk)
+    return litellm.stream_chunk_builder(chunks)
+```
+
 ---
 
 ## Error Handling

@@ -352,8 +352,19 @@ class LiteLLMClient:
     # -- Completion methods ---------------------------------------------------
 
     def _call_completion(self, call_params: Dict[str, Any]) -> LLMResponse:
-        """Execute litellm.completion() and wrap the result."""
-        if self.router:
+        """Execute litellm.completion() and wrap the result.
+
+        When a ``cancel_token_var`` is set (by Pipeline.run_async), switches
+        to streaming mode so the token can be checked between chunks.
+        Otherwise uses the blocking API for full metadata fidelity.
+        """
+        from pipeline.errors import cancel_token_var
+
+        token = cancel_token_var.get(None)
+
+        if token is not None:
+            response = self._stream_with_cancel(call_params, token)
+        elif self.router:
             response = self.router.completion(**call_params)
         else:
             response = completion(**call_params)
@@ -362,14 +373,40 @@ class LiteLLMClient:
         metadata = {
             "model": response.model,
             "usage": response.usage.model_dump() if response.usage else None,
-            "cost": (
-                response._hidden_params.get("response_cost", None)
-                if hasattr(response, "_hidden_params")
-                else None
-            ),
+            "cost": self._compute_cost(response),
             "provider": self._get_provider_from_model(response.model),
         }
         return LLMResponse(text=text, raw=metadata)
+
+    def _stream_with_cancel(self, call_params: Dict[str, Any], token: Any) -> Any:
+        """Stream completion chunks, checking the cancel token between each.
+
+        Returns a reconstructed ``ModelResponse`` (same type as blocking
+        ``completion()``) via ``litellm.stream_chunk_builder()``.
+        """
+        from pipeline.errors import PipelineCancelled
+
+        stream_params = {**call_params, "stream": True}
+        chunks = []
+        for chunk in completion(**stream_params):
+            if token.is_cancelled:
+                raise PipelineCancelled("Cancelled during LLM call")
+            chunks.append(chunk)
+        return litellm.stream_chunk_builder(chunks)
+
+    @staticmethod
+    def _compute_cost(response: Any) -> Optional[float]:
+        """Extract cost from response, falling back to litellm computation."""
+        # Blocking path: _hidden_params is set by litellm
+        if hasattr(response, "_hidden_params"):
+            cost = response._hidden_params.get("response_cost")
+            if cost is not None:
+                return cost
+        # Streaming-rebuilt path: compute from model + usage
+        try:
+            return litellm.completion_cost(completion_response=response)
+        except Exception:
+            return None
 
     def complete(
         self, prompt: str, system: Optional[str] = None, **kwargs: Any

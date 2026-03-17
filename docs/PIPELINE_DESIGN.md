@@ -622,9 +622,45 @@ for step in foreground_steps:
     ctx = await step(ctx)
 ```
 
+### Contextvar bridge — making the token visible inside steps
+
+The pipeline checks the token between steps.  Code *inside* a step (e.g. an LLM client making a streaming API call) may also want to check it — but steps, roles, and LLM clients do not receive the token as a parameter.
+
+The pipeline bridges this gap with a `contextvars.ContextVar`.  Before running foreground steps, `run_async()` sets the current cancel token in the contextvar:
+
+```python
+from contextvars import ContextVar
+
+cancel_token_var: ContextVar[CancellationToken | None] = ContextVar(
+    "cancel_token_var", default=None
+)
+```
+
+```python
+# Inside Pipeline.run_async()
+_reset = cancel_token_var.set(cancel_token)
+try:
+    # ... process samples, run steps
+finally:
+    cancel_token_var.reset(_reset)
+```
+
+Any code in the call stack — a step, a role, an LLM client — can read the token without any signature changes:
+
+```python
+# Inside LiteLLMClient.complete() — no parameter changes
+token = cancel_token_var.get(None)
+if token is not None and token.is_cancelled:
+    raise PipelineCancelled("Cancelled during LLM call")
+```
+
+`asyncio.to_thread()` (used by the pipeline for sync steps) automatically copies context variables to the worker thread, so the token is visible in sync steps too.
+
+**Why a contextvar and not a parameter:**  The call chain from pipeline to LLM client crosses four layers (pipeline → step → role → client).  Threading a parameter through every layer would require changing every method signature in between — steps and roles that have no business knowing about cancellation.  A contextvar is the standard Python mechanism for request-scoped data that crosses layers without explicit plumbing.
+
 ### What cancellation does NOT do
 
-- **It does not interrupt a running step.** If `AgentStep` is mid-LLM-call, that call runs to completion. Cancellation is checked *between* steps, not *within* them. Steps that need intra-step cancellation (e.g. long-running browser automation) can accept the token directly and check it in their own loops — but this is a step-level concern, not a pipeline-level one.
+- **It does not interrupt a running step by default.** Cancellation is checked *between* steps by the pipeline.  Code inside a step can opt in to intra-step cancellation by reading `cancel_token_var` (see above) — but this is a step/client-level concern, not a pipeline-level one.
 - **It does not cancel background steps.** Background work (after `async_boundary`) runs in separate threads and is not interrupted. `wait_for_background()` still works normally. If you need to cancel background work, shut down the step-class executors directly.
 - **It does not affect hooks.** Hooks still fire for the step that was executing when cancellation was detected — `after_step` is called, then the cancellation check runs before the *next* step.
 

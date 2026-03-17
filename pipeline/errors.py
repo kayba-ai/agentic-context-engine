@@ -1,8 +1,9 @@
-"""Pipeline error types."""
+"""Pipeline error types and cancellation primitives."""
 
 from __future__ import annotations
 
 import threading
+from contextvars import ContextVar
 
 
 class PipelineOrderError(Exception):
@@ -63,3 +64,15 @@ class CancellationToken:
     @property
     def is_cancelled(self) -> bool:
         return self._cancelled.is_set()
+
+
+# ---------------------------------------------------------------------------
+# Contextvar bridge — makes the current cancel token visible inside steps
+# without threading it through every method signature.
+# Pipeline.run_async() sets this; LLM clients read it.
+# asyncio.to_thread() copies contextvars automatically.
+# ---------------------------------------------------------------------------
+
+cancel_token_var: ContextVar[CancellationToken | None] = ContextVar(
+    "cancel_token_var", default=None
+)
