@@ -78,6 +78,7 @@ nav:
     - Claude Code: integrations/claude-code.md
     - Opik Observability: integrations/opik.md
     - OpenClaw: integrations/openclaw.md
+    - Hosted API: integrations/hosted-api.md
   - API Reference: api/index.md
 
 markdown_extensions:
