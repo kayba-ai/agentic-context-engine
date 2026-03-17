@@ -1624,6 +1624,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#pipelineprotocol-hooks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pipeline.protocol — Hooks
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="pipeline.protocol — Hooks">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pipelinehook" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PipelineHook
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#pipelineerrors" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1634,6 +1662,39 @@
   
     <nav class="md-nav" aria-label="pipeline.errors">
       <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cancellationtoken" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CancellationToken
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cancel_token_var" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        cancel_token_var
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pipelinecancelled" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PipelineCancelled
+      
+    </span>
+  </a>
+  
+</li>
         
           <li class="md-nav__item">
   <a href="#pipelineordererror" class="md-nav__link">
@@ -2362,6 +2423,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#pipelineprotocol-hooks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pipeline.protocol — Hooks
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="pipeline.protocol — Hooks">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pipelinehook" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PipelineHook
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#pipelineerrors" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2372,6 +2461,39 @@
   
     <nav class="md-nav" aria-label="pipeline.errors">
       <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cancellationtoken" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CancellationToken
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cancel_token_var" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        cancel_token_var
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pipelinecancelled" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PipelineCancelled
+      
+    </span>
+  </a>
+  
+</li>
         
           <li class="md-nav__item">
   <a href="#pipelineordererror" class="md-nav__link">
@@ -2575,7 +2697,7 @@
 <h3 id="pipeline"><code>Pipeline</code><a class="headerlink" href="#pipeline" title="Permanent link">&para;</a></h3>
 <p>Ordered sequence of steps. Satisfies <code>StepProtocol</code> — can be nested inside other pipelines.</p>
 <h4 id="constructor">Constructor<a class="headerlink" href="#constructor" title="Permanent link">&para;</a></h4>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">Pipeline</span><span class="p">(</span><span class="n">steps</span><span class="p">:</span> <span class="nb">list</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">Pipeline</span><span class="p">(</span><span class="n">steps</span><span class="p">:</span> <span class="nb">list</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">hooks</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">PipelineHook</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 <table>
 <thead>
@@ -2592,6 +2714,12 @@
 <td><code>list \| None</code></td>
 <td><code>None</code></td>
 <td>Optional initial list of steps</td>
+</tr>
+<tr>
+<td><code>hooks</code></td>
+<td><code>list[PipelineHook] \| None</code></td>
+<td><code>None</code></td>
+<td>Observation-only hooks fired around each foreground step</td>
 </tr>
 </tbody>
 </table>
@@ -2657,7 +2785,9 @@
 <a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="bp">self</span><span class="p">,</span>
 <a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="n">contexts</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">StepContext</span><span class="p">],</span>
 <a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="n">workers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">SampleResult</span><span class="p">]</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="n">on_sample_done</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">SampleResult</span><span class="p">],</span> <span class="kc">None</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="n">cancel_token</span><span class="p">:</span> <span class="n">CancellationToken</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">SampleResult</span><span class="p">]</span>
 </code></pre></div>
 <p>Process contexts through the pipeline (sync entry point).</p>
 <table>
@@ -2682,17 +2812,31 @@
 <td><code>1</code></td>
 <td>Max concurrent samples in foreground steps</td>
 </tr>
+<tr>
+<td><code>on_sample_done</code></td>
+<td><code>Callable \| None</code></td>
+<td><code>None</code></td>
+<td>Callback after each sample's foreground steps complete (or fail). Must not block.</td>
+</tr>
+<tr>
+<td><code>cancel_token</code></td>
+<td><code>CancellationToken \| None</code></td>
+<td><code>None</code></td>
+<td>Cancellation signal. Checked before each step and each new sample. Pass a fresh token per invocation.</td>
+</tr>
 </tbody>
 </table>
 <p><strong>Returns:</strong> <code>list[SampleResult]</code> — one result per input context</p>
-<p><strong>Notes:</strong> Calls <code>asyncio.run(self.run_async(...))</code> internally. For background steps, call <code>wait_for_background()</code> after this returns.</p>
+<p><strong>Notes:</strong> Calls <code>asyncio.run(self.run_async(...))</code> internally. For background steps, call <code>wait_for_background()</code> after this returns. When <code>cancel_token</code> is provided, also sets <code>cancel_token_var</code> so code inside steps (e.g. LLM clients) can read it.</p>
 <hr />
 <h5 id="run_async"><code>run_async</code><a class="headerlink" href="#run_async" title="Permanent link">&para;</a></h5>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">run_async</span><span class="p">(</span>
 <a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="bp">self</span><span class="p">,</span>
 <a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="n">contexts</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">StepContext</span><span class="p">],</span>
 <a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="n">workers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">SampleResult</span><span class="p">]</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="n">on_sample_done</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">SampleResult</span><span class="p">],</span> <span class="kc">None</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="n">cancel_token</span><span class="p">:</span> <span class="n">CancellationToken</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">SampleResult</span><span class="p">]</span>
 </code></pre></div>
 <p>Async entry point. Use <code>await pipe.run_async(contexts)</code> from coroutine contexts.</p>
 <p>Same parameters and return type as <code>run()</code>.</p>
@@ -2837,14 +2981,94 @@
 <p>Async fan-out via <code>asyncio.gather</code>. Sync children are wrapped with <code>asyncio.to_thread</code>.</p>
 <p><strong>Raises:</strong> <code>BranchError</code> if any branch fails</p>
 <hr />
+<h2 id="pipelineprotocol-hooks"><code>pipeline.protocol</code>  — Hooks<a class="headerlink" href="#pipelineprotocol-hooks" title="Permanent link">&para;</a></h2>
+<h3 id="pipelinehook"><code>PipelineHook</code><a class="headerlink" href="#pipelinehook" title="Permanent link">&para;</a></h3>
+<p>Observation-only protocol fired around each foreground step. Hooks cannot modify context — both methods return <code>None</code>.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="nd">@runtime_checkable</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">PipelineHook</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">before_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">step_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">StepContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">after_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">step_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">StepContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Parameters</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>before_step</code></td>
+<td><code>step_name: str, ctx: StepContext</code></td>
+<td>Called before each foreground step executes</td>
+</tr>
+<tr>
+<td><code>after_step</code></td>
+<td><code>step_name: str, ctx: StepContext</code></td>
+<td>Called after each foreground step completes</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Notes:</strong></p>
+<ul>
+<li><code>step_name</code> is <code>type(step).__name__</code> — hooks know what ran but cannot inspect or mutate the step instance</li>
+<li>Hooks fire for foreground steps only — background steps (after <code>async_boundary</code>) do not trigger hooks</li>
+<li>If a hook raises, the pipeline logs the error and continues — a broken hook never kills the pipeline</li>
+<li>For <code>Branch</code> steps, hooks fire once for <code>"Branch"</code> as a whole, not for inner steps</li>
+</ul>
+<hr />
 <h2 id="pipelineerrors"><code>pipeline.errors</code><a class="headerlink" href="#pipelineerrors" title="Permanent link">&para;</a></h2>
+<h3 id="cancellationtoken"><code>CancellationToken</code><a class="headerlink" href="#cancellationtoken" title="Permanent link">&para;</a></h3>
+<p>Thread-safe cancellation signal. Create a fresh token per <code>run()</code> invocation.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">CancellationToken</span><span class="p">:</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">cancel</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>    <span class="nd">@property</span>
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">is_cancelled</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span> <span class="o">...</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Method / Property</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cancel()</code></td>
+<td>Signal cancellation. Thread-safe, idempotent.</td>
+</tr>
+<tr>
+<td><code>is_cancelled</code></td>
+<td><code>True</code> after <code>cancel()</code> has been called.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="cancel_token_var"><code>cancel_token_var</code><a class="headerlink" href="#cancel_token_var" title="Permanent link">&para;</a></h3>
+<p><code>ContextVar</code> set by <code>Pipeline.run_async()</code> so code inside steps (e.g. LLM clients) can read the current cancel token without parameter changes.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="n">cancel_token_var</span><span class="p">:</span> <span class="n">ContextVar</span><span class="p">[</span><span class="n">CancellationToken</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span>  <span class="c1"># default: None</span>
+</code></pre></div>
+<p><strong>Notes:</strong></p>
+<ul>
+<li>Set before steps run, reset after <code>run_async()</code> completes</li>
+<li><code>asyncio.to_thread()</code> copies contextvars automatically — visible in sync steps too</li>
+<li>Read with <code>cancel_token_var.get(None)</code> — returns <code>None</code> when no pipeline is running</li>
+</ul>
+<hr />
+<h3 id="pipelinecancelled"><code>PipelineCancelled</code><a class="headerlink" href="#pipelinecancelled" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">PipelineCancelled</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span> <span class="o">...</span>
+</code></pre></div>
+<p>A <code>cancel_token</code> was triggered. Surfaces in <code>SampleResult.error</code> — never propagated to the caller of <code>run()</code>. Callers check <code>isinstance(result.error, PipelineCancelled)</code> to distinguish cancellation from step failures.</p>
+<hr />
 <h3 id="pipelineordererror"><code>PipelineOrderError</code><a class="headerlink" href="#pipelineordererror" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">PipelineOrderError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span> <span class="o">...</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">PipelineOrderError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span> <span class="o">...</span>
 </code></pre></div>
 <p>A step requires a field that no earlier step provides (but a later step does). Raised at <strong>construction time</strong>.</p>
 <hr />
 <h3 id="pipelineconfigerror"><code>PipelineConfigError</code><a class="headerlink" href="#pipelineconfigerror" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">PipelineConfigError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span> <span class="o">...</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">PipelineConfigError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span> <span class="o">...</span>
 </code></pre></div>
 <p>Invalid pipeline wiring. Raised at <strong>construction time</strong>. Examples:</p>
 <ul>
@@ -2853,8 +3077,8 @@
 </ul>
 <hr />
 <h3 id="brancherror"><code>BranchError</code><a class="headerlink" href="#brancherror" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">BranchError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
-<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>    <span class="n">failures</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="ne">BaseException</span><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">BranchError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>    <span class="n">failures</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="ne">BaseException</span><span class="p">]</span>
 </code></pre></div>
 <p>One or more branch pipelines failed. All branches always run to completion before this is raised. Raised at <strong>runtime</strong>.</p>
 <table>
