@@ -1596,6 +1596,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#pipeline-skill" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pipeline Skill
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-it-works-continued" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How It Works (continued)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#running-multiple-tasks" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1680,6 +1702,34 @@
     
   
     OpenClaw
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hosted-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hosted API
   
 
     
@@ -1841,6 +1891,28 @@
     <span class="md-ellipsis">
       
         How It Works
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pipeline-skill" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pipeline Skill
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-it-works-continued" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How It Works (continued)
       
     </span>
   </a>
@@ -2036,6 +2108,23 @@
 <li><strong>Extract trace</strong> — ACE reads the Claude Code execution transcript</li>
 <li><strong>LEARN</strong> — Reflector analyzes the trace, SkillManager updates the skillbook</li>
 </ol>
+<h2 id="pipeline-skill">Pipeline Skill<a class="headerlink" href="#pipeline-skill" title="Permanent link">&para;</a></h2>
+<p>The <strong>kayba-pipeline</strong> skill gives Claude Code a 7-stage evaluation and improvement pipeline that can be triggered directly from the chat. Install it with:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>kayba<span class="w"> </span>setup
+</code></pre></div>
+<p>This copies the skill into <code>.claude/skills/kayba-pipeline/</code>. The pipeline stages are:</p>
+<ol>
+<li><strong>Analyze traces</strong> — extract patterns from agent execution transcripts</li>
+<li><strong>Compute metrics</strong> — score traces against quality dimensions</li>
+<li><strong>Build rubric</strong> — generate a structured evaluation rubric</li>
+<li><strong>Plan fixes</strong> — propose concrete improvements</li>
+<li><strong>HITL review</strong> — optional human-in-the-loop approval gate</li>
+<li><strong>Apply fixes</strong> — execute the approved changes</li>
+<li><strong>Verify</strong> — confirm fixes pass the rubric</li>
+</ol>
+<p>Trigger the pipeline by saying <strong>"run the pipeline"</strong> or <strong>"kayba pipeline"</strong> in Claude Code with a traces folder in your project.</p>
+<p>To skip skill installation: <code>kayba setup --no-skills</code>. See <a href="../hosted-api/#agent-setup">Hosted API</a> for all <code>kayba setup</code> options.</p>
+<h2 id="how-it-works-continued">How It Works (continued)<a class="headerlink" href="#how-it-works-continued" title="Permanent link">&para;</a></h2>
 <p>The agent learns project-specific patterns like:</p>
 <ul>
 <li>Code style and conventions</li>
@@ -2044,17 +2133,17 @@
 <li>Module structure and dependencies</li>
 </ul>
 <h2 id="running-multiple-tasks">Running Multiple Tasks<a class="headerlink" href="#running-multiple-tasks" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">results</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">run</span><span class="p">([</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="s2">&quot;Add unit tests for utils.py&quot;</span><span class="p">,</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="s2">&quot;Fix the bug in the login handler&quot;</span><span class="p">,</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="s2">&quot;Refactor the database module to use connection pooling&quot;</span><span class="p">,</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="p">])</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">results</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">run</span><span class="p">([</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="s2">&quot;Add unit tests for utils.py&quot;</span><span class="p">,</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="s2">&quot;Fix the bug in the login handler&quot;</span><span class="p">,</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="s2">&quot;Refactor the database module to use connection pooling&quot;</span><span class="p">,</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="p">])</span>
 </code></pre></div>
 <h2 id="resuming-from-a-saved-skillbook">Resuming from a Saved Skillbook<a class="headerlink" href="#resuming-from-a-saved-skillbook" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">runner</span> <span class="o">=</span> <span class="n">ClaudeCode</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="n">working_dir</span><span class="o">=</span><span class="s2">&quot;./my_project&quot;</span><span class="p">,</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="n">skillbook_path</span><span class="o">=</span><span class="s2">&quot;coding_expert.json&quot;</span><span class="p">,</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">runner</span> <span class="o">=</span> <span class="n">ClaudeCode</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="n">working_dir</span><span class="o">=</span><span class="s2">&quot;./my_project&quot;</span><span class="p">,</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="n">skillbook_path</span><span class="o">=</span><span class="s2">&quot;coding_expert.json&quot;</span><span class="p">,</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="p">)</span>
 </code></pre></div>
 <h2 id="what-to-read-next">What to Read Next<a class="headerlink" href="#what-to-read-next" title="Permanent link">&para;</a></h2>
 <ul>

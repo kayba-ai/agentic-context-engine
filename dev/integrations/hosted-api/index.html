@@ -13,6 +13,10 @@
         <link rel="canonical" href="https://kayba-ai.github.io/agentic-context-engine/latest/integrations/hosted-api/">
       
       
+        <link rel="prev" href="../openclaw/">
+      
+      
+        <link rel="next" href="../../api/">
       
       
         
@@ -109,7 +113,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Kayba Hosted API
+              Hosted API
             
           </span>
         </div>
@@ -322,10 +326,12 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
+      <li class="md-tabs__item md-tabs__item--active">
         <a href="../" class="md-tabs__link">
           
   
@@ -1264,28 +1270,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
         
           
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
-        
-          
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
             
   
   
@@ -1303,7 +1312,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1505,6 +1514,252 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hosted API
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hosted API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#authentication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Authentication
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cli-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CLI Reference
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="CLI Reference">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#upload-traces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upload traces
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#generate-insights" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Generate insights
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#list-and-triage-insights" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        List and triage insights
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#generate-and-pull-prompts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Generate and pull prompts
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#job-status-and-materialisation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Job status and materialisation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#batch-pre-processing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Batch pre-processing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#agent-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Agent setup
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#end-to-end-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        End-to-end workflow
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#python-client" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Python client
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-endpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API endpoints
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#coding-agent-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Coding agent setup
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Environment variables
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1937,11 +2192,17 @@
 </tbody>
 </table>
 <h3 id="agent-setup">Agent setup<a class="headerlink" href="#agent-setup" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># Print CLI instructions to stdout</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># Print CLI instructions and install pipeline skills</span>
 <a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>kayba<span class="w"> </span>setup
 <a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
 <a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="c1"># Append to a project agent file</span>
 <a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>kayba<span class="w"> </span>setup<span class="w"> </span>--append-to<span class="w"> </span>AGENTS.md
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="c1"># Skip skill installation</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>kayba<span class="w"> </span>setup<span class="w"> </span>--no-skills
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="c1"># Install into a different project</span>
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>kayba<span class="w"> </span>setup<span class="w"> </span>--project-dir<span class="w"> </span>/path/to/project
 </code></pre></div>
 <p>Options:</p>
 <table>
@@ -1956,8 +2217,17 @@
 <td><code>--append-to FILE</code></td>
 <td>Append instructions to file instead of printing (recommended: <code>AGENTS.md</code>)</td>
 </tr>
+<tr>
+<td><code>--skills/--no-skills</code></td>
+<td>Install Claude Code pipeline skills (default: enabled)</td>
+</tr>
+<tr>
+<td><code>--project-dir DIR</code></td>
+<td>Project root directory (default: current directory)</td>
+</tr>
 </tbody>
 </table>
+<p>By default <code>kayba setup</code> copies the <strong>kayba-pipeline</strong> skill into <code>.claude/skills/</code>. This skill orchestrates a 7-stage evaluation pipeline (analyze traces → compute metrics → build rubric → plan fixes → HITL review → apply fixes → verify). See <a href="../claude-code/#pipeline-skill">Claude Code</a> for details.</p>
 <h2 id="end-to-end-workflow">End-to-end workflow<a class="headerlink" href="#end-to-end-workflow" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># 1. Upload traces</span>
 <a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>kayba<span class="w"> </span>upload<span class="w"> </span>traces/
@@ -2062,13 +2332,15 @@
 </table>
 <h2 id="coding-agent-setup">Coding agent setup<a class="headerlink" href="#coding-agent-setup" title="Permanent link">&para;</a></h2>
 <p><strong>Quick (current session):</strong> Tell your coding agent to run <code>kayba setup</code>. The agent will see
-the full CLI reference in its context and know how to use every command.</p>
+the full CLI reference in its context and know how to use every command. The pipeline skill is
+also installed to <code>.claude/skills/</code>, giving Claude Code access to the 7-stage evaluation pipeline.</p>
 <p><strong>Persistent (all future sessions):</strong> Append instructions to your project's agent file:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>kayba<span class="w"> </span>setup<span class="w"> </span>--append-to<span class="w"> </span>AGENTS.md<span class="w">      </span><span class="c1"># universal (Claude Code, Cursor, Copilot, Windsurf, etc.)</span>
 <a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>kayba<span class="w"> </span>setup<span class="w"> </span>--append-to<span class="w"> </span>CLAUDE.md<span class="w">      </span><span class="c1"># Claude Code only</span>
 <a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>kayba<span class="w"> </span>setup<span class="w"> </span>--append-to<span class="w"> </span>.cursorrules<span class="w">   </span><span class="c1"># Cursor only</span>
 </code></pre></div>
 <p><code>AGENTS.md</code> is the recommended target — it's the universal standard supported by 20+ coding agents.</p>
+<p>To skip skill installation (e.g. for non-Claude-Code agents), pass <code>--no-skills</code>.</p>
 <h2 id="environment-variables">Environment variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
