@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.8] - 2026-03-17
+
+### Added
+- **Pipeline hooks & cancellation** — `PipelineHook` protocol and `CancellationToken` for observing and controlling pipeline execution
+- **Kayba pipeline skills for Claude Code** — 7-stage dynamic evaluation pipeline that generates custom benchmarks tailored to your agent's domain. Instead of static test suites, the skills analyze your API, build domain-aware metrics and rubrics, create action plans, and run human-in-the-loop validation — all as composable Claude Code skills
+- **`kayba setup` command** — one command to install the full evaluation skill pipeline into your `.claude/skills/` directory, ready to use inside Claude Code out of the box
+
+### Docs
+- Documented `kayba setup` skills installation
+
+### Try it free
+**7-day free trial** — Try the full Kayba evaluation pipeline on our hosted solution with zero setup. Sign up at [kayba.ai](https://kayba.ai) and run `kayba setup` to start building dynamic evals for your agents today.
+
 ## [0.8.7] - 2026-03-17
 
 ### Added
@@ -283,6 +296,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Type hints and modern Python practices
 - MIT licensed for open source use
 
+[0.8.8]: https://github.com/Kayba-ai/agentic-context-engine/compare/v0.8.7...v0.8.8
 [0.8.7]: https://github.com/Kayba-ai/agentic-context-engine/compare/v0.8.6...v0.8.7
 [0.8.5]: https://github.com/Kayba-ai/agentic-context-engine/compare/v0.8.4...v0.8.5
 [0.8.4]: https://github.com/Kayba-ai/agentic-context-engine/compare/v0.8.3...v0.8.4
