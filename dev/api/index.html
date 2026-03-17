@@ -2819,6 +2819,7 @@
 <a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="n">response</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">complete</span><span class="p">(</span><span class="s2">&quot;Hello&quot;</span><span class="p">)</span>
 </code></pre></div>
 <p>Supports all <a href="https://docs.litellm.ai/">LiteLLM providers</a> (OpenAI, Anthropic, Google, Ollama, etc.).</p>
+<p>When a <code>cancel_token_var</code> is set by the pipeline (via <code>run(cancel_token=...)</code>), <code>LiteLLMClient</code> automatically switches to streaming mode internally, checking the token between chunks for fast cancellation. Cost and usage metadata are preserved via <code>litellm.stream_chunk_builder()</code>.</p>
 <h3 id="instructorclient">InstructorClient<a class="headerlink" href="#instructorclient" title="Permanent link">&para;</a></h3>
 <p>Wraps any LLM client with Pydantic validation for more reliable structured outputs.</p>
 <p><strong>Requires:</strong> <code>pip install ace-framework[instructor]</code></p>

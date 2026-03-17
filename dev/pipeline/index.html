@@ -1852,6 +1852,8 @@
 <li><strong>Immutable context</strong> — Steps receive a frozen context and return a new one via <code>.replace()</code>, making concurrent execution safe by default</li>
 <li><strong>Declared concurrency</strong> — Parallelism is configured on the step (<code>max_workers</code>, <code>async_boundary</code>), not the pipeline</li>
 <li><strong>Per-sample error isolation</strong> — One failing sample never blocks others; every sample produces a result</li>
+<li><strong>Observation hooks</strong> — <code>PipelineHook</code> lets external code observe step transitions without modifying data flow (progress streaming, metrics, logging)</li>
+<li><strong>Cancellation</strong> — <code>CancellationToken</code> stops a running pipeline between steps; <code>cancel_token_var</code> makes the token readable inside steps for intra-step cancellation</li>
 </ul>
 <hr />
 <h2 id="architecture-at-a-glance">Architecture at a Glance<a class="headerlink" href="#architecture-at-a-glance" title="Permanent link">&para;</a></h2>
@@ -1974,7 +1976,7 @@
 <hr />
 <h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h2>
 <p>The pipeline engine is included in the project with no extra dependencies:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pipeline</span><span class="p">,</span> <span class="n">Branch</span><span class="p">,</span> <span class="n">StepContext</span><span class="p">,</span> <span class="n">MergeStrategy</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pipeline</span><span class="p">,</span> <span class="n">Branch</span><span class="p">,</span> <span class="n">StepContext</span><span class="p">,</span> <span class="n">MergeStrategy</span><span class="p">,</span> <span class="n">PipelineHook</span><span class="p">,</span> <span class="n">CancellationToken</span>
 </code></pre></div>
 <div class="admonition tip">
 <p class="admonition-title">Using the Pipeline Engine with ACE</p>

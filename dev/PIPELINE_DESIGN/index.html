@@ -1961,6 +1961,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#contextvar-bridge-making-the-token-visible-inside-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Contextvar bridge — making the token visible inside steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#what-cancellation-does-not-do" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2587,33 +2598,57 @@ Controlled by <code>max_workers</code> on the step. Each step class has a single
 <a id="__codelineno-32-5" name="__codelineno-32-5" href="#__codelineno-32-5"></a>        <span class="k">return</span> <span class="n">result</span>
 <a id="__codelineno-32-6" name="__codelineno-32-6" href="#__codelineno-32-6"></a>    <span class="n">ctx</span> <span class="o">=</span> <span class="k">await</span> <span class="n">step</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
 </code></pre></div>
+<h3 id="contextvar-bridge-making-the-token-visible-inside-steps">Contextvar bridge — making the token visible inside steps<a class="headerlink" href="#contextvar-bridge-making-the-token-visible-inside-steps" title="Permanent link">&para;</a></h3>
+<p>The pipeline checks the token between steps.  Code <em>inside</em> a step (e.g. an LLM client making a streaming API call) may also want to check it — but steps, roles, and LLM clients do not receive the token as a parameter.</p>
+<p>The pipeline bridges this gap with a <code>contextvars.ContextVar</code>.  Before running foreground steps, <code>run_async()</code> sets the current cancel token in the contextvar:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">contextvars</span><span class="w"> </span><span class="kn">import</span> <span class="n">ContextVar</span>
+<a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a>
+<a id="__codelineno-33-3" name="__codelineno-33-3" href="#__codelineno-33-3"></a><span class="n">cancel_token_var</span><span class="p">:</span> <span class="n">ContextVar</span><span class="p">[</span><span class="n">CancellationToken</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="n">ContextVar</span><span class="p">(</span>
+<a id="__codelineno-33-4" name="__codelineno-33-4" href="#__codelineno-33-4"></a>    <span class="s2">&quot;cancel_token_var&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span>
+<a id="__codelineno-33-5" name="__codelineno-33-5" href="#__codelineno-33-5"></a><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a><span class="c1"># Inside Pipeline.run_async()</span>
+<a id="__codelineno-34-2" name="__codelineno-34-2" href="#__codelineno-34-2"></a><span class="n">_reset</span> <span class="o">=</span> <span class="n">cancel_token_var</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">cancel_token</span><span class="p">)</span>
+<a id="__codelineno-34-3" name="__codelineno-34-3" href="#__codelineno-34-3"></a><span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-34-4" name="__codelineno-34-4" href="#__codelineno-34-4"></a>    <span class="c1"># ... process samples, run steps</span>
+<a id="__codelineno-34-5" name="__codelineno-34-5" href="#__codelineno-34-5"></a><span class="k">finally</span><span class="p">:</span>
+<a id="__codelineno-34-6" name="__codelineno-34-6" href="#__codelineno-34-6"></a>    <span class="n">cancel_token_var</span><span class="o">.</span><span class="n">reset</span><span class="p">(</span><span class="n">_reset</span><span class="p">)</span>
+</code></pre></div>
+<p>Any code in the call stack — a step, a role, an LLM client — can read the token without any signature changes:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a><span class="c1"># Inside LiteLLMClient.complete() — no parameter changes</span>
+<a id="__codelineno-35-2" name="__codelineno-35-2" href="#__codelineno-35-2"></a><span class="n">token</span> <span class="o">=</span> <span class="n">cancel_token_var</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+<a id="__codelineno-35-3" name="__codelineno-35-3" href="#__codelineno-35-3"></a><span class="k">if</span> <span class="n">token</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">token</span><span class="o">.</span><span class="n">is_cancelled</span><span class="p">:</span>
+<a id="__codelineno-35-4" name="__codelineno-35-4" href="#__codelineno-35-4"></a>    <span class="k">raise</span> <span class="n">PipelineCancelled</span><span class="p">(</span><span class="s2">&quot;Cancelled during LLM call&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p><code>asyncio.to_thread()</code> (used by the pipeline for sync steps) automatically copies context variables to the worker thread, so the token is visible in sync steps too.</p>
+<p><strong>Why a contextvar and not a parameter:</strong>  The call chain from pipeline to LLM client crosses four layers (pipeline → step → role → client).  Threading a parameter through every layer would require changing every method signature in between — steps and roles that have no business knowing about cancellation.  A contextvar is the standard Python mechanism for request-scoped data that crosses layers without explicit plumbing.</p>
 <h3 id="what-cancellation-does-not-do">What cancellation does NOT do<a class="headerlink" href="#what-cancellation-does-not-do" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>It does not interrupt a running step.</strong> If <code>AgentStep</code> is mid-LLM-call, that call runs to completion. Cancellation is checked <em>between</em> steps, not <em>within</em> them. Steps that need intra-step cancellation (e.g. long-running browser automation) can accept the token directly and check it in their own loops — but this is a step-level concern, not a pipeline-level one.</li>
+<li><strong>It does not interrupt a running step by default.</strong> Cancellation is checked <em>between</em> steps by the pipeline.  Code inside a step can opt in to intra-step cancellation by reading <code>cancel_token_var</code> (see above) — but this is a step/client-level concern, not a pipeline-level one.</li>
 <li><strong>It does not cancel background steps.</strong> Background work (after <code>async_boundary</code>) runs in separate threads and is not interrupted. <code>wait_for_background()</code> still works normally. If you need to cancel background work, shut down the step-class executors directly.</li>
 <li><strong>It does not affect hooks.</strong> Hooks still fire for the step that was executing when cancellation was detected — <code>after_step</code> is called, then the cancellation check runs before the <em>next</em> step.</li>
 </ul>
 <h3 id="pipelinecancelled">PipelineCancelled<a class="headerlink" href="#pipelinecancelled" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">PipelineCancelled</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
-<a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Raised (internally) when a cancel_token is triggered between steps.</span>
-<a id="__codelineno-33-3" name="__codelineno-33-3" href="#__codelineno-33-3"></a>
-<a id="__codelineno-33-4" name="__codelineno-33-4" href="#__codelineno-33-4"></a><span class="sd">    Surfaces in ``SampleResult.error`` — never propagated to the caller</span>
-<a id="__codelineno-33-5" name="__codelineno-33-5" href="#__codelineno-33-5"></a><span class="sd">    of ``run()`` / ``run_async()``.  Callers check for this type to</span>
-<a id="__codelineno-33-6" name="__codelineno-33-6" href="#__codelineno-33-6"></a><span class="sd">    distinguish cancellation from step failures.</span>
-<a id="__codelineno-33-7" name="__codelineno-33-7" href="#__codelineno-33-7"></a><span class="sd">    &quot;&quot;&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">PipelineCancelled</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+<a id="__codelineno-36-2" name="__codelineno-36-2" href="#__codelineno-36-2"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Raised (internally) when a cancel_token is triggered between steps.</span>
+<a id="__codelineno-36-3" name="__codelineno-36-3" href="#__codelineno-36-3"></a>
+<a id="__codelineno-36-4" name="__codelineno-36-4" href="#__codelineno-36-4"></a><span class="sd">    Surfaces in ``SampleResult.error`` — never propagated to the caller</span>
+<a id="__codelineno-36-5" name="__codelineno-36-5" href="#__codelineno-36-5"></a><span class="sd">    of ``run()`` / ``run_async()``.  Callers check for this type to</span>
+<a id="__codelineno-36-6" name="__codelineno-36-6" href="#__codelineno-36-6"></a><span class="sd">    distinguish cancellation from step failures.</span>
+<a id="__codelineno-36-7" name="__codelineno-36-7" href="#__codelineno-36-7"></a><span class="sd">    &quot;&quot;&quot;</span>
 </code></pre></div>
 <p><code>PipelineCancelled</code> follows the same error-handling pattern as step exceptions: it is caught per-sample and recorded in <code>SampleResult</code>, not propagated. The runner continues to the next sample (which will also be cancelled if the token is still set). This means <code>run()</code> always returns a complete list of <code>SampleResult</code> — some successful, some failed, some cancelled.</p>
 <h3 id="example-web-app-cancel-endpoint">Example: web app cancel endpoint<a class="headerlink" href="#example-web-app-cancel-endpoint" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a><span class="c1"># Start a run</span>
-<a id="__codelineno-34-2" name="__codelineno-34-2" href="#__codelineno-34-2"></a><span class="n">token</span> <span class="o">=</span> <span class="n">CancellationToken</span><span class="p">()</span>
-<a id="__codelineno-34-3" name="__codelineno-34-3" href="#__codelineno-34-3"></a><span class="n">active_runs</span><span class="p">[</span><span class="n">run_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">token</span>
-<a id="__codelineno-34-4" name="__codelineno-34-4" href="#__codelineno-34-4"></a><span class="n">task</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">create_task</span><span class="p">(</span><span class="n">pipe</span><span class="o">.</span><span class="n">run_async</span><span class="p">(</span><span class="n">contexts</span><span class="p">,</span> <span class="n">cancel_token</span><span class="o">=</span><span class="n">token</span><span class="p">))</span>
-<a id="__codelineno-34-5" name="__codelineno-34-5" href="#__codelineno-34-5"></a>
-<a id="__codelineno-34-6" name="__codelineno-34-6" href="#__codelineno-34-6"></a><span class="c1"># Cancel endpoint</span>
-<a id="__codelineno-34-7" name="__codelineno-34-7" href="#__codelineno-34-7"></a><span class="nd">@app</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">&quot;/runs/</span><span class="si">{run_id}</span><span class="s2">/cancel&quot;</span><span class="p">)</span>
-<a id="__codelineno-34-8" name="__codelineno-34-8" href="#__codelineno-34-8"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">cancel_run</span><span class="p">(</span><span class="n">run_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
-<a id="__codelineno-34-9" name="__codelineno-34-9" href="#__codelineno-34-9"></a>    <span class="n">active_runs</span><span class="p">[</span><span class="n">run_id</span><span class="p">]</span><span class="o">.</span><span class="n">cancel</span><span class="p">()</span>
-<a id="__codelineno-34-10" name="__codelineno-34-10" href="#__codelineno-34-10"></a>    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="s2">&quot;cancelling&quot;</span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a><span class="c1"># Start a run</span>
+<a id="__codelineno-37-2" name="__codelineno-37-2" href="#__codelineno-37-2"></a><span class="n">token</span> <span class="o">=</span> <span class="n">CancellationToken</span><span class="p">()</span>
+<a id="__codelineno-37-3" name="__codelineno-37-3" href="#__codelineno-37-3"></a><span class="n">active_runs</span><span class="p">[</span><span class="n">run_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">token</span>
+<a id="__codelineno-37-4" name="__codelineno-37-4" href="#__codelineno-37-4"></a><span class="n">task</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">create_task</span><span class="p">(</span><span class="n">pipe</span><span class="o">.</span><span class="n">run_async</span><span class="p">(</span><span class="n">contexts</span><span class="p">,</span> <span class="n">cancel_token</span><span class="o">=</span><span class="n">token</span><span class="p">))</span>
+<a id="__codelineno-37-5" name="__codelineno-37-5" href="#__codelineno-37-5"></a>
+<a id="__codelineno-37-6" name="__codelineno-37-6" href="#__codelineno-37-6"></a><span class="c1"># Cancel endpoint</span>
+<a id="__codelineno-37-7" name="__codelineno-37-7" href="#__codelineno-37-7"></a><span class="nd">@app</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">&quot;/runs/</span><span class="si">{run_id}</span><span class="s2">/cancel&quot;</span><span class="p">)</span>
+<a id="__codelineno-37-8" name="__codelineno-37-8" href="#__codelineno-37-8"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">cancel_run</span><span class="p">(</span><span class="n">run_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<a id="__codelineno-37-9" name="__codelineno-37-9" href="#__codelineno-37-9"></a>    <span class="n">active_runs</span><span class="p">[</span><span class="n">run_id</span><span class="p">]</span><span class="o">.</span><span class="n">cancel</span><span class="p">()</span>
+<a id="__codelineno-37-10" name="__codelineno-37-10" href="#__codelineno-37-10"></a>    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="s2">&quot;cancelling&quot;</span><span class="p">}</span>
 </code></pre></div>
 <hr />
 <h2 id="summary-table">Summary Table<a class="headerlink" href="#summary-table" title="Permanent link">&para;</a></h2>
