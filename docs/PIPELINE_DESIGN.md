@@ -482,6 +482,183 @@ Retry logic is the responsibility of individual steps, not the pipeline.
 
 ---
 
+## Pipeline Hooks
+
+Hooks let external code observe pipeline execution without modifying data flow. They solve a different problem than steps: steps transform data (`StepContext` in, `StepContext` out), hooks observe transitions (step started, step finished).
+
+The motivating use case is hosted/web deployments that need operational concerns — progress streaming, metrics, logging, billing — wired into the pipeline without modifying the step chain or the pipeline engine for each new concern.
+
+### Separation of concerns
+
+The pipeline has three distinct concerns, each with its own mechanism:
+
+| Concern | Mechanism | Who owns it |
+|---|---|---|
+| Data flow | Steps (`requires`/`provides`, `__call__`) | Step author |
+| Observation | Hooks (`before_step`/`after_step`) | Deployment environment |
+| Lifecycle control | `cancel_token` (see Cancellation below) | Caller |
+
+Steps own data. Hooks observe execution. Cancellation controls lifecycle. These three never overlap — a hook cannot modify context, and cancellation is not a hook.
+
+### Hook protocol
+
+```python
+@runtime_checkable
+class PipelineHook(Protocol):
+    def before_step(self, step_name: str, ctx: StepContext) -> None: ...
+    def after_step(self, step_name: str, ctx: StepContext) -> None: ...
+```
+
+**Design constraints:**
+
+- **`-> None`, not `-> StepContext`** — hooks observe, they do not transform. Context flow stays exclusively in the step chain via `requires`/`provides`. This eliminates the "second communication channel" problem — hooks cannot inject data that a later step silently depends on.
+- **`step_name: str`**, not the step object — hooks know what ran, but cannot call, inspect, or mutate the step instance. This prevents hooks from becoming an implicit dependency of step behavior.
+- **Non-blocking** — hooks must not block the event loop. They are in the hot path between steps. Heavy work (HTTP POST, disk write) should be dispatched to a background task or queue, not done inline. Same constraint as `on_sample_done`.
+- **No ordering guarantees between hooks** — hooks in the list are called sequentially in insertion order, but a hook must not depend on side effects of another hook. If ordering matters, combine them into one hook.
+- **Exception isolation** — if a hook raises, the pipeline logs the error and continues. A broken metrics hook must not kill the pipeline. Hook exceptions are never surfaced in `SampleResult`.
+
+### Pipeline integration
+
+Hooks are set at construction time — they are structural, like steps. A pipeline's observation behavior is fixed for its lifetime.
+
+```python
+class Pipeline:
+    def __init__(self, steps=None, hooks=None):
+        self._hooks = list(hooks or [])
+        ...
+```
+
+The step execution loop calls hooks around each foreground step:
+
+```python
+for step in foreground_steps:
+    step_name = type(step).__name__
+    for hook in self._hooks:
+        hook.before_step(step_name, ctx)
+    ctx = await step(ctx)
+    for hook in self._hooks:
+        hook.after_step(step_name, ctx)
+```
+
+Hooks fire for **foreground steps only**. Background steps (after `async_boundary`) do not trigger hooks — the caller has already moved on, and hook callbacks from background threads would violate the non-blocking contract. Background observability is handled via `background_stats()`.
+
+### Branch and nesting behavior
+
+- **Branch:** hooks fire once for the `Branch` step as a whole (`step_name = "Branch"`), not for each inner step of each child pipeline. Branch children are an internal implementation detail — hooks observe the outer pipeline's step sequence only. This keeps hook output predictable regardless of how many branches exist or how deep they nest.
+- **Nested Pipeline-as-Step:** same rule. The outer pipeline fires hooks for the nested pipeline step (`step_name = "MySubPipeline"`), not for its inner steps. If the nested pipeline has its own hooks, those fire independently within its own execution.
+
+### Example: progress streaming for a web app
+
+```python
+class ProgressHook:
+    """Pushes step events to an async queue for SSE streaming."""
+
+    def __init__(self, queue: asyncio.Queue):
+        self._queue = queue
+
+    def before_step(self, step_name: str, ctx: StepContext) -> None:
+        self._queue.put_nowait({"type": "step_started", "step": step_name})
+
+    def after_step(self, step_name: str, ctx: StepContext) -> None:
+        self._queue.put_nowait({"type": "step_done", "step": step_name})
+```
+
+```python
+# Web endpoint wiring (not part of pipeline/)
+queue = asyncio.Queue()
+pipe = Pipeline(steps, hooks=[ProgressHook(queue)])
+asyncio.create_task(pipe.run_async(contexts))
+# SSE endpoint reads from queue
+```
+
+The hook implementation lives in the hosted deployment code, not in `pipeline/`. The pipeline engine provides the protocol and the call sites — nothing more.
+
+---
+
+## Cancellation
+
+`cancel_token` lets a caller stop a running pipeline between steps. The motivating use case is a web app where the user clicks "Stop" and the server needs to halt processing without waiting for the remaining steps or samples to complete.
+
+### CancellationToken
+
+```python
+class CancellationToken:
+    """Thread-safe cancellation signal."""
+
+    def __init__(self) -> None:
+        self._cancelled = threading.Event()
+
+    def cancel(self) -> None:
+        """Signal cancellation. Thread-safe, idempotent."""
+        self._cancelled.set()
+
+    @property
+    def is_cancelled(self) -> bool:
+        return self._cancelled.is_set()
+```
+
+`threading.Event` rather than `asyncio.Event` because the token must be cancellable from any thread — a web endpoint handler, a background task, a signal handler. The pipeline checks it synchronously between steps, so no async machinery is needed.
+
+### Pipeline integration
+
+`cancel_token` is passed per-invocation on `run()` and `run_async()`, not on `__init__`. A token is scoped to a single execution — each web request creates a fresh token. The pipeline object stays reusable across runs.
+
+```python
+pipe.run(contexts, cancel_token=token)
+await pipe.run_async(contexts, cancel_token=token)
+```
+
+The runner checks the token at two points:
+
+1. **Before each foreground step** — if cancelled, the current sample gets `error=PipelineCancelled()` and `failed_at` set to the step that would have run next.
+2. **Before each new sample** — if cancelled, remaining samples are not started. Samples already in-flight (via `workers > 1`) complete their current step but are cancelled before the next one.
+
+```python
+for step in foreground_steps:
+    if cancel_token is not None and cancel_token.is_cancelled:
+        result.error = PipelineCancelled()
+        result.failed_at = type(step).__name__
+        return result
+    ctx = await step(ctx)
+```
+
+### What cancellation does NOT do
+
+- **It does not interrupt a running step.** If `AgentStep` is mid-LLM-call, that call runs to completion. Cancellation is checked *between* steps, not *within* them. Steps that need intra-step cancellation (e.g. long-running browser automation) can accept the token directly and check it in their own loops — but this is a step-level concern, not a pipeline-level one.
+- **It does not cancel background steps.** Background work (after `async_boundary`) runs in separate threads and is not interrupted. `wait_for_background()` still works normally. If you need to cancel background work, shut down the step-class executors directly.
+- **It does not affect hooks.** Hooks still fire for the step that was executing when cancellation was detected — `after_step` is called, then the cancellation check runs before the *next* step.
+
+### PipelineCancelled
+
+```python
+class PipelineCancelled(Exception):
+    """Raised (internally) when a cancel_token is triggered between steps.
+
+    Surfaces in ``SampleResult.error`` — never propagated to the caller
+    of ``run()`` / ``run_async()``.  Callers check for this type to
+    distinguish cancellation from step failures.
+    """
+```
+
+`PipelineCancelled` follows the same error-handling pattern as step exceptions: it is caught per-sample and recorded in `SampleResult`, not propagated. The runner continues to the next sample (which will also be cancelled if the token is still set). This means `run()` always returns a complete list of `SampleResult` — some successful, some failed, some cancelled.
+
+### Example: web app cancel endpoint
+
+```python
+# Start a run
+token = CancellationToken()
+active_runs[run_id] = token
+task = asyncio.create_task(pipe.run_async(contexts, cancel_token=token))
+
+# Cancel endpoint
+@app.post("/runs/{run_id}/cancel")
+async def cancel_run(run_id: str):
+    active_runs[run_id].cancel()
+    return {"status": "cancelling"}
+```
+
+---
+
 ## Summary Table
 
 | Concept | Unit | Threading | Communication |
@@ -490,6 +667,8 @@ Retry logic is the responsibility of individual steps, not the pipeline.
 | `Pipeline` | ordered step list for one input | `workers=N` across inputs | via `StepContext` |
 | `Branch` | parallel pipeline list | always parallel internally | copy + merge of `StepContext` |
 | `Pipeline` as a `Step` | reuse / nesting | inherits parent context | via `StepContext` |
+| `PipelineHook` | observation point | runs in caller thread | `-> None` (read-only) |
+| `CancellationToken` | lifecycle signal | thread-safe (`threading.Event`) | checked between steps |
 
 ---
 
@@ -513,6 +692,14 @@ Four alternatives to plain set class attributes were considered:
 - Decomposed signature / Hamilton-style (steps receive named fields as parameters instead of `StepContext`): elegant zero-annotation contracts — `requires` and `provides` are inferred from function signature at zero cost. Rejected because it loses explicit ordering control (order is inferred from data dependencies, not declared; independent steps have undefined order), collapses the two-tier `StepContext`/`metadata` structure into a flat dict (integration-specific data collides with shared fields), and makes side-effect steps with no consumed output impossible to anchor in the sequence.
 
 Plain set class attributes with pipeline normalization to `frozenset` at construction time is the right balance: explicit, readable, no inheritance required, and the ordering and context model stay intact.
+
+**Alternative hook/cancellation designs:**
+Three alternatives to the observation-only `PipelineHook` + separate `cancel_token` design were considered:
+
+- Context-modifying hooks (`before_step` returns `StepContext`): hooks could transform context between steps — powerful but creates a second data-flow channel invisible to `requires`/`provides` validation. A hook could inject a field that a later step silently depends on, and the pipeline validator would not catch the dependency. Rejected to preserve the invariant that all data flow goes through the step chain.
+- Cancellation as a hook (`CancellationHook` that raises in `before_step`): keeps everything in one mechanism, but mixes observation and control. If hooks are supposed to be safe to fail (exception isolation), a cancellation hook that *must* propagate its exception breaks that contract. Rejected — cancellation is a lifecycle concern, not an observation concern, so it gets its own parameter.
+- Cancellation via `metadata` on `StepContext`: put a `CancellationToken` in `metadata` and have each step check it. Follows "behavior on the step" but couples every step to a cancellation concept, and steps that forget to check it silently ignore cancellation. Rejected — cancellation should be guaranteed by the pipeline, not opt-in per step.
+- Additional `run_async` callback parameters (no hook protocol): add `on_step_done` and `cancel_token` as parameters on `run()`/`run_async()`, following the `on_sample_done` precedent. Minimal and consistent, but each new operational concern (metrics, billing, auth context) requires adding another parameter to the pipeline's public API, which accumulates over time. The hook protocol pays a small upfront design cost to avoid this parameter growth.
 
 ---
 

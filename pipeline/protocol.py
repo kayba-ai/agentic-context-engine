@@ -11,6 +11,25 @@ Ctx = TypeVar("Ctx", bound=StepContext)
 
 
 @runtime_checkable
+class PipelineHook(Protocol):
+    """Observation-only hook fired around each foreground step.
+
+    Hooks observe execution — they do **not** transform data.  Both methods
+    return ``None``; context flow stays exclusively in the step chain via
+    ``requires``/``provides``.
+
+    Hooks must not block the event loop.  Heavy work (HTTP, disk) should be
+    dispatched to a background task or queue.
+
+    If a hook raises, the pipeline logs the error and continues.  A broken
+    hook must never kill the pipeline.
+    """
+
+    def before_step(self, step_name: str, ctx: StepContext) -> None: ...
+    def after_step(self, step_name: str, ctx: StepContext) -> None: ...
+
+
+@runtime_checkable
 class StepProtocol(Protocol[Ctx]):
     """Structural protocol that every step (and Pipeline/Branch) must satisfy.
 
