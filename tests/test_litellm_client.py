@@ -533,11 +533,12 @@ class TestProviderDetection(unittest.TestCase):
         from ace.llm_providers import LiteLLMClient
 
         client = LiteLLMClient.__new__(LiteLLMClient)
-        self.assertEqual(client._get_provider_from_model("MiniMax-M2.5"), "minimax")
+        self.assertEqual(client._get_provider_from_model("MiniMax-M2.7"), "minimax")
         self.assertEqual(
-            client._get_provider_from_model("openai/MiniMax-M2.5-highspeed"),
+            client._get_provider_from_model("openai/MiniMax-M2.7-highspeed"),
             "minimax",
         )
+        self.assertEqual(client._get_provider_from_model("MiniMax-M2.5"), "minimax")
 
     def test_minimax_in_model_list(self):
         """Test that MiniMax models appear in list_models."""
@@ -545,7 +546,15 @@ class TestProviderDetection(unittest.TestCase):
 
         models = LiteLLMClient.list_models()
         minimax_models = [m for m in models if "MiniMax" in m]
-        self.assertGreaterEqual(len(minimax_models), 2)
+        self.assertGreaterEqual(len(minimax_models), 4)
+
+    def test_minimax_m27_is_default(self):
+        """Test that MiniMax-M2.7 is the default MiniMax model."""
+        from ace.llm_providers import LiteLLMClient
+
+        models = LiteLLMClient.list_models()
+        minimax_models = [m for m in models if "MiniMax" in m]
+        self.assertEqual(minimax_models[0], "openai/MiniMax-M2.7")
 
 
 if __name__ == "__main__":
