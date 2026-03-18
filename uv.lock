@@ -33,12 +33,13 @@ wheels = [
 
 [[package]]
 name = "ace-framework"
-version = "0.8.6"
+version = "0.8.9"
 source = { editable = "." }
 dependencies = [
     { name = "litellm" },
     { name = "pydantic" },
     { name = "python-toon" },
+    { name = "tenacity" },
 ]
 
 [package.optional-dependencies]
@@ -172,6 +173,7 @@ requires-dist = [
     { name = "requests", marker = "extra == 'cloud'", specifier = ">=2.31.0" },
     { name = "sentence-transformers", marker = "extra == 'all'", specifier = ">=2.2.0" },
     { name = "sentence-transformers", marker = "extra == 'deduplication'", specifier = ">=2.2.0" },
+    { name = "tenacity", specifier = ">=9.1.4" },
     { name = "tenacity", marker = "extra == 'all'", specifier = ">=8.0.0" },
     { name = "tenacity", marker = "extra == 'claude-code'", specifier = ">=8.0.0" },
     { name = "tenacity", marker = "extra == 'mcp'", specifier = ">=8.0.0" },

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ace-framework"
-version = "0.8.7"
+version = "0.8.9"
 description = "Build self-improving AI agents that learn from experience"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -42,6 +42,7 @@ dependencies = [
     "litellm>=1.78.0",
     "pydantic>=2.0.0",
     "python-toon>=0.1.0",
+    "tenacity>=9.1.4",
 ]
 
 [project.optional-dependencies]
