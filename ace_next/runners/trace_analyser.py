@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from pipeline import Pipeline
+from pipeline.errors import CancellationToken
 from pipeline.protocol import SampleResult, StepProtocol
 
 from ..core.context import ACEStepContext, SkillbookView
@@ -131,6 +132,7 @@ class TraceAnalyser(ACERunner):
         epochs: int = 1,
         *,
         wait: bool = True,
+        cancel_token: CancellationToken | None = None,
     ) -> list[SampleResult]:
         """Analyse traces and evolve the skillbook.
 
@@ -138,11 +140,14 @@ class TraceAnalyser(ACERunner):
             traces: Sequence of raw trace objects (any type).
             epochs: Number of passes over all traces.
             wait: If ``True``, block until background learning completes.
+            cancel_token: Optional cancellation signal.  Forwarded to
+                ``Pipeline.run()`` — checked between steps and inside
+                LLM calls (via contextvar).
 
         Returns:
             List of ``SampleResult``, one per trace per epoch.
         """
-        return self._run(traces, epochs=epochs, wait=wait)
+        return self._run(traces, epochs=epochs, wait=wait, cancel_token=cancel_token)
 
     def _build_context(  # type: ignore[override]
         self,

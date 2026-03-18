@@ -7,6 +7,7 @@ from collections.abc import Iterable, Sequence
 from typing import Any
 
 from pipeline import Pipeline
+from pipeline.errors import CancellationToken
 from pipeline.protocol import SampleResult
 
 from ..core.context import ACEStepContext, SkillbookView
@@ -88,12 +89,18 @@ class ACERunner:
         *,
         epochs: int,
         wait: bool = True,
+        cancel_token: CancellationToken | None = None,
         **kwargs: Any,
     ) -> list[SampleResult]:
         """Generic run loop handling epochs and Iterable validation.
 
         Returns when ``wait=True`` (default).  Returns after foreground
         steps when ``wait=False`` — background learning continues.
+
+        Args:
+            cancel_token: Optional cancellation signal.  Forwarded to
+                ``Pipeline.run()`` — checked between steps and inside
+                LLM calls (via contextvar).
 
         Raises ``ValueError`` if ``epochs > 1`` and *items* is not a
         ``Sequence``.
@@ -107,6 +114,8 @@ class ACERunner:
         n: int | None = len(items) if isinstance(items, Sequence) else None
 
         for epoch in range(1, epochs + 1):
+            if cancel_token is not None and cancel_token.is_cancelled:
+                break
             logger.info(
                 "Epoch %d/%d: processing %s samples",
                 epoch,
@@ -127,7 +136,9 @@ class ACERunner:
                 )
                 for idx, item in enumerate(items, start=1)
             ]
-            epoch_results = self.pipeline.run(contexts)
+            epoch_results = self.pipeline.run(
+                contexts, cancel_token=cancel_token
+            )
             results.extend(epoch_results)
 
         if wait:
