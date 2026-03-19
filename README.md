@@ -39,6 +39,8 @@ pip install ace-framework
 
 ```bash
 export OPENAI_API_KEY="your-api-key"
+# Or use other providers:
+# export MINIMAX_API_KEY="your-minimax-api-key"
 ```
 
 ### 3. Run

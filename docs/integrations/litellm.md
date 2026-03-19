@@ -137,11 +137,45 @@ agent = ACELiteLLM.from_model("claude-sonnet-4-5-20250929")
 # Google
 agent = ACELiteLLM.from_model("gemini-pro")
 
+# MiniMax
+agent = ACELiteLLM.from_model(
+    "openai/MiniMax-M2.7",
+    base_url="https://api.minimax.io/v1",
+    api_key=os.environ["MINIMAX_API_KEY"],
+)
+
 # Local (Ollama)
 agent = ACELiteLLM.from_model("ollama/llama2")
 
 # Custom endpoint
 agent = ACELiteLLM.from_model("gpt-4o-mini", base_url="https://your-endpoint.com")
+```
+
+### MiniMax Models
+
+[MiniMax](https://platform.minimax.io/) provides high-performance models via an OpenAI-compatible API:
+
+| Model | Description |
+|-------|-------------|
+| `MiniMax-M2.7` | Latest flagship model with enhanced reasoning and coding |
+| `MiniMax-M2.7-highspeed` | High-speed version of M2.7 for low-latency scenarios |
+| `MiniMax-M2.5` | Peak performance with 204K context window |
+| `MiniMax-M2.5-highspeed` | Same performance, faster and more agile |
+
+```bash
+export MINIMAX_API_KEY="your-minimax-api-key"
+```
+
+```python
+from ace_next import ACELiteLLM
+
+# Using MiniMax as the agent model
+agent = ACELiteLLM.from_model(
+    "openai/MiniMax-M2.7",
+    base_url="https://api.minimax.io/v1",
+)
+
+answer = agent.ask("Explain quantum computing in simple terms")
 ```
 
 ## Opik Observability
