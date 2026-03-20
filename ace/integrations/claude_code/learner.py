@@ -771,6 +771,7 @@ class ACELearner:
         self,
         transcript_path: Path,
         start_line: int = 0,
+        verbose: bool = False,
     ) -> bool:
         """
         Learn from a transcript file.
@@ -778,6 +779,7 @@ class ACELearner:
         Args:
             transcript_path: Path to Claude Code transcript JSONL
             start_line: Start learning from this line (for incremental learning)
+            verbose: Print detailed progress to stdout
 
         Returns:
             True if learning succeeded
@@ -792,7 +794,13 @@ class ACELearner:
                 logger.info(
                     f"Skipping trivial session ({actual_lines} lines, minimum {MIN_LINES})"
                 )
+                print(
+                    f"  Skipping: session too short ({actual_lines} lines, minimum {MIN_LINES})"
+                )
                 return True
+
+            session_id = _extract_session_id(transcript_path)
+            print(f"  Session: {session_id} ({actual_lines} lines)")
 
             # Get TOON-compressed transcript
             toon_trace = toon_transcript(transcript_path, start_line)
@@ -802,6 +810,10 @@ class ACELearner:
             feedback = _get_transcript_feedback(transcript_path, start_line)
             cwd = _extract_cwd_from_transcript(transcript_path) or self.cwd
 
+            if verbose:
+                print(f"  Task context: {task[:100]}{'...' if len(task) > 100 else ''}")
+                print(f"  Feedback: {feedback}")
+
             # Create AgentOutput for Reflector
             agent_output = AgentOutput(
                 reasoning=toon_trace,
@@ -810,7 +822,11 @@ class ACELearner:
                 raw={"total_lines": total_lines, "start_line": start_line},
             )
 
+            # Count skills before update so we can report the delta
+            skills_before = len(self.skillbook.skills())
+
             # Run Reflector
+            print("  Running Reflector (analyzing session patterns)...")
             logger.info("Running Reflector...")
             reflection = self._run_reflector_with_retry(
                 task=task,
@@ -819,6 +835,7 @@ class ACELearner:
             )
 
             # Run SkillManager
+            print("  Running SkillManager (extracting strategies)...")
             logger.info("Running SkillManager...")
             skill_manager_output = self._run_skill_manager_with_retry(
                 reflection=reflection,
@@ -826,9 +843,40 @@ class ACELearner:
                 progress=f"lines {start_line + 1}-{total_lines}",
             )
 
+            # Report what the SkillManager decided to do
+            ops = skill_manager_output.update.operations
+            added = [op for op in ops if op.type == "ADD"]
+            updated = [op for op in ops if op.type == "UPDATE"]
+            removed = [op for op in ops if op.type == "REMOVE"]
+            tagged = [op for op in ops if op.type == "TAG"]
+
+            op_parts = []
+            if added:
+                op_parts.append(f"{len(added)} added")
+            if updated:
+                op_parts.append(f"{len(updated)} updated")
+            if removed:
+                op_parts.append(f"{len(removed)} removed")
+            if tagged:
+                op_parts.append(f"{len(tagged)} tagged")
+
+            if op_parts:
+                print(f"  Strategies: {', '.join(op_parts)}")
+                if verbose:
+                    for op in added:
+                        snippet = (op.content or "")[:80]
+                        print(f"    + [{op.section}] {snippet}")
+                    for op in updated:
+                        print(f"    ~ [{op.section}] id={op.skill_id}")
+                    for op in removed:
+                        print(f"    - id={op.skill_id}")
+            else:
+                print("  Strategies: no changes")
+
             # Persist update
             if self._persist_skillbook_update(skill_manager_output.update):
-                logger.info(f"Skillbook now has {len(self.skillbook.skills())} skills")
+                skills_after = len(self.skillbook.skills())
+                logger.info(f"Skillbook now has {skills_after} skills")
 
             return True
 
@@ -875,6 +923,8 @@ def cmd_learn(args):
 
     Use --lines N to optionally limit to the last N lines (for very large sessions).
     """
+    verbose = getattr(args, "verbose", False)
+
     # Get project context for filtering (if specified)
     filter_project = None
     if hasattr(args, "project") and args.project:
@@ -883,6 +933,7 @@ def cmd_learn(args):
         filter_project = Path(env_dir).resolve()
 
     # Find latest transcript (uses history.jsonl for correct /resume handling)
+    print("Scanning for latest Claude Code session...")
     transcript_path = find_latest_transcript(filter_project)
     if not transcript_path:
         print("No transcript found.")
@@ -895,6 +946,7 @@ def cmd_learn(args):
 
     # Extract session info
     total_lines = _count_transcript_lines(transcript_path)
+    session_id = _extract_session_id(transcript_path)
     cwd = _extract_cwd_from_transcript(transcript_path) or str(Path.cwd())
 
     # Determine project root
@@ -913,28 +965,47 @@ def cmd_learn(args):
     lines_limit = getattr(args, "lines", None)
     if lines_limit and lines_limit < total_lines:
         start_line = total_lines - lines_limit
-        print(f"Learning from transcript (last {lines_limit} lines): {transcript_path}")
+        lines_desc = f"last {lines_limit} lines"
     else:
         start_line = 0
-        print(f"Learning from transcript ({total_lines} lines): {transcript_path}")
+        lines_desc = f"{total_lines} lines"
 
-    print(f"Project: {project_root}")
+    print(f"Found session: {session_id} ({lines_desc})")
+    print(f"Transcript:    {transcript_path}")
+    print(f"Project:       {project_root}")
     print()
 
     # Setup logging
     logging.basicConfig(
-        level=logging.DEBUG if getattr(args, "verbose", False) else logging.INFO,
+        level=logging.DEBUG if verbose else logging.WARNING,
         format="%(asctime)s [%(levelname)s] %(message)s",
     )
 
     # Run learning
     try:
         learner = ACELearner(cwd=cwd, project_root=project_root)
-        success = learner.learn_from_transcript(transcript_path, start_line=start_line)
+
+        # Snapshot skillbook size before learning so we can report the delta
+        skills_before = len(learner.skillbook.skills())
+
+        print("Analyzing session...")
+        success = learner.learn_from_transcript(
+            transcript_path,
+            start_line=start_line,
+            verbose=verbose,
+        )
 
         if success:
-            print("\n✓ Learning complete!")
-            print(f"Updated: {project_root / 'CLAUDE.md'}")
+            skills_after = len(learner.skillbook.skills())
+            new_skills = skills_after - skills_before
+
+            print()
+            print("✓ Learning complete!")
+            print(f"  Updated: {project_root / 'CLAUDE.md'}")
+            print(
+                f"  Skillbook: {skills_after} strategies total"
+                + (f" ({new_skills:+d} this session)" if new_skills != 0 else " (no net change)")
+            )
         else:
             print("\n✗ Learning failed")
             print(
