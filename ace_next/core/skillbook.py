@@ -19,6 +19,8 @@ from typing import (
     cast,
 )
 
+from .path_safety import safe_resolve
+
 
 # ---------------------------------------------------------------------------
 # Update operations
@@ -419,7 +421,7 @@ class Skillbook:
         return cls.from_dict(payload)
 
     def save_to_file(self, path: str, exclude_embeddings: bool = False) -> None:
-        file_path = Path(path)
+        file_path = safe_resolve(path)
         file_path.parent.mkdir(parents=True, exist_ok=True)
         with file_path.open("w", encoding="utf-8") as f:
             f.write(self.dumps(exclude_embeddings=exclude_embeddings))

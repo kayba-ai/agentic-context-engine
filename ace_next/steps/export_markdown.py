@@ -6,6 +6,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from ..core.context import ACEStepContext
+from ..core.path_safety import safe_resolve
 from ..core.skillbook import Skillbook
 
 
@@ -14,13 +15,16 @@ class ExportSkillbookMarkdownStep:
 
     Rewrites the file from scratch on every invocation so the markdown
     always reflects the current state of the skillbook.
+
+    The output path is resolved at construction time to prevent
+    directory-traversal attacks.
     """
 
     requires: frozenset[str] = frozenset({"skillbook"})
     provides: frozenset[str] = frozenset()
 
     def __init__(self, path: str | Path, skillbook: Skillbook) -> None:
-        self.path = Path(path)
+        self.path = safe_resolve(path)
         self.skillbook = skillbook
 
     def __call__(self, ctx: ACEStepContext) -> ACEStepContext:

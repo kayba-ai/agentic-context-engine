@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from .deduplication import DeduplicationConfig
     from .observability.opik_integration import OpikIntegration
 
+from .path_safety import safe_resolve, safe_resolve_within
 from .skillbook import Skillbook
 from .roles import (
     SkillManager,
@@ -747,11 +748,16 @@ class OfflineACE(ACEBase):
                             and checkpoint_dir
                             and len(results) % checkpoint_interval == 0
                         ):
-                            checkpoint_path = Path(checkpoint_dir)
-                            numbered_checkpoint = (
-                                checkpoint_path / f"ace_checkpoint_{len(results)}.json"
+                            checkpoint_path = safe_resolve(checkpoint_dir)
+                            numbered_checkpoint = safe_resolve_within(
+                                checkpoint_path
+                                / f"ace_checkpoint_{len(results)}.json",
+                                checkpoint_path,
                             )
-                            latest_checkpoint = checkpoint_path / "ace_latest.json"
+                            latest_checkpoint = safe_resolve_within(
+                                checkpoint_path / "ace_latest.json",
+                                checkpoint_path,
+                            )
 
                             self.skillbook.save_to_file(str(numbered_checkpoint))
                             self.skillbook.save_to_file(str(latest_checkpoint))
