@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, FrozenSet, Iterable, List, Literal, Optional, Union, cast
 
+from .path_safety import safe_resolve
 from .updates import UpdateBatch, UpdateOperation
 
 
@@ -329,7 +330,7 @@ class Skillbook:
             >>> skillbook.save_to_file("trained_model.json")
             >>> skillbook.save_to_file("skillbook_light.json", exclude_embeddings=True)
         """
-        file_path = Path(path)
+        file_path = safe_resolve(path)
         file_path.parent.mkdir(parents=True, exist_ok=True)
         with file_path.open("w", encoding="utf-8") as f:
             f.write(self.dumps(exclude_embeddings=exclude_embeddings))

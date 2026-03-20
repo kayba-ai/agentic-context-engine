@@ -5,9 +5,9 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from ..core.skillbook import Skillbook
-
 from ..core.context import ACEStepContext
+from ..core.path_safety import safe_resolve, safe_resolve_within
+from ..core.skillbook import Skillbook
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +21,10 @@ class CheckpointStep:
     Stateless — uses ``ctx.global_sample_index`` for interval logic.
     Saves both a numbered checkpoint and a ``latest.json`` that is
     always overwritten with the most recent state.
+
+    The checkpoint directory is resolved at construction time and all
+    generated file paths are validated to stay within that directory,
+    preventing directory-traversal attacks via ``checkpoint_dir``.
     """
 
     requires: frozenset[str] = frozenset({"global_sample_index"})
@@ -33,7 +37,7 @@ class CheckpointStep:
         *,
         interval: int = 10,
     ) -> None:
-        self.directory = Path(directory)
+        self.directory = safe_resolve(directory)
         self.skillbook = skillbook
         self.interval = interval
 
@@ -43,8 +47,14 @@ class CheckpointStep:
 
         self.directory.mkdir(parents=True, exist_ok=True)
 
-        numbered = self.directory / f"checkpoint_{ctx.global_sample_index}.json"
-        latest = self.directory / "latest.json"
+        numbered = safe_resolve_within(
+            self.directory / f"checkpoint_{ctx.global_sample_index}.json",
+            self.directory,
+        )
+        latest = safe_resolve_within(
+            self.directory / "latest.json",
+            self.directory,
+        )
 
         self.skillbook.save_to_file(str(numbered))
         self.skillbook.save_to_file(str(latest))

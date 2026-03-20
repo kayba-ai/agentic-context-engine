@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ..core.skillbook import Skillbook
-
 from ..core.context import ACEStepContext
+from ..core.path_safety import safe_resolve
+from ..core.skillbook import Skillbook
 
 
 class PersistStep:
@@ -17,13 +17,16 @@ class PersistStep:
 
     Unlike CheckpointStep (which saves full JSON at intervals), PersistStep
     runs on every sample and writes in whatever format the target expects.
+
+    The target path is resolved at construction time to prevent
+    directory-traversal attacks.
     """
 
     requires: frozenset[str] = frozenset({"skillbook"})
     provides: frozenset[str] = frozenset()
 
     def __init__(self, target_path: str | Path, skillbook: Skillbook) -> None:
-        self.target_path = Path(target_path)
+        self.target_path = safe_resolve(target_path)
         self.skillbook = skillbook
 
     def __call__(self, ctx: ACEStepContext) -> ACEStepContext:

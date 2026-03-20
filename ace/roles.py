@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .path_safety import safe_resolve
 from .updates import UpdateBatch
 from .llm import LLMClient
 from .skillbook import Skillbook
@@ -70,7 +71,7 @@ def _safe_json_loads(text: str) -> Dict[str, Any]:
                     f"LLM response appears to be truncated JSON. This may indicate the response was cut off mid-generation. Original error: {exc}\nPartial text: {text[:200]}..."
                 ) from exc
 
-        debug_path = Path("logs/json_failures.log")
+        debug_path = safe_resolve("logs/json_failures.log")
         debug_path.parent.mkdir(parents=True, exist_ok=True)
         with debug_path.open("a", encoding="utf-8") as fh:
             fh.write("----\n")
