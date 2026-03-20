@@ -12,6 +12,7 @@ ACE provides runners for popular agentic frameworks. Each runner adds self-impro
 | [`ClaudeCode`](claude-code.md) | Claude Code CLI | Task strings | Meso |
 | [OpenClaw](openclaw.md) | OpenClaw transcripts | JSONL trace files | Meso |
 | [MCP Server](mcp.md) | MCP (stdio) | Tool calls | Micro |
+| [MCP Client Setup](mcp-client-setup.md) | Claude Code, Cursor, Windsurf, etc. | -- | Setup Guide |
 | [Opik](opik.md) | Opik observability | — | Monitoring |
 | [Hosted API](hosted-api.md) | Kayba hosted API | Trace files | Cloud |
 
@@ -60,6 +61,6 @@ All runners share these capabilities:
 - **Running coding tasks with Claude Code?** Use [ClaudeCode](claude-code.md)
 - **Want to monitor costs and traces?** Add [Opik](opik.md)
 - **Learning from OpenClaw session transcripts?** Use [OpenClaw](openclaw.md)
-- **Exposing ACE as an MCP tool provider?** Use the [MCP Server](mcp.md)
+- **Exposing ACE as an MCP tool provider?** Use the [MCP Server](mcp.md) (see [Client Setup Guide](mcp-client-setup.md) for Claude Code, Cursor, Windsurf, etc.)
 - **Want to use the hosted API instead of running locally?** Use the [Hosted API](hosted-api.md) CLI
 - **Using a different framework?** See the [Integration Guide](../guides/integration.md) to build a custom runner
