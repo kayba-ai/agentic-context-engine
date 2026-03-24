@@ -6,6 +6,8 @@ from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any, Optional
 
+from pydantic_ai.settings import ModelSettings
+
 from pipeline import Pipeline
 from pipeline.protocol import SampleResult, StepProtocol
 
@@ -16,7 +18,6 @@ from ..integrations.browser_use import BrowserExecuteStep, BrowserToTrace
 from ..protocols import (
     DeduplicationConfig,
     DeduplicationManagerLike,
-    LLMClientLike,
     ReflectorLike,
     SkillManagerLike,
 )
@@ -176,7 +177,7 @@ class BrowserUse(ACERunner):
         *,
         ace_model: str = "gpt-4o-mini",
         ace_max_tokens: int = 2048,
-        ace_llm: Optional[LLMClientLike] = None,
+        ace_temperature: float = 0.0,
         **kwargs: Any,
     ) -> BrowserUse:
         """Build ACE roles from a model string.
@@ -184,21 +185,21 @@ class BrowserUse(ACERunner):
         Args:
             browser_llm: LLM for browser-use execution.
             ace_model: Model identifier for ACE roles.
-            ace_max_tokens: Max tokens for ACE LLM.
-            ace_llm: Optional pre-built LLM for ACE roles.
+            ace_max_tokens: Max tokens for ACE LLM responses.
+            ace_temperature: Sampling temperature for ACE roles.
             **kwargs: Forwarded to :meth:`from_roles`.
         """
         from ..implementations import Reflector, SkillManager
 
-        if ace_llm is None:
-            from ..providers import LiteLLMClient
-
-            ace_llm = LiteLLMClient(model=ace_model, max_tokens=ace_max_tokens)
+        model_settings = ModelSettings(
+            temperature=ace_temperature,
+            max_tokens=ace_max_tokens,
+        )
 
         return cls.from_roles(
             browser_llm=browser_llm,
-            reflector=Reflector(ace_llm),
-            skill_manager=SkillManager(ace_llm),
+            reflector=Reflector(ace_model, model_settings=model_settings),
+            skill_manager=SkillManager(ace_model, model_settings=model_settings),
             **kwargs,
         )
 

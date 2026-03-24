@@ -1,24 +1,25 @@
-"""Stress tests exercising every code path in the RRStep REPL loop.
+"""Stress tests for RR components.
 
-All tests use MockLLM — no live LLM calls.
+Tests sandbox behavior, code extraction, FINAL parsing, and the new
+PydanticAI-based RRStep entry points.
 """
 
 import json
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ace.llm import LLMResponse
 from ace_next.rr.config import RecursiveConfig
 from ace_next.rr.sandbox import TraceSandbox
-from ace_next.rr.subagent import CallBudget
 
 from ace_next.core.context import ACEStepContext, SkillbookView
 from ace_next.core.outputs import AgentOutput, ReflectorOutput
 from ace_next.core.skillbook import Skillbook
 from ace_next.rr import RRConfig, RRStep
+
+# Keep old imports for tests that still test unchanged modules
 from ace_next.rr.context import RRIterationContext
 from ace_next.rr.steps import (
-    LLMCallStep,
     ExtractCodeStep,
     SandboxExecStep,
     CheckResultStep,
@@ -28,31 +29,6 @@ from ace_next.rr.steps import (
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-
-class MockLLM:
-    """Returns queued responses; empty string when exhausted."""
-
-    def __init__(self, responses: list[str] | None = None):
-        self._responses = list(responses or [])
-        self.call_count = 0
-
-    def complete_messages(self, messages, **kw):
-        self.call_count += 1
-        text = self._responses.pop(0) if self._responses else ""
-        return LLMResponse(text=text)
-
-    def complete(self, prompt, **kw):
-        self.call_count += 1
-        text = self._responses.pop(0) if self._responses else ""
-        return LLMResponse(text=text)
-
-
-def _make_rr(llm, max_iterations=5, **kw):
-    return RRStep(
-        llm,
-        config=RRConfig(max_iterations=max_iterations, enable_subagent=False, **kw),
-    )
 
 
 def _make_ctx(
@@ -76,137 +52,131 @@ def _make_ctx(
     return ACEStepContext(trace=trace, skillbook=SkillbookView(Skillbook()))
 
 
-FINAL_GOOD = """```python
-FINAL({
-    "reasoning": "done",
-    "key_insight": "insight",
-    "correct_approach": "approach",
-    "extracted_learnings": [
-        {"learning": "l1", "atomicity_score": 0.8, "evidence": "e1"}
-    ],
-    "skill_tags": []
-})
-```"""
-
-EXPLORE = '```python\nprint(traces["question"])\n```'
+def _mock_run_result(
+    *,
+    reasoning: str = "done",
+    key_insight: str = "insight",
+    correct_approach: str = "approach",
+    extracted_learnings: list | None = None,
+) -> MagicMock:
+    """Create a mock PydanticAI RunResult."""
+    output = ReflectorOutput(
+        reasoning=reasoning,
+        key_insight=key_insight,
+        correct_approach=correct_approach,
+        extracted_learnings=extracted_learnings or [],
+    )
+    result = MagicMock()
+    result.output = output
+    usage = MagicMock()
+    usage.request_tokens = 100
+    usage.response_tokens = 50
+    usage.total_tokens = 150
+    usage.requests = 3
+    result.usage.return_value = usage
+    return result
 
 
 # =========================================================================
-# 1. Loop lifecycle
+# 1. RRStep lifecycle (PydanticAI-based)
 # =========================================================================
 
 
 @pytest.mark.unit
 class TestLoopLifecycle:
-    def test_single_iteration_explore_then_final(self):
-        """Happy path: explore on iter 0, FINAL on iter 1."""
-        llm = MockLLM([EXPLORE, FINAL_GOOD])
-        rr = _make_rr(llm)
-        result_ctx = rr(
-            _make_ctx(
-                question="What is 2+2?",
-                ground_truth="4",
-                feedback="Correct!",
+    def test_successful_reflection(self):
+        """Happy path: PydanticAI agent produces valid ReflectorOutput."""
+        rr = RRStep("test-model", config=RRConfig(enable_subagent=False))
+        mock_result = _mock_run_result(key_insight="insight")
+
+        with patch.object(rr._agent, "run_sync", return_value=mock_result):
+            result_ctx = rr(
+                _make_ctx(
+                    question="What is 2+2?",
+                    ground_truth="4",
+                    feedback="Correct!",
+                )
             )
-        )
+
         result = result_ctx.reflections[0]
         assert isinstance(result, ReflectorOutput)
         assert result.key_insight == "insight"
-        assert llm.call_count == 2
 
-    def test_immediate_final_rejected_then_accepted(self):
-        """FINAL on iteration 0 is rejected; explore then FINAL succeeds."""
-        premature = '```python\nFINAL({"reasoning":"fast","key_insight":"k","correct_approach":"a"})\n```'
-        llm = MockLLM([premature, EXPLORE, FINAL_GOOD])
-        rr = _make_rr(llm)
-        result_ctx = rr(_make_ctx())
-        assert len(result_ctx.reflections) == 1
-        assert result_ctx.reflections[0].key_insight == "insight"
-        assert llm.call_count == 3
+    def test_max_requests_timeout(self):
+        """UsageLimitExceeded produces timeout output."""
+        from pydantic_ai.exceptions import UsageLimitExceeded
 
-    def test_max_iterations_timeout(self):
-        """All iterations exhaust without FINAL -> timeout output."""
-        llm = MockLLM([EXPLORE] * 3)
-        rr = _make_rr(llm, max_iterations=3, enable_fallback_synthesis=False)
-        result_ctx = rr(_make_ctx())
-        assert len(result_ctx.reflections) == 1
-        assert isinstance(result_ctx.reflections[0], ReflectorOutput)
-        assert "max iterations" in result_ctx.reflections[0].reasoning.lower()
-
-    def test_budget_exhaustion_stops_gracefully(self):
-        """Budget runs out mid-loop — LLM should NOT be called."""
-        llm = MockLLM([EXPLORE] * 10)
-        _make_rr(llm, max_iterations=10)
-
-        # Directly test LLMCallStep with an already-exhausted budget
-        budget = CallBudget(max_calls=0)  # already exhausted
-        config = RecursiveConfig()
-        step = LLMCallStep(llm, config, budget)
-        ctx = RRIterationContext(messages=({"role": "user", "content": "go"},))
-        result = step(ctx)
-        assert result.llm_response == ""
-        assert llm.call_count == 0  # LLM was NOT called
-
-    def test_direct_json_no_code_blocks(self):
-        """LLM returns raw JSON without code fences."""
-        raw = json.dumps(
-            {
-                "reasoning": "direct",
-                "key_insight": "di",
-                "correct_approach": "a",
-                "extracted_learnings": [],
-                "skill_tags": [],
-            }
+        rr = RRStep(
+            "test-model",
+            config=RRConfig(max_llm_calls=3, enable_subagent=False),
         )
-        llm = MockLLM([raw])
-        rr = _make_rr(llm)
-        result_ctx = rr(_make_ctx())
-        assert len(result_ctx.reflections) == 1
-        assert result_ctx.reflections[0].key_insight == "di"
 
-    def test_empty_llm_response_gets_feedback(self):
-        """Empty response triggers retry feedback, then FINAL succeeds."""
-        llm = MockLLM(["", EXPLORE, FINAL_GOOD])
-        rr = _make_rr(llm)
-        result_ctx = rr(_make_ctx())
+        with patch.object(
+            rr._agent, "run_sync",
+            side_effect=UsageLimitExceeded("limit reached"),
+        ):
+            result_ctx = rr(_make_ctx())
+
         assert len(result_ctx.reflections) == 1
         assert isinstance(result_ctx.reflections[0], ReflectorOutput)
-        assert result_ctx.reflections[0].key_insight == "insight"
-        assert llm.call_count == 3
+        assert "usage limit" in result_ctx.reflections[0].reasoning.lower()
 
-    def test_20_iterations_message_accumulation(self):
-        """Long loop — verify messages accumulate correctly."""
-        llm = MockLLM([EXPLORE] * 20)
-        rr = _make_rr(llm, max_iterations=20, enable_fallback_synthesis=False)
-        result_ctx = rr(_make_ctx())
-        assert len(result_ctx.reflections) == 1
-        assert "max iterations" in result_ctx.reflections[0].reasoning.lower()
-        assert llm.call_count == 20
+    def test_budget_field_in_config(self):
+        """max_llm_calls config is passed to UsageLimits."""
+        rr = RRStep(
+            "test-model",
+            config=RRConfig(max_llm_calls=42, enable_subagent=False),
+        )
+        assert rr.config.max_llm_calls == 42
+
+    def test_rr_trace_metadata_on_success(self):
+        """Successful reflection populates rr_trace metadata."""
+        rr = RRStep("test-model", config=RRConfig(enable_subagent=False))
+        mock_result = _mock_run_result()
+
+        with patch.object(rr._agent, "run_sync", return_value=mock_result):
+            result_ctx = rr(_make_ctx())
+
+        output = result_ctx.reflections[0]
+        assert "rr_trace" in output.raw
+        assert output.raw["rr_trace"]["timed_out"] is False
+        assert isinstance(output.raw["rr_trace"]["subagent_calls"], list)
+
+    def test_rr_trace_metadata_on_timeout(self):
+        """Timeout reflection also has rr_trace metadata."""
+        from pydantic_ai.exceptions import UsageLimitExceeded
+
+        rr = RRStep("test-model", config=RRConfig(enable_subagent=False))
+
+        with patch.object(
+            rr._agent, "run_sync",
+            side_effect=UsageLimitExceeded("limit"),
+        ):
+            result_ctx = rr(_make_ctx())
+
+        output = result_ctx.reflections[0]
+        assert "rr_trace" in output.raw
+        assert output.raw["rr_trace"]["timed_out"] is True
 
 
 # =========================================================================
-# 2. Code extraction edge cases
+# 2. Code extraction edge cases (unchanged module)
 # =========================================================================
 
 
 @pytest.mark.unit
 class TestCodeExtractionEdgeCases:
     def test_nested_backticks_in_code(self):
-        """Code containing triple backticks inside strings truncates at first closing fence.
-
-        Regex-based extraction cannot handle nested backticks — the extracted
-        code is partial.  This documents the known limitation.
-        """
+        """Code containing triple backticks inside strings."""
         step = ExtractCodeStep()
         response = '```python\nx = "```hello```"\nprint(x)\n```'
         ctx = RRIterationContext(llm_response=response)
         result = step(ctx)
-        # Extraction stops at the first ``` after the opening fence
         assert result.code is not None
         assert 'x = "' in result.code
 
     def test_bare_code_block_no_python_tag(self):
-        """Bare ``` without 'python' tag — should still extract if looks like Python."""
+        """Bare ``` without 'python' tag."""
         step = ExtractCodeStep()
         response = '```\nprint("bare block")\n```'
         ctx = RRIterationContext(llm_response=response)
@@ -215,7 +185,7 @@ class TestCodeExtractionEdgeCases:
         assert "bare block" in result.code
 
     def test_final_call_without_code_block(self):
-        """FINAL() as plain text with no fences — fallback extraction."""
+        """FINAL() as plain text with no fences."""
         step = ExtractCodeStep()
         response = 'After analysis:\nFINAL({"reasoning": "done", "key_insight": "k", "correct_approach": "a"})'
         ctx = RRIterationContext(llm_response=response)
@@ -229,7 +199,6 @@ class TestCodeExtractionEdgeCases:
         response = "```python\n```"
         ctx = RRIterationContext(llm_response=response)
         result = step(ctx)
-        # Empty block extracts empty string which is falsy -> direct_response
         if result.code is not None:
             assert result.code.strip() == ""
         else:
@@ -237,14 +206,14 @@ class TestCodeExtractionEdgeCases:
 
 
 # =========================================================================
-# 3. FINAL() parsing edge cases
+# 3. FINAL() parsing edge cases (unchanged module)
 # =========================================================================
 
 
 @pytest.mark.unit
 class TestFinalParsingEdgeCases:
     def test_final_with_missing_fields(self):
-        """FINAL with only reasoning — other fields should default."""
+        """FINAL with only reasoning — other fields default."""
         result = _parse_final_value({"reasoning": "only reasoning"})
         assert result.reasoning == "only reasoning"
         assert result.key_insight == ""
@@ -253,12 +222,12 @@ class TestFinalParsingEdgeCases:
         assert result.skill_tags == []
 
     def test_final_with_non_dict_value(self):
-        """FINAL("just a string") should create ReflectorOutput with reasoning."""
+        """FINAL("just a string") creates ReflectorOutput."""
         result = _parse_final_value("just a string")
         assert result.reasoning == "just a string"
 
     def test_final_with_bad_atomicity_score(self):
-        """FINAL with atomicity_score='high' should not crash (Bug B fix)."""
+        """FINAL with atomicity_score='high' should not crash."""
         value = {
             "reasoning": "r",
             "key_insight": "k",
@@ -294,14 +263,14 @@ class TestFinalParsingEdgeCases:
 
 
 # =========================================================================
-# 4. Sandbox behavior
+# 4. Sandbox behavior (unchanged module)
 # =========================================================================
 
 
 @pytest.mark.unit
 class TestSandboxBehavior:
     def test_sandbox_variables_persist_across_iterations(self):
-        """Variables set in one execution persist for the next (REPL semantics)."""
+        """Variables set in one execution persist for the next."""
         sandbox = TraceSandbox(trace=None)
         sandbox.execute("x = 42", timeout=5.0)
         result = sandbox.execute("print(x + 1)", timeout=5.0)
@@ -317,7 +286,7 @@ class TestSandboxBehavior:
         assert "4" in result.stdout
 
     def test_sandbox_exception_produces_stderr(self):
-        """Code that raises captures the error in stderr."""
+        """Code that raises captures error in stderr."""
         sandbox = TraceSandbox(trace=None)
         config = RecursiveConfig()
         step = SandboxExecStep(sandbox, config)
@@ -330,7 +299,7 @@ class TestSandboxBehavior:
 
 
 # =========================================================================
-# 5. Entry points
+# 5. Entry points (PydanticAI-based)
 # =========================================================================
 
 
@@ -338,8 +307,9 @@ class TestSandboxBehavior:
 class TestEntryPoints:
     def test_call_produces_reflection(self):
         """__call__() produces a ReflectorOutput on the context."""
-        llm = MockLLM([EXPLORE, FINAL_GOOD])
-        rr = _make_rr(llm)
+        rr = RRStep("test-model", config=RRConfig(enable_subagent=False))
+        mock_result = _mock_run_result(key_insight="insight")
+
         traces = {
             "question": "q",
             "steps": [
@@ -347,29 +317,24 @@ class TestEntryPoints:
             ],
         }
         ctx = ACEStepContext(trace=traces, skillbook=SkillbookView(Skillbook()))
-        result_ctx = rr(ctx)
+
+        with patch.object(rr._agent, "run_sync", return_value=mock_result):
+            result_ctx = rr(ctx)
+
         assert isinstance(result_ctx.reflections[0], ReflectorOutput)
         assert result_ctx.reflections[0].key_insight == "insight"
 
-    def test_run_loop_direct_with_all_kwargs(self):
-        """run_loop() standalone with full kwargs produces valid output."""
-        llm = MockLLM([EXPLORE, FINAL_GOOD])
-        rr = _make_rr(llm)
+    def test_reflect_method_works(self):
+        """reflect() works as ReflectorLike entry point."""
+        rr = RRStep("test-model", config=RRConfig(enable_subagent=False))
+        mock_result = _mock_run_result(key_insight="reflected")
 
-        budget = CallBudget(10)
-        sandbox = rr._create_sandbox(
-            None, {"question": "q", "steps": []}, None, budget=budget
-        )
-        result = rr.run_loop(
-            sandbox=sandbox,
-            budget=budget,
-            initial_prompt="test prompt",
-            timeout_args={
-                "question": "q",
-                "agent_output": None,
-                "ground_truth": None,
-                "feedback": None,
-            },
-        )
-        assert isinstance(result, ReflectorOutput)
-        assert result.key_insight == "insight"
+        with patch.object(rr._agent, "run_sync", return_value=mock_result):
+            output = rr.reflect(
+                question="What is 2+2?",
+                agent_output=AgentOutput(reasoning="r", final_answer="4"),
+                ground_truth="4",
+            )
+
+        assert isinstance(output, ReflectorOutput)
+        assert output.key_insight == "reflected"

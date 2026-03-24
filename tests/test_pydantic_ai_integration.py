@@ -95,19 +95,20 @@ class TestAgentRole:
     def test_with_reflection(self):
         agent = Agent(MODEL)
         sb = Skillbook()
-        sb.add_skill("science", "State precise numerical values with units", skill_id="sci-001")
+        sb.add_skill("physics", "Always include the unit when stating temperatures", skill_id="phys-001")
 
         output = agent.generate(
-            question="What is the boiling point of water in Fahrenheit?",
-            context="Give only the numerical answer with units.",
+            question="What temperature does water boil at in Fahrenheit? Reply with just the number and unit.",
+            context="This is a factual science question. Answer concisely.",
             skillbook=sb,
-            reflection="Previous answer was wrong. Water boils at 212°F at sea level.",
+            reflection="Your previous answer was incorrect. The correct answer is 212°F at standard atmospheric pressure.",
         )
 
         assert isinstance(output, AgentOutput)
         assert len(output.final_answer) > 0
         # The reflection explicitly states 212°F — verify the model uses it
-        assert "212" in output.final_answer or "212" in output.reasoning, (
+        full_text = f"{output.final_answer} {output.reasoning}"
+        assert "212" in full_text, (
             f"Expected '212' somewhere in output, got answer: {output.final_answer}"
         )
         print(f"\n  Agent answer with reflection: {output.final_answer}")
@@ -352,6 +353,206 @@ class TestRetryAndConsistency:
                 f"Expected '{expected}' in answer for '{q}', got: {output.final_answer}"
             )
             print(f"\n  Q: {q} -> A: {output.final_answer}")
+
+
+class TestRRStepIntegration:
+    """Test the PydanticAI-based Recursive Reflector (RRStep) with real API calls."""
+
+    RR_MODEL = "bedrock/eu.anthropic.claude-haiku-4-5-20251001-v1:0"
+
+    @pytest.mark.integration
+    def test_rr_basic_reflection(self):
+        """RRStep.reflect returns a valid ReflectorOutput with non-empty fields."""
+        from ace_next.rr.runner import RRStep
+        from ace_next.rr.config import RecursiveConfig
+
+        config = RecursiveConfig(
+            max_llm_calls=15,
+            max_iterations=10,
+            timeout=15.0,
+            enable_subagent=False,
+        )
+        rr = RRStep(model=self.RR_MODEL, config=config)
+        sb = Skillbook()
+
+        agent_out = AgentOutput(
+            reasoning="I recall that the capital of Australia is Sydney because it is the largest city.",
+            final_answer="Sydney",
+            skill_ids=[],
+        )
+
+        output = rr.reflect(
+            question="What is the capital of Australia?",
+            agent_output=agent_out,
+            skillbook=sb,
+            ground_truth="Canberra",
+            feedback="Incorrect. The capital of Australia is Canberra, not Sydney.",
+        )
+
+        assert isinstance(output, ReflectorOutput), f"Expected ReflectorOutput, got {type(output)}"
+        assert len(output.reasoning) > 0, "reasoning should be non-empty"
+        assert len(output.key_insight) > 0, "key_insight should be non-empty"
+        assert isinstance(output.raw, dict), "raw should be a dict"
+
+        # Verify rr_trace metadata is populated
+        rr_trace = output.raw.get("rr_trace", {})
+        assert isinstance(rr_trace, dict), "rr_trace should be a dict in raw"
+        assert "total_iterations" in rr_trace, "rr_trace should have total_iterations"
+
+        print(f"\n  Reasoning: {output.reasoning[:300]}")
+        print(f"  Key insight: {output.key_insight[:200]}")
+        print(f"  RR trace: {rr_trace}")
+
+    @pytest.mark.integration
+    def test_rr_with_skillbook(self):
+        """RRStep.reflect with a populated skillbook references or tags skills."""
+        from ace_next.rr.runner import RRStep
+        from ace_next.rr.config import RecursiveConfig
+
+        config = RecursiveConfig(
+            max_llm_calls=15,
+            max_iterations=10,
+            timeout=15.0,
+            enable_subagent=False,
+        )
+        rr = RRStep(model=self.RR_MODEL, config=config)
+        sb = Skillbook()
+        sb.add_skill(
+            "geography",
+            "Always verify capital cities — the largest city is often not the capital",
+            skill_id="geo-001",
+        )
+
+        agent_out = AgentOutput(
+            reasoning="The largest city in Brazil is Sao Paulo, so it must be the capital.",
+            final_answer="Sao Paulo",
+            skill_ids=[],
+        )
+
+        output = rr.reflect(
+            question="What is the capital of Brazil?",
+            agent_output=agent_out,
+            skillbook=sb,
+            ground_truth="Brasilia",
+            feedback="Incorrect. The capital of Brazil is Brasilia.",
+        )
+
+        assert isinstance(output, ReflectorOutput)
+        assert len(output.reasoning) > 0
+        assert len(output.key_insight) > 0
+
+        # The reflector should reference the skill in some way — either via
+        # skill_tags or by mentioning the skill in its reasoning/key_insight.
+        has_skill_tags = len(output.skill_tags) > 0
+        mentions_skill = (
+            "geo-001" in output.reasoning
+            or "geo-001" in output.key_insight
+            or "geo-001" in str(output.extracted_learnings)
+            or "geography" in output.reasoning.lower()
+            or "geography" in output.key_insight.lower()
+        )
+        assert has_skill_tags or mentions_skill, (
+            "Expected the reflector to reference the skillbook skill via tags or text. "
+            f"skill_tags={output.skill_tags}, reasoning={output.reasoning[:200]}"
+        )
+
+        print(f"\n  Key insight: {output.key_insight[:200]}")
+        print(f"  Skill tags: {[(t.id, t.tag) for t in output.skill_tags]}")
+        print(f"  Learnings: {len(output.extracted_learnings)}")
+
+    @pytest.mark.integration
+    def test_rr_step_protocol(self):
+        """RRStep used as a StepProtocol: __call__(ctx) populates reflections."""
+        from ace_next.rr.runner import RRStep
+        from ace_next.rr.config import RecursiveConfig
+        from ace_next.core.context import ACEStepContext, SkillbookView
+
+        config = RecursiveConfig(
+            max_llm_calls=15,
+            max_iterations=10,
+            timeout=15.0,
+            enable_subagent=False,
+        )
+        rr = RRStep(model=self.RR_MODEL, config=config)
+        sb = Skillbook()
+
+        trace = {
+            "question": "What is 15 x 24?",
+            "ground_truth": "360",
+            "feedback": "Incorrect. The correct answer is 360.",
+            "steps": [
+                {
+                    "role": "agent",
+                    "reasoning": "15 x 24 = 15 x 20 + 15 x 4 = 310 + 60 = 370",
+                    "answer": "370",
+                    "skill_ids": [],
+                },
+            ],
+        }
+
+        ctx = ACEStepContext(
+            trace=trace,
+            skillbook=SkillbookView(sb),
+        )
+
+        result_ctx = rr(ctx)
+
+        assert result_ctx.reflections is not None, "reflections should be set"
+        assert len(result_ctx.reflections) > 0, "reflections should be non-empty"
+        for reflection in result_ctx.reflections:
+            assert isinstance(reflection, ReflectorOutput)
+            assert len(reflection.reasoning) > 0
+
+        print(f"\n  Reflections count: {len(result_ctx.reflections)}")
+        print(f"  First reasoning: {result_ctx.reflections[0].reasoning[:300]}")
+        print(f"  First key_insight: {result_ctx.reflections[0].key_insight[:200]}")
+
+    @pytest.mark.integration
+    def test_rr_execute_code_tool_used(self):
+        """Verify the agent uses execute_code (total_iterations > 0 in rr_trace)."""
+        from ace_next.rr.runner import RRStep
+        from ace_next.rr.config import RecursiveConfig
+
+        config = RecursiveConfig(
+            max_llm_calls=15,
+            max_iterations=10,
+            timeout=15.0,
+            enable_subagent=False,
+        )
+        rr = RRStep(model=self.RR_MODEL, config=config)
+        sb = Skillbook()
+
+        agent_out = AgentOutput(
+            reasoning=(
+                "I need to find the square root of 144. "
+                "I think it might be 14 since 14 x 14 is close to 144."
+            ),
+            final_answer="14",
+            skill_ids=[],
+        )
+
+        output = rr.reflect(
+            question="What is the square root of 144?",
+            agent_output=agent_out,
+            skillbook=sb,
+            ground_truth="12",
+            feedback="Incorrect. The square root of 144 is 12, not 14.",
+        )
+
+        assert isinstance(output, ReflectorOutput)
+
+        rr_trace = output.raw.get("rr_trace", {})
+        total_iterations = rr_trace.get("total_iterations", 0)
+        assert total_iterations > 0, (
+            f"Expected execute_code to be called at least once "
+            f"(total_iterations > 0), got {total_iterations}. "
+            f"rr_trace={rr_trace}"
+        )
+
+        print(f"\n  Total iterations (execute_code calls): {total_iterations}")
+        print(f"  Timed out: {rr_trace.get('timed_out', 'N/A')}")
+        print(f"  Key insight: {output.key_insight[:200]}")
+        print(f"  Reasoning: {output.reasoning[:300]}")
 
 
 if __name__ == "__main__":

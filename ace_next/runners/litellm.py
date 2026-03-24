@@ -74,6 +74,7 @@ class ACELiteLLM:
         opik: bool = False,
         opik_project: str = "ace-framework",
         opik_tags: list[str] | None = None,
+        logfire: bool = False,
     ) -> None:
         # Resolve skillbook
         if skillbook_path:
@@ -133,6 +134,16 @@ class ACELiteLLM:
                 )
             # Register LiteLLM-level callback for per-call token/cost tracking
             register_opik_litellm_callback(project_name=opik_project)
+
+        # Logfire observability (explicit opt-in — fail loudly)
+        if logfire:
+            from ..observability import configure_logfire
+
+            if not configure_logfire():
+                raise ImportError(
+                    "logfire=True requires the 'logfire' package. "
+                    "Install it with: pip install ace-framework[logfire]"
+                )
 
         # Lazy-init caches
         self._ace: ACE | None = None
@@ -284,6 +295,7 @@ class ACELiteLLM:
         opik: bool = False,
         opik_project: str = "ace-framework",
         opik_tags: Optional[list[str]] = None,
+        logfire: bool = False,
     ) -> ACELiteLLM:
         """Build from a model string.
 
@@ -302,6 +314,7 @@ class ACELiteLLM:
             opik: Enable Opik observability.
             opik_project: Opik project name.
             opik_tags: Tags applied to every Opik trace.
+            logfire: Enable Logfire observability (auto-instruments PydanticAI).
         """
         model_settings = ModelSettings(
             temperature=temperature,
@@ -321,6 +334,7 @@ class ACELiteLLM:
             opik=opik,
             opik_project=opik_project,
             opik_tags=opik_tags,
+            logfire=logfire,
         )
 
     # ------------------------------------------------------------------

@@ -158,9 +158,9 @@ class TraceSandbox:
         "True": True,
         "False": False,
         "None": None,
-        # BLOCKED - security sensitive
+        # BLOCKED - security sensitive (raise clear errors, not NoneType)
         "open": None,
-        "__import__": None,
+        "__import__": None,  # replaced with _safe_import in __init__
         "eval": None,
         "exec": None,
         "compile": None,
@@ -214,6 +214,7 @@ class TraceSandbox:
             # Safe stdlib modules
             "json": json,
             "re": re,
+            "math": math,
             "collections": collections,
             # datetime module and commonly used classes
             "datetime": datetime,
@@ -232,6 +233,27 @@ class TraceSandbox:
 
         self.namespace["__builtins__"]["getattr"] = safe_getattr
         self.namespace["safe_getattr"] = safe_getattr
+
+        # Safe import — allows pre-loaded modules, blocks everything else.
+        # LLMs often write `import json` even when json is already available.
+        _allowed_modules = {
+            "json": json,
+            "re": re,
+            "math": math,
+            "collections": collections,
+            "datetime": __import__("datetime"),
+        }
+
+        def _safe_import(name: str, *args: Any, **kwargs: Any) -> Any:
+            if name in _allowed_modules:
+                return _allowed_modules[name]
+            raise ImportError(
+                f"import {name!r} is blocked in sandbox. "
+                f"Pre-loaded modules ({', '.join(sorted(_allowed_modules))}) "
+                f"are already available — use them directly."
+            )
+
+        self.namespace["__builtins__"]["__import__"] = _safe_import
 
         # Add llm_query if provided
         if llm_query_fn is not None:

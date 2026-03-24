@@ -92,12 +92,19 @@ FINAL("second value")  # Should not be reached
         self.assertFalse(result.success)
 
     def test_blocked_import(self):
-        """Test that __import__ is blocked."""
+        """Test that __import__ is blocked for unsafe modules."""
         sandbox = TraceSandbox(trace=self.trace, llm_query_fn=None)
         result = sandbox.execute("__import__('os')")
 
-        self.assertIn("TypeError", result.stderr)
+        self.assertIn("ImportError", result.stderr)
         self.assertFalse(result.success)
+
+    def test_safe_import_allowed(self):
+        """Test that safe modules (json, re, math, etc.) can be imported."""
+        sandbox = TraceSandbox(trace=self.trace, llm_query_fn=None)
+        result = sandbox.execute("import json; print(json.dumps({'a': 1}))")
+        self.assertTrue(result.success)
+        self.assertIn('{"a": 1}', result.stdout)
 
     def test_blocked_eval(self):
         """Test that eval is blocked."""

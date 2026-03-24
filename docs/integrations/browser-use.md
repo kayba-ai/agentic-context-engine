@@ -31,8 +31,8 @@ runner.save("browser_expert.json")
 |-----------|------|---------|-------------|
 | `browser_llm` | `Any` | — | LLM for browser-use execution |
 | `ace_model` | `str` | `"gpt-4o-mini"` | Model for Reflector + SkillManager |
-| `ace_max_tokens` | `int` | `2048` | Max tokens for ACE LLM |
-| `ace_llm` | `LLMClientLike` | `None` | Pre-built LLM for ACE roles |
+| `ace_max_tokens` | `int` | `2048` | Max tokens for ACE LLM responses |
+| `ace_temperature` | `float` | `0.0` | Sampling temperature for ACE roles |
 
 ### from_roles()
 

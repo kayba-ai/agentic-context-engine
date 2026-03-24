@@ -35,6 +35,10 @@ except ImportError:
 class LangChainLiteLLMClient:
     """LangChain wrapper for LiteLLM integration.
 
+    .. deprecated::
+        Use PydanticAI-backed roles with model strings instead.
+        See ``docs/PYDANTIC_AI_MIGRATION.md``.
+
     Provides integration with LangChain's ``ChatLiteLLM`` and
     ``ChatLiteLLMRouter``, enabling model routing, load balancing, and
     the broader LangChain ecosystem.
@@ -60,6 +64,15 @@ class LangChainLiteLLMClient:
         max_tokens: Optional[int] = None,
         **kwargs: Any,
     ) -> None:
+        import warnings
+
+        warnings.warn(
+            "LangChainLiteLLMClient is deprecated. Use PydanticAI-backed "
+            "roles with model strings instead. "
+            "See docs/PYDANTIC_AI_MIGRATION.md.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if not LANGCHAIN_AVAILABLE:
             raise ImportError(
                 "langchain-litellm is not installed. "

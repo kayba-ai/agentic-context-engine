@@ -94,6 +94,10 @@ class LiteLLMConfig:
 class LiteLLMClient:
     """Production LLM client using LiteLLM for unified access to multiple providers.
 
+    .. deprecated::
+        Use PydanticAI-backed roles (``Agent``, ``Reflector``, ``SkillManager``)
+        with model strings instead.  See ``docs/PYDANTIC_AI_MIGRATION.md``.
+
     Supports OpenAI, Anthropic, Google, Cohere, Azure OpenAI, AWS Bedrock,
     and 100+ other providers.
 
@@ -120,6 +124,15 @@ class LiteLLMClient:
         config: Optional[LiteLLMConfig] = None,
         **kwargs: Any,
     ) -> None:
+        import warnings
+
+        warnings.warn(
+            "LiteLLMClient is deprecated. Use PydanticAI-backed roles "
+            "(Agent, Reflector, SkillManager) with model strings instead. "
+            "See docs/PYDANTIC_AI_MIGRATION.md.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if not LITELLM_AVAILABLE:
             raise ImportError(
                 "LiteLLM is not installed. Install with: pip install litellm"

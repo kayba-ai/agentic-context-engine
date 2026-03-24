@@ -1,4 +1,10 @@
-"""LLMClientLike — structural protocol for LLM clients."""
+"""LLMClientLike — structural protocol for LLM clients.
+
+.. deprecated::
+    Roles now use PydanticAI agents internally.  ``LLMClientLike`` is no
+    longer required and will be removed in a future release.
+    See ``docs/PYDANTIC_AI_MIGRATION.md``.
+"""
 
 from __future__ import annotations
 
@@ -12,6 +18,11 @@ T = TypeVar("T", bound=BaseModel)
 @runtime_checkable
 class LLMClientLike(Protocol):
     """Minimal interface that any LLM client must satisfy.
+
+    .. deprecated::
+        Roles now use PydanticAI agents internally.  This protocol is
+        retained for backward compatibility but will be removed in a
+        future release.
 
     Concrete implementations include ``LiteLLMClient``,
     ``DummyLLMClient``, or any object with ``complete`` and

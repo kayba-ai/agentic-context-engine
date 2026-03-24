@@ -31,6 +31,10 @@ T = TypeVar("T", bound=BaseModel)
 class InstructorClient:
     """Wrapper that adds Instructor's structured-output capabilities.
 
+    .. deprecated::
+        PydanticAI provides native structured output with validation and
+        retry.  See ``docs/PYDANTIC_AI_MIGRATION.md``.
+
     Provides automatic validation, intelligent retry on validation failures,
     and feeds validation errors back to the LLM for correction.
 
@@ -52,6 +56,15 @@ class InstructorClient:
         mode: Any = None,
         max_retries: int = 3,
     ) -> None:
+        import warnings
+
+        warnings.warn(
+            "InstructorClient is deprecated. PydanticAI provides native "
+            "structured output with validation and retry. "
+            "See docs/PYDANTIC_AI_MIGRATION.md.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if not INSTRUCTOR_AVAILABLE:
             raise ImportError(
                 "instructor is required for InstructorClient. "

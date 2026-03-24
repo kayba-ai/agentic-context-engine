@@ -94,6 +94,10 @@ class ClaudeCodeLLMConfig:
 class ClaudeCodeLLMClient:
     """LLM client that uses the Claude Code CLI for completions.
 
+    .. deprecated::
+        Use PydanticAI-backed roles with Anthropic provider instead.
+        See ``docs/PYDANTIC_AI_MIGRATION.md``.
+
     Uses the user's Claude Code subscription authentication instead of
     requiring ``ANTHROPIC_API_KEY`` or ``OPENAI_API_KEY``.
 
@@ -119,6 +123,15 @@ class ClaudeCodeLLMClient:
         config: Optional[ClaudeCodeLLMConfig] = None,
         **kwargs: Any,
     ) -> None:
+        import warnings
+
+        warnings.warn(
+            "ClaudeCodeLLMClient is deprecated. Use PydanticAI-backed roles "
+            "with Anthropic provider instead. "
+            "See docs/PYDANTIC_AI_MIGRATION.md.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if not CLAUDE_CODE_CLI_AVAILABLE:
             raise RuntimeError(
                 "Claude Code CLI not found. Install from: https://claude.ai/code\n"
