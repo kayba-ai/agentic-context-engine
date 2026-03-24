@@ -1,9 +1,0 @@
-Go to the following website:
-http://127.0.0.1:8765/form.html
-
-Sign up for an account:
-- First Name: Miguel
-- Last Name: Martinez
-- Email: miguel.martinez@example.com
-
-Then click the submit button. Once the form is submitted successfully you can stop.

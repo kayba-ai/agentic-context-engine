@@ -112,8 +112,6 @@ mcp = [
 
 [project.scripts]
 ace = "ace_next.cli.setup:main"
-kayba = "ace.cli:main"
-ace-learn = "ace.integrations.claude_code.learner:main"
 ace-mcp = "ace_next.integrations.mcp.server:main"
 
 [project.urls]
@@ -148,13 +146,10 @@ demos = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["ace", "ace.*", "ace_next", "ace_next.*", "pipeline", "pipeline.*"]
+include = ["ace_next", "ace_next.*", "pipeline", "pipeline.*"]
 
 [tool.setuptools.package-data]
-ace = ["py.typed"]
-"ace.cli" = ["commands/*.md"]
-"ace.cli.skills" = ["**/*.md"]
-"ace.integrations.claude_code" = ["commands/*.md"]
+ace_next = ["py.typed"]
 
 [tool.black]
 line-length = 88
@@ -175,7 +170,7 @@ warn_return_any = false
 warn_unused_configs = true
 disallow_untyped_defs = false
 ignore_missing_imports = true
-files = ["ace"]
+files = ["ace_next"]
 exclude = [
     "^tests/",
     "^examples/",
@@ -192,7 +187,6 @@ addopts = [
     "-v",
     "--strict-markers",
     "--tb=short",
-    "--cov=ace",
     "--cov=ace_next",
     "--cov=pipeline",
     "--cov-report=term-missing",

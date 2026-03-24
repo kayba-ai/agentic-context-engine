@@ -142,7 +142,7 @@ def main():
     parser.add_argument(
         "-m",
         "--model",
-        default="bedrock/us.anthropic.claude-sonnet-4-6",
+        default="bedrock/eu.anthropic.claude-sonnet-4-6",
         help="LLM model for analysis",
     )
     parser.add_argument(
@@ -193,7 +193,7 @@ def main():
     )
     subagent_llm = LiteLLMClient(
         config=LiteLLMConfig(
-            model="bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0",
+            model="bedrock/eu.anthropic.claude-haiku-4-5-20251001-v1:0",
             max_tokens=4096,
             temperature=0.3,
         )
@@ -201,7 +201,7 @@ def main():
     rr = RRStep(
         llm=llm,
         config=RRConfig(
-            subagent_model="bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0",
+            subagent_model="bedrock/eu.anthropic.claude-haiku-4-5-20251001-v1:0",
             max_iterations=60,
             max_llm_calls=60,
         ),

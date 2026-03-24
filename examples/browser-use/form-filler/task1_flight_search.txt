@@ -1,7 +1,0 @@
-Go to the following website: https://www.google.com/travel/flights
-
-Search for the cheapest flights from Zürich to New York and back.
-I want to leave on November 1st and return on November 8th.
-
-Make sure to only click "Search" once all the fields are filled out.
-Do not click "Explore" or any other button.

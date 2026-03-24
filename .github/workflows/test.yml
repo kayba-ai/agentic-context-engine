@@ -44,4 +44,4 @@ jobs:
     - name: Type checking (Linux only)
       if: matrix.os == 'ubuntu-latest'
       run: |
-        uv run mypy ace/ --ignore-missing-imports
+        uv run mypy ace_next/ --ignore-missing-imports

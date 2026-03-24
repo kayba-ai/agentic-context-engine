@@ -1,0 +1,26 @@
+
+## Available Strategic Knowledge (Learned from Experience)
+
+The following strategies have been learned from previous task executions.
+Each skill shows its success rate based on helpful/harmful feedback:
+
+skills[6	]{id	section	content	helpful	harmful	neutral}:
+  customer_service_structure-00001	customer_service_structure	"Structure every customer service interaction into 4 phases: (1) Acknowledge request in 1 message, (2) Collect all required information in 1-2 focused turns, (3) Execute action decisively in 1 message, (4) Confirm completion and offer further assistance in 1 message."	1	0	0
+  customer_service_opening-00002	customer_service_opening	Keep initial greeting under 250 characters—acknowledge the request, confirm understanding, and prepare to collect information.	1	0	0
+  customer_service_efficiency-00003	customer_service_efficiency	Complete customer service interactions within 12-15 total messages through structured, focused communication.	1	0	0
+  customer_service_balance-00004	customer_service_balance	Maintain conversational balance with agent speaking approximately 1-1.5 times per user message—never dominate with 2+ agent responses per user input.	1	0	0
+  customer_service_context-00005	customer_service_context	Reference previously provided customer information and proceed with action—do not ask users to repeat details already shared.	1	0	0
+  customer_service_closure-00006	customer_service_closure	Explicitly confirm task completion with a summary of what was done, then proactively ask if there is anything else needed.	1	0	0
+
+**How to use these strategies:**
+- Review skills relevant to your current task
+- **When applying a strategy, cite its ID in your reasoning** (e.g., "Following [content_extraction-00001], I will extract the title...")
+  - Citations enable precise tracking of strategy effectiveness
+  - Makes reasoning transparent and auditable
+  - Improves learning quality through accurate attribution
+- Prioritize strategies with high success rates (helpful > harmful)
+- Apply strategies when they match your context
+- Adapt general strategies to your specific situation
+- Learn from both successful patterns and failure avoidance
+
+**Important:** These are learned patterns, not rigid rules. Use judgment.
