@@ -21,6 +21,12 @@ from typing import (
 
 
 # ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+VALID_SKILL_TAGS: FrozenSet[str] = frozenset({"helpful", "harmful", "neutral"})
+
+# ---------------------------------------------------------------------------
 # Update operations
 # ---------------------------------------------------------------------------
 
@@ -50,8 +56,7 @@ class UpdateOperation:
         )
 
         if str(payload["type"]).upper() == "TAG":
-            valid_tags = {"helpful", "harmful", "neutral"}
-            metadata = {k: v for k, v in metadata.items() if str(k) in valid_tags}
+            metadata = {k: v for k, v in metadata.items() if str(k) in VALID_SKILL_TAGS}
 
         op_type = str(payload["type"]).upper()
         if op_type not in ("ADD", "UPDATE", "TAG", "REMOVE"):
@@ -182,7 +187,7 @@ class Skill:
                 setattr(self, key, int(value))
 
     def tag(self, tag: str, increment: int = 1) -> None:
-        if tag not in ("helpful", "harmful", "neutral"):
+        if tag not in VALID_SKILL_TAGS:
             raise ValueError(f"Unsupported tag: {tag}")
         current = getattr(self, tag)
         setattr(self, tag, current + increment)
@@ -467,9 +472,8 @@ class Skillbook:
         elif op_type == "TAG":
             if operation.skill_id is None:
                 return
-            valid_tags = {"helpful", "harmful", "neutral"}
             for tag, increment in operation.metadata.items():
-                if tag in valid_tags:
+                if tag in VALID_SKILL_TAGS:
                     self.tag_skill(operation.skill_id, tag, increment)
         elif op_type == "REMOVE":
             if operation.skill_id is None:

@@ -24,7 +24,9 @@ class EvaluateStep:
         self.environment = environment
 
     def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
-        assert ctx.agent_output is not None
+        if ctx.agent_output is None:
+            raise ValueError("EvaluateStep requires agent_output to be set on the context")
+
         trace: dict = {
             "question": ctx.sample.question,
             "context": ctx.sample.context,

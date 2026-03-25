@@ -10,6 +10,7 @@ from .outputs import (
     SkillTag,
 )
 from .skillbook import (
+    VALID_SKILL_TAGS,
     OperationType,
     Skill,
     Skillbook,
@@ -19,6 +20,7 @@ from .skillbook import (
 )
 __all__ = [
     # Skillbook types
+    "VALID_SKILL_TAGS",
     "OperationType",
     "Skill",
     "Skillbook",

@@ -1152,7 +1152,7 @@ skillbook.apply_update(output.update)
 
 ### Prompt Templates (`implementations/prompts.py`)
 
-Self-contained copy of the v2.1 prompts from `ace/prompts_v2_1.py`. The `{current_date}` placeholder is filled at import time via `datetime.now().strftime(...)`.
+Default v2.1 prompt templates for all three roles. The `{current_date}` placeholder is filled at import time via `datetime.now().strftime(...)`.
 
 | Constant | Role |
 |---|---|

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, List, Literal, Union
 
@@ -22,14 +22,10 @@ class MergeOp:
     """
 
     type: Literal["MERGE"] = "MERGE"
-    source_ids: List[str] = None  # type: ignore[assignment]
+    source_ids: List[str] = field(default_factory=list)
     merged_content: str = ""
     keep_id: str = ""
     reasoning: str = ""
-
-    def __post_init__(self) -> None:
-        if self.source_ids is None:
-            self.source_ids = []
 
 
 @dataclass
@@ -46,13 +42,9 @@ class KeepOp:
     """Keep both skills separate (they serve different purposes)."""
 
     type: Literal["KEEP"] = "KEEP"
-    skill_ids: List[str] = None  # type: ignore[assignment]
+    skill_ids: List[str] = field(default_factory=list)
     differentiation: str = ""
     reasoning: str = ""
-
-    def __post_init__(self) -> None:
-        if self.skill_ids is None:
-            self.skill_ids = []
 
 
 @dataclass

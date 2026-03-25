@@ -1,7 +1,7 @@
 """Default v2.1 prompt templates for ACE role implementations.
 
-Copied from ``ace/prompts_v2_1.py`` with ``{current_date}`` filled at
-import time so callers never need to worry about it.
+The ``{current_date}`` placeholder is filled at import time so callers
+never need to worry about it.
 """
 
 from __future__ import annotations
