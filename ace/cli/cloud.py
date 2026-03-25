@@ -929,6 +929,196 @@ def batch(
 
 
 # ---------------------------------------------------------------------------
+# integrations
+# ---------------------------------------------------------------------------
+
+
+def _mask_token(token: str) -> str:
+    """Mask a token/key for display, showing first 4 + last 4 chars."""
+    if not token or len(token) <= 8:
+        return "****"
+    return f"{token[:4]}...{token[-4:]}"
+
+
+@click.group()
+def integrations():
+    """Manage platform integrations (MLflow, LangSmith)."""
+    pass
+
+
+@integrations.command("list")
+@click.option("--json", "as_json", is_flag=True, help="Output raw JSON.")
+@_api_key_option
+@_base_url_option
+def integrations_list(as_json, api_key, base_url):
+    """Show configured integrations."""
+    client = _client(api_key, base_url)
+    try:
+        result = client.get_integrations()
+    except KaybaAPIError as exc:
+        raise click.ClickException(str(exc))
+
+    if as_json:
+        click.echo(json.dumps(result, indent=2))
+        return
+
+    for name in ("mlflow", "langsmith"):
+        config = result.get(name, {})
+        enabled = config.get("enabled", False)
+        status_str = "enabled" if enabled else "disabled"
+
+        click.echo(f"\n  {name}")
+        click.echo(f"    Status: {status_str}")
+
+        if name == "mlflow":
+            uri = config.get("trackingUri", "")
+            auth = config.get("authType", "none")
+            experiment = config.get("experimentName", "")
+            if uri:
+                click.echo(f"    Tracking URI: {uri}")
+            click.echo(f"    Auth type: {auth}")
+            if config.get("token"):
+                click.echo(f"    Token: {_mask_token(config['token'])}")
+            if config.get("username"):
+                click.echo(f"    Username: {config['username']}")
+            if experiment:
+                click.echo(f"    Experiment: {experiment}")
+        elif name == "langsmith":
+            api_url = config.get("apiUrl", "")
+            project = config.get("projectName", "")
+            if api_url:
+                click.echo(f"    API URL: {api_url}")
+            if config.get("apiKey"):
+                click.echo(f"    API key: {_mask_token(config['apiKey'])}")
+            if project:
+                click.echo(f"    Project: {project}")
+
+    click.echo()
+
+
+@integrations.command("configure")
+@click.argument("name", type=click.Choice(["mlflow", "langsmith"]))
+@_api_key_option
+@_base_url_option
+def integrations_configure(name, api_key, base_url):
+    """Interactively configure an integration."""
+    client = _client(api_key, base_url)
+
+    # Fetch current config for defaults
+    try:
+        current = client.get_integrations()
+    except KaybaAPIError:
+        current = {}
+
+    existing = current.get(name, {})
+
+    if name == "mlflow":
+        tracking_uri = click.prompt(
+            "MLflow tracking URI",
+            default=existing.get("trackingUri", ""),
+        )
+        auth_type = click.prompt(
+            "Auth type",
+            type=click.Choice(["none", "basic", "bearer", "databricks"]),
+            default=existing.get("authType", "none"),
+        )
+
+        token = ""
+        username = ""
+        if auth_type in ("basic", "bearer", "databricks"):
+            token = click.prompt(
+                "Token / password",
+                default="",
+                hide_input=True,
+                show_default=False,
+            )
+        if auth_type == "basic":
+            username = click.prompt(
+                "Username",
+                default=existing.get("username", ""),
+            )
+
+        experiment_name = click.prompt(
+            "Experiment name (optional filter)",
+            default=existing.get("experimentName", ""),
+        )
+
+        config = {
+            "enabled": True,
+            "trackingUri": tracking_uri,
+            "authType": auth_type,
+            "token": token,
+            "username": username,
+            "experimentName": experiment_name,
+        }
+
+    elif name == "langsmith":
+        api_url = click.prompt(
+            "LangSmith API URL",
+            default=existing.get("apiUrl", "https://api.smith.langchain.com"),
+        )
+        langsmith_key = click.prompt(
+            "LangSmith API key",
+            default="",
+            hide_input=True,
+            show_default=False,
+        )
+        project_name = click.prompt(
+            "Project name (optional filter)",
+            default=existing.get("projectName", ""),
+        )
+
+        config = {
+            "enabled": True,
+            "apiUrl": api_url,
+            "apiKey": langsmith_key,
+            "projectName": project_name,
+        }
+
+    try:
+        client.update_integration(name, config)
+        click.echo(f"\n  {name} configuration saved.")
+    except KaybaAPIError as exc:
+        raise click.ClickException(str(exc))
+
+    # Auto-test the connection
+    click.echo(f"  Testing {name} connection...")
+    try:
+        test_result = client.test_integration(name)
+        if test_result.get("connected"):
+            click.echo(f"  Connected successfully.")
+            if name == "mlflow" and test_result.get("mlflowVersion"):
+                click.echo(f"  MLflow version: {test_result['mlflowVersion']}")
+        else:
+            click.echo(f"  Warning: connection test returned unexpected result.")
+    except KaybaAPIError as exc:
+        click.echo(f"  Warning: connection test failed: {exc}", err=True)
+
+
+@integrations.command("test")
+@click.argument("name", type=click.Choice(["mlflow", "langsmith"]))
+@_api_key_option
+@_base_url_option
+def integrations_test(name, api_key, base_url):
+    """Test an integration connection."""
+    client = _client(api_key, base_url)
+    try:
+        result = client.test_integration(name)
+    except KaybaAPIError as exc:
+        raise click.ClickException(str(exc))
+
+    if result.get("connected"):
+        click.echo(f"  {name}: connected")
+        if name == "mlflow" and result.get("mlflowVersion"):
+            click.echo(f"  MLflow version: {result['mlflowVersion']}")
+        if name == "mlflow" and result.get("experimentCount") is not None:
+            click.echo(f"  Experiments found: {result['experimentCount']}")
+    else:
+        error = result.get("error", "Unknown error")
+        raise click.ClickException(f"{name}: connection failed — {error}")
+
+
+# ---------------------------------------------------------------------------
 # setup
 # ---------------------------------------------------------------------------
 

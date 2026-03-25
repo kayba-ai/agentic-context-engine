@@ -201,3 +201,17 @@ class KaybaClient:
     def get_prompt(self, prompt_id: str) -> Dict[str, Any]:
         """Get a specific prompt by ID."""
         return self._request("GET", f"/prompts/{prompt_id}")
+
+    # -- Integrations --
+
+    def get_integrations(self) -> Dict[str, Any]:
+        """Get current integration settings."""
+        return self._request("GET", "/integrations")
+
+    def update_integration(self, name: str, config: Dict[str, Any]) -> Dict[str, Any]:
+        """Update an integration's config."""
+        return self._request("PUT", f"/integrations/{name}", json=config)
+
+    def test_integration(self, name: str) -> Dict[str, Any]:
+        """Test an integration connection."""
+        return self._request("POST", f"/integrations/{name}/test")

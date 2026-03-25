@@ -377,7 +377,108 @@ class RRStep:
         # Traces data
         sandbox.inject("traces", traces)
 
+        # Working memory for save_notes tool
+        sandbox.inject("notes", {})
+
         return sandbox
+
+    def _build_data_summary(self, traces: dict[str, Any]) -> str:
+        """Pre-compute a data summary so the agent doesn't waste calls exploring structure."""
+        is_batch = isinstance(traces, dict) and "tasks" in traces
+
+        if is_batch:
+            tasks = traces.get("tasks", [])
+            # Compute pass/fail breakdown
+            pass_count = 0
+            fail_count = 0
+            task_summaries = []
+            for t in tasks:
+                task_id = t.get("task_id", "?")
+                trace = t.get("trace", [])
+                feedback = t.get("feedback", "")
+                reward_str = ""
+                if "reward=1.0" in str(feedback) or "PASSED" in str(
+                    feedback
+                ).upper():
+                    pass_count += 1
+                    reward_str = "PASS"
+                elif "reward=0.0" in str(feedback) or "FAILED" in str(
+                    feedback
+                ).upper():
+                    fail_count += 1
+                    reward_str = "FAIL"
+                task_summaries.append(
+                    f"  {task_id}: {reward_str}, {len(trace)} messages"
+                )
+
+            lines = [
+                "### Data Summary (pre-computed)",
+                f"- **{len(tasks)} tasks**: {pass_count} PASS, {fail_count} FAIL",
+                f"- Task list:",
+            ]
+            # Show all tasks compactly
+            lines.extend(task_summaries[:50])  # cap at 50
+            if len(task_summaries) > 50:
+                lines.append(f"  ... and {len(task_summaries) - 50} more")
+
+            # Check for policy/rules in first task
+            if tasks:
+                first_trace = tasks[0].get("trace", [])
+                for msg in first_trace[:3]:
+                    content = str(msg.get("content", ""))
+                    if len(content) > 500 and any(
+                        kw in content.lower()
+                        for kw in [
+                            "policy",
+                            "rule",
+                            "instruction",
+                            "you must",
+                            "you should",
+                        ]
+                    ):
+                        lines.append(
+                            f"- **Agent has embedded policy/rules** in system "
+                            f"prompt ({len(content)} chars) — extract via "
+                            f"`execute_code`"
+                        )
+                        break
+
+            return "\n".join(lines)
+
+        else:
+            # Single trace
+            steps = traces.get("steps", [])
+            question = traces.get("question", "")
+            feedback = traces.get("feedback", "")
+            ground_truth = traces.get("ground_truth", "")
+
+            lines = ["### Data Summary (pre-computed)"]
+            if feedback:
+                lines.append(f"- **Feedback**: {_preview(feedback, 200)}")
+            if ground_truth:
+                lines.append(
+                    f"- **Ground truth**: {_preview(ground_truth, 200)}"
+                )
+            lines.append(f"- **Steps**: {len(steps)}")
+            if question:
+                lines.append(f"- **Task**: {_preview(question, 200)}")
+
+            # Check for messages in trace
+            messages = traces.get("messages", [])
+            if messages:
+                lines.append(
+                    f"- **Messages**: {len(messages)} conversation turns"
+                )
+                # Count tool calls
+                tool_calls = sum(
+                    1
+                    for m in messages
+                    if isinstance(m, dict) and m.get("tool_calls")
+                )
+                if tool_calls:
+                    lines.append(f"- **Tool calls**: {tool_calls}")
+
+            return "\n".join(lines)
 
     def _build_initial_prompt(
         self,
@@ -433,6 +534,7 @@ class RRStep:
                 trace_size_chars=trace_size_chars,
                 max_iterations=self.config.max_llm_calls,
                 task_count=len(tasks),
+                data_summary=self._build_data_summary(traces),
             )
         else:
             t_question = traces.get("question", "")
@@ -469,6 +571,7 @@ class RRStep:
                 trace_size_chars=trace_size_chars,
                 max_iterations=self.config.max_llm_calls,
                 task_count=1,
+                data_summary=self._build_data_summary(traces),
             )
 
         return self.prompt_template.format(**fmt_kwargs)

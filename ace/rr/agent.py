@@ -274,6 +274,29 @@ def create_rr_agent(
 
         return results
 
+    # -- Tool: save_notes --------------------------------------------
+
+    @agent.tool
+    def save_notes(ctx: RunContext[RRDeps], key: str, content: str) -> str:
+        """Save analysis notes to persistent working memory.
+
+        Notes persist across all tool calls and can be retrieved via
+        execute_code: ``print(notes['key'])``.  Use this to accumulate
+        findings without bloating conversation history.
+
+        Args:
+            key: Short label for this finding (e.g. "failure_patterns", "policy_violations").
+            content: The analysis content to save.
+
+        Returns:
+            Confirmation with current notes inventory.
+        """
+        notes = ctx.deps.sandbox.namespace.get("notes", {})
+        notes[key] = content
+        ctx.deps.sandbox.namespace["notes"] = notes
+        inventory = ", ".join(f"{k} ({len(v)}c)" for k, v in notes.items())
+        return f"Saved '{key}'. Current notes: {inventory}"
+
     # -- Output validator --------------------------------------------
 
     @agent.output_validator
