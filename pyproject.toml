@@ -100,6 +100,7 @@ all = [
 cloud = [
     "click>=8.1.0",
     "requests>=2.31.0",
+    "questionary>=2.0.0",
 ]
 mcp = [
     "mcp>=1.22.0",

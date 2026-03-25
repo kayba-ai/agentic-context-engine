@@ -89,6 +89,34 @@ class KaybaClient:
         """
         return self._request("POST", "/traces", json={"traces": traces})
 
+    def list_traces(self) -> Dict[str, Any]:
+        """List all traces (metadata only, no content)."""
+        return self._request("GET", "/traces")
+
+    def get_trace(self, trace_id: str) -> Dict[str, Any]:
+        """Get a single trace with full content."""
+        return self._request("GET", f"/traces/{trace_id}")
+
+    def get_traces(self, trace_ids: List[str]) -> Dict[str, Any]:
+        """Batch get traces by IDs (with content)."""
+        return self._request("POST", "/traces/batch", json={"ids": trace_ids})
+
+    def delete_trace(self, trace_id: str) -> Dict[str, Any]:
+        """Delete a single trace."""
+        return self._request("DELETE", f"/traces/{trace_id}")
+
+    def delete_traces(self, trace_ids: List[str]) -> Dict[str, Any]:
+        """Delete multiple traces."""
+        results = []
+        errors = []
+        for tid in trace_ids:
+            try:
+                self.delete_trace(tid)
+                results.append(tid)
+            except KaybaAPIError as e:
+                errors.append({"id": tid, "error": str(e)})
+        return {"deleted": results, "errors": errors}
+
     # -- Insights --
 
     def generate_insights(
