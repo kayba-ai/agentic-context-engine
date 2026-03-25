@@ -63,12 +63,18 @@ class KaybaClient:
             try:
                 body = resp.json()
                 err = body.get("error", {})
+                if isinstance(err, str):
+                    raise KaybaAPIError(
+                        code="API_ERROR",
+                        message=err,
+                        status_code=resp.status_code,
+                    )
                 raise KaybaAPIError(
                     code=err.get("code", "UNKNOWN"),
                     message=err.get("message", resp.text),
                     status_code=resp.status_code,
                 )
-            except (ValueError, KeyError):
+            except (ValueError, KeyError, AttributeError):
                 raise KaybaAPIError(
                     code="HTTP_ERROR",
                     message=resp.text,
