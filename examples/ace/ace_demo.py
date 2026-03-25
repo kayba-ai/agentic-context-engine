@@ -415,61 +415,7 @@ print(f"Skills after training with dedup: {skillbook8.stats()}")
 
 # %% [markdown]
 # ---
-# ## 10. Observability with Opik
-#
-# `OpikStep` is an explicit, opt-in pipeline step that logs traces to Opik.
-# It is **not** wired into `learning_tail()` — you append it yourself.
-#
-# Three usage patterns:
-# 1. **Pipeline traces + LLM cost tracking** — append `OpikStep()` (default)
-# 2. **Pipeline traces only** — `OpikStep(register_litellm_callback=False)`
-# 3. **LLM cost tracking only** — `register_opik_litellm_callback()` (no step)
-
-# %%
-from ace import OpikStep, OPIK_AVAILABLE, register_opik_litellm_callback
-
-print(f"Opik available: {OPIK_AVAILABLE}")
-
-# %% [markdown]
-# ### 10a. Append OpikStep to a custom pipeline
-#
-# Place it at the end — after the learning tail.
-
-# %%
-if OPIK_AVAILABLE:
-    skillbook_opik = Skillbook()
-
-    pipe_with_opik = Pipeline(
-        [
-            AgentStep(Agent(MODEL)),
-            EvaluateStep(SimpleEnvironment()),
-            *learning_tail(Reflector(MODEL), SkillManager(MODEL), skillbook_opik),
-            OpikStep(project_name="ace-demo"),
-        ]
-    )
-    print(f"Pipeline steps (with Opik): {len(pipe_with_opik._steps)}")
-    for step in pipe_with_opik._steps:
-        print(f"  - {type(step).__name__}")
-else:
-    print("Opik not installed — skipping pipeline example")
-
-# %% [markdown]
-# ### 10b. LLM-level cost tracking only
-#
-# If you only want per-LLM-call token/cost logging without pipeline traces,
-# use the standalone helper. This registers an `OpikLogger` callback on
-# `litellm.callbacks`.
-
-# %%
-if OPIK_AVAILABLE:
-    registered = register_opik_litellm_callback(project_name="ace-demo")
-    print(f"LiteLLM Opik callback registered: {registered}")
-else:
-    print("Opik not installed — skipping callback example")
-
-# %% [markdown]
-# ---
-# ## 11. Skillbook Persistence — Save & Reload
+# ## 10. Skillbook Persistence — Save & Reload
 #
 # Save the learned skillbook to disk and reload it in a future session.
 
@@ -482,13 +428,13 @@ with tempfile.TemporaryDirectory() as tmpdir:
     print(f"Saved to {path.name}  ({path.stat().st_size} bytes)")
 
     # Reload
-    reloaded = Skillbook.from_file(str(path))
+    reloaded = Skillbook.load_from_file(str(path))
     print(f"Reloaded: {reloaded.stats()}")
     print(f"Stats match: {reloaded.stats() == skillbook.stats()}")
 
 # %% [markdown]
 # ---
-# ## 12. TraceAnalyser — Learning from Pre-Recorded Traces
+# ## 11. TraceAnalyser — Learning from Pre-Recorded Traces
 #
 # `TraceAnalyser` runs the learning tail only — no Agent, no Evaluate.
 # Feed it raw trace dicts (the same shape ReflectStep expects) and it
@@ -560,7 +506,7 @@ print(f"Skills after 2 epochs: {skillbook10.stats()}")
 
 # %% [markdown]
 # ---
-# ## 13. Mixed Workflow — TraceAnalyser then ACE
+# ## 12. Mixed Workflow — TraceAnalyser then ACE
 #
 # A common pattern: build an initial skillbook from historical traces,
 # then deploy with live learning.
@@ -596,7 +542,7 @@ print(f"  Skills after live learning: {shared_skillbook.stats()}")
 
 # %% [markdown]
 # ---
-# ## 14. Error Handling
+# ## 13. Error Handling
 #
 # Failed samples are captured in `SampleResult.error` — the pipeline
 # never drops a sample silently. Other samples continue processing.
@@ -629,7 +575,7 @@ for i, r in enumerate(results11, 1):
 
 # %% [markdown]
 # ---
-# ## 15. Inspecting the SkillbookView
+# ## 14. Inspecting the SkillbookView
 #
 # Steps receive a read-only `SkillbookView` on the context.
 # This prevents accidental mutations from within pipeline steps.
@@ -659,11 +605,9 @@ for skill in view:
 # | Multi-epoch | `ace.run(samples, epochs=3)` |
 # | Checkpointing | `ACE.from_roles(..., checkpoint_dir="./ckpts", checkpoint_interval=10)` |
 # | Deduplication | `ACE.from_roles(..., dedup_manager=dedup, dedup_interval=5)` |
-# | Opik tracing | `Pipeline([...steps..., OpikStep(project_name="my-project")])` |
-# | LLM cost tracking | `register_opik_litellm_callback()` |
 # | Trace analysis | `TraceAnalyser.from_roles(reflector=..., skill_manager=...)` |
 # | Save skillbook | `ace.save("path.json")` or `skillbook.save_to_file("path.json")` |
-# | Load skillbook | `Skillbook.from_file("path.json")` |
+# | Load skillbook | `Skillbook.load_from_file("path.json")` |
 # | Manual steps | `Pipeline([AgentStep(a), EvaluateStep(e), *learning_tail(r, sm, sb)])` |
 # | Learning tail | `learning_tail(reflector, skill_manager, skillbook)` |
 #

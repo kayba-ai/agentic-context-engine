@@ -6,6 +6,8 @@
 [![Discord](https://img.shields.io/discord/1429935408145236131?label=Discord&logo=discord&logoColor=white&color=5865F2)](https://discord.gg/mqCqH7sTyK)
 [![Twitter Follow](https://img.shields.io/twitter/follow/kaybaai?style=social)](https://twitter.com/kaybaai)
 [![Documentation](https://img.shields.io/badge/docs-latest-blue.svg)](https://kayba-ai.github.io/agentic-context-engine/latest/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
 
 > [!TIP]
 > ### Try our hosted solution at [kayba.ai](https://kayba.ai): automated agent self-improvement from your terminal. CLI + dashboard that analyzes traces, surfaces failures, and ships improvements directly from Claude Code, Codex, and more.
@@ -14,196 +16,210 @@
 
 ---
 
-## What is ACE?
+**AI agents don't learn from experience.** They repeat the same mistakes every session, forget what worked, and ignore what failed. ACE adds a persistent learning loop that makes them better over time.
 
-ACE enables AI agents to **learn from their execution feedback**—what works, what doesn't—and continuously improve. No fine-tuning, no training data, just automatic in-context learning.
+<img src="examples/seahorse-emoji-ace.gif" alt="ACE learns from mistakes in real time" width="70%"/>
 
-The framework maintains a **Skillbook**: a living document of strategies that evolves with each task. When your agent succeeds, ACE extracts patterns. When it fails, ACE learns what to avoid. All learning happens transparently in context.
+> The agent claims a seahorse emoji exists. ACE reflects on the error, and on the next attempt, the agent responds correctly — without human intervention.
 
-- **Self-Improving**: Agents autonomously get smarter with each task
-- **20-35% Better Performance**: Proven improvements on complex tasks
-- **49% Token Reduction**: Demonstrated in browser automation benchmarks
-- **No Context Collapse**: Preserves valuable knowledge over time
+---
+
+## Proven Results
+
+| Metric | Result | Context |
+|:-------|:-------|:--------|
+| **2x consistency** | Doubles pass^4 on Tau2 airline benchmark | 15 learned strategies, no reward signals |
+| **49% token reduction** | Browser automation costs cut nearly in half | 10-run learning curve |
+| **$1.50 learning cost** | Claude Code translated 14k lines to TypeScript | Zero build errors, all tests passing |
 
 ---
 
 ## Quick Start
 
-### 1. Install
-
 ```bash
 pip install ace-framework
 ```
 
-### 2. Set API Key
+**Option A** — Interactive setup (recommended):
 
 ```bash
-export OPENAI_API_KEY="your-api-key"
+ace setup            # Walks you through model selection, API keys, and connection validation
 ```
 
-### 3. Run
+**Option B** — Manual configuration:
+
+```bash
+export OPENAI_API_KEY="your-key"    # or ANTHROPIC_API_KEY, or any of 100+ supported providers
+```
+
+Then use it:
 
 ```python
 from ace import ACELiteLLM
 
 agent = ACELiteLLM(model="gpt-4o-mini")
 
-answer = agent.ask("What does Kayba's ACE framework do?")
-print(answer)  # "ACE allows AI agents to remember and learn from experience!"
+# First attempt — the agent may hallucinate
+answer = agent.ask("Is there a seahorse emoji?")
+
+# Feed a correction — ACE extracts a strategy and updates the Skillbook
+agent.learn_from_feedback("There is no seahorse emoji in Unicode.")
+
+# Subsequent calls benefit from the learned strategy
+answer = agent.ask("Is there a seahorse emoji?")
+
+# Inspect what the agent has learned
+print(agent.get_strategies())
 ```
 
-**Done! Your agent learns automatically from each interaction.**
+No fine-tuning, no training data, no vector database.
 
-[→ Quick Start Guide](https://kayba-ai.github.io/agentic-context-engine/latest/getting-started/quick-start/) | [→ Setup Guide](https://kayba-ai.github.io/agentic-context-engine/latest/getting-started/setup/)
-
----
-
-## Use Cases
-
-### Claude Code with Learning [→ Quick Start](ace/integrations/claude_code)
-Run coding tasks with Claude Code while ACE learns patterns from each execution, building expertise over time for your specific codebase and workflows.
-
-### Automated System Prompting
-The Skillbook acts as an evolving system prompt that automatically improves based on execution feedback—no manual prompt engineering required.
-
-### Enhance Existing Agents
-Wrap your existing agent (browser-use, LangChain, custom) with ACE learning. Your agent executes tasks normally while ACE analyzes results and builds a skillbook of effective strategies.
-
-### Build Self-Improving Agents
-Create new agents with built-in learning for customer support, data extraction, code generation, research, content creation, and task automation.
+[-> Quick Start Guide](https://kayba-ai.github.io/agentic-context-engine/latest/getting-started/quick-start/) | [-> Setup Guide](https://kayba-ai.github.io/agentic-context-engine/latest/getting-started/setup/)
 
 ---
 
-## Demos
+## How It Works
 
-### The Seahorse Emoji Challenge
+ACE maintains a **Skillbook** — a persistent collection of strategies that evolves with every task. Three specialized roles manage the learning loop:
 
-A challenge where LLMs often hallucinate that a seahorse emoji exists (it doesn't).
+| Role | Responsibility |
+|:-----|:---------------|
+| **Agent** | Executes tasks, enhanced with Skillbook strategies |
+| **Reflector** | Analyzes execution traces to extract what worked and what failed |
+| **SkillManager** | Curates the Skillbook — adds, refines, and removes strategies |
 
-<img src="examples/seahorse-emoji-ace.gif" alt="Seahorse Emoji ACE Demo" width="70%"/>
-
-In this example:
-1. The agent incorrectly outputs a horse emoji
-2. ACE reflects on the mistake without external feedback
-3. On the second attempt, the agent correctly realizes there is no seahorse emoji
-
-[→ Try it yourself](examples/litellm/seahorse_emoji_ace.py)
-
-### Tau2 Benchmark
-
-Evaluated on the airline domain of [τ2-bench](https://github.com/sierra-research/tau2-bench) (Sierra Research) — a benchmark for multi-step agentic tasks requiring tool use and policy adherence. Agent: Claude Haiku 4.5. Strategies learned on the train split with no reward signals; all results on the held-out test split.
-
-*pass^k = probability that all k independent attempts succeed. Higher k is a stricter test of agent consistency.*
-
-<img src="benchmarks/tasks/tau_bench/Tau2Benchmark Result Haiku4.5.png" alt="Tau2 Benchmark Results - Haiku 4.5" width="35%"/>
-
-ACE doubles agent consistency at pass^4 using only 15 learned strategies — gains compound as the bar gets higher.
-
-### Browser Automation
-
-**Online Shopping Demo**: ACE vs baseline agent shopping for 5 grocery items.
-
-<img src="examples/browser-use/online-shopping/results-online-shopping-brwoser-use.png" alt="Online Shopping Demo Results" width="70%"/>
-
-In this example:
-- ACE learns to navigate the website over 10 attempts
-- Performance stabilizes and step count decreases by 29.8%
-- Token costs reduce 49.0% for base agent and 42.6% including ACE overhead
-
-[→ Try it yourself & see all demos](examples/browser-use/README.md)
-
-### Claude Code Loop
-
-In this example, Claude Code is enhanced with ACE and self-reflects after each execution while translating the ACE library from Python to TypeScript.
-
-**Python → TypeScript Translation:**
-
-| Metric | Result |
-|--------|--------|
-| Duration | ~4 hours |
-| Commits | 119 |
-| Lines written | ~14k |
-| Outcome | Zero build errors, all tests passing |
-| API cost | ~$1.5 (Sonnet for learning) |
-
-[→ Claude Code Loop](examples/claude-code-loop/)
-
----
-
-## Integrations
-
-ACE integrates with popular agent frameworks:
-
-| Integration | ACE Class | Use Case |
-|-------------|-----------|----------|
-| LiteLLM | `ACELiteLLM` | Simple self-improving agent |
-| LangChain | `ACELangChain` | Wrap LangChain chains/agents |
-| browser-use | `ACEAgent` | Browser automation |
-| Claude Code | `ACEClaudeCode` | Claude Code CLI |
-| ace-learn CLI | `ACEClaudeCode` | Learn from Claude Code sessions |
-| Opik | `OpikIntegration` | Production monitoring and cost tracking |
-
-[→ Integration Guide](docs/INTEGRATION_GUIDE.md) | [→ Examples](examples/)
-
----
-
-## How Does ACE Work?
-
-*Inspired by the [ACE research framework](https://arxiv.org/abs/2510.04618) from Stanford & SambaNova.*
-
-ACE enables agents to learn from execution feedback — what works, what doesn't — and continuously improve. No fine-tuning, no training data, just automatic in-context learning. Three specialized roles work together:
-
-1. **Agent** — Your agent, enhanced with strategies from the Skillbook
-2. **Reflector** — Analyzes execution traces to extract learnings. In recursive mode, the Reflector writes and runs Python code in a sandboxed REPL to programmatically query traces — finding patterns, errors, and insights that single-pass analysis misses
-3. **SkillManager** — Curates the Skillbook: adds new strategies, refines existing ones, and removes outdated patterns based on the Reflector's analysis
-
-The key innovation is the **Recursive Reflector** — instead of summarizing traces in a single pass, it writes and executes Python code in a sandboxed environment to programmatically explore agent execution traces. It can search for patterns, isolate errors, query sub-agents for deeper analysis, and iterate until it finds actionable insights. These insights flow into the **Skillbook** — a living collection of strategies that evolves with every task.
+The **Recursive Reflector** is the key innovation: instead of summarizing traces in a single pass, it writes and executes Python code in a sandboxed environment to programmatically search for patterns, isolate errors, and iterate until it finds actionable insights.
 
 ```mermaid
 flowchart LR
-    Skillbook[(Skillbook<br>Learned Strategies)]
-    Start([Query]) --> Agent[Agent<br>Enhanced with Skillbook]
-    Agent <--> Environment[Task Environment<br>Evaluates & provides feedback]
-    Environment -- Feedback --> Reflector[Reflector<br>Analyzes traces via<br>sandboxed code execution]
-    Reflector --> SkillManager[SkillManager<br>Curates strategies]
+    Skillbook[(Skillbook)]
+    Start([Task]) --> Agent[Agent]
+    Agent <--> Environment[Environment]
+    Environment -- Trace --> Reflector[Reflector]
+    Reflector --> SkillManager[SkillManager]
     SkillManager -- Updates --> Skillbook
-    Skillbook -. Injects context .-> Agent
+    Skillbook -. Strategies .-> Agent
 ```
+
+All roles are backed by [PydanticAI](https://ai.pydantic.dev/) agents with structured output validation. PydanticAI routes to 100+ LLM providers through its LiteLLM integration, with native support for OpenAI, Anthropic, Google, Bedrock, Groq, and more.
+
+*Based on the [ACE paper](https://arxiv.org/abs/2510.04618) (Stanford & SambaNova) and [Dynamic Cheatsheet](https://arxiv.org/abs/2504.07952).*
+
+---
+
+## Runners
+
+| Runner | Class | Description |
+|:-------|:------|:------------|
+| **LiteLLM** | `ACELiteLLM` | Batteries-included agent with `.ask()`, `.learn()`, `.save()` — accepts any [LiteLLM model string](https://docs.litellm.ai/docs/providers) |
+| **Core** | `ACE` | Full learning loop with batch epochs and evaluation |
+| **Trace Analyser** | `TraceAnalyser` | Learn from pre-recorded traces without re-running tasks |
+| **browser-use** | `BrowserUse` | Browser automation that improves with each run |
+| **LangChain** | `LangChain` | Wrap any LangChain chain or agent with learning |
+| **Claude Code** | `ClaudeCode` | Claude Code CLI tasks with learning |
+
+```bash
+pip install ace-framework[browser-use]    # Browser automation
+pip install ace-framework[langchain]      # LangChain
+pip install ace-framework[logfire]        # Observability (auto-instruments PydanticAI)
+pip install ace-framework[mcp]            # MCP server for IDE integration
+pip install ace-framework[deduplication]  # Embedding-based skill deduplication
+```
+
+Have existing agent logs? Extract strategies from them directly:
+
+```python
+from ace import ACELiteLLM
+
+agent = ACELiteLLM(model="gpt-4o-mini")
+agent.learn_from_traces(your_existing_traces)
+print(agent.get_strategies())
+```
+
+[-> Examples](examples/)
+
+---
+
+## Benchmarks
+
+### Tau2 — Multi-Step Agentic Tasks
+
+[tau2-bench](https://github.com/sierra-research/tau2-bench) by Sierra Research: airline domain tasks requiring tool use and policy adherence. Claude Haiku 4.5 agent, strategies learned on the train split with no reward signals, evaluated on the held-out test split.
+
+<img src="benchmarks/tasks/tau_bench/Tau2Benchmark Result Haiku4.5.png" alt="Tau2 Benchmark — ACE doubles consistency at pass^4" width="35%"/>
+
+*pass^k = probability all k independent attempts succeed. ACE doubles consistency at pass^4 with 15 learned strategies.*
+
+### Claude Code — Autonomous Translation
+
+ACE + Claude Code translated this library from Python to TypeScript with zero supervision:
+
+| Metric | Result |
+|:-------|:-------|
+| Duration | ~4 hours |
+| Commits | 119 |
+| Lines written | ~14,000 |
+| Build errors | 0 |
+| Tests | All passing |
+| Learning cost | ~$1.50 |
+
+---
+
+## Pipeline Architecture
+
+ACE is built on a composable pipeline engine. Each step declares what it requires and what it produces:
+
+```
+AgentStep -> EvaluateStep -> ReflectStep -> TagStep -> UpdateStep -> ApplyStep -> DeduplicateStep
+```
+
+Use `learning_tail()` for the standard learning sequence, or compose custom pipelines:
+
+```python
+from ace import Pipeline, AgentStep, EvaluateStep, learning_tail
+
+steps = [AgentStep(agent), EvaluateStep(env)] + learning_tail(reflector, skill_manager, skillbook)
+pipeline = Pipeline(steps)
+```
+
+The pipeline engine ([`pipeline/`](pipeline/)) is framework-agnostic with `requires`/`provides` contracts, immutable context, and error isolation. See [Pipeline Design](docs/PIPELINE_DESIGN.md) and [Architecture](docs/ACE_DESIGN.md).
+
+---
+
+## CLI
+
+| Command | Description |
+|:--------|:------------|
+| `ace setup` | Interactive setup — model selection, API keys, connection validation |
+| `ace models <query>` | Search available models with pricing |
+| `ace validate <model>` | Test a model connection |
+| `ace config` | Show current configuration |
+| `kayba` | Cloud CLI — upload traces, fetch insights, manage prompts |
+| `ace-mcp` | MCP server for IDE integration |
 
 ---
 
 ## Documentation
 
-> **ACE v2 is coming.** We're rebuilding the framework from the ground up — a cleaner architecture, a modular pipeline engine, first-class async support, and a dramatically simpler API. Follow the progress in [`ace/`](ace/) and [`pipeline/`](pipeline/), or join the [Discord](https://discord.gg/mqCqH7sTyK) to stay in the loop.
-
-- [Kayba Documentation](https://kayba-ai.github.io/agentic-context-engine/latest/) - Full documentation with guides, API reference, and examples
-
-Quick links:
-- [Quick Start Guide](https://kayba-ai.github.io/agentic-context-engine/latest/getting-started/quick-start/) - Get running in 5 minutes
-- [Setup Guide](https://kayba-ai.github.io/agentic-context-engine/latest/getting-started/setup/) - Installation, configuration, providers
-- [Integration Guide](https://kayba-ai.github.io/agentic-context-engine/latest/integrations/browser-use/) - Add ACE to existing agents
-- [API Reference](https://kayba-ai.github.io/agentic-context-engine/latest/api/) - Complete API documentation
-- [Examples](examples/) - Ready-to-run code examples
-- [Changelog](CHANGELOG.md) - Recent changes
+- [Full Documentation](https://kayba-ai.github.io/agentic-context-engine/latest/) — Guides, API reference, examples
+- [Quick Start](https://kayba-ai.github.io/agentic-context-engine/latest/getting-started/quick-start/) — 5-minute setup
+- [Setup Guide](https://kayba-ai.github.io/agentic-context-engine/latest/getting-started/setup/) — Configuration and providers
+- [Architecture](docs/ACE_DESIGN.md) — Design decisions and core types
+- [Pipeline Engine](docs/PIPELINE_DESIGN.md) — Step composition and context flow
+- [PydanticAI Migration](docs/PYDANTIC_AI_MIGRATION.md) — What changed and why
+- [Examples](examples/) — Runnable demos
+- [Changelog](CHANGELOG.md) — Version history
 
 ---
 
 ## Contributing
 
-Contributions are welcome. Please read our [Contributing Guidelines](CONTRIBUTING.md) before submitting a pull request.
-
----
-
-## Acknowledgment
-
-Inspired by the [ACE paper](https://arxiv.org/abs/2510.04618) and [Dynamic Cheatsheet](https://arxiv.org/abs/2504.07952).
+Contributions are welcome. See [Contributing Guidelines](CONTRIBUTING.md).
 
 ---
 
 <div align="center">
 
-**⭐ Star this repo if you find it useful!**
-
-**Built with ❤️ by [Kayba](https://kayba.ai) and the open-source community.**
+**Built by [Kayba](https://kayba.ai) and the open-source community.**
 
 </div>
