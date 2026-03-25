@@ -100,6 +100,7 @@ evaluation_results/*.json
 benchmark_results/
 benchmark_cache/
 tau_benchmark_results/
+results/
 appworld_data/
 *.arrow
 *.parquet
