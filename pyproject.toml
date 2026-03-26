@@ -148,7 +148,7 @@ demos = [
 include = ["ace", "ace.*", "pipeline", "pipeline.*"]
 
 [tool.setuptools.package-data]
-ace = ["py.typed"]
+ace = ["py.typed", "**/*.md"]
 
 [tool.black]
 line-length = 88
