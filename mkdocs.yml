@@ -76,6 +76,7 @@ nav:
     - LangChain: integrations/langchain.md
     - Browser-Use: integrations/browser-use.md
     - Claude Code: integrations/claude-code.md
+    - Claude SDK: integrations/claude-sdk.md
     - Opik Observability: integrations/opik.md
     - OpenClaw: integrations/openclaw.md
     - Hosted API: integrations/hosted-api.md

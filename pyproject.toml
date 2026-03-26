@@ -48,6 +48,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+claude-sdk = [
+    "anthropic>=0.76.0",
+]
 claude-code = [
     "python-dotenv>=1.0.0",
     "tenacity>=8.0.0",

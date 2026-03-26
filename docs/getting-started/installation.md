@@ -16,6 +16,7 @@
     uv add ace-framework[langchain]      # LangChain integration
     uv add ace-framework[browser-use]    # Browser automation
     uv add ace-framework[claude-code]    # Claude Code CLI integration
+    uv add ace-framework[claude-sdk]     # Anthropic SDK integration steps
     uv add ace-framework[observability]  # Opik monitoring + cost tracking
     uv add ace-framework[deduplication]  # Skill deduplication (embeddings)
     uv add ace-framework[transformers]   # Local model support

@@ -33,7 +33,7 @@ wheels = [
 
 [[package]]
 name = "ace-framework"
-version = "0.8.9"
+version = "0.9.0"
 source = { editable = "." }
 dependencies = [
     { name = "litellm" },
@@ -73,6 +73,10 @@ bedrock = [
 browser-use = [
     { name = "browser-use", version = "0.11.13", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.14' and sys_platform == 'win32'" },
     { name = "browser-use", version = "0.12.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.14' or sys_platform != 'win32'" },
+]
+claude-sdk = [
+    { name = "anthropic", version = "0.76.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.14' or sys_platform != 'win32'" },
+    { name = "anthropic", version = "0.84.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.14' and sys_platform == 'win32'" },
 ]
 claude-code = [
     { name = "python-dotenv", version = "1.2.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.14' or sys_platform != 'win32'" },
@@ -148,6 +152,7 @@ requires-dist = [
     { name = "boto3", marker = "extra == 'bedrock'", specifier = ">=1.42.50" },
     { name = "browser-use", marker = "extra == 'all'", specifier = ">=0.9.0" },
     { name = "browser-use", marker = "extra == 'browser-use'", specifier = ">=0.9.0" },
+    { name = "anthropic", marker = "extra == 'claude-sdk'", specifier = ">=0.76.0" },
     { name = "click", marker = "extra == 'all'", specifier = ">=8.1.0" },
     { name = "click", marker = "extra == 'cloud'", specifier = ">=8.1.0" },
     { name = "instructor", marker = "extra == 'all'", specifier = ">=1.0.0" },
@@ -186,7 +191,7 @@ requires-dist = [
     { name = "transformers", marker = "extra == 'all'", specifier = ">=4.30.0" },
     { name = "transformers", marker = "extra == 'transformers'", specifier = ">=4.30.0" },
 ]
-provides-extras = ["claude-code", "instructor", "deduplication", "browser-use", "logfire", "bedrock", "langchain", "transformers", "all", "cloud", "mcp"]
+provides-extras = ["claude-sdk", "claude-code", "instructor", "deduplication", "browser-use", "logfire", "bedrock", "langchain", "transformers", "all", "cloud", "mcp"]
 
 [package.metadata.requires-dev]
 demos = [

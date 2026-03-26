@@ -283,4 +283,5 @@ Integration steps (in `ace.integrations`):
 | `BrowserExecuteStep` / `BrowserToTrace` | browser-use |
 | `LangChainExecuteStep` / `LangChainToTrace` | LangChain |
 | `ClaudeCodeExecuteStep` / `ClaudeCodeToTrace` | Claude Code |
+| `ClaudeSDKExecuteStep` / `ClaudeSDKToTrace` | Anthropic Python SDK |
 | `OpenClawToTraceStep` | OpenClaw |

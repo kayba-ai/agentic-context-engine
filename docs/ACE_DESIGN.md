@@ -19,7 +19,7 @@ Architecture for the ACE pipeline-based framework. Roles are backed by PydanticA
 | `ACE` runner | Done | `ace/runners/ace.py` |
 | Implementations (`Agent`, `Reflector`, `SkillManager`) — PydanticAI-backed | Done | `ace/implementations/` |
 | Deduplication (`DeduplicationManager`, `SimilarityDetector`) | Done | `ace/deduplication/` |
-| Integration steps (`BrowserExecuteStep`, `LangChainExecuteStep`, `ClaudeCodeExecuteStep`) | Done | `ace/integrations/` |
+| Integration steps (`BrowserExecuteStep`, `LangChainExecuteStep`, `ClaudeCodeExecuteStep`, `ClaudeSDKExecuteStep`) | Done | `ace/integrations/` |
 | Integration runners (`BrowserUse`, `LangChain`, `ClaudeCode`) | Done | `ace/runners/` |
 | Convenience `from_model()` on integration runners | Done | `ace/runners/browser_use.py`, `langchain.py`, `claude_code.py` |
 | `ACELiteLLM` convenience wrapper | Done | `ace/runners/litellm.py` |
@@ -727,6 +727,7 @@ Integration steps live in `ace.integrations` (they have framework-specific depen
 from ace.integrations.browser_use import BrowserExecuteStep, BrowserToTrace
 from ace.integrations.langchain import LangChainExecuteStep, LangChainToTrace
 from ace.integrations.claude_code import ClaudeCodeExecuteStep, ClaudeCodeToTrace
+from ace.integrations.claude_sdk import ClaudeSDKExecuteStep, ClaudeSDKToTrace
 from ace.integrations.openclaw import OpenClawToTraceStep
 ```
 
@@ -1230,7 +1231,7 @@ ace = ACE.from_roles(
 
 ## Integration Pattern
 
-External frameworks (browser-use, LangChain, Claude Code) integrate via composable pipeline steps in `ace/integrations/`. Each integration provides three things:
+External frameworks (browser-use, LangChain, Claude Code, Anthropic SDK) integrate via composable pipeline steps in `ace/integrations/`. Each integration provides three things:
 
 1. **Result type** — an integration-specific dataclass (e.g. `BrowserResult`, `ClaudeCodeResult`)
 2. **Execute step** — INJECT skillbook context + EXECUTE the framework, writes the result to `ctx.trace`
@@ -1319,6 +1320,7 @@ Each integration defines its own result dataclass:
 |---|---|---|
 | Browser-use | `BrowserResult` | `task`, `success`, `output`, `error`, `steps_count`, `duration_seconds`, `cited_skill_ids`, `chronological_steps`, `raw_history` |
 | Claude Code | `ClaudeCodeResult` | `task`, `success`, `output`, `execution_trace`, `returncode`, `error` |
+| Claude SDK | `ClaudeSDKResult` | `task`, `success`, `output`, `error`, `model`, `stop_reason`, `input_tokens`, `output_tokens`, `total_tokens`, `latency_seconds`, `tool_calls`, `cited_skill_ids`, `raw_response` |
 | LangChain | `LangChainResult` | `task`, `output`, `result_type` (simple/agent/langgraph/error), `success`, `error`, `intermediate_steps`, `messages`, `raw_result` |
 
 ### Example — browser-use execute step
@@ -1679,6 +1681,7 @@ ace/
     browser_use.py            ← BrowserExecuteStep, BrowserResult, BrowserToTrace
     langchain.py              ← LangChainExecuteStep, LangChainResult, LangChainToTrace
     claude_code.py            ← ClaudeCodeExecuteStep, ClaudeCodeResult, ClaudeCodeToTrace
+    claude_sdk.py             ← ClaudeSDKExecuteStep, ClaudeSDKResult, ClaudeSDKToTrace
     openclaw/
       __init__.py             ← Exports OpenClawToTraceStep
       to_trace.py             ← OpenClawToTraceStep (JSONL events → structured trace dict)
