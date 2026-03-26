@@ -19,7 +19,7 @@ from pipeline import (
     StepContext,
     StepProtocol,
 )
-from tests.pipeline_engine.conftest import (
+from .conftest import (
     Boom,
     BoundaryStep,
     Noop,
@@ -430,7 +430,7 @@ class TestPipelineAsyncBoundary:
     @pytest.mark.slow
     def test_background_max_workers_1_serializes_execution(self):
         """With max_workers=1, background steps cannot interleave."""
-        from tests.pipeline_engine.conftest import SerialStep
+        from .conftest import SerialStep
 
         SerialStep._log.clear()
 
