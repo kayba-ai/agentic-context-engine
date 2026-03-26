@@ -1,0 +1,2910 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Agentic Context Engineering — Self-Improving Language Model Agents">
+      
+      
+      
+        <link rel="canonical" href="https://kayba-ai.github.io/agentic-context-engine/latest/integrations/openclaw/">
+      
+      
+        <link rel="prev" href="../opik/">
+      
+      
+        <link rel="next" href="../hosted-api/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/Kayba_logo_rounded.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+<title>ACE Documentation</title>
+
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#openclaw-integration" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="ACE Documentation" class="md-header__button md-logo" aria-label="ACE Documentation" data-md-component="logo">
+      
+  <img src="../../assets/Kayba_logo_rounded.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            ACE Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              OpenClaw
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/kayba-ai/agentic-context-engine" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    kayba-ai/agentic-context-engine
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/installation/" class="md-tabs__link">
+          
+  
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../concepts/overview/" class="md-tabs__link">
+          
+  
+  
+  Concepts
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../guides/full-pipeline/" class="md-tabs__link">
+          
+  
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../pipeline/" class="md-tabs__link">
+          
+  
+  
+  Pipeline Engine
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+  Integrations
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../api/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  API Reference
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="ACE Documentation" class="md-nav__button md-logo" aria-label="ACE Documentation" data-md-component="logo">
+      
+  <img src="../../assets/Kayba_logo_rounded.png" alt="logo">
+
+    </a>
+    ACE Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/kayba-ai/agentic-context-engine" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    kayba-ai/agentic-context-engine
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/quick-start/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Concepts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How ACE Works
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/skillbook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The Skillbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/roles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Three Roles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/insight-levels/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Insight Levels
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/updates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Update Operations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/full-pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Full Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/integration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integration Pattern
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/prompts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/async-learning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Async Learning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipeline Engine
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Pipeline Engine
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../pipeline/quick-start/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../pipeline/core-concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../pipeline/execution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Execution Model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../pipeline/branching/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Branching & Parallelism
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../pipeline/error-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Error Handling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../pipeline/custom-steps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Building Custom Steps
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../pipeline/api-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integrations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Integrations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../litellm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LiteLLM
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../langchain/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LangChain
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../browser-use/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Browser-Use
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../claude-code/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude Code
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../opik/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Opik Observability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenClaw
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenClaw
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-is-openclaw" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Is OpenClaw?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How It Works
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Prerequisites">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-install-openclaw" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Install OpenClaw
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-verify-openclaw-is-working" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Verify OpenClaw is working
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-get-an-llm-api-key-for-ace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Get an LLM API key for ACE
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Setup
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Setup">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-1-install-the-skill" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 1 — Install the skill
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-choose-how-to-run-learning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 2 — Choose how to run learning
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#docker-setup-recommended" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Docker Setup (Recommended)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Docker Setup (Recommended)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#2a-get-the-dockerfile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2a — Get the Dockerfile
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2b-build-the-image" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2b — Build the image
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2c-pass-your-api-key" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2c — Pass your API key
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2d-restart-and-verify" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2d — Restart and verify
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#host-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Host Setup
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Host Setup">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#2a-install-ace-dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2a — Install ACE dependencies
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2b-configure-your-api-key" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2b — Configure your API key
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2c-verify-and-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2c — Verify and run
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2d-automate-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2d — Automate (optional)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#output-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output Files
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example-skillbook-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example Skillbook Output
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reference
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Reference">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#environment-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Environment variables
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cli-arguments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CLI arguments
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pipeline-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pipeline steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-to-read-next" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What to Read Next
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hosted-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hosted API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-is-openclaw" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Is OpenClaw?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How It Works
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Prerequisites">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-install-openclaw" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Install OpenClaw
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-verify-openclaw-is-working" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Verify OpenClaw is working
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-get-an-llm-api-key-for-ace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Get an LLM API key for ACE
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Setup
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Setup">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-1-install-the-skill" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 1 — Install the skill
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-choose-how-to-run-learning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 2 — Choose how to run learning
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#docker-setup-recommended" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Docker Setup (Recommended)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Docker Setup (Recommended)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#2a-get-the-dockerfile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2a — Get the Dockerfile
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2b-build-the-image" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2b — Build the image
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2c-pass-your-api-key" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2c — Pass your API key
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2d-restart-and-verify" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2d — Restart and verify
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#host-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Host Setup
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Host Setup">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#2a-install-ace-dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2a — Install ACE dependencies
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2b-configure-your-api-key" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2b — Configure your API key
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2c-verify-and-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2c — Verify and run
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2d-automate-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2d — Automate (optional)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#output-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output Files
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example-skillbook-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example Skillbook Output
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reference
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Reference">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#environment-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Environment variables
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cli-arguments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CLI arguments
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pipeline-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pipeline steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-to-read-next" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What to Read Next
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="openclaw-integration">OpenClaw Integration<a class="headerlink" href="#openclaw-integration" title="Permanent link">&para;</a></h1>
+<p>Make your <a href="https://docs.openclaw.ai">OpenClaw</a> agent <strong>self-improving</strong>. ACE reads session transcripts, extracts what worked and what didn't, and feeds learned strategies back into the agent's context via a skillbook — automatically, every session.</p>
+<hr />
+<h2 id="what-is-openclaw">What Is OpenClaw?<a class="headerlink" href="#what-is-openclaw" title="Permanent link">&para;</a></h2>
+<p><a href="https://github.com/openclaw/openclaw">OpenClaw</a> is an open-source, self-hosted AI assistant gateway. It connects AI models (Claude, GPT, etc.) to messaging platforms like Telegram, WhatsApp, Discord, and more. It runs locally and stores all data — sessions, memory, configuration — as files on your machine under <code>~/.openclaw/</code>.</p>
+<p>ACE plugs into this by reading session transcripts and building a skillbook of learned strategies that the agent loads at session start.</p>
+<hr />
+<h2 id="how-it-works">How It Works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h2>
+<pre class="mermaid"><code>flowchart TD
+    A["OpenClaw session ends"] --&gt; B["Transcript saved to&lt;br&gt;&lt;code&gt;~/.openclaw/agents/main/sessions/*.jsonl&lt;/code&gt;"]
+    B --&gt; C["&lt;b&gt;ace-learn&lt;/b&gt;&lt;br&gt;session start or on-demand"]
+    C --&gt; D["LoadTracesStep → OpenClawToTraceStep"]
+    D --&gt; E["&lt;b&gt;TraceAnalyser&lt;/b&gt;&lt;br&gt;Reflect → Tag → Update → Apply"]
+    E --&gt; F["&lt;code&gt;ace_skillbook.json&lt;/code&gt;&lt;br&gt;machine-readable"]
+    E --&gt; G["&lt;code&gt;ace_skillbook.md&lt;/code&gt;&lt;br&gt;human-readable"]
+    G --&gt; H["AGENTS.md tells agent&lt;br&gt;to read skillbook"]
+    H --&gt; I["Agent loads strategies&lt;br&gt;into context"]</code></pre>
+<ol>
+<li>OpenClaw writes session transcripts to <code>~/.openclaw/agents/&lt;id&gt;/sessions/*.jsonl</code></li>
+<li><code>ace-learn</code> runs at the start of the next session (or on-demand)</li>
+<li><strong>LoadTracesStep</strong> reads JSONL files into raw event lists</li>
+<li><strong>OpenClawToTraceStep</strong> converts events into structured traces</li>
+<li><strong>TraceAnalyser</strong> runs the learning pipeline (Reflect → Tag → Update → Apply)</li>
+<li>Updated skillbook is written to the workspace volume</li>
+<li>The agent reads <code>ace_skillbook.md</code> into its context and applies relevant strategies</li>
+</ol>
+<hr />
+<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
+<p>Before setting up ACE, you need a working OpenClaw installation.</p>
+<div class="admonition info">
+<p class="admonition-title">Platform support</p>
+<p>OpenClaw runs on <strong>Linux</strong>, <strong>macOS</strong>, and <strong>Windows</strong> (via WSL2). All shell commands on this page use bash syntax. On Windows, run them inside your WSL2 environment. The <code>setup.py</code> script uses cross-platform Python and works on all three platforms natively.</p>
+</div>
+<h3 id="1-install-openclaw">1. Install OpenClaw<a class="headerlink" href="#1-install-openclaw" title="Permanent link">&para;</a></h3>
+<div class="admonition note">
+<p class="admonition-title">Already have OpenClaw running?</p>
+<p>Skip to <a href="#setup-methods">Setup Methods</a> below.</p>
+</div>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:3"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">npm (quickest)</label><label for="__tabbed_1_2">Docker</label><label for="__tabbed_1_3">From source</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>npm<span class="w"> </span>install<span class="w"> </span>-g<span class="w"> </span>openclaw@latest
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>openclaw<span class="w"> </span>onboard<span class="w"> </span>--install-daemon
+</code></pre></div>
+<p>The onboard wizard walks you through model provider setup, API keys, and optional channel connections (Telegram, WhatsApp, etc.).</p>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/openclaw/openclaw.git
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nb">cd</span><span class="w"> </span>openclaw
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>./docker-setup.sh
+</code></pre></div>
+<p>The setup script builds the image, runs onboarding, and starts the gateway via Docker Compose.</p>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/openclaw/openclaw.git
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nb">cd</span><span class="w"> </span>openclaw
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>pnpm<span class="w"> </span>install<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>pnpm<span class="w"> </span>ui:build<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>pnpm<span class="w"> </span>build
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>pnpm<span class="w"> </span>openclaw<span class="w"> </span>onboard<span class="w"> </span>--install-daemon
+</code></pre></div>
+</div>
+</div>
+</div>
+<p>For full details, see the <a href="https://docs.openclaw.ai">OpenClaw documentation</a>.</p>
+<h3 id="2-verify-openclaw-is-working">2. Verify OpenClaw is working<a class="headerlink" href="#2-verify-openclaw-is-working" title="Permanent link">&para;</a></h3>
+<p>Make sure the gateway is running and you have at least one completed session:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Check the gateway is up</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>curl<span class="w"> </span>-fsS<span class="w"> </span>http://127.0.0.1:18789/healthz
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># Check sessions exist</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>ls<span class="w"> </span>~/.openclaw/agents/main/sessions/*.jsonl
+</code></pre></div>
+<h3 id="3-get-an-llm-api-key-for-ace">3. Get an LLM API key for ACE<a class="headerlink" href="#3-get-an-llm-api-key-for-ace" title="Permanent link">&para;</a></h3>
+<p>ACE needs its own LLM API key to run the reflection model. This is separate from the key OpenClaw uses. Any <a href="https://docs.litellm.ai/docs/providers">LiteLLM-supported provider</a> works:</p>
+<table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>Key variable</th>
+<th>Example model</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Anthropic</td>
+<td><code>ANTHROPIC_API_KEY</code></td>
+<td><code>anthropic/claude-sonnet-4-6</code></td>
+</tr>
+<tr>
+<td>OpenRouter</td>
+<td><code>OPENROUTER_API_KEY</code></td>
+<td><code>openrouter/anthropic/claude-sonnet-4-6</code></td>
+</tr>
+<tr>
+<td>AWS Bedrock</td>
+<td><code>AWS_BEARER_TOKEN_BEDROCK</code></td>
+<td><code>bedrock/us.anthropic.claude-sonnet-4-20250514-v1:0</code></td>
+</tr>
+<tr>
+<td>LiteLLM proxy</td>
+<td><code>LITELLM_API_KEY</code></td>
+<td><code>anthropic/claude-sonnet-4-5</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="setup">Setup<a class="headerlink" href="#setup" title="Permanent link">&para;</a></h2>
+<p>Two steps: <strong>install the skill</strong> (copies files + patches AGENTS.md), then <strong>choose how to run</strong> the learning script.</p>
+<h3 id="step-1-install-the-skill">Step 1 — Install the skill<a class="headerlink" href="#step-1-install-the-skill" title="Permanent link">&para;</a></h3>
+<p>The skill needs to be copied into your OpenClaw workspace and AGENTS.md needs to be updated so the agent knows to use the skillbook. You can do this automatically with the setup script or manually.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Automatic (setup script)</label><label for="__tabbed_2_2">Manual</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<p>Clone the ACE repo and run the setup script:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/Kayba-ai/agentic-context-engine.git
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nb">cd</span><span class="w"> </span>agentic-context-engine
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>python<span class="w"> </span>examples/openclaw/setup.py
+</code></pre></div>
+<p>This does two things:</p>
+<ol>
+<li><strong>Copies</strong> the <code>kayba-ace/</code> skill folder to <code>~/.openclaw/workspace/skills/kayba-ace/</code></li>
+<li><strong>Appends</strong> auto-learning instructions to <code>~/.openclaw/workspace/AGENTS.md</code></li>
+</ol>
+<p>Options:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>python<span class="w"> </span>examples/openclaw/setup.py<span class="w"> </span>--no-agents<span class="w">        </span><span class="c1"># skip AGENTS.md patching</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>python<span class="w"> </span>examples/openclaw/setup.py<span class="w"> </span>--openclaw-home<span class="w"> </span>/path/to/.openclaw<span class="w">  </span><span class="c1"># custom path</span>
+</code></pre></div>
+<p>The script is idempotent — it won't overwrite generated files (<code>ace_skillbook.json</code>, <code>ace_skillbook.md</code>, <code>ace_processed.txt</code>) and skips the AGENTS.md patch if already present.</p>
+</div>
+<div class="tabbed-block">
+<p><strong>1. Copy the skill folder</strong> into the OpenClaw workspace:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Clone the ACE repo (if you haven&#39;t already)</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/Kayba-ai/agentic-context-engine.git
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># Copy the skill</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>mkdir<span class="w"> </span>-p<span class="w"> </span>~/.openclaw/workspace/skills/kayba-ace
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>cp<span class="w"> </span>agentic-context-engine/examples/openclaw/kayba-ace/*<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">   </span>~/.openclaw/workspace/skills/kayba-ace/
+</code></pre></div>
+<p><strong>2. Patch AGENTS.md</strong> — append the auto-learning instructions so the agent reads the skillbook at session start:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>cat<span class="w"> </span>agentic-context-engine/examples/openclaw/AGENTS.md.snippet<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span>&gt;&gt;<span class="w"> </span>~/.openclaw/workspace/AGENTS.md
+</code></pre></div>
+<p>Or copy the snippet content manually and paste it at the end of your <code>AGENTS.md</code>. The snippet tells the agent to:</p>
+<ul>
+<li>Run <code>ace-learn</code> at session start and report results</li>
+<li>Read <code>skills/kayba-ace/ace_skillbook.md</code> into its context</li>
+<li>Cite strategy IDs when applying learned strategies</li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Check for duplicates</p>
+<p>If you run the manual steps more than once, make sure you don't append the snippet twice. Look for the <code>## Auto-Learning</code> heading in your AGENTS.md — if it's already there, skip this step.</p>
+</div>
+</div>
+</div>
+</div>
+<h3 id="step-2-choose-how-to-run-learning">Step 2 — Choose how to run learning<a class="headerlink" href="#step-2-choose-how-to-run-learning" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Docker (recommended)</th>
+<th>Host</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>How it works</strong></td>
+<td>Bakes ACE into the OpenClaw Docker image</td>
+<td>Runs ACE on your host machine</td>
+</tr>
+<tr>
+<td><strong>Learning trigger</strong></td>
+<td>Agent runs <code>ace-learn</code> at session start</td>
+<td>Cron job or manual</td>
+</tr>
+<tr>
+<td><strong>Pros</strong></td>
+<td>Zero runtime setup, fully automatic</td>
+<td>No Docker customization needed</td>
+</tr>
+<tr>
+<td><strong>Cons</strong></td>
+<td>Requires rebuilding the image</td>
+<td>Agent can't trigger learning itself</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="docker-setup-recommended">Docker Setup (Recommended)<a class="headerlink" href="#docker-setup-recommended" title="Permanent link">&para;</a></h2>
+<p>Extends your OpenClaw Docker image with Python 3.12 and the ACE framework pre-installed. The agent runs <code>ace-learn</code> at session start automatically.</p>
+<h4 id="2a-get-the-dockerfile">2a — Get the Dockerfile<a class="headerlink" href="#2a-get-the-dockerfile" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># From the ACE repo (already cloned in Step 1)</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>cp<span class="w"> </span>examples/openclaw/Dockerfile.ace<span class="w"> </span>/path/to/your/openclaw/
+</code></pre></div>
+<p>Or download it directly:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>curl<span class="w"> </span>-o<span class="w"> </span>Dockerfile.ace<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span>https://raw.githubusercontent.com/Kayba-ai/agentic-context-engine/main/examples/openclaw/Dockerfile.ace
+</code></pre></div>
+<h4 id="2b-build-the-image">2b — Build the image<a class="headerlink" href="#2b-build-the-image" title="Permanent link">&para;</a></h4>
+<p>From your OpenClaw directory:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># Build the base OpenClaw image first (if not already built)</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>docker<span class="w"> </span>build<span class="w"> </span>-t<span class="w"> </span>openclaw:base<span class="w"> </span>.
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="c1"># Extend with ACE</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>docker<span class="w"> </span>build<span class="w"> </span>-t<span class="w"> </span>openclaw:local<span class="w"> </span>--build-arg<span class="w"> </span><span class="nv">OPENCLAW_IMAGE</span><span class="o">=</span>openclaw:base<span class="w"> </span>-f<span class="w"> </span>Dockerfile.ace<span class="w"> </span>.
+</code></pre></div>
+<div class="admonition info">
+<p class="admonition-title">What this installs</p>
+<p>The extended image adds ~200MB and includes:</p>
+<ul>
+<li><strong>uv</strong> — Python package manager</li>
+<li><strong>Python 3.12</strong> — via uv standalone builds (the base image ships 3.11)</li>
+<li><strong>ACE framework</strong> — cloned from GitHub at <code>/opt/ace</code> with all dependencies</li>
+<li><strong><code>ace-learn</code></strong> — wrapper script at <code>/usr/local/bin/ace-learn</code></li>
+</ul>
+</div>
+<p>Then point your OpenClaw setup at the new image. In your <code>.env</code> file:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nv">OPENCLAW_IMAGE</span><span class="o">=</span>openclaw:local
+</code></pre></div>
+<h4 id="2c-pass-your-api-key">2c — Pass your API key<a class="headerlink" href="#2c-pass-your-api-key" title="Permanent link">&para;</a></h4>
+<p>Add the ACE reflection key to your <code>docker-compose.yml</code> environment section (or <code>.env</code> file):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nt">services</span><span class="p">:</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">  </span><span class="nt">openclaw-gateway</span><span class="p">:</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">    </span><span class="nt">environment</span><span class="p">:</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">      </span><span class="c1"># ... existing keys ...</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="w">      </span><span class="c1"># Add ONE of these depending on your provider:</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="w">      </span><span class="nt">AWS_BEARER_TOKEN_BEDROCK</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${AWS_BEARER_TOKEN_BEDROCK}</span>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="w">      </span><span class="nt">ANTHROPIC_API_KEY</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${ANTHROPIC_API_KEY}</span>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="w">      </span><span class="nt">OPENROUTER_API_KEY</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${OPENROUTER_API_KEY}</span>
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="w">      </span><span class="nt">LITELLM_API_KEY</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${LITELLM_API_KEY}</span>
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="w">      </span><span class="c1"># Optional: override the default reflection model</span>
+<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a><span class="w">      </span><span class="nt">ACE_MODEL</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${ACE_MODEL:-bedrock/us.anthropic.claude-sonnet-4-20250514-v1:0}</span>
+</code></pre></div>
+<p>The default model is <code>bedrock/us.anthropic.claude-sonnet-4-20250514-v1:0</code>. Set <code>ACE_MODEL</code> in your <code>.env</code> to override.</p>
+<h4 id="2d-restart-and-verify">2d — Restart and verify<a class="headerlink" href="#2d-restart-and-verify" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>down<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d<span class="w"> </span>openclaw-gateway
+</code></pre></div>
+<p>Send a message to your agent (e.g., via Telegram). It should:</p>
+<ol>
+<li>Run <code>ace-learn</code> and report what it found</li>
+<li>Read the skillbook into its context</li>
+<li>Respond to your message, citing strategy IDs when relevant</li>
+</ol>
+<p>You can also test directly:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1"># Dry run — parses sessions without making LLM calls</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>-v<span class="w"> </span>~/.openclaw:/home/node/.openclaw<span class="w"> </span>openclaw:local<span class="w"> </span>ace-learn<span class="w"> </span>--dry-run
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="c1"># Full run</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="w">  </span>-v<span class="w"> </span>~/.openclaw:/home/node/.openclaw<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="w">  </span>-e<span class="w"> </span><span class="nv">AWS_BEARER_TOKEN_BEDROCK</span><span class="o">=</span><span class="s2">&quot;</span><span class="nv">$AWS_BEARER_TOKEN_BEDROCK</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="w">  </span>openclaw:local<span class="w"> </span>ace-learn
+</code></pre></div>
+<hr />
+<h2 id="host-setup">Host Setup<a class="headerlink" href="#host-setup" title="Permanent link">&para;</a></h2>
+<p>Run ACE on the host machine (outside Docker). This reads session files directly from disk. Useful if you don't want to customize the Docker image.</p>
+<h4 id="2a-install-ace-dependencies">2a — Install ACE dependencies<a class="headerlink" href="#2a-install-ace-dependencies" title="Permanent link">&para;</a></h4>
+<p>From the ACE repo (already cloned in Step 1):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="nb">cd</span><span class="w"> </span>agentic-context-engine
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>uv<span class="w"> </span>sync
+</code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Python 3.12+ required</p>
+<p>Check with <code>python3 --version</code>. Install <a href="https://docs.astral.sh/uv/">uv</a> if you don't have it.</p>
+</div>
+<h4 id="2b-configure-your-api-key">2b — Configure your API key<a class="headerlink" href="#2b-configure-your-api-key" title="Permanent link">&para;</a></h4>
+<div class="tabbed-set tabbed-alternate" data-tabs="3:3"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><input id="__tabbed_3_3" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Anthropic</label><label for="__tabbed_3_2">OpenRouter</label><label for="__tabbed_3_3">AWS Bedrock</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">ANTHROPIC_API_KEY</span><span class="o">=</span><span class="s2">&quot;sk-ant-...&quot;</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">OPENROUTER_API_KEY</span><span class="o">=</span><span class="s2">&quot;sk-or-...&quot;</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">ACE_MODEL</span><span class="o">=</span><span class="s2">&quot;openrouter/anthropic/claude-sonnet-4-6&quot;</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">ACE_MODEL</span><span class="o">=</span><span class="s2">&quot;bedrock/us.anthropic.claude-sonnet-4-20250514-v1:0&quot;</span>
+</code></pre></div>
+<p>Uses AWS SDK auth — no explicit key needed if credentials are configured.</p>
+</div>
+</div>
+</div>
+<p>You can also put these in <code>~/.openclaw/.env</code> or <code>~/.env</code> — the script loads both via <code>python-dotenv</code>.</p>
+<h4 id="2c-verify-and-run">2c — Verify and run<a class="headerlink" href="#2c-verify-and-run" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="nb">cd</span><span class="w"> </span>/path/to/agentic-context-engine
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="c1"># Dry run (no LLM calls, just parse sessions)</span>
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>~/.openclaw/workspace/skills/kayba-ace/learn_from_traces.py<span class="w"> </span>--dry-run
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>
+<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="c1"># Learn from all new sessions</span>
+<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>~/.openclaw/workspace/skills/kayba-ace/learn_from_traces.py
+<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a>
+<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a><span class="c1"># Process specific files</span>
+<a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>~/.openclaw/workspace/skills/kayba-ace/learn_from_traces.py<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a><span class="w">  </span>~/.openclaw/agents/main/sessions/f967d602.jsonl
+<a id="__codelineno-19-12" name="__codelineno-19-12" href="#__codelineno-19-12"></a>
+<a id="__codelineno-19-13" name="__codelineno-19-13" href="#__codelineno-19-13"></a><span class="c1"># Reprocess everything</span>
+<a id="__codelineno-19-14" name="__codelineno-19-14" href="#__codelineno-19-14"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>~/.openclaw/workspace/skills/kayba-ace/learn_from_traces.py<span class="w"> </span>--reprocess
+</code></pre></div>
+<h4 id="2d-automate-optional">2d — Automate (optional)<a class="headerlink" href="#2d-automate-optional" title="Permanent link">&para;</a></h4>
+<div class="tabbed-set tabbed-alternate" data-tabs="4:3"><input checked="checked" id="__tabbed_4_1" name="__tabbed_4" type="radio" /><input id="__tabbed_4_2" name="__tabbed_4" type="radio" /><input id="__tabbed_4_3" name="__tabbed_4" type="radio" /><div class="tabbed-labels"><label for="__tabbed_4_1">Linux / macOS (cron)</label><label for="__tabbed_4_2">Windows (Task Scheduler)</label><label for="__tabbed_4_3">Manual</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>crontab<span class="w"> </span>-e
+</code></pre></div>
+<p>Add:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>*/30 * * * * cd /path/to/agentic-context-engine &amp;&amp; uv run python ~/.openclaw/workspace/skills/kayba-ace/learn_from_traces.py &gt;&gt; /tmp/ace-openclaw.log 2&gt;&amp;1
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<p>Create a scheduled task that runs every 30 minutes:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="c"># From an elevated PowerShell prompt</span>
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="nv">$action</span> <span class="p">=</span> <span class="nb">New-ScheduledTaskAction</span> <span class="p">`</span>
+<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>  <span class="n">-Execute</span> <span class="s2">&quot;wsl&quot;</span> <span class="p">`</span>
+<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a>  <span class="n">-Argument</span> <span class="s2">&quot;bash -c &#39;cd /path/to/agentic-context-engine &amp;&amp; uv run python ~/.openclaw/workspace/skills/kayba-ace/learn_from_traces.py &gt;&gt; /tmp/ace-openclaw.log 2&gt;&amp;1&#39;&quot;</span>
+<a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a><span class="nv">$trigger</span> <span class="p">=</span> <span class="nb">New-ScheduledTaskTrigger</span> <span class="n">-Once</span> <span class="n">-At</span> <span class="p">(</span><span class="nb">Get-Date</span><span class="p">)</span> <span class="n">-RepetitionInterval</span> <span class="p">(</span><span class="nb">New-TimeSpan</span> <span class="n">-Minutes</span> <span class="n">30</span><span class="p">)</span>
+<a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a><span class="nb">Register-ScheduledTask</span> <span class="n">-TaskName</span> <span class="s2">&quot;ACE Learn&quot;</span> <span class="n">-Action</span> <span class="nv">$action</span> <span class="n">-Trigger</span> <span class="nv">$trigger</span>
+</code></pre></div>
+<p>This calls into WSL2 where OpenClaw and ACE are installed.</p>
+</div>
+<div class="tabbed-block">
+<p>Run the script whenever you want to learn from new sessions:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="nb">cd</span><span class="w"> </span>/path/to/agentic-context-engine
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>~/.openclaw/workspace/skills/kayba-ace/learn_from_traces.py
+</code></pre></div>
+</div>
+</div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">AGENTS.md for host setup</p>
+<p>The setup script already patched AGENTS.md in Step 1. For the host setup, the agent can't run <code>ace-learn</code> directly (it's not in the container), so it will report that <code>ace-learn</code> is not found and continue normally. Learning happens externally via cron or manual runs; the agent still reads the skillbook at session start.</p>
+</div>
+<hr />
+<h2 id="output-files">Output Files<a class="headerlink" href="#output-files" title="Permanent link">&para;</a></h2>
+<p>The learning script writes these files to the skill directory:</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Format</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ace_skillbook.json</code></td>
+<td>JSON</td>
+<td>Machine-readable skillbook (persists across runs)</td>
+</tr>
+<tr>
+<td><code>ace_skillbook.md</code></td>
+<td>Markdown</td>
+<td>Human-readable skillbook grouped by section</td>
+</tr>
+<tr>
+<td><code>ace_processed.txt</code></td>
+<td>Text</td>
+<td>Tracks which sessions have been processed</td>
+</tr>
+</tbody>
+</table>
+<p>The agent loads strategies by <strong>reading <code>ace_skillbook.md</code> at session start</strong>. This must be an explicit instruction in AGENTS.md — OpenClaw does not auto-inline linked files. The agent uses its file-reading tools to load the content into its context window.</p>
+<p>Once loaded, the agent can cite strategy IDs (e.g., <code>conversation_style-00003</code>) when applying them.</p>
+<hr />
+<h2 id="example-skillbook-output">Example Skillbook Output<a class="headerlink" href="#example-skillbook-output" title="Permanent link">&para;</a></h2>
+<p>After processing a few sessions, <code>ace_skillbook.md</code> might contain:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="gu">## conversation_style</span>
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>
+<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a><span class="gu">### `conversation_style-00003`</span>
+<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a>
+<a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a>Maintain brief, natural responses without performative language
+<a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a>
+<a id="__codelineno-24-7" name="__codelineno-24-7" href="#__codelineno-24-7"></a><span class="gs">**Justification:**</span> Establishes consistent conversational tone across interaction types
+<a id="__codelineno-24-8" name="__codelineno-24-8" href="#__codelineno-24-8"></a><span class="gs">**Evidence:**</span> Maintained direct, helpful tone across greeting, creative request,
+<a id="__codelineno-24-9" name="__codelineno-24-9" href="#__codelineno-24-9"></a>modification, and casual follow-up
+<a id="__codelineno-24-10" name="__codelineno-24-10" href="#__codelineno-24-10"></a>
+<a id="__codelineno-24-11" name="__codelineno-24-11" href="#__codelineno-24-11"></a><span class="ge">*Tags: helpful=5, harmful=0, neutral=0*</span>
+<a id="__codelineno-24-12" name="__codelineno-24-12" href="#__codelineno-24-12"></a>
+<a id="__codelineno-24-13" name="__codelineno-24-13" href="#__codelineno-24-13"></a><span class="gu">## debugging</span>
+<a id="__codelineno-24-14" name="__codelineno-24-14" href="#__codelineno-24-14"></a>
+<a id="__codelineno-24-15" name="__codelineno-24-15" href="#__codelineno-24-15"></a><span class="gu">### `debugging-00005`</span>
+<a id="__codelineno-24-16" name="__codelineno-24-16" href="#__codelineno-24-16"></a>
+<a id="__codelineno-24-17" name="__codelineno-24-17" href="#__codelineno-24-17"></a>Test litellm calls directly before debugging ace pipeline
+<a id="__codelineno-24-18" name="__codelineno-24-18" href="#__codelineno-24-18"></a>
+<a id="__codelineno-24-19" name="__codelineno-24-19" href="#__codelineno-24-19"></a><span class="gs">**Justification:**</span> Systematic debugging approach that isolated authentication issues
+<a id="__codelineno-24-20" name="__codelineno-24-20" href="#__codelineno-24-20"></a><span class="gs">**Evidence:**</span> Direct litellm.completion() calls worked while ace failed
+<a id="__codelineno-24-21" name="__codelineno-24-21" href="#__codelineno-24-21"></a>
+<a id="__codelineno-24-22" name="__codelineno-24-22" href="#__codelineno-24-22"></a><span class="ge">*Tags: helpful=1, harmful=0, neutral=0*</span>
+</code></pre></div>
+<hr />
+<h2 id="reference">Reference<a class="headerlink" href="#reference" title="Permanent link">&para;</a></h2>
+<h3 id="environment-variables">Environment variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ACE_MODEL</code></td>
+<td><code>bedrock/us.anthropic.claude-sonnet-4-20250514-v1:0</code></td>
+<td>LLM for reflection and skill extraction</td>
+</tr>
+<tr>
+<td><code>OPENCLAW_AGENT_ID</code></td>
+<td><code>main</code></td>
+<td>Agent ID for session discovery</td>
+</tr>
+<tr>
+<td><code>OPENCLAW_HOME</code></td>
+<td><code>$HOME/.openclaw</code></td>
+<td>OpenClaw home directory (used by <code>ace-learn</code> only)</td>
+</tr>
+<tr>
+<td><code>LITELLM_API_KEY</code></td>
+<td>—</td>
+<td>API key (for non-Bedrock providers)</td>
+</tr>
+<tr>
+<td><code>SPH_LITELLM_KEY</code></td>
+<td>—</td>
+<td>Alternative API key variable</td>
+</tr>
+<tr>
+<td><code>AWS_BEARER_TOKEN_BEDROCK</code></td>
+<td>—</td>
+<td>AWS Bedrock bearer token</td>
+</tr>
+<tr>
+<td><code>ANTHROPIC_API_KEY</code></td>
+<td>—</td>
+<td>Anthropic API key</td>
+</tr>
+<tr>
+<td><code>OPENROUTER_API_KEY</code></td>
+<td>—</td>
+<td>OpenRouter API key</td>
+</tr>
+</tbody>
+</table>
+<h3 id="cli-arguments">CLI arguments<a class="headerlink" href="#cli-arguments" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>ace-learn [OPTIONS] [FILES...]
+<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>
+<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a>Options:
+<a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a>  --dry-run          Parse sessions but skip learning (no LLM calls)
+<a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a>  --reprocess        Ignore processed log, reprocess all sessions
+<a id="__codelineno-25-6" name="__codelineno-25-6" href="#__codelineno-25-6"></a>  --agent AGENT_ID   OpenClaw agent ID (default: main)
+<a id="__codelineno-25-7" name="__codelineno-25-7" href="#__codelineno-25-7"></a>  --output DIR       Output directory for skillbook files
+<a id="__codelineno-25-8" name="__codelineno-25-8" href="#__codelineno-25-8"></a>  --opik             Enable Opik observability logging
+<a id="__codelineno-25-9" name="__codelineno-25-9" href="#__codelineno-25-9"></a>
+<a id="__codelineno-25-10" name="__codelineno-25-10" href="#__codelineno-25-10"></a>Positional:
+<a id="__codelineno-25-11" name="__codelineno-25-11" href="#__codelineno-25-11"></a>  FILES              Specific JSONL files to process (skips discovery)
+</code></pre></div>
+<h3 id="pipeline-steps">Pipeline steps<a class="headerlink" href="#pipeline-steps" title="Permanent link">&para;</a></h3>
+<p><strong>LoadTracesStep</strong> — Reads a JSONL file and parses each line into a list of event dicts.</p>
+<p><strong>OpenClawToTraceStep</strong> — Converts raw OpenClaw events into a structured trace:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="p">{</span>
+<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a>    <span class="s2">&quot;question&quot;</span><span class="p">:</span> <span class="s2">&quot;User: ...</span><span class="se">\n\n</span><span class="s2">User: ...&quot;</span><span class="p">,</span>
+<a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a>    <span class="s2">&quot;reasoning&quot;</span><span class="p">:</span> <span class="s2">&quot;[thinking] ...</span><span class="se">\n</span><span class="s2">[tool:read] ...</span><span class="se">\n</span><span class="s2">[response] ...&quot;</span><span class="p">,</span>
+<a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a>    <span class="s2">&quot;answer&quot;</span><span class="p">:</span> <span class="s2">&quot;Last assistant response&quot;</span><span class="p">,</span>
+<a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a>    <span class="s2">&quot;skill_ids&quot;</span><span class="p">:</span> <span class="p">[],</span>
+<a id="__codelineno-26-6" name="__codelineno-26-6" href="#__codelineno-26-6"></a>    <span class="s2">&quot;feedback&quot;</span><span class="p">:</span> <span class="s2">&quot;OpenClaw session: 3 user messages, 1 assistant responses, model: ..., 14605 tokens&quot;</span><span class="p">,</span>
+<a id="__codelineno-26-7" name="__codelineno-26-7" href="#__codelineno-26-7"></a>    <span class="s2">&quot;ground_truth&quot;</span><span class="p">:</span> <span class="kc">None</span>
+<a id="__codelineno-26-8" name="__codelineno-26-8" href="#__codelineno-26-8"></a><span class="p">}</span>
+</code></pre></div>
+<p><strong>TraceAnalyser</strong> — Runs the ACE learning tail:</p>
+<ol>
+<li><strong>Reflect</strong> — LLM analyzes the trace for patterns, errors, and effective strategies</li>
+<li><strong>Tag</strong> — Scores cited skills as helpful/harmful/neutral</li>
+<li><strong>Update</strong> — LLM decides skillbook mutations (ADD, UPDATE, REMOVE, CONSOLIDATE)</li>
+<li><strong>Apply</strong> — Commits changes to the in-memory skillbook</li>
+</ol>
+<hr />
+<h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
+<details class="question">
+<summary>Sessions directory not found</summary>
+<p>The agent hasn't completed a session yet, or <code>OPENCLAW_AGENT_ID</code> is wrong. Check:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>ls<span class="w"> </span>~/.openclaw/agents/
+</code></pre></div>
+</details>
+<details class="question">
+<summary>Nothing new to learn from</summary>
+<p>All sessions have been processed. Use <code>--reprocess</code> to rerun, or wait for new sessions.</p>
+</details>
+<details class="question">
+<summary><code>ace-learn</code> not found in Docker</summary>
+<p>Make sure you built with <code>Dockerfile.ace</code> and are using the correct image tag:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>openclaw:local<span class="w"> </span>which<span class="w"> </span>ace-learn
+</code></pre></div>
+</details>
+<details class="question">
+<summary>Import errors for <code>ace</code> (host setup)</summary>
+<p>The Docker image includes a cloned copy of the ACE repo at <code>/opt/ace</code> with all dependencies pre-installed — this is handled by <code>Dockerfile.ace</code>. For the host setup, make sure you run from the ACE repo root with <code>uv run</code> so that <code>ace</code> is importable:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="nb">cd</span><span class="w"> </span>/path/to/agentic-context-engine
+<a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>~/.openclaw/workspace/skills/kayba-ace/learn_from_traces.py
+</code></pre></div>
+</details>
+<details class="question">
+<summary>API key errors in Docker</summary>
+<p>Make sure your LLM API key is passed through <code>docker-compose.yml</code>. Check with:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>openclaw-gateway<span class="w"> </span>env<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-E<span class="w"> </span><span class="s1">&#39;API_KEY|BEARER_TOKEN|ACE_MODEL&#39;</span>
+</code></pre></div>
+</details>
+<hr />
+<h2 id="what-to-read-next">What to Read Next<a class="headerlink" href="#what-to-read-next" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../../guides/integration/">Integration Pattern</a> — how the INJECT/EXECUTE/LEARN pattern works</li>
+<li><a href="../../concepts/skillbook/">The Skillbook</a> — how learned strategies are stored</li>
+<li><a href="../../ACE_DESIGN/">ACE Design</a> — architecture and step reference</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.highlight", "search.share", "content.code.copy", "content.tabs.link"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

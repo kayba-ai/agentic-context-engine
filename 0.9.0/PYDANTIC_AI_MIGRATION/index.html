@@ -1,0 +1,2911 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Agentic Context Engineering — Self-Improving Language Model Agents">
+      
+      
+      
+        <link rel="canonical" href="https://kayba-ai.github.io/agentic-context-engine/latest/PYDANTIC_AI_MIGRATION/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/Kayba_logo_rounded.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+<title>ACE Documentation</title>
+
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#pydanticai-migration-plan" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="ACE Documentation" class="md-header__button md-logo" aria-label="ACE Documentation" data-md-component="logo">
+      
+  <img src="../assets/Kayba_logo_rounded.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            ACE Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              PydanticAI Migration Plan
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/kayba-ai/agentic-context-engine" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    kayba-ai/agentic-context-engine
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../getting-started/installation/" class="md-tabs__link">
+          
+  
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../concepts/overview/" class="md-tabs__link">
+          
+  
+  
+  Concepts
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../guides/full-pipeline/" class="md-tabs__link">
+          
+  
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../pipeline/" class="md-tabs__link">
+          
+  
+  
+  Pipeline Engine
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../integrations/" class="md-tabs__link">
+          
+  
+  
+  Integrations
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../api/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  API Reference
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="ACE Documentation" class="md-nav__button md-logo" aria-label="ACE Documentation" data-md-component="logo">
+      
+  <img src="../assets/Kayba_logo_rounded.png" alt="logo">
+
+    </a>
+    ACE Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/kayba-ai/agentic-context-engine" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    kayba-ai/agentic-context-engine
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/quick-start/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Concepts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How ACE Works
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/skillbook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The Skillbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/roles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Three Roles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/insight-levels/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Insight Levels
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/updates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Update Operations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/full-pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Full Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/integration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integration Pattern
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/prompts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/async-learning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Async Learning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipeline Engine
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Pipeline Engine
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pipeline/quick-start/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pipeline/core-concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pipeline/execution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Execution Model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pipeline/branching/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Branching & Parallelism
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pipeline/error-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Error Handling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pipeline/custom-steps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Building Custom Steps
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pipeline/api-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integrations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Integrations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../integrations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../integrations/litellm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LiteLLM
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../integrations/langchain/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LangChain
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../integrations/browser-use/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Browser-Use
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../integrations/claude-code/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude Code
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../integrations/opik/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Opik Observability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../integrations/openclaw/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenClaw
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../integrations/hosted-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hosted API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#motivation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Motivation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Motivation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-we-keep-our-competitive-advantage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What we keep (our competitive advantage)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-we-replace-commodity-plumbing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What we replace (commodity plumbing)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#architecture-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architecture Overview
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Architecture Overview">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#before" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Before
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#after" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        After
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-1-simple-roles-agent-reflector-skillmanager" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1: Simple Roles (Agent, Reflector, SkillManager)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 1: Simple Roles (Agent, Reflector, SkillManager)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#current-state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Current state
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#target-state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Target state
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What changes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#protocol-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Protocol compatibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#files-affected" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Files affected
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#migration-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration path
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-2-recursive-reflector-rr-redesign" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2: Recursive Reflector (RR) Redesign
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 2: Recursive Reflector (RR) Redesign">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#design-principles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Design principles
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#target-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Target architecture
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-each-rr-component-maps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How each RR component maps
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="How each RR component maps">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#iteration-loop-runnerpy-400-lines-gone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Iteration loop (runner.py, ~400 lines -&gt; gone)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#code-extraction-code_extractionpy-200-lines-gone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Code extraction (code_extraction.py, ~200 lines -&gt; gone)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#inner-pipeline-steps-stepspy-500-lines-50-lines-of-tool-definitions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inner pipeline steps (steps.py, ~500 lines -&gt; ~50 lines of tool definitions)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sub-agent-ask_llm-subagentpy-200-lines-15-lines" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sub-agent / ask_llm (subagent.py, ~200 lines -&gt; ~15 lines)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#batch-analysis-parallel_map-sandboxpy-65-lines-10-lines" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Batch analysis / parallel_map (sandbox.py, ~65 lines -&gt; ~10 lines)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#message-trimming-message_trimmingpy-150-lines-100-lines" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Message trimming (message_trimming.py, ~150 lines -&gt; ~100 lines)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#context-state-contextpy-sub_runnerpy-150-lines-gone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context &amp; state (context.py, sub_runner.py, ~150 lines -&gt; gone)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sandbox-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sandbox changes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#prompt-adaptation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prompt adaptation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#files-deleted" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Files deleted
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#files-modified" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Files modified
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#files-created" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Files created
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#net-result" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Net result
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-3-provider-runner-cleanup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 3: Provider &amp; Runner Cleanup
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 3: Provider &amp; Runner Cleanup">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#provider-layer-what-stays-what-goes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Provider layer: what stays, what goes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Provider layer: what stays, what goes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#stays-unchanged" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stays unchanged
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#replaced" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Replaced
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#multi-provider-support-openrouter-groq-ollama-etc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-provider support (OpenRouter, Groq, Ollama, etc.)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#protocol-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Protocol changes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#runner-updates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Runner updates
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#config-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Config changes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-4-observability-pydantic-logfire" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4: Observability — Pydantic Logfire
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 4: Observability — Pydantic Logfire">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#current-state_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Current state
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#target-state_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Target state
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-logfire-replaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Logfire replaces
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#integration-with-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Integration with pipeline
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#opik-coexistence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Opik coexistence
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#files-affected_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Files affected
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#environment-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Environment setup
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#migration-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration Strategy
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Migration Strategy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#order-of-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Order of operations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backward-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backward compatibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risk-mitigation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Risk mitigation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dependencies
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Dependencies">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#new" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        New
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#potentially-removable" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Potentially removable
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#success-criteria" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success Criteria
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="pydanticai-migration-plan">PydanticAI Migration Plan<a class="headerlink" href="#pydanticai-migration-plan" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>Migrating ace's LLM interaction layer to PydanticAI while preserving the pipeline engine and learning loop.</p>
+</blockquote>
+<h2 id="motivation">Motivation<a class="headerlink" href="#motivation" title="Permanent link">&para;</a></h2>
+<p>ace currently has three hand-rolled LLM client implementations (LiteLLMClient, InstructorClient, ClaudeCodeLLMClient) with inconsistent retry/validation behavior, ~3,500 lines of custom agent-loop plumbing in the Recursive Reflector, and manual code extraction via regex. PydanticAI handles all of this as maintained infrastructure.</p>
+<h3 id="what-we-keep-our-competitive-advantage">What we keep (our competitive advantage)<a class="headerlink" href="#what-we-keep-our-competitive-advantage" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Pipeline engine</strong> (<code>pipeline/</code>) — <code>requires</code>/<code>provides</code> contracts, <code>async_boundary</code>, per-step <code>max_workers</code>, <code>SampleResult</code> error isolation. No framework offers this combination.</li>
+<li><strong>Skillbook &amp; learning loop</strong> — Reflect -&gt; Tag -&gt; Update -&gt; Apply -&gt; Deduplicate. This is core IP.</li>
+<li><strong>Step composition</strong> — <code>learning_tail()</code>, pipeline-as-step nesting, <code>SkillbookView</code> read/write split.</li>
+<li><strong>Domain-specific prompts</strong> — tightly coupled to skillbook format and ACE's reflection strategy.</li>
+</ul>
+<h3 id="what-we-replace-commodity-plumbing">What we replace (commodity plumbing)<a class="headerlink" href="#what-we-replace-commodity-plumbing" title="Permanent link">&para;</a></h3>
+<ul>
+<li>LLM client abstraction (3 implementations -&gt; PydanticAI agents)</li>
+<li>Structured output parsing + retries (hand-rolled -&gt; PydanticAI native validation with error feedback)</li>
+<li>RR iteration loop, code extraction, budget tracking, message management (~2,500 lines -&gt; PydanticAI agent loop + tools)</li>
+<li>Sub-agent call management (CallBudget -&gt; <code>UsageLimits</code> + shared <code>ctx.usage</code>)</li>
+</ul>
+<hr />
+<h2 id="architecture-overview">Architecture Overview<a class="headerlink" href="#architecture-overview" title="Permanent link">&para;</a></h2>
+<h3 id="before">Before<a class="headerlink" href="#before" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Pipeline Step -&gt; Role (Agent/Reflector/SkillManager) -&gt; LLMClientLike -&gt; LiteLLM/Instructor/ClaudeCode
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>                                                        ^^^^^^^^^^^^
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>                                                        3 implementations
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>                                                        manual JSON extraction
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>                                                        inconsistent retries
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>RRStep -&gt; SubRunner -&gt; 4 inner steps -&gt; LLM + Sandbox + CodeExtraction + CheckResult
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>          ^^^^^^^^     ^^^^^^^^^^^^
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>          custom loop  3,500 lines
+</code></pre></div>
+<h3 id="after">After<a class="headerlink" href="#after" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Pipeline Step -&gt; PydanticAI Agent (with output_type + tools) -&gt; any provider
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>                 ^^^^^^^^^^^^^^^
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>                 one abstraction
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>                 validated retries with error feedback
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>                 native tool calling
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>                 multi-provider
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>RRStep -&gt; PydanticAI Agent (with execute_code + analyze tools) -&gt; sandbox + sub-agent
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>          ^^^^^^^^^^^^^^^
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>          native agent loop
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>          no code extraction
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>          UsageLimits for budget
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>          history_processors for trimming
+</code></pre></div>
+<p>The pipeline engine is untouched. PydanticAI lives <em>inside</em> the steps.</p>
+<hr />
+<h2 id="phase-1-simple-roles-agent-reflector-skillmanager">Phase 1: Simple Roles (Agent, Reflector, SkillManager)<a class="headerlink" href="#phase-1-simple-roles-agent-reflector-skillmanager" title="Permanent link">&para;</a></h2>
+<h3 id="current-state">Current state<a class="headerlink" href="#current-state" title="Permanent link">&para;</a></h3>
+<p>Each role is a single-shot <code>prompt -&gt; llm.complete_structured() -&gt; Pydantic model</code> call. Retry logic varies:
+- LiteLLMClient: blind retry (re-calls without error feedback)
+- InstructorClient: Instructor's retry with validation error feedback
+- ClaudeCodeLLMClient: manual JSON extraction with 3 retries + error prompt</p>
+<h3 id="target-state">Target state<a class="headerlink" href="#target-state" title="Permanent link">&para;</a></h3>
+<p>Each role becomes a thin wrapper around a PydanticAI <code>Agent</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pydantic_ai</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">Agent</span><span class="p">:</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>            <span class="n">model</span><span class="p">,</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>            <span class="n">output_type</span><span class="o">=</span><span class="n">AgentOutput</span><span class="p">,</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>            <span class="n">system_prompt</span><span class="o">=</span><span class="n">AGENT_SYSTEM_PROMPT</span><span class="p">,</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>        <span class="p">)</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">generate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">question</span><span class="p">,</span> <span class="n">context</span><span class="p">,</span> <span class="n">skillbook</span><span class="p">,</span> <span class="n">reflection</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AgentOutput</span><span class="p">:</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>        <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">_format_prompt</span><span class="p">(</span><span class="n">question</span><span class="p">,</span> <span class="n">context</span><span class="p">,</span> <span class="n">skillbook</span><span class="p">,</span> <span class="n">reflection</span><span class="p">)</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>        <span class="p">)</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>        <span class="k">return</span> <span class="n">result</span><span class="o">.</span><span class="n">output</span>
+</code></pre></div>
+<p>Similarly for Reflector (<code>output_type=ReflectorOutput</code>) and SkillManager (<code>output_type=SkillManagerOutput</code>).</p>
+<h3 id="what-changes">What changes<a class="headerlink" href="#what-changes" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>Before</th>
+<th>After</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Structured output</td>
+<td>Manual JSON extraction + Pydantic parse</td>
+<td>PydanticAI validates via tool-call schema, retries with error feedback</td>
+</tr>
+<tr>
+<td>Retries</td>
+<td>3 blind retries or Instructor</td>
+<td>PydanticAI native (configurable, with error context)</td>
+</tr>
+<tr>
+<td>Provider support</td>
+<td>LiteLLM wrapper</td>
+<td>PydanticAI (native support for 15+ providers, wraps LiteLLM internally)</td>
+</tr>
+<tr>
+<td>Streaming</td>
+<td>Manual chunk iteration for cancellation</td>
+<td>PydanticAI <code>run_stream</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="protocol-compatibility">Protocol compatibility<a class="headerlink" href="#protocol-compatibility" title="Permanent link">&para;</a></h3>
+<p>The existing protocols (<code>AgentLike</code>, <code>ReflectorLike</code>, <code>SkillManagerLike</code>) stay unchanged. The PydanticAI-backed implementations satisfy them. Steps don't know or care what's behind the protocol.</p>
+<h3 id="files-affected">Files affected<a class="headerlink" href="#files-affected" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>ace/implementations/agent.py</code> — rewrite internals, keep <code>generate()</code> signature</li>
+<li><code>ace/implementations/reflector.py</code> — rewrite internals, keep <code>reflect()</code> signature</li>
+<li><code>ace/implementations/skill_manager.py</code> — rewrite internals, keep <code>update_skills()</code> signature</li>
+<li><code>ace/providers/litellm.py</code> — deprecate (PydanticAI handles provider abstraction)</li>
+<li><code>ace/providers/instructor.py</code> — deprecate (PydanticAI handles structured output)</li>
+<li><code>ace/protocols/llm.py</code> — deprecate <code>LLMClientLike</code> (roles use PydanticAI agents directly)</li>
+</ul>
+<h3 id="migration-path">Migration path<a class="headerlink" href="#migration-path" title="Permanent link">&para;</a></h3>
+<ol>
+<li>Implement PydanticAI-backed roles behind existing protocols</li>
+<li>Update runners to construct PydanticAI-backed roles by default</li>
+<li>Keep old implementations available behind a flag during transition</li>
+<li>Remove old implementations once validated</li>
+</ol>
+<hr />
+<h2 id="phase-2-recursive-reflector-rr-redesign">Phase 2: Recursive Reflector (RR) Redesign<a class="headerlink" href="#phase-2-recursive-reflector-rr-redesign" title="Permanent link">&para;</a></h2>
+<h3 id="design-principles">Design principles<a class="headerlink" href="#design-principles" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Preserve RLM's core insight</strong>: code execution as reasoning medium. The LLM reasons <em>by writing and running code</em>, getting ground-truth feedback.</li>
+<li><strong>Code-first, tools-assisted</strong>: <code>execute_code</code> is the primary tool. Accelerator tools (<code>analyze</code>, <code>batch_analyze</code>) handle common patterns without requiring code.</li>
+<li><strong>PydanticAI-native loop</strong>: no custom SubRunner, no inner pipeline, no code extraction regex.</li>
+</ol>
+<h3 id="target-architecture">Target architecture<a class="headerlink" href="#target-architecture" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>PydanticAI Agent
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>  model: configurable
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>  output_type: ReflectorOutput          &lt;- replaces FINAL()
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>  system_prompt: REFLECTOR_RECURSIVE_PROMPT (adapted)
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>  history_processors: [semantic_trim]   &lt;- reuses existing scoring logic
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>  usage_limits: request_limit=30        &lt;- replaces CallBudget
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>  Tools:
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>    execute_code(code: str) -&gt; str       &lt;- PRIMARY: sandbox execution
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>    analyze(question, context) -&gt; str    &lt;- sub-agent LLM call
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    batch_analyze(question, items) -&gt; list[str]  &lt;- parallel sub-agent calls
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>    inspect_traces(path?) -&gt; str         &lt;- trace schema/overview
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>  Dependencies (deps_type):
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>    sandbox: TraceSandbox               &lt;- persists across tool calls
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>    trace_data: dict                    &lt;- immutable trace data
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>    skillbook_text: str                 &lt;- skillbook as prompt
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>    iteration: int                      &lt;- mutable counter
+</code></pre></div>
+<h3 id="how-each-rr-component-maps">How each RR component maps<a class="headerlink" href="#how-each-rr-component-maps" title="Permanent link">&para;</a></h3>
+<h4 id="iteration-loop-runnerpy-400-lines-gone">Iteration loop (runner.py, ~400 lines -&gt; gone)<a class="headerlink" href="#iteration-loop-runnerpy-400-lines-gone" title="Permanent link">&para;</a></h4>
+<p>Current: <code>SubRunner.run_loop()</code> manually iterates, builds inner pipeline, checks termination, accumulates messages.</p>
+<p>After: PydanticAI's agent loop. The LLM calls tools until it produces <code>ReflectorOutput</code>. No custom loop code.</p>
+<h4 id="code-extraction-code_extractionpy-200-lines-gone">Code extraction (code_extraction.py, ~200 lines -&gt; gone)<a class="headerlink" href="#code-extraction-code_extractionpy-200-lines-gone" title="Permanent link">&para;</a></h4>
+<p>Current: 200 lines of regex to extract Python from markdown fenced blocks.</p>
+<p>After: code arrives as the <code>code</code> parameter of <code>execute_code</code> tool. The LLM passes code as a typed string argument. Zero extraction logic.</p>
+<h4 id="inner-pipeline-steps-stepspy-500-lines-50-lines-of-tool-definitions">Inner pipeline steps (steps.py, ~500 lines -&gt; ~50 lines of tool definitions)<a class="headerlink" href="#inner-pipeline-steps-stepspy-500-lines-50-lines-of-tool-definitions" title="Permanent link">&para;</a></h4>
+<p>Current: LLMCallStep -&gt; ExtractCodeStep -&gt; SandboxExecStep -&gt; CheckResultStep.</p>
+<p>After:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nd">@rr_agent</span><span class="o">.</span><span class="n">tool</span><span class="p">(</span><span class="n">retries</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">execute_code</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">RunContext</span><span class="p">[</span><span class="n">RRDeps</span><span class="p">],</span> <span class="n">code</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Execute Python code in the analysis sandbox. Variables persist across calls.&quot;&quot;&quot;</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">ctx</span><span class="o">.</span><span class="n">deps</span><span class="o">.</span><span class="n">iteration</span> <span class="o">+=</span> <span class="mi">1</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">result</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">deps</span><span class="o">.</span><span class="n">sandbox</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">code</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">ctx</span><span class="o">.</span><span class="n">deps</span><span class="o">.</span><span class="n">timeout</span><span class="p">)</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">exception</span><span class="p">:</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>        <span class="k">raise</span> <span class="n">ModelRetry</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Code error: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">exception</span><span class="si">}</span><span class="s2">. Fix and retry.&quot;</span><span class="p">)</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="k">return</span> <span class="n">result</span><span class="o">.</span><span class="n">stdout</span><span class="p">[:</span><span class="n">ctx</span><span class="o">.</span><span class="n">deps</span><span class="o">.</span><span class="n">max_output_chars</span><span class="p">]</span>
+</code></pre></div></p>
+<p>Guard logic (reject premature conclusions) moves to output validation:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nd">@rr_agent</span><span class="o">.</span><span class="n">output_validator</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">validate_output</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">RunContext</span><span class="p">[</span><span class="n">RRDeps</span><span class="p">],</span> <span class="n">output</span><span class="p">:</span> <span class="n">ReflectorOutput</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ReflectorOutput</span><span class="p">:</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="k">if</span> <span class="n">ctx</span><span class="o">.</span><span class="n">deps</span><span class="o">.</span><span class="n">iteration</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>        <span class="k">raise</span> <span class="n">ModelRetry</span><span class="p">(</span><span class="s2">&quot;You haven&#39;t explored the data enough. Use execute_code and analyze first.&quot;</span><span class="p">)</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="k">return</span> <span class="n">output</span>
+</code></pre></div></p>
+<h4 id="sub-agent-ask_llm-subagentpy-200-lines-15-lines">Sub-agent / ask_llm (subagent.py, ~200 lines -&gt; ~15 lines)<a class="headerlink" href="#sub-agent-ask_llm-subagentpy-200-lines-15-lines" title="Permanent link">&para;</a></h4>
+<p>Current: <code>SubAgentLLM</code> class, <code>CallBudget</code>, <code>create_ask_llm_function()</code> factory.</p>
+<p>After:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">sub_agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">sub_model</span><span class="p">,</span> <span class="n">output_type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">system_prompt</span><span class="o">=</span><span class="n">SUBAGENT_PROMPT</span><span class="p">)</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="nd">@rr_agent</span><span class="o">.</span><span class="n">tool</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">analyze</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">RunContext</span><span class="p">[</span><span class="n">RRDeps</span><span class="p">],</span> <span class="n">question</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Ask a sub-agent to analyze trace data. Use for deep analysis of specific findings.&quot;&quot;&quot;</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">sub_agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">question</span><span class="si">}</span><span class="se">\n\n</span><span class="s2">Context:</span><span class="se">\n</span><span class="si">{</span><span class="n">context</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>        <span class="n">usage</span><span class="o">=</span><span class="n">ctx</span><span class="o">.</span><span class="n">usage</span><span class="p">,</span>  <span class="c1"># shared budget</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>    <span class="p">)</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>    <span class="k">return</span> <span class="n">result</span><span class="o">.</span><span class="n">output</span>
+</code></pre></div></p>
+<h4 id="batch-analysis-parallel_map-sandboxpy-65-lines-10-lines">Batch analysis / parallel_map (sandbox.py, ~65 lines -&gt; ~10 lines)<a class="headerlink" href="#batch-analysis-parallel_map-sandboxpy-65-lines-10-lines" title="Permanent link">&para;</a></h4>
+<p>Current: <code>_parallel_map()</code> — ThreadPoolExecutor with retries and exponential backoff, injected into sandbox namespace.</p>
+<p>After:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nd">@rr_agent</span><span class="o">.</span><span class="n">tool</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">batch_analyze</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">RunContext</span><span class="p">[</span><span class="n">RRDeps</span><span class="p">],</span> <span class="n">question</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">items</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Analyze multiple items in parallel using the sub-agent.&quot;&quot;&quot;</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="n">tasks</span> <span class="o">=</span> <span class="p">[</span><span class="n">sub_agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">question</span><span class="si">}</span><span class="se">\n\n</span><span class="s2">Item:</span><span class="se">\n</span><span class="si">{</span><span class="n">item</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">usage</span><span class="o">=</span><span class="n">ctx</span><span class="o">.</span><span class="n">usage</span><span class="p">)</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">items</span><span class="p">]</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="o">*</span><span class="n">tasks</span><span class="p">,</span> <span class="n">return_exceptions</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="k">return</span> <span class="p">[</span><span class="n">r</span><span class="o">.</span><span class="n">output</span> <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="ne">Exception</span><span class="p">)</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">&quot;Error: </span><span class="si">{</span><span class="n">r</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">]</span>
+</code></pre></div></p>
+<p>Native async. No thread pool. No retry glue. PydanticAI + asyncio handles concurrency.</p>
+<h4 id="message-trimming-message_trimmingpy-150-lines-100-lines">Message trimming (message_trimming.py, ~150 lines -&gt; ~100 lines)<a class="headerlink" href="#message-trimming-message_trimmingpy-150-lines-100-lines" title="Permanent link">&para;</a></h4>
+<p>Current: <code>trim_messages()</code> pure function with semantic scoring.</p>
+<p>After: reuse the scoring algorithm inside a PydanticAI <code>history_processor</code>:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">semantic_trim</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">RunContext</span><span class="p">[</span><span class="n">RRDeps</span><span class="p">],</span> <span class="n">messages</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ModelMessage</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">ModelMessage</span><span class="p">]:</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    <span class="c1"># Reuse existing scoring: errors (+3.0) &gt; findings (+2.0) &gt; exploration (+1.0)</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="c1"># Trim to fit context budget</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="k">return</span> <span class="n">trimmed</span>
+</code></pre></div></p>
+<p>The scoring logic is preserved. The plumbing (integration with the iteration loop, manual message accumulation) disappears.</p>
+<h4 id="context-state-contextpy-sub_runnerpy-150-lines-gone">Context &amp; state (context.py, sub_runner.py, ~150 lines -&gt; gone)<a class="headerlink" href="#context-state-contextpy-sub_runnerpy-150-lines-gone" title="Permanent link">&para;</a></h4>
+<p>Current: <code>RRIterationContext</code> frozen dataclass, <code>SubRunner</code> base class.</p>
+<p>After: PydanticAI manages message state internally. Mutable state lives on <code>ctx.deps</code>. No custom context type needed.</p>
+<h3 id="sandbox-changes">Sandbox changes<a class="headerlink" href="#sandbox-changes" title="Permanent link">&para;</a></h3>
+<p>The sandbox (<code>sandbox.py</code>, ~300 lines) is preserved with modifications:</p>
+<p><strong>Kept:</strong>
+- Restricted builtins whitelist
+- Safe module pre-imports (json, re, collections, datetime)
+- Timeout enforcement (signal-based)
+- Namespace persistence across calls
+- <code>SHOW_VARS()</code> debug helper</p>
+<p><strong>Removed from sandbox (now top-level tools):</strong>
+- <code>FINAL()</code> -&gt; <code>output_type=ReflectorOutput</code>
+- <code>FINAL_VAR()</code> -&gt; gone (LLM produces structured output directly)
+- <code>ask_llm()</code> -&gt; <code>analyze</code> tool
+- <code>parallel_map()</code> -&gt; <code>batch_analyze</code> tool
+- <code>llm_query()</code> -&gt; <code>analyze</code> tool</p>
+<p><strong>Injected via deps:</strong>
+- <code>trace</code> / <code>traces</code> dict — trace data for code exploration
+- <code>skillbook</code> — skillbook as text</p>
+<h3 id="prompt-adaptation">Prompt adaptation<a class="headerlink" href="#prompt-adaptation" title="Permanent link">&para;</a></h3>
+<p>The 6-phase strategy (Discover -&gt; Adapt -&gt; Survey -&gt; Categorize -&gt; Deep-dive -&gt; Synthesize) is preserved in <code>system_prompt</code>. Changes:</p>
+<ul>
+<li>Replace "write Python code in a fenced block" with "call execute_code with your code"</li>
+<li>Replace "call ask_llm()" with "call the analyze tool"</li>
+<li>Replace "call parallel_map(fn, items)" with "call the batch_analyze tool"</li>
+<li>Replace "call FINAL(result)" with "when you have enough evidence, produce your final analysis"</li>
+<li>Keep the verification phase, deep-dive strategy, and batch mode instructions</li>
+</ul>
+<h3 id="files-deleted">Files deleted<a class="headerlink" href="#files-deleted" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Lines</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>rr/runner.py</code></td>
+<td>~400</td>
+<td>PydanticAI agent loop replaces SubRunner</td>
+</tr>
+<tr>
+<td><code>rr/steps.py</code></td>
+<td>~500</td>
+<td>Tool definitions replace inner pipeline steps</td>
+</tr>
+<tr>
+<td><code>rr/code_extraction.py</code></td>
+<td>~200</td>
+<td>Tool args are pre-parsed, no extraction needed</td>
+</tr>
+<tr>
+<td><code>rr/context.py</code></td>
+<td>~50</td>
+<td>PydanticAI manages message state</td>
+</tr>
+<tr>
+<td><code>rr/subagent.py</code></td>
+<td>~200</td>
+<td>Delegate agent + <code>ctx.usage</code> replaces CallBudget</td>
+</tr>
+<tr>
+<td><code>core/sub_runner.py</code></td>
+<td>~100</td>
+<td>PydanticAI is the runner</td>
+</tr>
+<tr>
+<td><strong>Total deleted</strong></td>
+<td><strong>~1,450</strong></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h3 id="files-modified">Files modified<a class="headerlink" href="#files-modified" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Lines</th>
+<th>Changes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>rr/sandbox.py</code></td>
+<td>~300</td>
+<td>Remove FINAL, ask_llm, parallel_map injection; keep core sandbox</td>
+</tr>
+<tr>
+<td><code>rr/prompts.py</code></td>
+<td>~400</td>
+<td>Adapt for tool-call pattern instead of code-in-markdown</td>
+</tr>
+<tr>
+<td><code>rr/message_trimming.py</code></td>
+<td>~150</td>
+<td>Wrap scoring logic in <code>history_processor</code> interface</td>
+</tr>
+</tbody>
+</table>
+<h3 id="files-created">Files created<a class="headerlink" href="#files-created" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Est. lines</th>
+<th>Content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>rr/agent.py</code></td>
+<td>~150</td>
+<td>PydanticAI agent definition, tools, deps, output validator</td>
+</tr>
+</tbody>
+</table>
+<h3 id="net-result">Net result<a class="headerlink" href="#net-result" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Before: ~3,500 lines</li>
+<li>After: ~1,000 lines (sandbox + prompts + trimming + agent definition)</li>
+<li>Deleted: ~2,500 lines of loop/extraction/budget/context plumbing</li>
+</ul>
+<hr />
+<h2 id="phase-3-provider-runner-cleanup">Phase 3: Provider &amp; Runner Cleanup<a class="headerlink" href="#phase-3-provider-runner-cleanup" title="Permanent link">&para;</a></h2>
+<h3 id="provider-layer-what-stays-what-goes">Provider layer: what stays, what goes<a class="headerlink" href="#provider-layer-what-stays-what-goes" title="Permanent link">&para;</a></h3>
+<p>The provider layer has two concerns: <strong>model selection/validation</strong> and <strong>LLM calling</strong>. Only the calling part changes.</p>
+<h4 id="stays-unchanged">Stays unchanged<a class="headerlink" href="#stays-unchanged" title="Permanent link">&para;</a></h4>
+<ul>
+<li><code>providers/config.py</code> — <code>ModelConfig</code>, <code>ACEModelConfig</code>, ace.toml persistence. This is configuration, not calling. Model strings like <code>"openrouter/anthropic/claude-3.5-sonnet"</code> stay the same.</li>
+<li><code>providers/registry.py</code> — <code>search_models()</code>, <code>validate_connection()</code>, key detection. This is discovery/validation tooling that uses LiteLLM's model registry directly. Independent of how we call the LLM.</li>
+</ul>
+<h4 id="replaced">Replaced<a class="headerlink" href="#replaced" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>Replacement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>providers/litellm.py</code> (LiteLLMClient)</td>
+<td>PydanticAI agents inside roles. PydanticAI calls LiteLLM internally via <code>LiteLLMModel</code>.</td>
+</tr>
+<tr>
+<td><code>providers/instructor.py</code> (InstructorClient)</td>
+<td>PydanticAI native structured output (validation + retry with error feedback built-in).</td>
+</tr>
+<tr>
+<td><code>providers/claude_code.py</code> (ClaudeCodeLLMClient)</td>
+<td>PydanticAI with Anthropic provider (or keep as niche CLI-based provider).</td>
+</tr>
+</tbody>
+</table>
+<h4 id="multi-provider-support-openrouter-groq-ollama-etc">Multi-provider support (OpenRouter, Groq, Ollama, etc.)<a class="headerlink" href="#multi-provider-support-openrouter-groq-ollama-etc" title="Permanent link">&para;</a></h4>
+<p>All existing LiteLLM model strings continue to work. <code>resolve_model()</code> in <code>providers/pydantic_ai.py</code> translates them for PydanticAI using three resolution paths:</p>
+<ol>
+<li>
+<p><strong>PydanticAI-native prefix</strong> — Strings with a <code>provider:model</code> prefix matching a PydanticAI provider (e.g. <code>openai:gpt-4o</code>, <code>bedrock:model-id</code>) pass through unchanged.</p>
+</li>
+<li>
+<p><strong>LiteLLM prefix → native provider</strong> — When the first path segment of a LiteLLM string matches a PydanticAI native provider, the <code>/</code> is rewritten to <code>:</code>. This is necessary because PydanticAI's <code>litellm</code> provider uses an OpenAI-compatible HTTP client under the hood, which doesn't work for providers with non-OpenAI APIs (Bedrock via SigV4, Anthropic's native API, etc.).</p>
+</li>
+<li>
+<p><strong>Fallback</strong> — Everything else is prefixed with <code>litellm:</code> for the LiteLLM proxy provider (Ollama, Together, Fireworks, etc.).</p>
+</li>
+</ol>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>LiteLLM string                                  → PydanticAI string
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>─────────────────────────────────────────────────  ──────────────────────────────────────────
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>gpt-4o-mini                                      → litellm:gpt-4o-mini
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>bedrock/eu.anthropic.claude-haiku-4-5-v1:0       → bedrock:eu.anthropic.claude-haiku-4-5-v1:0
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>groq/llama-3.1-70b-versatile                     → groq:llama-3.1-70b-versatile
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>openrouter/anthropic/claude-3.5-sonnet           → openrouter:anthropic/claude-3.5-sonnet
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>anthropic/claude-3-5-sonnet-20241022             → anthropic:claude-3-5-sonnet-20241022
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>ollama/llama3                                    → litellm:ollama/llama3
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>together_ai/meta-llama/Llama-3-70b               → litellm:together_ai/meta-llama/Llama-3-70b
+</code></pre></div>
+<p>The mapped LiteLLM prefixes are: <code>anthropic</code>, <code>azure</code>, <code>azure_ai</code>, <code>bedrock</code>, <code>cohere</code>, <code>deepseek</code>, <code>groq</code>, <code>mistral</code>, <code>openrouter</code>, <code>vertex_ai</code>. All others fall through to the <code>litellm:</code> provider.</p>
+<p>User-facing API is unchanged:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># ace.toml — same LiteLLM model strings as before</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="c1"># [default]</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="c1"># model = &quot;openrouter/anthropic/claude-3.5-sonnet&quot;</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="c1"># temperature = 0.0</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="c1"># Python — same as before</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="n">ace</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span><span class="s2">&quot;openrouter/anthropic/claude-3.5-sonnet&quot;</span><span class="p">)</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="n">ace</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span><span class="s2">&quot;bedrock/eu.anthropic.claude-haiku-4-5-v1:0&quot;</span><span class="p">)</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="n">ace</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_setup</span><span class="p">(</span><span class="n">config_dir</span><span class="o">=</span><span class="s2">&quot;.&quot;</span><span class="p">)</span>
+</code></pre></div></p>
+<h3 id="protocol-changes">Protocol changes<a class="headerlink" href="#protocol-changes" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>LLMClientLike</code> protocol is deprecated. Roles use PydanticAI agents internally.</li>
+<li><code>AgentLike</code>, <code>ReflectorLike</code>, <code>SkillManagerLike</code> protocols stay unchanged. Steps are unaffected.</li>
+</ul>
+<h3 id="runner-updates">Runner updates<a class="headerlink" href="#runner-updates" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>ACELiteLLM.from_model(model)</code> still works — internally creates PydanticAI-backed roles</li>
+<li><code>ACE.from_roles(agent, reflector, skill_manager)</code> still works — accepts any protocol-satisfying object</li>
+<li><code>TraceAnalyser</code> still works — uses PydanticAI-backed reflector</li>
+</ul>
+<h3 id="config-changes">Config changes<a class="headerlink" href="#config-changes" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>ModelConfig</code> / <code>ACEModelConfig</code> adapted to pass model strings to PydanticAI agents</li>
+<li>Per-role model selection preserved (<code>agent_model</code>, <code>reflector_model</code>, <code>skill_manager_model</code>)</li>
+</ul>
+<hr />
+<h2 id="phase-4-observability-pydantic-logfire">Phase 4: Observability — Pydantic Logfire<a class="headerlink" href="#phase-4-observability-pydantic-logfire" title="Permanent link">&para;</a></h2>
+<h3 id="current-state_1">Current state<a class="headerlink" href="#current-state_1" title="Permanent link">&para;</a></h3>
+<p>Custom observability via two hand-rolled steps:
+- <code>steps/observability.py</code> (~38 lines) — logs pipeline metrics to Opik
+- <code>rr/opik.py</code> (~318 lines) — builds hierarchical Opik traces with child spans per RR iteration and sub-agent call, manually aggregates token/cost totals</p>
+<p>This is ~356 lines of plumbing that manually extracts <code>llm_metadata</code>, <code>usage</code>, and <code>cost</code> from internal data structures and reshapes them into Opik spans.</p>
+<h3 id="target-state_1">Target state<a class="headerlink" href="#target-state_1" title="Permanent link">&para;</a></h3>
+<p>PydanticAI has first-class Logfire integration. One call auto-instruments everything:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">logfire</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="n">logfire</span><span class="o">.</span><span class="n">configure</span><span class="p">()</span>  <span class="c1"># reads LOGFIRE_TOKEN from env</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="n">logfire</span><span class="o">.</span><span class="n">instrument_pydantic_ai</span><span class="p">()</span>  <span class="c1"># auto-traces all PydanticAI agents</span>
+</code></pre></div>
+<p>This single setup call automatically captures:
+- <strong>Agent runs</strong> — input prompt, output, duration, success/failure
+- <strong>Tool calls</strong> — name, arguments, return value, retries, <code>ModelRetry</code> errors
+- <strong>Model requests</strong> — provider, model, request/response, token usage, cost
+- <strong>Structured output validation</strong> — validation errors, retry feedback
+- <strong>Sub-agent delegation</strong> — nested spans with shared usage tracking</p>
+<p>The entire RR execution (execute_code calls, analyze/batch_analyze tool calls, output validation retries) appears as a structured trace automatically — no custom span-building code.</p>
+<h3 id="what-logfire-replaces">What Logfire replaces<a class="headerlink" href="#what-logfire-replaces" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Current</th>
+<th>Logfire</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>RROpikStep</code> (318 lines of manual span building)</td>
+<td>Auto-instrumented by <code>logfire.instrument_pydantic_ai()</code></td>
+</tr>
+<tr>
+<td><code>ObservabilityStep</code> (38 lines of metric logging)</td>
+<td>Logfire captures metrics from agent runs natively</td>
+</tr>
+<tr>
+<td>Manual <code>llm_metadata</code> / <code>usage</code> extraction</td>
+<td>PydanticAI exposes usage on <code>result.usage()</code> — Logfire captures it automatically</td>
+</tr>
+<tr>
+<td>Manual token/cost aggregation across iterations</td>
+<td>Logfire aggregates across the full trace</td>
+</tr>
+<tr>
+<td>Opik client setup, flush, error handling</td>
+<td><code>logfire.configure()</code> — one line</td>
+</tr>
+</tbody>
+</table>
+<h3 id="integration-with-pipeline">Integration with pipeline<a class="headerlink" href="#integration-with-pipeline" title="Permanent link">&para;</a></h3>
+<p>Logfire is OpenTelemetry-based, so pipeline-level instrumentation can coexist:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">logfire</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="c1"># Instrument PydanticAI agents (covers all roles + RR)</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="n">logfire</span><span class="o">.</span><span class="n">instrument_pydantic_ai</span><span class="p">()</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="c1"># Optional: add pipeline-level spans</span>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="k">with</span> <span class="n">logfire</span><span class="o">.</span><span class="n">span</span><span class="p">(</span><span class="s2">&quot;ace_pipeline&quot;</span><span class="p">,</span> <span class="n">sample_id</span><span class="o">=</span><span class="n">ctx</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;sample_id&quot;</span><span class="p">)):</span>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+</code></pre></div>
+<p>Pipeline steps that don't use PydanticAI (e.g., skillbook dedup, tag extraction) can use <code>logfire.span()</code> / <code>logfire.info()</code> directly for lightweight tracing without custom step classes.</p>
+<h3 id="opik-coexistence">Opik coexistence<a class="headerlink" href="#opik-coexistence" title="Permanent link">&para;</a></h3>
+<p>Logfire doesn't require dropping Opik. During transition:
+1. Keep <code>RROpikStep</code> available as an optional step for users who already use Opik
+2. Add <code>logfire.instrument_pydantic_ai()</code> as the default (zero-config) observability
+3. Eventually deprecate <code>RROpikStep</code> once Logfire is validated</p>
+<h3 id="files-affected_1">Files affected<a class="headerlink" href="#files-affected_1" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>rr/opik.py</code> (~318 lines)</td>
+<td>Deprecate — Logfire auto-instruments RR agent</td>
+</tr>
+<tr>
+<td><code>steps/observability.py</code> (~38 lines)</td>
+<td>Deprecate — Logfire captures pipeline metrics</td>
+</tr>
+<tr>
+<td><code>steps/opik.py</code></td>
+<td>Deprecate</td>
+</tr>
+<tr>
+<td>New: setup in runner/config</td>
+<td>~5 lines — <code>logfire.configure()</code> + <code>logfire.instrument_pydantic_ai()</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="environment-setup">Environment setup<a class="headerlink" href="#environment-setup" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># .env (gitignored)</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="nv">LOGFIRE_TOKEN</span><span class="o">=</span><span class="s2">&quot;your-logfire-token&quot;</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="c1"># Optional: disable in CI/local dev</span>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="nv">LOGFIRE_SEND_TO_LOGFIRE</span><span class="o">=</span><span class="nb">false</span>
+</code></pre></div>
+<p>No changes to <code>ace.toml</code> — Logfire config is purely env-based.</p>
+<hr />
+<h2 id="migration-strategy">Migration Strategy<a class="headerlink" href="#migration-strategy" title="Permanent link">&para;</a></h2>
+<h3 id="order-of-operations">Order of operations<a class="headerlink" href="#order-of-operations" title="Permanent link">&para;</a></h3>
+<ol>
+<li>~~<strong>Add PydanticAI dependency</strong> to <code>pyproject.toml</code>~~ <strong>DONE</strong></li>
+<li>~~<strong>Phase 1</strong>: Implement PydanticAI-backed Agent, Reflector, SkillManager behind existing protocols. Run existing tests to verify.~~ <strong>DONE</strong> — 1098 tests passing</li>
+<li>~~<strong>Phase 2</strong>: Implement PydanticAI-based RR agent. Run RR tests + integration tests.~~ <strong>DONE</strong> — RRStep now uses PydanticAI agent with <code>execute_code</code>, <code>analyze</code>, <code>batch_analyze</code> tools. Old inner pipeline (SubRunner, LLMCallStep, ExtractCodeStep, etc.) deprecated. 1093 tests passing.</li>
+<li>~~<strong>Phase 3</strong>: Update runners and config. Deprecate old providers.~~ <strong>DONE</strong> — Deprecation warnings added to <code>LiteLLMClient</code>, <code>InstructorClient</code>, <code>ClaudeCodeLLMClient</code>, <code>LangChainLiteLLMClient</code>, and <code>LLMClientLike</code>.</li>
+<li>~~<strong>Phase 4</strong>: Add Logfire observability (auto-instruments all PydanticAI agents).~~ <strong>DONE</strong> — <code>ace.observability.configure_logfire()</code> auto-instruments all PydanticAI agents. Opt-in via <code>ACELiteLLM(logfire=True)</code>.</li>
+<li>~~<strong>Cleanup</strong>: Remove deprecated code, update docs.~~ <strong>DONE</strong> — Deleted old <code>ace/</code> v1 codebase, deprecated providers (<code>LiteLLMClient</code>, <code>InstructorClient</code>, <code>ClaudeCodeLLMClient</code>, <code>LangChainLiteLLMClient</code>), old RR internals (<code>SubRunner</code>, <code>RRIterationContext</code>, inner pipeline steps, <code>code_extraction.py</code>, <code>subagent.py</code>), <code>RROpikStep</code>, <code>OpikStep</code>, <code>LLMClientLike</code> protocol, <code>sub_runner.py</code>. Updated all docs.</li>
+</ol>
+<h3 id="backward-compatibility">Backward compatibility<a class="headerlink" href="#backward-compatibility" title="Permanent link">&para;</a></h3>
+<ul>
+<li>All pipeline steps continue to work unchanged (they depend on protocols, not implementations)</li>
+<li><code>ACELiteLLM.from_model()</code> API unchanged</li>
+<li><code>ACE.from_roles()</code> API unchanged</li>
+<li>Skillbook format unchanged</li>
+<li>Step <code>requires</code>/<code>provides</code> contracts unchanged</li>
+</ul>
+<h3 id="risk-mitigation">Risk mitigation<a class="headerlink" href="#risk-mitigation" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Existing tests must pass at each phase before proceeding</li>
+<li>Old implementations kept behind a flag until PydanticAI equivalents are validated</li>
+<li>RR prompt adaptation validated with existing benchmarks before deleting old code</li>
+</ul>
+<hr />
+<h2 id="dependencies">Dependencies<a class="headerlink" href="#dependencies" title="Permanent link">&para;</a></h2>
+<h3 id="new">New<a class="headerlink" href="#new" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>pydantic-ai-slim[litellm]</code> (v0.0.36+, installed: 1.70.0) — core agent framework with LiteLLM provider</li>
+<li><code>logfire[pydantic-ai]</code> (optional, v3.0.0+) — observability</li>
+</ul>
+<h3 id="potentially-removable">Potentially removable<a class="headerlink" href="#potentially-removable" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>instructor</code> — replaced by PydanticAI's native structured output</li>
+<li>Direct <code>litellm</code> usage in providers — PydanticAI wraps LiteLLM internally (note: LiteLLM may still be needed for provider-specific config or features not exposed by PydanticAI)</li>
+</ul>
+<hr />
+<h2 id="success-criteria">Success Criteria<a class="headerlink" href="#success-criteria" title="Permanent link">&para;</a></h2>
+<ul>
+<li>All existing tests pass</li>
+<li>RR benchmark scores equal or better than current implementation</li>
+<li>Net code reduction of ~2,500+ lines</li>
+<li>Single consistent retry/validation behavior across all roles</li>
+<li>No changes to pipeline engine or step contracts</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.highlight", "search.share", "content.code.copy", "content.tabs.link"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
