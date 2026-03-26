@@ -1,6 +1,8 @@
 # Integration Pattern
 
-Use the integration pattern when you have an **existing agent** (browser-use, LangChain, Claude Code, or a custom framework) and want to add ACE learning on top.
+Use the integration pattern when you have an **existing agent** (browser-use,
+LangChain, Claude Code, the Anthropic SDK, or a custom framework) and want to
+add ACE learning on top.
 
 !!! note "Full Pipeline vs Integration"
     The [Full Pipeline](full-pipeline.md) uses all three ACE roles. The integration pattern skips the ACE Agent — your external agent handles execution, and ACE only learns from the results.
@@ -52,6 +54,24 @@ ACE provides runners for popular frameworks. Each uses `from_model()` for quick 
     results = runner.run(["Add tests for utils.py", "Fix the login bug"])
     runner.save("code_expert.json")
     ```
+
+## Direct SDK Steps
+
+The Anthropic SDK integration is step-based rather than runner-based. Use it
+when you want direct Messages API access, tool use, validated result models,
+and Logfire observability inside your own pipeline:
+
+```python
+from ace import Pipeline, Reflector, SkillManager, Skillbook, learning_tail
+from ace.integrations import ClaudeSDKExecuteStep, ClaudeSDKToTrace
+
+skillbook = Skillbook()
+pipe = Pipeline([
+    ClaudeSDKExecuteStep(model="claude-sonnet-4-20250514"),
+    ClaudeSDKToTrace(),
+    *learning_tail(Reflector("gpt-4o-mini"), SkillManager("gpt-4o-mini"), skillbook),
+])
+```
 
 ## Construction Patterns
 
@@ -149,3 +169,4 @@ See [Pipeline Engine: Building Custom Steps](../pipeline/custom-steps.md) for th
 - [Browser-Use Integration](../integrations/browser-use.md) — browser automation details
 - [LangChain Integration](../integrations/langchain.md) — chain/agent wrapping
 - [Claude Code Integration](../integrations/claude-code.md) — coding tasks
+- [Claude SDK Integration](../integrations/claude-sdk.md) — direct Anthropic API steps

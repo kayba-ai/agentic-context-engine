@@ -95,6 +95,28 @@ results = runner.run("Add unit tests for utils.py")
 
 See [Claude Code Integration](../integrations/claude-code.md).
 
+### ClaudeSDKExecuteStep / ClaudeSDKToTrace
+
+Direct Anthropic Messages API steps for custom pipelines.
+
+```python
+from ace import Pipeline, Reflector, SkillManager, Skillbook, learning_tail
+from ace.integrations import ClaudeSDKExecuteStep, ClaudeSDKToTrace
+
+skillbook = Skillbook()
+pipe = Pipeline([
+    ClaudeSDKExecuteStep(model="claude-sonnet-4-20250514"),
+    ClaudeSDKToTrace(),
+    *learning_tail(Reflector("gpt-4o-mini"), SkillManager("gpt-4o-mini"), skillbook),
+])
+```
+
+`ClaudeSDKResult` and `ToolCall` are Pydantic models, so token counts, latency,
+tool calls, and serialization are validated before the learning tail consumes
+the trace.
+
+See [Claude SDK Integration](../integrations/claude-sdk.md).
+
 ---
 
 ## Roles

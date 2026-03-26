@@ -1,6 +1,8 @@
 # Integrations Overview
 
-ACE provides runners for popular agentic frameworks. Each runner adds self-improving learning to an existing agent with minimal code changes.
+ACE provides both runners and step-based integrations for popular agentic
+frameworks. Some integrations are full runners, while others are composable
+pipeline steps you can drop into a custom `Pipeline`.
 
 ## Available Integrations
 
@@ -10,6 +12,7 @@ ACE provides runners for popular agentic frameworks. Each runner adds self-impro
 | [`LangChain`](langchain.md) | LangChain Runnables | Chain inputs | Meso |
 | [`BrowserUse`](browser-use.md) | browser-use | Task strings | Meso |
 | [`ClaudeCode`](claude-code.md) | Claude Code CLI | Task strings | Meso |
+| [`Claude SDK`](claude-sdk.md) | Anthropic Python SDK | Task strings or `ACESample` | Meso |
 | [OpenClaw](openclaw.md) | OpenClaw transcripts | JSONL trace files | Meso |
 | [MCP Server](mcp.md) | MCP (stdio) | Tool calls | Micro |
 | [Opik](opik.md) | Opik observability | — | Monitoring |
@@ -42,6 +45,20 @@ chain = LangChain.from_model(my_runnable, ace_model="gpt-4o-mini")
 coder = ClaudeCode.from_model(working_dir="./project", ace_model="gpt-4o-mini")
 ```
 
+For direct Anthropic API usage without a runner, compose the SDK steps directly:
+
+```python
+from ace import Pipeline, Reflector, SkillManager, Skillbook, learning_tail
+from ace.integrations import ClaudeSDKExecuteStep, ClaudeSDKToTrace
+
+skillbook = Skillbook()
+pipe = Pipeline([
+    ClaudeSDKExecuteStep(model="claude-sonnet-4-20250514"),
+    ClaudeSDKToTrace(),
+    *learning_tail(Reflector("gpt-4o-mini"), SkillManager("gpt-4o-mini"), skillbook),
+])
+```
+
 ## Shared Features
 
 All runners share these capabilities:
@@ -58,6 +75,7 @@ All runners share these capabilities:
 - **Have an existing LangChain chain or agent?** Use [LangChain](langchain.md)
 - **Automating browser tasks?** Use [BrowserUse](browser-use.md)
 - **Running coding tasks with Claude Code?** Use [ClaudeCode](claude-code.md)
+- **Calling Anthropic directly from your own pipeline?** Use [Claude SDK](claude-sdk.md)
 - **Want to monitor costs and traces?** Add [Opik](opik.md)
 - **Learning from OpenClaw session transcripts?** Use [OpenClaw](openclaw.md)
 - **Exposing ACE as an MCP tool provider?** Use the [MCP Server](mcp.md)
