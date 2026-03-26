@@ -6,7 +6,10 @@ import re
 from typing import TYPE_CHECKING, List, Optional, Sequence
 
 if TYPE_CHECKING:
+    from ..core.context import SkillbookView
     from ..core.skillbook import Skillbook
+
+    SkillbookLike = Skillbook | SkillbookView
 
 
 def extract_cited_skill_ids(text: str) -> List[str]:
@@ -35,7 +38,7 @@ def format_optional(value: Optional[str]) -> str:
     return value or "(none)"
 
 
-def make_skillbook_excerpt(skillbook: "Skillbook", skill_ids: Sequence[str]) -> str:
+def make_skillbook_excerpt(skillbook: "SkillbookLike", skill_ids: Sequence[str]) -> str:
     """Build a compact excerpt of cited skills.
 
     Args:

@@ -243,6 +243,8 @@ def create_rr_agent(
         if not items:
             return []
 
+        sub = ctx.deps.sub_agent  # narrowed to non-None above
+
         sys_prompt = (
             SUBAGENT_DEEPDIVE_PROMPT if mode == "deep_dive"
             else SUBAGENT_ANALYSIS_PROMPT
@@ -256,7 +258,7 @@ def create_rr_agent(
                 f"## Your Analysis"
             )
             try:
-                result = ctx.deps.sub_agent.run_sync(prompt)
+                result = sub.run_sync(prompt)
                 return result.output
             except Exception as e:
                 return f"(Error: {e})"
