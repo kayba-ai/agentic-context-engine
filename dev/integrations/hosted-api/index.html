@@ -1620,10 +1620,21 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#upload-traces" class="md-nav__link">
+  <a href="#trace-management" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Upload traces
+        Trace management
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#run-the-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Run the pipeline
       
     </span>
   </a>
@@ -1657,6 +1668,17 @@
     <span class="md-ellipsis">
       
         Generate and pull prompts
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#integrations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Integrations
       
     </span>
   </a>
@@ -1702,13 +1724,41 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#end-to-end-workflow" class="md-nav__link">
+  <a href="#end-to-end-workflows" class="md-nav__link">
     <span class="md-ellipsis">
       
-        End-to-end workflow
+        End-to-end workflows
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="End-to-end workflows">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#interactive-human-at-terminal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interactive (human at terminal)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#programmatic-agent-or-script" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Programmatic (agent or script)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1860,10 +1910,21 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#upload-traces" class="md-nav__link">
+  <a href="#trace-management" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Upload traces
+        Trace management
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#run-the-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Run the pipeline
       
     </span>
   </a>
@@ -1897,6 +1958,17 @@
     <span class="md-ellipsis">
       
         Generate and pull prompts
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#integrations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Integrations
       
     </span>
   </a>
@@ -1942,13 +2014,41 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#end-to-end-workflow" class="md-nav__link">
+  <a href="#end-to-end-workflows" class="md-nav__link">
     <span class="md-ellipsis">
       
-        End-to-end workflow
+        End-to-end workflows
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="End-to-end workflows">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#interactive-human-at-terminal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interactive (human at terminal)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#programmatic-agent-or-script" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Programmatic (agent or script)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -2024,7 +2124,7 @@
 <li>An Anthropic API key (set <code>ANTHROPIC_API_KEY</code>) — used server-side for LLM calls when generating insights.</li>
 <li>Install the <code>cloud</code> extra:</li>
 </ol>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>ace-framework<span class="o">[</span>cloud<span class="o">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>uv<span class="w"> </span>add<span class="w"> </span>ace-framework<span class="o">[</span>cloud<span class="o">]</span>
 </code></pre></div>
 <p>Or if you installed from source:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>uv<span class="w"> </span>sync
@@ -2032,34 +2132,50 @@
 <h2 id="authentication">Authentication<a class="headerlink" href="#authentication" title="Permanent link">&para;</a></h2>
 <p>Every command reads <code>KAYBA_API_KEY</code> from the environment. You can also pass it explicitly:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">KAYBA_API_KEY</span><span class="o">=</span>your-key-here
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>kayba<span class="w"> </span>upload<span class="w"> </span>traces/
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>kayba<span class="w"> </span>traces<span class="w"> </span>list
 </code></pre></div>
 <p>The default API endpoint is <code>https://use.kayba.ai/api</code>. Override it with <code>KAYBA_API_URL</code> or <code>--base-url</code>.</p>
 <h2 id="cli-reference">CLI Reference<a class="headerlink" href="#cli-reference" title="Permanent link">&para;</a></h2>
-<h3 id="upload-traces">Upload traces<a class="headerlink" href="#upload-traces" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Single file</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>kayba<span class="w"> </span>upload<span class="w"> </span>trace.md
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># Directory (recursive)</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>kayba<span class="w"> </span>upload<span class="w"> </span>traces/
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="c1"># Pipe from stdin</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>cat<span class="w"> </span>trace.md<span class="w"> </span><span class="p">|</span><span class="w"> </span>kayba<span class="w"> </span>upload<span class="w"> </span>-
+<h3 id="trace-management">Trace management<a class="headerlink" href="#trace-management" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># List uploaded traces</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>kayba<span class="w"> </span>traces<span class="w"> </span>list
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>kayba<span class="w"> </span>traces<span class="w"> </span>list<span class="w"> </span>--json<span class="w">          </span><span class="c1"># machine-parseable output</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="c1"># View a trace</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>kayba<span class="w"> </span>traces<span class="w"> </span>show<span class="w"> </span>TRACE_ID
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>kayba<span class="w"> </span>traces<span class="w"> </span>show<span class="w"> </span>TRACE_ID<span class="w"> </span>--meta<span class="w">  </span><span class="c1"># metadata only, no content</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>kayba<span class="w"> </span>traces<span class="w"> </span>show<span class="w"> </span>TRACE_ID<span class="w"> </span>--json
 <a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="c1"># Force file type</span>
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>kayba<span class="w"> </span>upload<span class="w"> </span>traces/<span class="w"> </span>--type<span class="w"> </span>json
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="c1"># Upload traces</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>kayba<span class="w"> </span>traces<span class="w"> </span>upload<span class="w"> </span>trace.md
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>kayba<span class="w"> </span>traces<span class="w"> </span>upload<span class="w"> </span>traces/<span class="w">       </span><span class="c1"># directory (recursive)</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>kayba<span class="w"> </span>traces<span class="w"> </span>upload<span class="w"> </span>--type<span class="w"> </span>json<span class="w"> </span>traces/<span class="w">  </span><span class="c1"># force file type</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>cat<span class="w"> </span>trace.md<span class="w"> </span><span class="p">|</span><span class="w"> </span>kayba<span class="w"> </span>upload<span class="w"> </span>-<span class="w">     </span><span class="c1"># pipe from stdin (top-level alias)</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="c1"># Delete traces</span>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>kayba<span class="w"> </span>traces<span class="w"> </span>delete<span class="w"> </span>ID1<span class="w"> </span>ID2
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>kayba<span class="w"> </span>traces<span class="w"> </span>delete<span class="w"> </span>ID1<span class="w"> </span>--force<span class="w">   </span><span class="c1"># skip confirmation</span>
 </code></pre></div>
 <p>Files larger than 350k characters trigger a warning. Supported types: <code>md</code>, <code>json</code>, <code>txt</code> (auto-detected from extension).</p>
-<h3 id="generate-insights">Generate insights<a class="headerlink" href="#generate-insights" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># From all uploaded traces</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>kayba<span class="w"> </span>insights<span class="w"> </span>generate<span class="w"> </span>--wait
+<h3 id="run-the-pipeline">Run the pipeline<a class="headerlink" href="#run-the-pipeline" title="Permanent link">&para;</a></h3>
+<p>The <code>run</code> command combines trace selection and pipeline execution:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Interactive mode (visual checkbox selector)</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>kayba<span class="w"> </span>run
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># Specific traces</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>kayba<span class="w"> </span>insights<span class="w"> </span>generate<span class="w"> </span>--traces<span class="w"> </span>ID1<span class="w"> </span>--traces<span class="w"> </span>ID2
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># Select all traces</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>kayba<span class="w"> </span>run<span class="w"> </span>--all<span class="w"> </span>--wait
 <a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="c1"># Custom model and epochs</span>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>kayba<span class="w"> </span>insights<span class="w"> </span>generate<span class="w"> </span>--model<span class="w"> </span>claude-opus-4-6<span class="w"> </span>--epochs<span class="w"> </span><span class="m">3</span><span class="w"> </span>--wait
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="c1"># Explicit trace IDs</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>kayba<span class="w"> </span>run<span class="w"> </span>--traces<span class="w"> </span>ID1<span class="w"> </span>--traces<span class="w"> </span>ID2
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="c1"># Custom model, epochs, and reflector mode</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>kayba<span class="w"> </span>run<span class="w"> </span>--all<span class="w"> </span>--model<span class="w"> </span>claude-opus-4-6<span class="w"> </span>--epochs<span class="w"> </span><span class="m">3</span><span class="w"> </span>--reflector-mode<span class="w"> </span>recursive<span class="w"> </span>--wait
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="c1"># Machine-parseable output (for agents/scripts)</span>
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>kayba<span class="w"> </span>run<span class="w"> </span>--all<span class="w"> </span>--json
 </code></pre></div>
+<p>In interactive mode (<code>kayba run</code> with no flags), a visual checkbox selector lets you pick traces with arrow keys, space to toggle, and enter to confirm. Requires the <code>questionary</code> package (included in the <code>cloud</code> extra).</p>
+<p>In programmatic mode (<code>--traces</code>, <code>--all</code>, or <code>--json</code>), no prompts are shown — suitable for agents and scripts.</p>
 <p>Options:</p>
 <table>
 <thead>
@@ -2072,6 +2188,10 @@
 <tr>
 <td><code>--traces ID</code></td>
 <td>Trace IDs to analyse (repeatable)</td>
+</tr>
+<tr>
+<td><code>--all</code></td>
+<td>Select all uploaded traces</td>
 </tr>
 <tr>
 <td><code>--model</code></td>
@@ -2093,68 +2213,102 @@
 <td><code>--wait</code></td>
 <td>Poll until the job completes</td>
 </tr>
+<tr>
+<td><code>--json</code></td>
+<td>Machine-parseable JSON output</td>
+</tr>
 </tbody>
 </table>
-<h3 id="list-and-triage-insights">List and triage insights<a class="headerlink" href="#list-and-triage-insights" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># List all</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>kayba<span class="w"> </span>insights<span class="w"> </span>list
+<h3 id="generate-insights">Generate insights<a class="headerlink" href="#generate-insights" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># From all uploaded traces</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>kayba<span class="w"> </span>insights<span class="w"> </span>generate<span class="w"> </span>--wait
 <a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># Filter by status</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>kayba<span class="w"> </span>insights<span class="w"> </span>list<span class="w"> </span>--status<span class="w"> </span>pending
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># Specific traces</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>kayba<span class="w"> </span>insights<span class="w"> </span>generate<span class="w"> </span>--traces<span class="w"> </span>ID1<span class="w"> </span>--traces<span class="w"> </span>ID2
 <a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="c1"># JSON output</span>
-<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>kayba<span class="w"> </span>insights<span class="w"> </span>list<span class="w"> </span>--json
-<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>
-<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="c1"># Accept specific insights</span>
-<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>kayba<span class="w"> </span>insights<span class="w"> </span>triage<span class="w"> </span>--accept<span class="w"> </span>ID1<span class="w"> </span>--accept<span class="w"> </span>ID2
-<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>
-<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="c1"># Accept all pending</span>
-<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>kayba<span class="w"> </span>insights<span class="w"> </span>triage<span class="w"> </span>--accept-all
-<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>
-<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="c1"># Reject with a note</span>
-<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a>kayba<span class="w"> </span>insights<span class="w"> </span>triage<span class="w"> </span>--reject<span class="w"> </span>ID1<span class="w"> </span>--note<span class="w"> </span><span class="s2">&quot;Too vague&quot;</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="c1"># Custom model and epochs</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>kayba<span class="w"> </span>insights<span class="w"> </span>generate<span class="w"> </span>--model<span class="w"> </span>claude-opus-4-6<span class="w"> </span>--epochs<span class="w"> </span><span class="m">3</span><span class="w"> </span>--wait
+</code></pre></div>
+<h3 id="list-and-triage-insights">List and triage insights<a class="headerlink" href="#list-and-triage-insights" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># List all</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>kayba<span class="w"> </span>insights<span class="w"> </span>list
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># Filter by status</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>kayba<span class="w"> </span>insights<span class="w"> </span>list<span class="w"> </span>--status<span class="w"> </span>pending
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="c1"># JSON output</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>kayba<span class="w"> </span>insights<span class="w"> </span>list<span class="w"> </span>--json
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="c1"># Accept specific insights</span>
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>kayba<span class="w"> </span>insights<span class="w"> </span>triage<span class="w"> </span>--accept<span class="w"> </span>ID1<span class="w"> </span>--accept<span class="w"> </span>ID2
+<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>
+<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="c1"># Accept all pending</span>
+<a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a>kayba<span class="w"> </span>insights<span class="w"> </span>triage<span class="w"> </span>--accept-all
+<a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a>
+<a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="c1"># Reject with a note</span>
+<a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a>kayba<span class="w"> </span>insights<span class="w"> </span>triage<span class="w"> </span>--reject<span class="w"> </span>ID1<span class="w"> </span>--note<span class="w"> </span><span class="s2">&quot;Too vague&quot;</span>
 </code></pre></div>
 <h3 id="generate-and-pull-prompts">Generate and pull prompts<a class="headerlink" href="#generate-and-pull-prompts" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Generate a prompt from accepted insights</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>kayba<span class="w"> </span>prompts<span class="w"> </span>generate
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># Generate with a label and save to file</span>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>kayba<span class="w"> </span>prompts<span class="w"> </span>generate<span class="w"> </span>--label<span class="w"> </span><span class="s2">&quot;v2-coding&quot;</span><span class="w"> </span>-o<span class="w"> </span>prompt.md
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>
-<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="c1"># List prompt versions</span>
-<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>kayba<span class="w"> </span>prompts<span class="w"> </span>list
-<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>
-<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="c1"># Pull latest prompt</span>
-<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>kayba<span class="w"> </span>prompts<span class="w"> </span>pull
-<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>
-<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="c1"># Pull specific version</span>
-<a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a>kayba<span class="w"> </span>prompts<span class="w"> </span>pull<span class="w"> </span>--id<span class="w"> </span>PROMPT_ID<span class="w"> </span>-o<span class="w"> </span>skillbook-prompt.md
-<a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a>
-<a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="c1"># Pretty-print full JSON</span>
-<a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a>kayba<span class="w"> </span>prompts<span class="w"> </span>pull<span class="w"> </span>--pretty
-</code></pre></div>
-<h3 id="job-status-and-materialisation">Job status and materialisation<a class="headerlink" href="#job-status-and-materialisation" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Check job status</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>kayba<span class="w"> </span>status<span class="w"> </span>JOB_ID
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Generate a prompt from accepted insights</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>kayba<span class="w"> </span>prompts<span class="w"> </span>generate
 <a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1"># Poll until complete</span>
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>kayba<span class="w"> </span>status<span class="w"> </span>JOB_ID<span class="w"> </span>--wait<span class="w"> </span>--interval<span class="w"> </span><span class="m">10</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1"># Generate with a label and save to file</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>kayba<span class="w"> </span>prompts<span class="w"> </span>generate<span class="w"> </span>--label<span class="w"> </span><span class="s2">&quot;v2-coding&quot;</span><span class="w"> </span>-o<span class="w"> </span>prompt.md
 <a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>
-<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="c1"># Materialise results into the skillbook</span>
-<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>kayba<span class="w"> </span>materialize<span class="w"> </span>JOB_ID
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="c1"># List prompt versions</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>kayba<span class="w"> </span>prompts<span class="w"> </span>list
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="c1"># Pull latest prompt</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>kayba<span class="w"> </span>prompts<span class="w"> </span>pull
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>
+<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="c1"># Pull specific version</span>
+<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>kayba<span class="w"> </span>prompts<span class="w"> </span>pull<span class="w"> </span>--id<span class="w"> </span>PROMPT_ID<span class="w"> </span>-o<span class="w"> </span>skillbook-prompt.md
+<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>
+<a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a><span class="c1"># Pretty-print full JSON</span>
+<a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a>kayba<span class="w"> </span>prompts<span class="w"> </span>pull<span class="w"> </span>--pretty
+</code></pre></div>
+<h3 id="integrations">Integrations<a class="headerlink" href="#integrations" title="Permanent link">&para;</a></h3>
+<p>Manage connections to external trace platforms (MLflow, LangSmith).</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># List configured integrations</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>kayba<span class="w"> </span>integrations<span class="w"> </span>list
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>kayba<span class="w"> </span>integrations<span class="w"> </span>list<span class="w"> </span>--json
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="c1"># Interactively configure an integration</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>kayba<span class="w"> </span>integrations<span class="w"> </span>configure<span class="w"> </span>mlflow
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>kayba<span class="w"> </span>integrations<span class="w"> </span>configure<span class="w"> </span>langsmith
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="c1"># Test a connection</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>kayba<span class="w"> </span>integrations<span class="w"> </span><span class="nb">test</span><span class="w"> </span>langsmith
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>kayba<span class="w"> </span>integrations<span class="w"> </span><span class="nb">test</span><span class="w"> </span>mlflow
+</code></pre></div>
+<p>The <code>configure</code> command prompts for each field interactively:</p>
+<ul>
+<li><strong>MLflow</strong>: tracking URI, auth type (none/basic/bearer/databricks), token, username, experiment name</li>
+<li><strong>LangSmith</strong>: API URL (defaults to <code>https://api.smith.langchain.com</code>, use <code>https://eu.api.smith.langchain.com</code> for EU), API key, project name</li>
+</ul>
+<p>After saving, the connection is automatically tested. Credentials are stored in your Kayba account settings (DynamoDB), accessible from both the CLI and the web dashboard.</p>
+<h3 id="job-status-and-materialisation">Job status and materialisation<a class="headerlink" href="#job-status-and-materialisation" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># Check job status</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>kayba<span class="w"> </span>status<span class="w"> </span>JOB_ID
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="c1"># Poll until complete</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>kayba<span class="w"> </span>status<span class="w"> </span>JOB_ID<span class="w"> </span>--wait<span class="w"> </span>--interval<span class="w"> </span><span class="m">10</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="c1"># Materialise results into the skillbook</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>kayba<span class="w"> </span>materialize<span class="w"> </span>JOB_ID
 </code></pre></div>
 <h3 id="batch-pre-processing">Batch pre-processing<a class="headerlink" href="#batch-pre-processing" title="Permanent link">&para;</a></h3>
 <p>The <code>batch</code> command groups traces into batches before analysis. It works in two modes:</p>
 <p><strong>Prepare mode</strong> (default) — extracts trace metadata and prints a classification prompt:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>kayba<span class="w"> </span>batch<span class="w"> </span>traces/
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>kayba<span class="w"> </span>batch<span class="w"> </span>traces/
 </code></pre></div>
 <p>This writes a skeleton <code>batches.json</code> and prints a prompt to stdout. Pipe it to an LLM (e.g. Claude Code) to fill in the batch assignments.</p>
 <p><strong>Apply mode</strong> — validates and optionally uploads a batch plan:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># Validate only</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>kayba<span class="w"> </span>batch<span class="w"> </span>traces/<span class="w"> </span>--apply<span class="w"> </span>batches.json
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="c1"># Validate and upload each batch</span>
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>kayba<span class="w"> </span>batch<span class="w"> </span>traces/<span class="w"> </span>--apply<span class="w"> </span>batches.json<span class="w"> </span>--upload
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># Validate only</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>kayba<span class="w"> </span>batch<span class="w"> </span>traces/<span class="w"> </span>--apply<span class="w"> </span>batches.json
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="c1"># Validate and upload each batch</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>kayba<span class="w"> </span>batch<span class="w"> </span>traces/<span class="w"> </span>--apply<span class="w"> </span>batches.json<span class="w"> </span>--upload
 </code></pre></div>
 <p>Options:</p>
 <table>
@@ -2192,17 +2346,17 @@
 </tbody>
 </table>
 <h3 id="agent-setup">Agent setup<a class="headerlink" href="#agent-setup" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># Print CLI instructions and install pipeline skills</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>kayba<span class="w"> </span>setup
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="c1"># Append to a project agent file</span>
-<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>kayba<span class="w"> </span>setup<span class="w"> </span>--append-to<span class="w"> </span>AGENTS.md
-<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>
-<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="c1"># Skip skill installation</span>
-<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>kayba<span class="w"> </span>setup<span class="w"> </span>--no-skills
-<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>
-<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="c1"># Install into a different project</span>
-<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>kayba<span class="w"> </span>setup<span class="w"> </span>--project-dir<span class="w"> </span>/path/to/project
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># Print CLI instructions and install pipeline skills</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>kayba<span class="w"> </span>setup
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="c1"># Append to a project agent file</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>kayba<span class="w"> </span>setup<span class="w"> </span>--append-to<span class="w"> </span>AGENTS.md
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="c1"># Skip skill installation</span>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>kayba<span class="w"> </span>setup<span class="w"> </span>--no-skills
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="c1"># Install into a different project</span>
+<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>kayba<span class="w"> </span>setup<span class="w"> </span>--project-dir<span class="w"> </span>/path/to/project
 </code></pre></div>
 <p>Options:</p>
 <table>
@@ -2228,50 +2382,78 @@
 </tbody>
 </table>
 <p>By default <code>kayba setup</code> copies the <strong>kayba-pipeline</strong> skill into <code>.claude/skills/</code>. This skill orchestrates a 7-stage evaluation pipeline (analyze traces → compute metrics → build rubric → plan fixes → HITL review → apply fixes → verify). See <a href="../claude-code/#pipeline-skill">Claude Code</a> for details.</p>
-<h2 id="end-to-end-workflow">End-to-end workflow<a class="headerlink" href="#end-to-end-workflow" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># 1. Upload traces</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>kayba<span class="w"> </span>upload<span class="w"> </span>traces/
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="c1"># 2. Generate insights (waits for completion)</span>
-<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>kayba<span class="w"> </span>insights<span class="w"> </span>generate<span class="w"> </span>--wait
-<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>
-<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="c1"># 3. Review insights</span>
-<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>kayba<span class="w"> </span>insights<span class="w"> </span>list<span class="w"> </span>--status<span class="w"> </span>pending
-<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>
-<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="c1"># 4. Accept the good ones</span>
-<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a>kayba<span class="w"> </span>insights<span class="w"> </span>triage<span class="w"> </span>--accept-all
-<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a>
-<a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="c1"># 5. Generate a prompt</span>
-<a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a>kayba<span class="w"> </span>prompts<span class="w"> </span>generate<span class="w"> </span>-o<span class="w"> </span>prompt.md
-<a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a>
-<a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a><span class="c1"># 6. Use the prompt in your agent</span>
-<a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a>cat<span class="w"> </span>prompt.md
+<h2 id="end-to-end-workflows">End-to-end workflows<a class="headerlink" href="#end-to-end-workflows" title="Permanent link">&para;</a></h2>
+<h3 id="interactive-human-at-terminal">Interactive (human at terminal)<a class="headerlink" href="#interactive-human-at-terminal" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># 1. Upload traces</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>kayba<span class="w"> </span>traces<span class="w"> </span>upload<span class="w"> </span>traces/
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="c1"># 2. Run the pipeline (interactive trace selector)</span>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>kayba<span class="w"> </span>run
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="c1"># 3. Review insights</span>
+<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>kayba<span class="w"> </span>insights<span class="w"> </span>list<span class="w"> </span>--status<span class="w"> </span>pending
+<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>kayba<span class="w"> </span>insights<span class="w"> </span>triage<span class="w"> </span>--accept-all
+<a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a>
+<a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a><span class="c1"># 4. Generate a prompt</span>
+<a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a>kayba<span class="w"> </span>prompts<span class="w"> </span>generate<span class="w"> </span>-o<span class="w"> </span>prompt.md
+</code></pre></div>
+<h3 id="programmatic-agent-or-script">Programmatic (agent or script)<a class="headerlink" href="#programmatic-agent-or-script" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1"># 1. Upload traces</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>kayba<span class="w"> </span>traces<span class="w"> </span>upload<span class="w"> </span>traces/
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="c1"># 2. List what was uploaded</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="nv">TRACES</span><span class="o">=</span><span class="k">$(</span>kayba<span class="w"> </span>traces<span class="w"> </span>list<span class="w"> </span>--json<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;.[].id&#39;</span><span class="k">)</span>
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>
+<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="c1"># 3. Run the pipeline on all traces</span>
+<a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="nv">JOB_ID</span><span class="o">=</span><span class="k">$(</span>kayba<span class="w"> </span>run<span class="w"> </span>--all<span class="w"> </span>--json<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;.jobId&#39;</span><span class="k">)</span>
+<a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>
+<a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a><span class="c1"># 4. Wait for completion</span>
+<a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a>kayba<span class="w"> </span>status<span class="w"> </span><span class="nv">$JOB_ID</span><span class="w"> </span>--wait
+<a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a>
+<a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a><span class="c1"># 5. Accept all insights and generate prompt</span>
+<a id="__codelineno-14-14" name="__codelineno-14-14" href="#__codelineno-14-14"></a>kayba<span class="w"> </span>insights<span class="w"> </span>triage<span class="w"> </span>--accept-all
+<a id="__codelineno-14-15" name="__codelineno-14-15" href="#__codelineno-14-15"></a>kayba<span class="w"> </span>prompts<span class="w"> </span>generate<span class="w"> </span>-o<span class="w"> </span>prompt.md
 </code></pre></div>
 <h2 id="python-client">Python client<a class="headerlink" href="#python-client" title="Permanent link">&para;</a></h2>
 <p>The <code>KaybaClient</code> class can be used directly in Python code:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace.cli.client</span><span class="w"> </span><span class="kn">import</span> <span class="n">KaybaClient</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="n">client</span> <span class="o">=</span> <span class="n">KaybaClient</span><span class="p">(</span><span class="n">api_key</span><span class="o">=</span><span class="s2">&quot;your-key&quot;</span><span class="p">)</span>
-<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>
-<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="c1"># Upload traces</span>
-<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="n">result</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">upload_traces</span><span class="p">([</span>
-<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>    <span class="p">{</span><span class="s2">&quot;filename&quot;</span><span class="p">:</span> <span class="s2">&quot;trace.md&quot;</span><span class="p">,</span> <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="s2">&quot;...&quot;</span><span class="p">,</span> <span class="s2">&quot;fileType&quot;</span><span class="p">:</span> <span class="s2">&quot;md&quot;</span><span class="p">},</span>
-<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="p">])</span>
-<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>
-<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="c1"># Generate insights</span>
-<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a><span class="n">job</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">generate_insights</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">&quot;claude-sonnet-4-6&quot;</span><span class="p">)</span>
-<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a>
-<a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a><span class="c1"># Check status</span>
-<a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a><span class="n">status</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">get_job</span><span class="p">(</span><span class="n">job</span><span class="p">[</span><span class="s2">&quot;jobId&quot;</span><span class="p">])</span>
-<a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a>
-<a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a><span class="c1"># List and triage</span>
-<a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a><span class="n">insights</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">list_insights</span><span class="p">(</span><span class="n">status</span><span class="o">=</span><span class="s2">&quot;pending&quot;</span><span class="p">)</span>
-<a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a><span class="n">client</span><span class="o">.</span><span class="n">triage_insight</span><span class="p">(</span><span class="n">insights</span><span class="p">[</span><span class="s2">&quot;insights&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="s2">&quot;id&quot;</span><span class="p">],</span> <span class="s2">&quot;accepted&quot;</span><span class="p">)</span>
-<a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a>
-<a id="__codelineno-12-20" name="__codelineno-12-20" href="#__codelineno-12-20"></a><span class="c1"># Generate and pull prompts</span>
-<a id="__codelineno-12-21" name="__codelineno-12-21" href="#__codelineno-12-21"></a><span class="n">client</span><span class="o">.</span><span class="n">generate_prompt</span><span class="p">()</span>
-<a id="__codelineno-12-22" name="__codelineno-12-22" href="#__codelineno-12-22"></a><span class="n">prompts</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">list_prompts</span><span class="p">()</span>
-<a id="__codelineno-12-23" name="__codelineno-12-23" href="#__codelineno-12-23"></a><span class="n">prompt</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">get_prompt</span><span class="p">(</span><span class="n">prompts</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s2">&quot;id&quot;</span><span class="p">])</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace.cli.client</span><span class="w"> </span><span class="kn">import</span> <span class="n">KaybaClient</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="n">client</span> <span class="o">=</span> <span class="n">KaybaClient</span><span class="p">(</span><span class="n">api_key</span><span class="o">=</span><span class="s2">&quot;your-key&quot;</span><span class="p">)</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="c1"># Trace management</span>
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="n">traces</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">list_traces</span><span class="p">()</span>
+<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="n">trace</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">get_trace</span><span class="p">(</span><span class="s2">&quot;conv-123&quot;</span><span class="p">)</span>
+<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="n">client</span><span class="o">.</span><span class="n">delete_trace</span><span class="p">(</span><span class="s2">&quot;conv-123&quot;</span><span class="p">)</span>
+<a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a><span class="n">result</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">upload_traces</span><span class="p">([</span>
+<a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a>    <span class="p">{</span><span class="s2">&quot;filename&quot;</span><span class="p">:</span> <span class="s2">&quot;trace.md&quot;</span><span class="p">,</span> <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="s2">&quot;...&quot;</span><span class="p">,</span> <span class="s2">&quot;fileType&quot;</span><span class="p">:</span> <span class="s2">&quot;md&quot;</span><span class="p">},</span>
+<a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a><span class="p">])</span>
+<a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a>
+<a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a><span class="c1"># Run pipeline</span>
+<a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a><span class="n">job</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">generate_insights</span><span class="p">(</span>
+<a id="__codelineno-15-15" name="__codelineno-15-15" href="#__codelineno-15-15"></a>    <span class="n">trace_ids</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;conv-123&quot;</span><span class="p">,</span> <span class="s2">&quot;conv-456&quot;</span><span class="p">],</span>
+<a id="__codelineno-15-16" name="__codelineno-15-16" href="#__codelineno-15-16"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">&quot;claude-sonnet-4-6&quot;</span><span class="p">,</span>
+<a id="__codelineno-15-17" name="__codelineno-15-17" href="#__codelineno-15-17"></a><span class="p">)</span>
+<a id="__codelineno-15-18" name="__codelineno-15-18" href="#__codelineno-15-18"></a>
+<a id="__codelineno-15-19" name="__codelineno-15-19" href="#__codelineno-15-19"></a><span class="c1"># Check status</span>
+<a id="__codelineno-15-20" name="__codelineno-15-20" href="#__codelineno-15-20"></a><span class="n">status</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">get_job</span><span class="p">(</span><span class="n">job</span><span class="p">[</span><span class="s2">&quot;jobId&quot;</span><span class="p">])</span>
+<a id="__codelineno-15-21" name="__codelineno-15-21" href="#__codelineno-15-21"></a>
+<a id="__codelineno-15-22" name="__codelineno-15-22" href="#__codelineno-15-22"></a><span class="c1"># List and triage</span>
+<a id="__codelineno-15-23" name="__codelineno-15-23" href="#__codelineno-15-23"></a><span class="n">insights</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">list_insights</span><span class="p">(</span><span class="n">status</span><span class="o">=</span><span class="s2">&quot;pending&quot;</span><span class="p">)</span>
+<a id="__codelineno-15-24" name="__codelineno-15-24" href="#__codelineno-15-24"></a><span class="n">client</span><span class="o">.</span><span class="n">triage_insight</span><span class="p">(</span><span class="n">insights</span><span class="p">[</span><span class="s2">&quot;insights&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="s2">&quot;id&quot;</span><span class="p">],</span> <span class="s2">&quot;accepted&quot;</span><span class="p">)</span>
+<a id="__codelineno-15-25" name="__codelineno-15-25" href="#__codelineno-15-25"></a>
+<a id="__codelineno-15-26" name="__codelineno-15-26" href="#__codelineno-15-26"></a><span class="c1"># Generate and pull prompts</span>
+<a id="__codelineno-15-27" name="__codelineno-15-27" href="#__codelineno-15-27"></a><span class="n">client</span><span class="o">.</span><span class="n">generate_prompt</span><span class="p">()</span>
+<a id="__codelineno-15-28" name="__codelineno-15-28" href="#__codelineno-15-28"></a><span class="n">prompts</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">list_prompts</span><span class="p">()</span>
+<a id="__codelineno-15-29" name="__codelineno-15-29" href="#__codelineno-15-29"></a><span class="n">prompt</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">get_prompt</span><span class="p">(</span><span class="n">prompts</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s2">&quot;id&quot;</span><span class="p">])</span>
+<a id="__codelineno-15-30" name="__codelineno-15-30" href="#__codelineno-15-30"></a>
+<a id="__codelineno-15-31" name="__codelineno-15-31" href="#__codelineno-15-31"></a><span class="c1"># Integrations</span>
+<a id="__codelineno-15-32" name="__codelineno-15-32" href="#__codelineno-15-32"></a><span class="n">integrations</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">get_integrations</span><span class="p">()</span>
+<a id="__codelineno-15-33" name="__codelineno-15-33" href="#__codelineno-15-33"></a><span class="n">client</span><span class="o">.</span><span class="n">update_integration</span><span class="p">(</span><span class="s2">&quot;langsmith&quot;</span><span class="p">,</span> <span class="p">{</span>
+<a id="__codelineno-15-34" name="__codelineno-15-34" href="#__codelineno-15-34"></a>    <span class="s2">&quot;enabled&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-15-35" name="__codelineno-15-35" href="#__codelineno-15-35"></a>    <span class="s2">&quot;apiUrl&quot;</span><span class="p">:</span> <span class="s2">&quot;https://eu.api.smith.langchain.com&quot;</span><span class="p">,</span>
+<a id="__codelineno-15-36" name="__codelineno-15-36" href="#__codelineno-15-36"></a>    <span class="s2">&quot;apiKey&quot;</span><span class="p">:</span> <span class="s2">&quot;lsv2_pt_...&quot;</span><span class="p">,</span>
+<a id="__codelineno-15-37" name="__codelineno-15-37" href="#__codelineno-15-37"></a><span class="p">})</span>
+<a id="__codelineno-15-38" name="__codelineno-15-38" href="#__codelineno-15-38"></a><span class="n">result</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">test_integration</span><span class="p">(</span><span class="s2">&quot;langsmith&quot;</span><span class="p">)</span>
 </code></pre></div>
 <h2 id="api-endpoints">API endpoints<a class="headerlink" href="#api-endpoints" title="Permanent link">&para;</a></h2>
 <table>
@@ -2284,9 +2466,29 @@
 </thead>
 <tbody>
 <tr>
+<td><code>GET</code></td>
+<td><code>/traces</code></td>
+<td><code>list_traces()</code></td>
+</tr>
+<tr>
 <td><code>POST</code></td>
 <td><code>/traces</code></td>
 <td><code>upload_traces()</code></td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/traces/:id</code></td>
+<td><code>get_trace()</code></td>
+</tr>
+<tr>
+<td><code>DELETE</code></td>
+<td><code>/traces/:id</code></td>
+<td><code>delete_trace()</code></td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/traces/batch</code></td>
+<td><code>get_traces()</code></td>
 </tr>
 <tr>
 <td><code>POST</code></td>
@@ -2328,6 +2530,21 @@
 <td><code>/prompts/:id</code></td>
 <td><code>get_prompt()</code></td>
 </tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/integrations</code></td>
+<td><code>get_integrations()</code></td>
+</tr>
+<tr>
+<td><code>PUT</code></td>
+<td><code>/integrations/:name</code></td>
+<td><code>update_integration()</code></td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/integrations/:name/test</code></td>
+<td><code>test_integration()</code></td>
+</tr>
 </tbody>
 </table>
 <h2 id="coding-agent-setup">Coding agent setup<a class="headerlink" href="#coding-agent-setup" title="Permanent link">&para;</a></h2>
@@ -2335,9 +2552,9 @@
 the full CLI reference in its context and know how to use every command. The pipeline skill is
 also installed to <code>.claude/skills/</code>, giving Claude Code access to the 7-stage evaluation pipeline.</p>
 <p><strong>Persistent (all future sessions):</strong> Append instructions to your project's agent file:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>kayba<span class="w"> </span>setup<span class="w"> </span>--append-to<span class="w"> </span>AGENTS.md<span class="w">      </span><span class="c1"># universal (Claude Code, Cursor, Copilot, Windsurf, etc.)</span>
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>kayba<span class="w"> </span>setup<span class="w"> </span>--append-to<span class="w"> </span>CLAUDE.md<span class="w">      </span><span class="c1"># Claude Code only</span>
-<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>kayba<span class="w"> </span>setup<span class="w"> </span>--append-to<span class="w"> </span>.cursorrules<span class="w">   </span><span class="c1"># Cursor only</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>kayba<span class="w"> </span>setup<span class="w"> </span>--append-to<span class="w"> </span>AGENTS.md<span class="w">      </span><span class="c1"># universal (Claude Code, Cursor, Copilot, Windsurf, etc.)</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>kayba<span class="w"> </span>setup<span class="w"> </span>--append-to<span class="w"> </span>CLAUDE.md<span class="w">      </span><span class="c1"># Claude Code only</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>kayba<span class="w"> </span>setup<span class="w"> </span>--append-to<span class="w"> </span>.cursorrules<span class="w">   </span><span class="c1"># Cursor only</span>
 </code></pre></div>
 <p><code>AGENTS.md</code> is the recommended target — it's the universal standard supported by 20+ coding agents.</p>
 <p>To skip skill installation (e.g. for non-Claude-Code agents), pass <code>--no-skills</code>.</p>

@@ -2712,10 +2712,10 @@
 <a id="__codelineno-24-14" name="__codelineno-24-14" href="#__codelineno-24-14"></a>
 <a id="__codelineno-24-15" name="__codelineno-24-15" href="#__codelineno-24-15"></a><span class="gu">### `debugging-00005`</span>
 <a id="__codelineno-24-16" name="__codelineno-24-16" href="#__codelineno-24-16"></a>
-<a id="__codelineno-24-17" name="__codelineno-24-17" href="#__codelineno-24-17"></a>Test litellm calls directly before debugging ace_next pipeline
+<a id="__codelineno-24-17" name="__codelineno-24-17" href="#__codelineno-24-17"></a>Test litellm calls directly before debugging ace pipeline
 <a id="__codelineno-24-18" name="__codelineno-24-18" href="#__codelineno-24-18"></a>
 <a id="__codelineno-24-19" name="__codelineno-24-19" href="#__codelineno-24-19"></a><span class="gs">**Justification:**</span> Systematic debugging approach that isolated authentication issues
-<a id="__codelineno-24-20" name="__codelineno-24-20" href="#__codelineno-24-20"></a><span class="gs">**Evidence:**</span> Direct litellm.completion() calls worked while ace_next failed
+<a id="__codelineno-24-20" name="__codelineno-24-20" href="#__codelineno-24-20"></a><span class="gs">**Evidence:**</span> Direct litellm.completion() calls worked while ace failed
 <a id="__codelineno-24-21" name="__codelineno-24-21" href="#__codelineno-24-21"></a>
 <a id="__codelineno-24-22" name="__codelineno-24-22" href="#__codelineno-24-22"></a><span class="ge">*Tags: helpful=1, harmful=0, neutral=0*</span>
 </code></pre></div>
@@ -2824,8 +2824,8 @@
 </code></pre></div>
 </details>
 <details class="question">
-<summary>Import errors for <code>ace_next</code> (host setup)</summary>
-<p>The Docker image includes a cloned copy of the ACE repo at <code>/opt/ace</code> with all dependencies pre-installed — this is handled by <code>Dockerfile.ace</code>. For the host setup, make sure you run from the ACE repo root with <code>uv run</code> so that <code>ace_next</code> is importable:</p>
+<summary>Import errors for <code>ace</code> (host setup)</summary>
+<p>The Docker image includes a cloned copy of the ACE repo at <code>/opt/ace</code> with all dependencies pre-installed — this is handled by <code>Dockerfile.ace</code>. For the host setup, make sure you run from the ACE repo root with <code>uv run</code> so that <code>ace</code> is importable:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="nb">cd</span><span class="w"> </span>/path/to/agentic-context-engine
 <a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>~/.openclaw/workspace/skills/kayba-ace/learn_from_traces.py
 </code></pre></div>

@@ -1782,9 +1782,7 @@
 <p>ACE (Agentic Context Engine) provides an optional MCP server that exposes ACE as a tool provider over the <a href="https://modelcontextprotocol.io/">Model Context Protocol</a>. Orchestration frameworks, IDEs (Cursor, Windsurf, Claude Code), and other MCP clients can connect to the server and use ACE skills at runtime.</p>
 <p>The integration is fully opt-in. Installing ACE without the <code>mcp</code> extra does not pull in the MCP SDK, and attempting to start <code>ace-mcp</code> without that extra will fail with an install hint instead of breaking normal ACE imports.</p>
 <h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;ace-framework[mcp]&quot;</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1"># or using uv:</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>uv<span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;ace-framework[mcp]&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>uv<span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;ace-framework[mcp]&quot;</span>
 </code></pre></div>
 <h2 id="running-the-server">Running the Server<a class="headerlink" href="#running-the-server" title="Permanent link">&para;</a></h2>
 <p>Start the server using the provided CLI entrypoint:</p>
@@ -2099,7 +2097,7 @@
 </code></pre></div>
 <p>Set <code>ACE_MCP_DEFAULT_MODEL</code> in the Inspector's environment variables panel before connecting.</p>
 <h2 id="file-layout">File Layout<a class="headerlink" href="#file-layout" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>ace_next/integrations/mcp/
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>ace/integrations/mcp/
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>  __init__.py       ← Package marker
 <a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>  server.py         ← Server creation and CLI entrypoint
 <a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>  config.py         ← MCPServerConfig (pydantic-settings, env vars)
