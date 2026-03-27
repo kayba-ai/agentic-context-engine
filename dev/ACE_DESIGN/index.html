@@ -1461,6 +1461,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../integrations/claude-sdk/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude SDK
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../integrations/opik/" class="md-nav__link">
         
   
@@ -2954,7 +2982,7 @@
 <td><code>ace/deduplication/</code></td>
 </tr>
 <tr>
-<td>Integration steps (<code>BrowserExecuteStep</code>, <code>LangChainExecuteStep</code>, <code>ClaudeCodeExecuteStep</code>)</td>
+<td>Integration steps (<code>BrowserExecuteStep</code>, <code>LangChainExecuteStep</code>, <code>ClaudeCodeExecuteStep</code>, <code>ClaudeSDKExecuteStep</code>)</td>
 <td>Done</td>
 <td><code>ace/integrations/</code></td>
 </tr>
@@ -3776,7 +3804,8 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace.integrations.browser_use</span><span class="w"> </span><span class="kn">import</span> <span class="n">BrowserExecuteStep</span><span class="p">,</span> <span class="n">BrowserToTrace</span>
 <a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace.integrations.langchain</span><span class="w"> </span><span class="kn">import</span> <span class="n">LangChainExecuteStep</span><span class="p">,</span> <span class="n">LangChainToTrace</span>
 <a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace.integrations.claude_code</span><span class="w"> </span><span class="kn">import</span> <span class="n">ClaudeCodeExecuteStep</span><span class="p">,</span> <span class="n">ClaudeCodeToTrace</span>
-<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace.integrations.openclaw</span><span class="w"> </span><span class="kn">import</span> <span class="n">OpenClawToTraceStep</span>
+<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace.integrations.claude_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">ClaudeSDKExecuteStep</span><span class="p">,</span> <span class="n">ClaudeSDKToTrace</span>
+<a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace.integrations.openclaw</span><span class="w"> </span><span class="kn">import</span> <span class="n">OpenClawToTraceStep</span>
 </code></pre></div>
 <p>Every runner also exposes a <code>build_steps()</code> classmethod that returns the step list it would compose internally, enabling users to inspect, modify, and recompose pipelines. See the <a href="../guides/composing-pipelines/">Composing Pipelines</a> guide.</p>
 <h3 id="step-summary">Step Summary<a class="headerlink" href="#step-summary" title="Permanent link">&para;</a></h3>
@@ -4373,7 +4402,7 @@
 </code></pre></div>
 <hr />
 <h2 id="integration-pattern">Integration Pattern<a class="headerlink" href="#integration-pattern" title="Permanent link">&para;</a></h2>
-<p>External frameworks (browser-use, LangChain, Claude Code) integrate via composable pipeline steps in <code>ace/integrations/</code>. Each integration provides three things:</p>
+<p>External frameworks (browser-use, LangChain, Claude Code, Anthropic SDK) integrate via composable pipeline steps in <code>ace/integrations/</code>. Each integration provides three things:</p>
 <ol>
 <li><strong>Result type</strong> — an integration-specific dataclass (e.g. <code>BrowserResult</code>, <code>ClaudeCodeResult</code>)</li>
 <li><strong>Execute step</strong> — INJECT skillbook context + EXECUTE the framework, writes the result to <code>ctx.trace</code></li>
@@ -4459,6 +4488,11 @@
 <td>Claude Code</td>
 <td><code>ClaudeCodeResult</code></td>
 <td><code>task</code>, <code>success</code>, <code>output</code>, <code>execution_trace</code>, <code>returncode</code>, <code>error</code></td>
+</tr>
+<tr>
+<td>Claude SDK</td>
+<td><code>ClaudeSDKResult</code></td>
+<td><code>task</code>, <code>success</code>, <code>output</code>, <code>error</code>, <code>model</code>, <code>stop_reason</code>, <code>input_tokens</code>, <code>output_tokens</code>, <code>total_tokens</code>, <code>latency_seconds</code>, <code>tool_calls</code>, <code>cited_skill_ids</code>, <code>raw_response</code></td>
 </tr>
 <tr>
 <td>LangChain</td>
@@ -4798,23 +4832,24 @@
 <a id="__codelineno-56-53" name="__codelineno-56-53" href="#__codelineno-56-53"></a>    browser_use.py            ← BrowserExecuteStep, BrowserResult, BrowserToTrace
 <a id="__codelineno-56-54" name="__codelineno-56-54" href="#__codelineno-56-54"></a>    langchain.py              ← LangChainExecuteStep, LangChainResult, LangChainToTrace
 <a id="__codelineno-56-55" name="__codelineno-56-55" href="#__codelineno-56-55"></a>    claude_code.py            ← ClaudeCodeExecuteStep, ClaudeCodeResult, ClaudeCodeToTrace
-<a id="__codelineno-56-56" name="__codelineno-56-56" href="#__codelineno-56-56"></a>    openclaw/
-<a id="__codelineno-56-57" name="__codelineno-56-57" href="#__codelineno-56-57"></a>      __init__.py             ← Exports OpenClawToTraceStep
-<a id="__codelineno-56-58" name="__codelineno-56-58" href="#__codelineno-56-58"></a>      to_trace.py             ← OpenClawToTraceStep (JSONL events → structured trace dict)
-<a id="__codelineno-56-59" name="__codelineno-56-59" href="#__codelineno-56-59"></a>    mcp/                        ← Optional MCP server (install with ace-framework[mcp])
-<a id="__codelineno-56-60" name="__codelineno-56-60" href="#__codelineno-56-60"></a>      __init__.py               ← Package marker
-<a id="__codelineno-56-61" name="__codelineno-56-61" href="#__codelineno-56-61"></a>      server.py                 ← Server creation and CLI entrypoint (ace-mcp)
-<a id="__codelineno-56-62" name="__codelineno-56-62" href="#__codelineno-56-62"></a>      config.py                 ← MCPServerConfig (pydantic-settings, env vars)
-<a id="__codelineno-56-63" name="__codelineno-56-63" href="#__codelineno-56-63"></a>      registry.py               ← SessionRegistry (session lifecycle, TTL sweep)
-<a id="__codelineno-56-64" name="__codelineno-56-64" href="#__codelineno-56-64"></a>      handlers.py               ← MCPHandlers (validation, safety, delegation to ACELiteLLM)
-<a id="__codelineno-56-65" name="__codelineno-56-65" href="#__codelineno-56-65"></a>      adapters.py               ← MCP SDK glue (tool registration, schema inlining, error mapping)
-<a id="__codelineno-56-66" name="__codelineno-56-66" href="#__codelineno-56-66"></a>      models.py                 ← Pydantic request/response models for all six tools
-<a id="__codelineno-56-67" name="__codelineno-56-67" href="#__codelineno-56-67"></a>      errors.py                 ← ACEMCPError hierarchy and MCP error mapping
-<a id="__codelineno-56-68" name="__codelineno-56-68" href="#__codelineno-56-68"></a>  providers/                  ← PydanticAI model resolution and configuration
-<a id="__codelineno-56-69" name="__codelineno-56-69" href="#__codelineno-56-69"></a>    __init__.py               ← Exports resolve_model, ACEModelConfig, etc.
-<a id="__codelineno-56-70" name="__codelineno-56-70" href="#__codelineno-56-70"></a>    pydantic_ai.py            ← resolve_model, settings_from_config
-<a id="__codelineno-56-71" name="__codelineno-56-71" href="#__codelineno-56-71"></a>    config.py                 ← ACEModelConfig, ModelConfig, load_config, save_config
-<a id="__codelineno-56-72" name="__codelineno-56-72" href="#__codelineno-56-72"></a>    registry.py               ← validate_connection, search_models
+<a id="__codelineno-56-56" name="__codelineno-56-56" href="#__codelineno-56-56"></a>    claude_sdk.py             ← ClaudeSDKExecuteStep, ClaudeSDKResult, ClaudeSDKToTrace
+<a id="__codelineno-56-57" name="__codelineno-56-57" href="#__codelineno-56-57"></a>    openclaw/
+<a id="__codelineno-56-58" name="__codelineno-56-58" href="#__codelineno-56-58"></a>      __init__.py             ← Exports OpenClawToTraceStep
+<a id="__codelineno-56-59" name="__codelineno-56-59" href="#__codelineno-56-59"></a>      to_trace.py             ← OpenClawToTraceStep (JSONL events → structured trace dict)
+<a id="__codelineno-56-60" name="__codelineno-56-60" href="#__codelineno-56-60"></a>    mcp/                        ← Optional MCP server (install with ace-framework[mcp])
+<a id="__codelineno-56-61" name="__codelineno-56-61" href="#__codelineno-56-61"></a>      __init__.py               ← Package marker
+<a id="__codelineno-56-62" name="__codelineno-56-62" href="#__codelineno-56-62"></a>      server.py                 ← Server creation and CLI entrypoint (ace-mcp)
+<a id="__codelineno-56-63" name="__codelineno-56-63" href="#__codelineno-56-63"></a>      config.py                 ← MCPServerConfig (pydantic-settings, env vars)
+<a id="__codelineno-56-64" name="__codelineno-56-64" href="#__codelineno-56-64"></a>      registry.py               ← SessionRegistry (session lifecycle, TTL sweep)
+<a id="__codelineno-56-65" name="__codelineno-56-65" href="#__codelineno-56-65"></a>      handlers.py               ← MCPHandlers (validation, safety, delegation to ACELiteLLM)
+<a id="__codelineno-56-66" name="__codelineno-56-66" href="#__codelineno-56-66"></a>      adapters.py               ← MCP SDK glue (tool registration, schema inlining, error mapping)
+<a id="__codelineno-56-67" name="__codelineno-56-67" href="#__codelineno-56-67"></a>      models.py                 ← Pydantic request/response models for all six tools
+<a id="__codelineno-56-68" name="__codelineno-56-68" href="#__codelineno-56-68"></a>      errors.py                 ← ACEMCPError hierarchy and MCP error mapping
+<a id="__codelineno-56-69" name="__codelineno-56-69" href="#__codelineno-56-69"></a>  providers/                  ← PydanticAI model resolution and configuration
+<a id="__codelineno-56-70" name="__codelineno-56-70" href="#__codelineno-56-70"></a>    __init__.py               ← Exports resolve_model, ACEModelConfig, etc.
+<a id="__codelineno-56-71" name="__codelineno-56-71" href="#__codelineno-56-71"></a>    pydantic_ai.py            ← resolve_model, settings_from_config
+<a id="__codelineno-56-72" name="__codelineno-56-72" href="#__codelineno-56-72"></a>    config.py                 ← ACEModelConfig, ModelConfig, load_config, save_config
+<a id="__codelineno-56-73" name="__codelineno-56-73" href="#__codelineno-56-73"></a>    registry.py               ← validate_connection, search_models
 </code></pre></div>
 <p>Each integration provides: (1) an execute step, (2) a result type, and (3) a ToTrace converter step. Runners in <code>ace/runners/</code> compose these with <code>learning_tail()</code>. For offline analysis, raw trace objects are passed directly to TraceAnalyser.</p>
 <h3 id="what-moves-where">What moves where<a class="headerlink" href="#what-moves-where" title="Permanent link">&para;</a></h3>

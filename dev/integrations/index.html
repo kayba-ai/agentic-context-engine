@@ -1572,6 +1572,34 @@
   
   
     <li class="md-nav__item">
+      <a href="claude-sdk/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude SDK
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="opik/" class="md-nav__link">
         
   
@@ -1785,7 +1813,9 @@
 
 
 <h1 id="integrations-overview">Integrations Overview<a class="headerlink" href="#integrations-overview" title="Permanent link">&para;</a></h1>
-<p>ACE provides runners for popular agentic frameworks. Each runner adds self-improving learning to an existing agent with minimal code changes.</p>
+<p>ACE provides both runners and step-based integrations for popular agentic
+frameworks. Some integrations are full runners, while others are composable
+pipeline steps you can drop into a custom <code>Pipeline</code>.</p>
 <h2 id="available-integrations">Available Integrations<a class="headerlink" href="#available-integrations" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -1819,6 +1849,12 @@
 <td><a href="claude-code/"><code>ClaudeCode</code></a></td>
 <td>Claude Code CLI</td>
 <td>Task strings</td>
+<td>Meso</td>
+</tr>
+<tr>
+<td><a href="claude-sdk/"><code>Claude SDK</code></a></td>
+<td>Anthropic Python SDK</td>
+<td>Task strings or <code>ACESample</code></td>
 <td>Meso</td>
 </tr>
 <tr>
@@ -1866,6 +1902,17 @@
 <a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="c1"># Claude Code CLI</span>
 <a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="n">coder</span> <span class="o">=</span> <span class="n">ClaudeCode</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span><span class="n">working_dir</span><span class="o">=</span><span class="s2">&quot;./project&quot;</span><span class="p">,</span> <span class="n">ace_model</span><span class="o">=</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">)</span>
 </code></pre></div>
+<p>For direct Anthropic API usage without a runner, compose the SDK steps directly:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pipeline</span><span class="p">,</span> <span class="n">Reflector</span><span class="p">,</span> <span class="n">SkillManager</span><span class="p">,</span> <span class="n">Skillbook</span><span class="p">,</span> <span class="n">learning_tail</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace.integrations</span><span class="w"> </span><span class="kn">import</span> <span class="n">ClaudeSDKExecuteStep</span><span class="p">,</span> <span class="n">ClaudeSDKToTrace</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">skillbook</span> <span class="o">=</span> <span class="n">Skillbook</span><span class="p">()</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">pipe</span> <span class="o">=</span> <span class="n">Pipeline</span><span class="p">([</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">ClaudeSDKExecuteStep</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">&quot;claude-sonnet-4-20250514&quot;</span><span class="p">),</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="n">ClaudeSDKToTrace</span><span class="p">(),</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="o">*</span><span class="n">learning_tail</span><span class="p">(</span><span class="n">Reflector</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">),</span> <span class="n">SkillManager</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">),</span> <span class="n">skillbook</span><span class="p">),</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="p">])</span>
+</code></pre></div>
 <h2 id="shared-features">Shared Features<a class="headerlink" href="#shared-features" title="Permanent link">&para;</a></h2>
 <p>All runners share these capabilities:</p>
 <ul>
@@ -1881,6 +1928,7 @@
 <li><strong>Have an existing LangChain chain or agent?</strong> Use <a href="langchain/">LangChain</a></li>
 <li><strong>Automating browser tasks?</strong> Use <a href="browser-use/">BrowserUse</a></li>
 <li><strong>Running coding tasks with Claude Code?</strong> Use <a href="claude-code/">ClaudeCode</a></li>
+<li><strong>Calling Anthropic directly from your own pipeline?</strong> Use <a href="claude-sdk/">Claude SDK</a></li>
 <li><strong>Want to monitor costs and traces?</strong> Add <a href="opik/">Opik</a></li>
 <li><strong>Learning from OpenClaw session transcripts?</strong> Use <a href="openclaw/">OpenClaw</a></li>
 <li><strong>Exposing ACE as an MCP tool provider?</strong> Use the <a href="mcp/">MCP Server</a></li>

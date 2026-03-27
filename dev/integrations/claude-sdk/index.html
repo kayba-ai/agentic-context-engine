@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://kayba-ai.github.io/agentic-context-engine/latest/getting-started/installation/">
+        <link rel="canonical" href="https://kayba-ai.github.io/agentic-context-engine/latest/integrations/claude-sdk/">
       
       
-        <link rel="prev" href="../..">
+        <link rel="prev" href="../claude-code/">
       
       
-        <link rel="next" href="../setup/">
+        <link rel="next" href="../opik/">
       
       
         
@@ -76,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#installation" class="md-skip">
+        <a href="#claude-sdk-integration" class="md-skip">
           Skip to content
         </a>
       
@@ -113,7 +113,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Installation
+              Claude SDK
             
           </span>
         </div>
@@ -246,13 +246,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="./" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../getting-started/installation/" class="md-tabs__link">
           
   
   
@@ -328,11 +326,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../integrations/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
           
   
   
@@ -438,31 +438,28 @@
       
   
   
-    
   
   
-  
     
     
     
     
-      
-        
-        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
         
           
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
             
   
   
@@ -480,7 +477,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_2">
             <span class="md-nav__icon md-icon"></span>
             
@@ -495,37 +492,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Installation
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/" class="md-nav__link">
         
   
   
@@ -541,120 +511,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#for-users" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        For Users
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#for-contributors" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        For Contributors
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#requirements" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Requirements
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#configure-your-llm" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Configure Your LLM
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Configure Your LLM">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#manual-alternative" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Manual alternative
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#verify-installation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Verify Installation
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#set-up-coding-agent-skills-optional" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Set Up Coding Agent Skills (Optional)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#what-to-read-next" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        What to Read Next
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -667,7 +523,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../setup/" class="md-nav__link">
+      <a href="../../getting-started/setup/" class="md-nav__link">
         
   
   
@@ -695,7 +551,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../quick-start/" class="md-nav__link">
+      <a href="../../getting-started/quick-start/" class="md-nav__link">
         
   
   
@@ -1414,28 +1270,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
         
           
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
-        
-          
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
             
   
   
@@ -1453,7 +1312,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1471,7 +1330,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../integrations/" class="md-nav__link">
+      <a href="../" class="md-nav__link">
         
   
   
@@ -1499,7 +1358,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../integrations/litellm/" class="md-nav__link">
+      <a href="../litellm/" class="md-nav__link">
         
   
   
@@ -1527,7 +1386,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../integrations/langchain/" class="md-nav__link">
+      <a href="../langchain/" class="md-nav__link">
         
   
   
@@ -1555,7 +1414,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../integrations/browser-use/" class="md-nav__link">
+      <a href="../browser-use/" class="md-nav__link">
         
   
   
@@ -1583,7 +1442,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../integrations/claude-code/" class="md-nav__link">
+      <a href="../claude-code/" class="md-nav__link">
         
   
   
@@ -1608,10 +1467,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../integrations/claude-sdk/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude SDK
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1627,6 +1513,131 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#quick-start" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick Start
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-it-provides" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What It Provides
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameters
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Parameters">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#claudesdkexecutestep" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ClaudeSDKExecuteStep
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#observability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observability
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tool-use" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tool Use
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-to-read-next" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What to Read Next
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1639,7 +1650,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../integrations/opik/" class="md-nav__link">
+      <a href="../opik/" class="md-nav__link">
         
   
   
@@ -1667,7 +1678,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../integrations/openclaw/" class="md-nav__link">
+      <a href="../openclaw/" class="md-nav__link">
         
   
   
@@ -1695,7 +1706,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../integrations/hosted-api/" class="md-nav__link">
+      <a href="../hosted-api/" class="md-nav__link">
         
   
   
@@ -1777,10 +1788,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#for-users" class="md-nav__link">
+  <a href="#quick-start" class="md-nav__link">
     <span class="md-ellipsis">
       
-        For Users
+        Quick Start
       
     </span>
   </a>
@@ -1788,10 +1799,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#for-contributors" class="md-nav__link">
+  <a href="#installation" class="md-nav__link">
     <span class="md-ellipsis">
       
-        For Contributors
+        Installation
       
     </span>
   </a>
@@ -1799,10 +1810,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#requirements" class="md-nav__link">
+  <a href="#what-it-provides" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Requirements
+        What It Provides
       
     </span>
   </a>
@@ -1810,22 +1821,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#configure-your-llm" class="md-nav__link">
+  <a href="#parameters" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Configure Your LLM
+        Parameters
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Configure Your LLM">
+    <nav class="md-nav" aria-label="Parameters">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#manual-alternative" class="md-nav__link">
+  <a href="#claudesdkexecutestep" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Manual alternative
+        ClaudeSDKExecuteStep
       
     </span>
   </a>
@@ -1838,10 +1849,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#verify-installation" class="md-nav__link">
+  <a href="#observability" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Verify Installation
+        Observability
       
     </span>
   </a>
@@ -1849,10 +1860,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#set-up-coding-agent-skills-optional" class="md-nav__link">
+  <a href="#tool-use" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Set Up Coding Agent Skills (Optional)
+        Tool Use
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validation
       
     </span>
   </a>
@@ -1890,83 +1912,159 @@
   
 
 
-<h1 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h1>
-<h2 id="for-users">For Users<a class="headerlink" href="#for-users" title="Permanent link">&para;</a></h2>
-<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">uv</label><label for="__tabbed_1_2">With extras</label></div>
-<div class="tabbed-content">
-<div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>uv<span class="w"> </span>add<span class="w"> </span>ace-framework
+<h1 id="claude-sdk-integration">Claude SDK Integration<a class="headerlink" href="#claude-sdk-integration" title="Permanent link">&para;</a></h1>
+<p>The Claude SDK integration provides composable ACE steps for the
+<a href="https://docs.anthropic.com/en/api/client-sdks">Anthropic Python SDK</a>. Use it
+when you want direct Messages API access inside your own pipeline instead of a
+prebuilt runner.</p>
+<h2 id="quick-start">Quick Start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pipeline</span><span class="p">,</span> <span class="n">Reflector</span><span class="p">,</span> <span class="n">SkillManager</span><span class="p">,</span> <span class="n">Skillbook</span><span class="p">,</span> <span class="n">learning_tail</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace.integrations</span><span class="w"> </span><span class="kn">import</span> <span class="n">ClaudeSDKExecuteStep</span><span class="p">,</span> <span class="n">ClaudeSDKToTrace</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">skillbook</span> <span class="o">=</span> <span class="n">Skillbook</span><span class="p">()</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">pipe</span> <span class="o">=</span> <span class="n">Pipeline</span><span class="p">([</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">ClaudeSDKExecuteStep</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">&quot;claude-sonnet-4-20250514&quot;</span><span class="p">),</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">ClaudeSDKToTrace</span><span class="p">(),</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="o">*</span><span class="n">learning_tail</span><span class="p">(</span><span class="n">Reflector</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">),</span> <span class="n">SkillManager</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">),</span> <span class="n">skillbook</span><span class="p">),</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="p">])</span>
 </code></pre></div>
-</div>
-<div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>uv<span class="w"> </span>add<span class="w"> </span>ace-framework<span class="o">[</span>all<span class="o">]</span><span class="w">            </span><span class="c1"># All optional features</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>uv<span class="w"> </span>add<span class="w"> </span>ace-framework<span class="o">[</span>instructor<span class="o">]</span><span class="w">     </span><span class="c1"># Structured outputs (Instructor)</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>uv<span class="w"> </span>add<span class="w"> </span>ace-framework<span class="o">[</span>langchain<span class="o">]</span><span class="w">      </span><span class="c1"># LangChain integration</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>uv<span class="w"> </span>add<span class="w"> </span>ace-framework<span class="o">[</span>browser-use<span class="o">]</span><span class="w">    </span><span class="c1"># Browser automation</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>uv<span class="w"> </span>add<span class="w"> </span>ace-framework<span class="o">[</span>claude-code<span class="o">]</span><span class="w">    </span><span class="c1"># Claude Code CLI integration</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>uv<span class="w"> </span>add<span class="w"> </span>ace-framework<span class="o">[</span>claude-sdk<span class="o">]</span><span class="w">     </span><span class="c1"># Anthropic SDK integration steps</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>uv<span class="w"> </span>add<span class="w"> </span>ace-framework<span class="o">[</span>observability<span class="o">]</span><span class="w">  </span><span class="c1"># Opik monitoring + cost tracking</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>uv<span class="w"> </span>add<span class="w"> </span>ace-framework<span class="o">[</span>deduplication<span class="o">]</span><span class="w">  </span><span class="c1"># Skill deduplication (embeddings)</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>uv<span class="w"> </span>add<span class="w"> </span>ace-framework<span class="o">[</span>transformers<span class="o">]</span><span class="w">   </span><span class="c1"># Local model support</span>
+<h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>uv<span class="w"> </span>add<span class="w"> </span>ace-framework<span class="o">[</span>claude-sdk<span class="o">]</span>
 </code></pre></div>
-</div>
-</div>
-</div>
-<h2 id="for-contributors">For Contributors<a class="headerlink" href="#for-contributors" title="Permanent link">&para;</a></h2>
-<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">UV (Recommended)</label><label for="__tabbed_2_2">uv</label></div>
-<div class="tabbed-content">
-<div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/kayba-ai/agentic-context-engine
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nb">cd</span><span class="w"> </span>agentic-context-engine
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>uv<span class="w"> </span>sync<span class="w">  </span><span class="c1"># Installs everything (10-100x faster than pip)</span>
+<p>For observability, also install and configure Logfire:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>uv<span class="w"> </span>add<span class="w"> </span>ace-framework<span class="o">[</span>logfire<span class="o">]</span>
 </code></pre></div>
-</div>
-<div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/kayba-ai/agentic-context-engine
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nb">cd</span><span class="w"> </span>agentic-context-engine
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>uv<span class="w"> </span>add<span class="w"> </span>-e<span class="w"> </span>.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace.observability</span><span class="w"> </span><span class="kn">import</span> <span class="n">configure_logfire</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">configure_logfire</span><span class="p">()</span>
 </code></pre></div>
-</div>
-</div>
-</div>
-<h2 id="requirements">Requirements<a class="headerlink" href="#requirements" title="Permanent link">&para;</a></h2>
+<h2 id="what-it-provides">What It Provides<a class="headerlink" href="#what-it-provides" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Python 3.12</strong></li>
-<li>An API key for your LLM provider</li>
+<li><code>ClaudeSDKExecuteStep</code> — injects skillbook context, calls the Anthropic
+  Messages API, and writes a validated <code>ClaudeSDKResult</code> to <code>ctx.trace</code></li>
+<li><code>ClaudeSDKToTrace</code> — converts <code>ClaudeSDKResult</code> into the standard ACE trace
+  dict consumed by <code>ReflectStep</code></li>
+<li><code>ClaudeSDKResult</code> — Pydantic model with validated output, token usage,
+  latency, tool calls, and raw response access</li>
+<li><code>ToolCall</code> — Pydantic model for captured Claude tool invocations</li>
 </ul>
-<h2 id="configure-your-llm">Configure Your LLM<a class="headerlink" href="#configure-your-llm" title="Permanent link">&para;</a></h2>
-<p>The recommended way to set up your API keys and model selection:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>ace<span class="w"> </span>setup
+<h2 id="parameters">Parameters<a class="headerlink" href="#parameters" title="Permanent link">&para;</a></h2>
+<h3 id="claudesdkexecutestep">ClaudeSDKExecuteStep<a class="headerlink" href="#claudesdkexecutestep" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>model</code></td>
+<td><code>str</code></td>
+<td><code>"claude-sonnet-4-20250514"</code></td>
+<td>Claude model ID</td>
+</tr>
+<tr>
+<td><code>system_prompt</code></td>
+<td><code>str \| None</code></td>
+<td><code>None</code></td>
+<td>Base system prompt</td>
+</tr>
+<tr>
+<td><code>max_tokens</code></td>
+<td><code>int</code></td>
+<td><code>4096</code></td>
+<td>Maximum output tokens</td>
+</tr>
+<tr>
+<td><code>temperature</code></td>
+<td><code>float</code></td>
+<td><code>0.0</code></td>
+<td>Sampling temperature</td>
+</tr>
+<tr>
+<td><code>tools</code></td>
+<td><code>list[dict] \| None</code></td>
+<td><code>None</code></td>
+<td>Anthropic tool definitions</td>
+</tr>
+<tr>
+<td><code>api_key</code></td>
+<td><code>str \| None</code></td>
+<td><code>None</code></td>
+<td>Optional API key override</td>
+</tr>
+<tr>
+<td><code>base_url</code></td>
+<td><code>str \| None</code></td>
+<td><code>None</code></td>
+<td>Optional API base URL</td>
+</tr>
+<tr>
+<td><code>inject_skillbook</code></td>
+<td><code>bool</code></td>
+<td><code>True</code></td>
+<td>Prepend skillbook context to the system prompt</td>
+</tr>
+<tr>
+<td><code>client</code></td>
+<td><code>Any</code></td>
+<td><code>None</code></td>
+<td>Injected Anthropic client for testing or custom transport</td>
+</tr>
+</tbody>
+</table>
+<h2 id="observability">Observability<a class="headerlink" href="#observability" title="Permanent link">&para;</a></h2>
+<p>When Logfire is configured, the step emits three layers of observability:</p>
+<ol>
+<li>Step-level <code>logfire.span(...)</code> around <code>ClaudeSDKExecuteStep</code></li>
+<li>Structured <code>logfire.info(...)</code> and <code>logfire.error(...)</code> events with tokens,
+   latency, stop reason, and tool counts</li>
+<li><code>logfire.instrument_anthropic(client)</code> auto-instrumentation for the
+   underlying SDK calls</li>
+</ol>
+<p>The result model also captures:</p>
+<ul>
+<li><code>input_tokens</code></li>
+<li><code>output_tokens</code></li>
+<li><code>total_tokens</code></li>
+<li><code>latency_seconds</code></li>
+<li><code>stop_reason</code></li>
+<li><code>tool_calls</code></li>
+</ul>
+<h2 id="tool-use">Tool Use<a class="headerlink" href="#tool-use" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">tools</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="p">{</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>        <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;get_weather&quot;</span><span class="p">,</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>        <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Get the current weather for a city.&quot;</span><span class="p">,</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>        <span class="s2">&quot;input_schema&quot;</span><span class="p">:</span> <span class="p">{</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;object&quot;</span><span class="p">,</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>            <span class="s2">&quot;properties&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;city&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;string&quot;</span><span class="p">}},</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>            <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;city&quot;</span><span class="p">],</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>        <span class="p">},</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>    <span class="p">}</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="p">]</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="n">execute</span> <span class="o">=</span> <span class="n">ClaudeSDKExecuteStep</span><span class="p">(</span>
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">&quot;claude-sonnet-4-20250514&quot;</span><span class="p">,</span>
+<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>    <span class="n">tools</span><span class="o">=</span><span class="n">tools</span><span class="p">,</span>
+<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="p">)</span>
 </code></pre></div>
-<p>This interactive wizard validates your API key and model, then saves config to <code>ace.toml</code> (model names, safe to commit) and <code>.env</code> (API keys, gitignored). See <a href="../setup/">Setup</a> for full details.</p>
-<h3 id="manual-alternative">Manual alternative<a class="headerlink" href="#manual-alternative" title="Permanent link">&para;</a></h3>
-<p>If you prefer not to use the wizard, set environment variables directly:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">OPENAI_API_KEY</span><span class="o">=</span><span class="s2">&quot;sk-...&quot;</span>
-</code></pre></div>
-<p>Or create a <code>.env</code> file (add to <code>.gitignore</code>):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nv">OPENAI_API_KEY</span><span class="o">=</span>sk-...
-</code></pre></div>
-<h2 id="verify-installation">Verify Installation<a class="headerlink" href="#verify-installation" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace</span><span class="w"> </span><span class="kn">import</span> <span class="n">ACELiteLLM</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="c1"># Uses ace.toml + .env from `ace setup`</span>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_setup</span><span class="p">()</span>
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">agent</span><span class="o">.</span><span class="n">ask</span><span class="p">(</span><span class="s2">&quot;Hello!&quot;</span><span class="p">))</span>
-</code></pre></div>
-<p>Or without <code>ace setup</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">)</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">agent</span><span class="o">.</span><span class="n">ask</span><span class="p">(</span><span class="s2">&quot;Hello!&quot;</span><span class="p">))</span>
-</code></pre></div>
-<h2 id="set-up-coding-agent-skills-optional">Set Up Coding Agent Skills (Optional)<a class="headerlink" href="#set-up-coding-agent-skills-optional" title="Permanent link">&para;</a></h2>
-<p>If you use Claude Code, install the Kayba pipeline skill:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>kayba<span class="w"> </span>setup
-</code></pre></div>
-<p>This installs the evaluation pipeline skill to <code>.claude/skills/</code> and prints CLI instructions. See <a href="../../integrations/hosted-api/">Hosted API</a> for details.</p>
+<p>If Claude returns tool use blocks, they are captured on
+<code>ClaudeSDKResult.tool_calls</code> as validated <code>ToolCall</code> models.</p>
+<h2 id="validation">Validation<a class="headerlink" href="#validation" title="Permanent link">&para;</a></h2>
+<p><code>ClaudeSDKExecuteStep</code> validates its configuration with Pydantic before the
+client is constructed. <code>ClaudeSDKResult</code> and <code>ToolCall</code> are also Pydantic
+models, so invalid token counts, latency values, or malformed tool calls are
+rejected early.</p>
 <h2 id="what-to-read-next">What to Read Next<a class="headerlink" href="#what-to-read-next" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="../setup/">Setup</a> — configure models and API keys</li>
-<li><a href="../quick-start/">Quick Start</a> — build your first self-learning agent</li>
-<li><a href="../../concepts/overview/">How ACE Works</a> — understand the architecture</li>
+<li><a href="../../guides/integration/">Integration Pattern</a> — the shared
+  INJECT/EXECUTE/LEARN design</li>
+<li><a href="../../guides/composing-pipelines/">Composing Pipelines</a> — mix SDK steps with
+  other ACE steps</li>
 </ul>
 
 

@@ -2,158 +2,162 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/</loc>
-         <lastmod>2026-03-26</lastmod>
+         <lastmod>2026-03-27</lastmod>
     </url>
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/ACE_DESIGN/</loc>
-         <lastmod>2026-03-26</lastmod>
+         <lastmod>2026-03-27</lastmod>
     </url>
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/CLI_DESIGN/</loc>
-         <lastmod>2026-03-26</lastmod>
+         <lastmod>2026-03-27</lastmod>
     </url>
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/PIPELINE_DESIGN/</loc>
-         <lastmod>2026-03-26</lastmod>
+         <lastmod>2026-03-27</lastmod>
     </url>
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/PYDANTIC_AI_MIGRATION/</loc>
-         <lastmod>2026-03-26</lastmod>
+         <lastmod>2026-03-27</lastmod>
     </url>
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/RR_DESIGN/</loc>
-         <lastmod>2026-03-26</lastmod>
+         <lastmod>2026-03-27</lastmod>
     </url>
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/api/</loc>
-         <lastmod>2026-03-26</lastmod>
+         <lastmod>2026-03-27</lastmod>
     </url>
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/concepts/insight-levels/</loc>
-         <lastmod>2026-03-26</lastmod>
+         <lastmod>2026-03-27</lastmod>
     </url>
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/concepts/overview/</loc>
-         <lastmod>2026-03-26</lastmod>
+         <lastmod>2026-03-27</lastmod>
     </url>
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/concepts/roles/</loc>
-         <lastmod>2026-03-26</lastmod>
+         <lastmod>2026-03-27</lastmod>
     </url>
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/concepts/skillbook/</loc>
-         <lastmod>2026-03-26</lastmod>
+         <lastmod>2026-03-27</lastmod>
     </url>
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/concepts/updates/</loc>
-         <lastmod>2026-03-26</lastmod>
+         <lastmod>2026-03-27</lastmod>
     </url>
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/getting-started/installation/</loc>
-         <lastmod>2026-03-26</lastmod>
+         <lastmod>2026-03-27</lastmod>
     </url>
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/getting-started/quick-start/</loc>
-         <lastmod>2026-03-26</lastmod>
+         <lastmod>2026-03-27</lastmod>
     </url>
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/getting-started/setup/</loc>
-         <lastmod>2026-03-26</lastmod>
+         <lastmod>2026-03-27</lastmod>
     </url>
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/guides/async-learning/</loc>
-         <lastmod>2026-03-26</lastmod>
+         <lastmod>2026-03-27</lastmod>
     </url>
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/guides/complete-guide/</loc>
-         <lastmod>2026-03-26</lastmod>
+         <lastmod>2026-03-27</lastmod>
     </url>
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/guides/composing-pipelines/</loc>
-         <lastmod>2026-03-26</lastmod>
+         <lastmod>2026-03-27</lastmod>
     </url>
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/guides/full-pipeline/</loc>
-         <lastmod>2026-03-26</lastmod>
+         <lastmod>2026-03-27</lastmod>
     </url>
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/guides/integration/</loc>
-         <lastmod>2026-03-26</lastmod>
+         <lastmod>2026-03-27</lastmod>
     </url>
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/guides/prompts/</loc>
-         <lastmod>2026-03-26</lastmod>
+         <lastmod>2026-03-27</lastmod>
     </url>
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/guides/testing/</loc>
-         <lastmod>2026-03-26</lastmod>
+         <lastmod>2026-03-27</lastmod>
     </url>
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/integrations/</loc>
-         <lastmod>2026-03-26</lastmod>
+         <lastmod>2026-03-27</lastmod>
     </url>
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/integrations/browser-use/</loc>
-         <lastmod>2026-03-26</lastmod>
+         <lastmod>2026-03-27</lastmod>
     </url>
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/integrations/claude-code/</loc>
-         <lastmod>2026-03-26</lastmod>
+         <lastmod>2026-03-27</lastmod>
+    </url>
+    <url>
+         <loc>https://kayba-ai.github.io/agentic-context-engine/latest/integrations/claude-sdk/</loc>
+         <lastmod>2026-03-27</lastmod>
     </url>
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/integrations/hosted-api/</loc>
-         <lastmod>2026-03-26</lastmod>
+         <lastmod>2026-03-27</lastmod>
     </url>
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/integrations/langchain/</loc>
-         <lastmod>2026-03-26</lastmod>
+         <lastmod>2026-03-27</lastmod>
     </url>
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/integrations/litellm/</loc>
-         <lastmod>2026-03-26</lastmod>
+         <lastmod>2026-03-27</lastmod>
     </url>
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/integrations/mcp/</loc>
-         <lastmod>2026-03-26</lastmod>
+         <lastmod>2026-03-27</lastmod>
     </url>
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/integrations/openclaw/</loc>
-         <lastmod>2026-03-26</lastmod>
+         <lastmod>2026-03-27</lastmod>
     </url>
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/integrations/opik/</loc>
-         <lastmod>2026-03-26</lastmod>
+         <lastmod>2026-03-27</lastmod>
     </url>
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/pipeline/</loc>
-         <lastmod>2026-03-26</lastmod>
+         <lastmod>2026-03-27</lastmod>
     </url>
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/pipeline/api-reference/</loc>
-         <lastmod>2026-03-26</lastmod>
+         <lastmod>2026-03-27</lastmod>
     </url>
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/pipeline/branching/</loc>
-         <lastmod>2026-03-26</lastmod>
+         <lastmod>2026-03-27</lastmod>
     </url>
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/pipeline/core-concepts/</loc>
-         <lastmod>2026-03-26</lastmod>
+         <lastmod>2026-03-27</lastmod>
     </url>
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/pipeline/custom-steps/</loc>
-         <lastmod>2026-03-26</lastmod>
+         <lastmod>2026-03-27</lastmod>
     </url>
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/pipeline/error-handling/</loc>
-         <lastmod>2026-03-26</lastmod>
+         <lastmod>2026-03-27</lastmod>
     </url>
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/pipeline/execution/</loc>
-         <lastmod>2026-03-26</lastmod>
+         <lastmod>2026-03-27</lastmod>
     </url>
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/pipeline/quick-start/</loc>
-         <lastmod>2026-03-26</lastmod>
+         <lastmod>2026-03-27</lastmod>
     </url>
 </urlset>
