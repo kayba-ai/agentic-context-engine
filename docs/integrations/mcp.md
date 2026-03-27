@@ -4,6 +4,8 @@ ACE (Agentic Context Engine) provides an optional MCP server that exposes ACE as
 
 The integration is fully opt-in. Installing ACE without the `mcp` extra does not pull in the MCP SDK, and attempting to start `ace-mcp` without that extra will fail with an install hint instead of breaking normal ACE imports.
 
+> Need client-specific setup steps? See the [MCP Client Setup](mcp-client-setup.md) guide.
+
 ## Installation
 
 ```bash

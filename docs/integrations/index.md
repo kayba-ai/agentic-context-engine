@@ -15,6 +15,7 @@ pipeline steps you can drop into a custom `Pipeline`.
 | [`Claude SDK`](claude-sdk.md) | Anthropic Python SDK | Task strings or `ACESample` | Meso |
 | [OpenClaw](openclaw.md) | OpenClaw transcripts | JSONL trace files | Meso |
 | [MCP Server](mcp.md) | MCP (stdio) | Tool calls | Micro |
+| [MCP Client Setup](mcp-client-setup.md) | Claude Code, Cursor, Windsurf | — | Setup Guide |
 | [Opik](opik.md) | Opik observability | — | Monitoring |
 | [Hosted API](hosted-api.md) | Kayba hosted API | Trace files | Cloud |
 
@@ -78,6 +79,6 @@ All runners share these capabilities:
 - **Calling Anthropic directly from your own pipeline?** Use [Claude SDK](claude-sdk.md)
 - **Want to monitor costs and traces?** Add [Opik](opik.md)
 - **Learning from OpenClaw session transcripts?** Use [OpenClaw](openclaw.md)
-- **Exposing ACE as an MCP tool provider?** Use the [MCP Server](mcp.md)
+- **Exposing ACE as an MCP tool provider?** Use the [MCP Server](mcp.md) and the [MCP Client Setup](mcp-client-setup.md) guide
 - **Want to use the hosted API instead of running locally?** Use the [Hosted API](hosted-api.md) CLI
 - **Using a different framework?** See the [Integration Guide](../guides/integration.md) to build a custom runner

@@ -77,6 +77,8 @@ nav:
     - Browser-Use: integrations/browser-use.md
     - Claude Code: integrations/claude-code.md
     - Claude SDK: integrations/claude-sdk.md
+    - MCP Server: integrations/mcp.md
+    - MCP Client Setup: integrations/mcp-client-setup.md
     - Opik Observability: integrations/opik.md
     - OpenClaw: integrations/openclaw.md
     - Hosted API: integrations/hosted-api.md
