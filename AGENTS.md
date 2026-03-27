@@ -43,6 +43,7 @@ Key design docs:
 - `docs/RR_DESIGN.md` - recursive reflection design in `ace/rr/`
 - `docs/CLI_DESIGN.md` - CLI architecture, lazy imports, and command design
 - `docs/PYDANTIC_AI_MIGRATION.md` - migration context for the PydanticAI-based architecture
+- If you need to work with collected traces from Logfire, read `agent-guides/logfire.md`
 
 ### Project Structure
 - `ace/` - main package: core data types, role implementations, steps, runners, integrations, providers, recursive reflection, and observability
@@ -52,6 +53,7 @@ Key design docs:
 - `examples/` - runnable demos for ACE, integrations, and pipeline composition
 - `benchmarks/` - benchmark loaders and task definitions
 - `scripts/` - helper scripts and research tooling
+- `agent-guides/` - internal development guides for LLM agents; not part of the public docs site
 - `docs/` - guides and reference material
   - `docs/getting-started/` - installation, setup, and quick start
   - `docs/concepts/` - core concepts such as roles, skillbook, updates, and insight levels

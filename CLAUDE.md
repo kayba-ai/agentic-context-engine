@@ -38,6 +38,7 @@ Before working on code in `pipeline/` or `ace/core/`, read `docs/PIPELINE_DESIGN
 Key design docs:
 - `docs/ACE_DESIGN.md` — core ACE architecture: roles, skillbook, adaptation loops, insight levels, integration patterns
 - `docs/PIPELINE_DESIGN.md` — pipeline engine: steps, StepProtocol, Pipeline, RR pipeline
+- If you need to work with collected traces from Logfire, read `agent-guides/logfire.md`
 
 ### Project Structure
 - `ace/` — core library: roles (PydanticAI-backed), skillbook, steps, runners, providers, RR, integrations, observability
@@ -45,6 +46,7 @@ Key design docs:
 - `ace-eval/` — evaluation framework (submodule, separate repo)
 - `tests/` — unit/integration tests (pytest)
 - `examples/` — runnable demos grouped by integration
+- `agent-guides/` — internal development guides for LLM agents; not part of the public docs site
 - `docs/` — guides and reference material
   - `docs/ACE_DESIGN.md` — architecture design doc (keep in sync with code)
   - `docs/PIPELINE_DESIGN.md` — pipeline engine design doc (keep in sync with code)
