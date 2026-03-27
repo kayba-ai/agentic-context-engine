@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import collections
+import copy
 import io
 import json
 import logging
@@ -544,3 +545,38 @@ class TraceSandbox:
         """Reset the sandbox state for a new execution."""
         self._final_value = None
         self._final_called = False
+
+
+def create_readonly_sandbox(parent: TraceSandbox) -> TraceSandbox:
+    """Create an isolated sandbox snapshot for sub-agent use.
+
+    Deep-copies data variables from the parent sandbox so the sub-agent
+    can explore trace data via ``execute_code`` without affecting the
+    parent's state.  Safe for parallel use — each snapshot is independent.
+
+    Args:
+        parent: The parent sandbox to snapshot.
+
+    Returns:
+        A new TraceSandbox with deep-copied data variables.
+    """
+    sandbox = TraceSandbox(trace=None, llm_query_fn=None)
+
+    # Keys already set up by TraceSandbox.__init__ — skip them
+    infrastructure = {
+        "__builtins__", "FINAL", "FINAL_VAR", "SHOW_VARS",
+        "parallel_map", "llm_query", "safe_getattr", "trace",
+        "json", "re", "math", "collections",
+        "datetime", "timedelta", "date", "time", "timezone",
+    }
+
+    for key, value in parent.namespace.items():
+        if key in infrastructure or key.startswith("_"):
+            continue
+        try:
+            sandbox.namespace[key] = copy.deepcopy(value)
+        except (TypeError, copy.Error):
+            # Modules, functions, etc. — share by reference
+            sandbox.namespace[key] = value
+
+    return sandbox

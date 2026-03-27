@@ -35,4 +35,5 @@ class RecursiveConfig:
     subagent_max_tokens: int = 8192
     subagent_temperature: float = 0.3
     subagent_system_prompt: Optional[str] = None
+    subagent_max_requests: int = 10
     enable_fallback_synthesis: bool = True

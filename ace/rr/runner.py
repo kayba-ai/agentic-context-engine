@@ -377,9 +377,6 @@ class RRStep:
         # Traces data
         sandbox.inject("traces", traces)
 
-        # Working memory for save_notes tool
-        sandbox.inject("notes", {})
-
         return sandbox
 
     def _build_data_summary(self, traces: dict[str, Any]) -> str:
