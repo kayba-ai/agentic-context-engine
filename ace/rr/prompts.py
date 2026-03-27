@@ -35,6 +35,7 @@ injected into future agents' prompts. Identify WHAT the agent did that mattered 
 | `traces` | {traces_description} | {step_count} steps |
 | `skillbook` | Current strategies (string) | {skillbook_length} chars |
 {batch_variables}
+{helper_variables}
 ### Previews
 {traces_previews}
 
@@ -43,9 +44,9 @@ injected into future agents' prompts. Identify WHAT the agent did that mattered 
 ## Tools
 | Tool | Purpose |
 |------|---------|
-| `execute_code(code)` | **Data preparation only.** Format data, build task lists, compute summaries. Variables persist. Pre-loaded: `traces`, `skillbook`, `json`, `re`, `collections`, `datetime`. |
+| `execute_code(code)` | **Data preparation only.** Inspect helper variables, compute small summaries, and prepare follow-up questions. Variables persist. Pre-loaded: `traces`, `skillbook`, `json`, `re`, `collections`, `datetime`. |
 | `analyze(question, mode, context?)` | **Your primary analysis tool.** Sub-agent with its own code execution — it reads trace data directly. Pass optional `context` for focus, NOT data dumps. |
-| `batch_analyze(question, items, mode)` | **Parallel analysis.** Each item analyzed by an independent sub-agent with code access. Items are focus instructions (e.g., task IDs), not serialized data. |
+| `batch_analyze(question, items, mode)` | **Parallel analysis.** Each item analyzed by an independent sub-agent with code access. Items are focus instructions, not serialized data or invented labels. |
 | *Structured output* | When you have enough evidence, produce your final `ReflectorOutput`. |
 
 ## Pre-loaded modules (in execute_code)
@@ -57,21 +58,22 @@ injected into future agents' prompts. Identify WHAT the agent did that mattered 
 
 **analyze/batch_analyze are your primary tools.** Sub-agents have their own code execution — they can explore trace data directly. You do NOT need to serialize data for them.
 
-**execute_code is for data preparation only** — build task ID lists, format batch keys, compute summaries. All reasoning and analysis goes through analyze/batch_analyze.
+**execute_code is for data preparation only** — inspect helper variables, compute compact summaries, and prepare follow-up questions. All reasoning and analysis goes through analyze/batch_analyze.
 
 **Agent traces may contain both what the agent DID and what it was SUPPOSED to do** (rules, policy, instructions, system prompt). If present, finding and using those rules is essential.
 
-### Step 1: Prepare data (execute_code, 1-2 calls max)
-The data summary above gives you the structure. Use execute_code to build task ID lists or batch keys for batch_analyze. Do NOT read individual traces — sub-agents do that.
+### Step 1: Prepare data (execute_code, 0-1 calls max)
+The data summary above gives you the structure. Start with the precomputed helpers. Use execute_code only if you need a compact summary or to inspect helper variables. Do NOT rediscover the trace schema.
 
 **Batch mode:** If `traces` has a `"tasks"` key, you are analyzing ALL tasks in a single session.
 - `traces["tasks"]` — list of `{{"task_id": str, "trace": list}}` dicts
-- Use `batch_analyze` with task IDs as items — each sub-agent reads its own task data via code.
+- Use the precomputed `survey_items` directly in `batch_analyze` — they already reference the correct `traces["tasks"][i]` slices.
+- Use `task_ids` / `task_preview_by_id` to choose focused deep-dives.
 - Your final output must include a `"tasks"` list with per-task results.
 
 ### Step 2: Survey (batch_analyze)
 Fan out ALL survey batches in parallel. Each sub-agent has code access to the full trace data.
-Items should be focus instructions: task IDs, index ranges, or specific patterns to look for.
+Items should be explicit focus instructions. Do **not** invent aliases like `steps_0_to_2` and then look them up as dict keys.
 
 ### Step 3: Deep-dive (analyze or batch_analyze)
 Deep-dives MUST use raw trace data — sub-agents will read it directly via code.
@@ -88,8 +90,10 @@ You have {max_iterations} LLM calls total. Use them wisely — partial results b
 
 <output_rules>
 ## Rules
-- **execute_code is for data preparation ONLY** (1-2 calls) — all analysis goes through analyze/batch_analyze
+- **execute_code is for data preparation ONLY** (0-1 calls in batch mode) — all analysis goes through analyze/batch_analyze
+- **Use precomputed `survey_items` when available** — do not invent your own batch labels
 - **Sub-agents have code access** — do NOT serialize large data into analyze/batch_analyze parameters
+- **Treat item strings as navigation instructions, not dict keys** unless the item explicitly tells you to read a keyed field
 - **Preferably 3 traces per sub-agent call** — sub-agents work best with small batches
 - Variables persist across execute_code calls — sub-agents inherit them
 - **Verification findings are high-severity** — when the agent's claims contradict data

@@ -102,7 +102,8 @@ class TestLoopLifecycle:
         )
 
         with patch.object(
-            rr._agent, "run_sync",
+            rr._agent,
+            "run_sync",
             side_effect=UsageLimitExceeded("limit reached"),
         ):
             result_ctx = rr(_make_ctx())
@@ -118,6 +119,10 @@ class TestLoopLifecycle:
             config=RRConfig(max_llm_calls=42, enable_subagent=False),
         )
         assert rr.config.max_llm_calls == 42
+
+    def test_subagent_request_budget_default(self):
+        """Deep-dive sub-agents get a less fragile default request budget."""
+        assert RecursiveConfig().subagent_max_requests == 15
 
     def test_rr_trace_metadata_on_success(self):
         """Successful reflection populates rr_trace metadata."""
@@ -139,7 +144,8 @@ class TestLoopLifecycle:
         rr = RRStep("test-model", config=RRConfig(enable_subagent=False))
 
         with patch.object(
-            rr._agent, "run_sync",
+            rr._agent,
+            "run_sync",
             side_effect=UsageLimitExceeded("limit"),
         ):
             result_ctx = rr(_make_ctx())

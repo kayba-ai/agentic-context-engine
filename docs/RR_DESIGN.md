@@ -35,6 +35,27 @@ pipe = Pipeline([..., RRStep("gpt-4o-mini"), ...])
 Each invocation of `RRStep` runs a PydanticAI agent that drives the analysis through tool calls:
 
 ```
+
+Before prompting the agent, `RRStep` also normalizes the legacy "combined batch"
+shape used by some offline pipelines:
+
+```python
+{
+    "steps": [
+        {"role": "conversation", "id": "task_0", "content": {...trace dict...}},
+        {"role": "conversation", "id": "task_1", "content": {...trace dict...}},
+    ]
+}
+```
+
+into the native batch shape:
+
+```python
+{"tasks": [{"task_id": "task_0", "trace": [...]}, ...]}
+```
+
+This ensures the batch prompt, helper variables, and per-task output splitting
+all use a consistent representation.
 ┌───────────────────────────────────────────────────────────────┐
 │  RRStep._run_reflection()                                     │
 │                                                               │
@@ -177,6 +198,7 @@ config = RRConfig(
 | `subagent_max_tokens` | `8192` | Max tokens for sub-agent responses. |
 | `subagent_temperature` | `0.3` | Temperature for sub-agent responses. |
 | `subagent_system_prompt` | `None` | Custom system prompt for sub-agent. `None` uses the default analysis prompt. |
+| `subagent_max_requests` | `15` | Per-sub-agent request budget. Used for both `analyze()` and each item in `batch_analyze()`. |
 | `enable_fallback_synthesis` | `True` | Legacy field kept for compat. Timeout now always builds a fallback `ReflectorOutput`. |
 
 ---
@@ -214,6 +236,10 @@ Lightweight `exec()`-based sandbox for running LLM-generated Python code. Locate
 | `trace` | `TraceContext \| None` | The agent execution trace (when available) |
 | `traces` | `dict` | Canonical traces dict (injected by `RRStep`) |
 | `skillbook` | `str` | Skillbook text (injected by `RRStep`) |
+| `task_ids` | `list[str]` | Present in batch mode. Ordered task IDs matching `traces["tasks"]`. |
+| `task_id_to_index` | `dict[str, int]` | Present in batch mode. Maps task IDs to task indices. |
+| `task_preview_by_id` | `dict[str, dict]` | Present in batch mode. Compact previews for question, feedback, and first message. |
+| `survey_items` | `list[str]` | Present in batch mode. Precomputed `batch_analyze()` items with explicit task references. |
 | `SHOW_VARS` | `Callable` | Print available variables (debugging) |
 | `json` | module | `json` standard library |
 | `re` | module | `re` standard library |
@@ -286,15 +312,18 @@ Clear `final_value` and `final_called` state.
 
 The sub-agent system provides LLM reasoning capabilities to the main reflector agent via the `analyze` and `batch_analyze` PydanticAI tools.
 
-### analyze(question, context, mode)
+### analyze(question, mode, context="")
 
 PydanticAI tool on the main agent. Calls the sub-agent asynchronously with a formatted prompt.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `question` | `str` | required | The question to ask |
-| `context` | `str` | `""` | Data to analyse (trace excerpt, code output, etc.) |
 | `mode` | `str` | `"analysis"` | Prompt protocol: `"analysis"` for survey, `"deep_dive"` for investigation |
+| `context` | `str` | `""` | Optional focus instructions. The sub-agent reads raw trace data directly via `execute_code`. |
+
+The sub-agent receives an isolated readonly sandbox snapshot plus its own
+`UsageLimits(request_limit=config.subagent_max_requests)`.
 
 When the sub-agent is not configured (`config.enable_subagent=False`), returns `"(analyze unavailable — sub-agent not configured)"`.
 
@@ -305,9 +334,10 @@ PydanticAI tool that analyzes multiple items in parallel. Uses `ThreadPoolExecut
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `question` | `str` | required | The question to ask about each item |
-| `items` | `list[str]` | required | List of data items to analyze |
+| `items` | `list[str]` | required | List of focus instructions to analyze |
 | `mode` | `str` | `"analysis"` | Prompt protocol |
 
+Each item gets its own readonly sandbox snapshot and request budget.
 Concurrency is capped at `min(len(items), 10)` workers.
 
 ### Modes and System Prompts
@@ -327,10 +357,13 @@ def create_sub_agent(
     *,
     config: RecursiveConfig | None = None,
     model_settings: ModelSettings | None = None,
-) -> PydanticAgent[None, str]:
+) -> PydanticAgent[SubAgentDeps, str]:
 ```
 
-The sub-agent is a simple prompt-in / text-out PydanticAI agent with no tools and `output_type=str`. Model settings default to `temperature=config.subagent_temperature` and `max_tokens=config.subagent_max_tokens`.
+The sub-agent is a text-output PydanticAI agent with its own `execute_code`
+tool and isolated sandbox snapshot. Model settings default to
+`temperature=config.subagent_temperature` and
+`max_tokens=config.subagent_max_tokens`.
 
 ### Sub-Agent Call History
 
@@ -338,10 +371,10 @@ Each `analyze` and `batch_analyze` call appends metadata to `RRDeps.sub_agent_hi
 
 ```python
 # analyze call
-{"question": "...", "context_length": 1234, "response_length": 567, "mode": "analysis"}
+{"question": "...", "context_length": 1234, "response_length": 567, "mode": "analysis", "code_calls": 2}
 
 # batch_analyze call
-{"question": "...", "items_count": 5, "mode": "analysis", "batch": True}
+{"question": "...", "items_count": 5, "mode": "analysis", "batch": True, "code_calls_per_item": [2, 1, 3, 2, 2]}
 ```
 
 This history is included in the `rr_trace` output for observability.

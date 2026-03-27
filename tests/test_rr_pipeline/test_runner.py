@@ -14,7 +14,6 @@ from ace.core.skillbook import Skillbook
 from ace.rr import RRStep, RRConfig
 from ace.rr.agent import RRDeps
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -125,7 +124,8 @@ class TestRRStep:
         )
 
         with patch.object(
-            rr._agent, "run_sync",
+            rr._agent,
+            "run_sync",
             side_effect=UsageLimitExceeded("limit reached"),
         ):
             result_ctx = rr(_make_ctx())
@@ -143,7 +143,8 @@ class TestRRStep:
         rr = RRStep("test-model", config=RRConfig(enable_subagent=False))
 
         with patch.object(
-            rr._agent, "run_sync",
+            rr._agent,
+            "run_sync",
             side_effect=UsageLimitExceeded("limit"),
         ):
             ctx = _make_ctx(
@@ -167,7 +168,8 @@ class TestRRStep:
         rr = RRStep("test-model", config=RRConfig(enable_subagent=False))
 
         with patch.object(
-            rr._agent, "run_sync",
+            rr._agent,
+            "run_sync",
             side_effect=RuntimeError("unexpected error"),
         ):
             result_ctx = rr(_make_ctx())
@@ -293,4 +295,136 @@ class TestRRBatchReflection:
         assert result_ctx.reflections[0].raw["task_id"] == "t0"
         assert result_ctx.reflections[1].raw["task_id"] == "t1"
 
+    def test_combined_steps_batch_normalizes_into_tasks(self):
+        """Legacy combined-step batches should route through batch task mode."""
+        rr = RRStep("test-model", config=RRConfig(enable_subagent=False))
 
+        output = ReflectorOutput(
+            reasoning="normalized batch analysis",
+            key_insight="normalized insight",
+            correct_approach="approach",
+            raw={
+                "tasks": [
+                    {
+                        "reasoning": "task 0 analysis",
+                        "key_insight": "t0 insight",
+                        "extracted_learnings": [],
+                    },
+                    {
+                        "reasoning": "task 1 analysis",
+                        "key_insight": "t1 insight",
+                        "extracted_learnings": [],
+                    },
+                ],
+            },
+        )
+        mock_result = MagicMock()
+        mock_result.output = output
+        usage = MagicMock()
+        usage.request_tokens = 200
+        usage.response_tokens = 100
+        usage.total_tokens = 300
+        usage.requests = 5
+        mock_result.usage.return_value = usage
+
+        combined_trace = {
+            "question": "Analyze 2 agent execution traces",
+            "steps": [
+                {
+                    "role": "conversation",
+                    "id": "task_0",
+                    "content": {
+                        "question": "Where is my order?",
+                        "feedback": "reward=1.0",
+                        "steps": [{"role": "user", "content": "order status"}],
+                    },
+                },
+                {
+                    "role": "conversation",
+                    "id": "task_1",
+                    "content": {
+                        "question": "I need a refund",
+                        "feedback": "reward=0.0",
+                        "steps": [{"role": "user", "content": "refund help"}],
+                    },
+                },
+            ],
+        }
+        ctx = ACEStepContext(trace=combined_trace, skillbook=SkillbookView(Skillbook()))
+
+        with patch.object(rr._agent, "run_sync", return_value=mock_result):
+            result_ctx = rr(ctx)
+
+        assert len(result_ctx.reflections) == 2
+        assert result_ctx.reflections[0].raw["task_id"] == "task_0"
+        assert result_ctx.reflections[1].raw["task_id"] == "task_1"
+
+    def test_batch_sandbox_injects_helper_variables(self):
+        """Batch sandbox should expose helper data that avoids schema rediscovery."""
+        rr = RRStep("test-model", config=RRConfig(enable_subagent=False))
+        batch_trace = {
+            "tasks": [
+                {
+                    "task_id": "t0",
+                    "question": "Where is my order?",
+                    "feedback": "reward=1.0",
+                    "trace": [{"role": "user", "content": "order status"}],
+                },
+                {
+                    "task_id": "t1",
+                    "question": "I need a refund",
+                    "feedback": "reward=0.0",
+                    "trace": [{"role": "user", "content": "refund help"}],
+                },
+            ]
+        }
+
+        sandbox = rr._create_sandbox(
+            trace_obj=None,
+            traces=batch_trace,
+            skillbook=SkillbookView(Skillbook()),
+        )
+
+        assert sandbox.namespace["task_ids"] == ["t0", "t1"]
+        assert sandbox.namespace["task_id_to_index"] == {"t0": 0, "t1": 1}
+        assert "survey_items" in sandbox.namespace
+        assert sandbox.namespace["survey_items"][0].startswith(
+            "Inspect traces['tasks'][0]"
+        )
+        assert sandbox.namespace["task_preview_by_id"]["t0"]["question_preview"]
+
+    def test_batch_prompt_mentions_precomputed_survey_items(self):
+        """Batch prompt should surface precomputed survey items explicitly."""
+        rr = RRStep("test-model", config=RRConfig(enable_subagent=False))
+        batch_trace = {
+            "tasks": [
+                {
+                    "task_id": "t0",
+                    "question": "Where is my order?",
+                    "feedback": "reward=1.0",
+                    "trace": [{"role": "user", "content": "order status"}],
+                },
+                {
+                    "task_id": "t1",
+                    "question": "I need a refund",
+                    "feedback": "reward=0.0",
+                    "trace": [{"role": "user", "content": "refund help"}],
+                },
+                {
+                    "task_id": "t2",
+                    "question": "Can I exchange this?",
+                    "feedback": "reward=1.0",
+                    "trace": [{"role": "user", "content": "exchange help"}],
+                },
+            ]
+        }
+
+        prompt = rr._build_initial_prompt(
+            traces=batch_trace,
+            skillbook=SkillbookView(Skillbook()),
+            trace_obj=None,
+        )
+
+        assert "survey_items" in prompt
+        assert "do not invent labels like `steps_0_to_2`" in prompt
+        assert "Inspect traces['tasks'][0] (task_id='t0')" in prompt

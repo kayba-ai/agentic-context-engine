@@ -99,6 +99,8 @@ class RRStep:
         the structured output.
         """
         trace = ctx.trace or {}
+        if isinstance(trace, dict):
+            trace = self._normalize_traces(trace)
         if isinstance(trace, dict) and "tasks" in trace:
             reflections = self._run_batch_reflections(trace, ctx.skillbook)
             return ctx.replace(reflections=reflections)
@@ -172,6 +174,8 @@ class RRStep:
             traces = self._build_traces_dict(
                 question, agent_output, ground_truth, feedback, trace_obj
             )
+        elif isinstance(traces, dict):
+            traces = self._normalize_traces(traces)
 
         # Build sandbox with trace data (no ask_llm/FINAL injection)
         sandbox = self._create_sandbox(trace_obj, traces, skillbook)
@@ -376,8 +380,121 @@ class RRStep:
 
         # Traces data
         sandbox.inject("traces", traces)
+        self._inject_helper_variables(sandbox, traces)
 
         return sandbox
+
+    def _normalize_traces(self, traces: dict[str, Any]) -> dict[str, Any]:
+        """Convert legacy combined-step batches into native ``tasks`` batches.
+
+        The ace-eval combined batch path historically packed many traces into
+        ``traces["steps"]`` as conversation wrapper dicts.  Normalizing those
+        into the native ``tasks`` shape gives the prompt and helper logic a
+        concrete task list instead of synthetic labels like ``steps_0_to_2``.
+        """
+        if "tasks" in traces or not self._looks_like_combined_steps_batch(traces):
+            return traces
+
+        tasks: list[dict[str, Any]] = []
+        for index, step in enumerate(traces.get("steps", [])):
+            content = step.get("content", {})
+            if not isinstance(content, dict):
+                continue
+
+            task_id = str(step.get("id") or content.get("task_id") or f"task_{index}")
+            task_trace = content.get("trace")
+            if not isinstance(task_trace, list):
+                task_trace = content.get("steps")
+            if not isinstance(task_trace, list):
+                task_trace = []
+
+            task_entry: dict[str, Any] = {
+                "task_id": task_id,
+                "trace": task_trace,
+            }
+            for key in ("question", "feedback", "ground_truth"):
+                value = content.get(key)
+                if value is not None:
+                    task_entry[key] = value
+            tasks.append(task_entry)
+
+        if not tasks:
+            return traces
+
+        normalized = {key: value for key, value in traces.items() if key != "steps"}
+        normalized["tasks"] = tasks
+        normalized["raw_steps_batch"] = True
+        return normalized
+
+    def _looks_like_combined_steps_batch(self, traces: dict[str, Any]) -> bool:
+        """Return True for legacy combined batches encoded inside ``steps``."""
+        steps = traces.get("steps")
+        if not isinstance(steps, list) or not steps:
+            return False
+
+        return all(
+            isinstance(step, dict)
+            and step.get("role") == "conversation"
+            and isinstance(step.get("content"), dict)
+            for step in steps
+        )
+
+    def _inject_helper_variables(
+        self,
+        sandbox: TraceSandbox,
+        traces: dict[str, Any],
+    ) -> None:
+        """Inject precomputed helper data that removes schema-discovery work."""
+        if "tasks" not in traces:
+            return
+
+        tasks = traces.get("tasks", [])
+        task_ids = [
+            str(task.get("task_id", f"task_{index}"))
+            for index, task in enumerate(tasks)
+        ]
+        task_id_to_index = {task_id: index for index, task_id in enumerate(task_ids)}
+
+        task_preview_by_id = {
+            task_id: self._build_task_preview(task)
+            for task_id, task in zip(task_ids, tasks)
+        }
+        survey_items = self._build_survey_items(tasks)
+
+        sandbox.inject("task_ids", task_ids)
+        sandbox.inject("task_id_to_index", task_id_to_index)
+        sandbox.inject("task_preview_by_id", task_preview_by_id)
+        sandbox.inject("survey_items", survey_items)
+
+    def _build_task_preview(self, task: dict[str, Any]) -> dict[str, Any]:
+        """Build a compact preview row for a task in batch mode."""
+        task_trace = task.get("trace", [])
+        first_message = ""
+        if task_trace and isinstance(task_trace[0], dict):
+            first_message = str(task_trace[0].get("content", ""))
+
+        feedback = str(task.get("feedback", "") or "")
+        question = str(task.get("question", "") or "")
+
+        return {
+            "question_preview": _preview(question, 120),
+            "feedback_preview": _preview(feedback, 120),
+            "first_message_preview": _preview(first_message, 120),
+            "message_count": len(task_trace) if isinstance(task_trace, list) else 0,
+        }
+
+    def _build_survey_items(self, tasks: list[dict[str, Any]]) -> list[str]:
+        """Precompute explicit batch_analyze items for grouped task survey."""
+        items: list[str] = []
+        group_size = 3
+        for start in range(0, len(tasks), group_size):
+            stop = min(start + group_size, len(tasks))
+            refs = []
+            for index in range(start, stop):
+                task_id = str(tasks[index].get("task_id", f"task_{index}"))
+                refs.append(f"traces['tasks'][{index}] (task_id='{task_id}')")
+            items.append("Inspect " + ", ".join(refs))
+        return items
 
     def _build_data_summary(self, traces: dict[str, Any]) -> str:
         """Pre-compute a data summary so the agent doesn't waste calls exploring structure."""
@@ -385,6 +502,7 @@ class RRStep:
 
         if is_batch:
             tasks = traces.get("tasks", [])
+            survey_items = self._build_survey_items(tasks)
             # Compute pass/fail breakdown
             pass_count = 0
             fail_count = 0
@@ -394,14 +512,10 @@ class RRStep:
                 trace = t.get("trace", [])
                 feedback = t.get("feedback", "")
                 reward_str = ""
-                if "reward=1.0" in str(feedback) or "PASSED" in str(
-                    feedback
-                ).upper():
+                if "reward=1.0" in str(feedback) or "PASSED" in str(feedback).upper():
                     pass_count += 1
                     reward_str = "PASS"
-                elif "reward=0.0" in str(feedback) or "FAILED" in str(
-                    feedback
-                ).upper():
+                elif "reward=0.0" in str(feedback) or "FAILED" in str(feedback).upper():
                     fail_count += 1
                     reward_str = "FAIL"
                 task_summaries.append(
@@ -417,6 +531,14 @@ class RRStep:
             lines.extend(task_summaries[:50])  # cap at 50
             if len(task_summaries) > 50:
                 lines.append(f"  ... and {len(task_summaries) - 50} more")
+            if survey_items:
+                lines.append(
+                    "- **Precomputed survey_items**: pass these strings directly "
+                    "to `batch_analyze`; do not invent labels like `steps_0_to_2`."
+                )
+                lines.extend(f"  - {item}" for item in survey_items[:10])
+                if len(survey_items) > 10:
+                    lines.append(f"  - ... and {len(survey_items) - 10} more groups")
 
             # Check for policy/rules in first task
             if tasks:
@@ -453,9 +575,7 @@ class RRStep:
             if feedback:
                 lines.append(f"- **Feedback**: {_preview(feedback, 200)}")
             if ground_truth:
-                lines.append(
-                    f"- **Ground truth**: {_preview(ground_truth, 200)}"
-                )
+                lines.append(f"- **Ground truth**: {_preview(ground_truth, 200)}")
             lines.append(f"- **Steps**: {len(steps)}")
             if question:
                 lines.append(f"- **Task**: {_preview(question, 200)}")
@@ -463,14 +583,10 @@ class RRStep:
             # Check for messages in trace
             messages = traces.get("messages", [])
             if messages:
-                lines.append(
-                    f"- **Messages**: {len(messages)} conversation turns"
-                )
+                lines.append(f"- **Messages**: {len(messages)} conversation turns")
                 # Count tool calls
                 tool_calls = sum(
-                    1
-                    for m in messages
-                    if isinstance(m, dict) and m.get("tool_calls")
+                    1 for m in messages if isinstance(m, dict) and m.get("tool_calls")
                 )
                 if tool_calls:
                     lines.append(f"- **Tool calls**: {tool_calls}")
@@ -514,17 +630,22 @@ class RRStep:
             fmt_kwargs = dict(
                 traces_description=(
                     f"Batch of {len(tasks)} tasks. "
-                    f"Keys: tasks (list of {{task_id, trace}})"
+                    f"Keys: tasks (list of {{task_id, trace, ...metadata}})"
                 ),
                 batch_variables=(
                     f'| `traces["tasks"]` | All tasks in this batch '
-                    f"(list of {{task_id, trace}}) | "
+                    f"(list of {{task_id, trace, ...metadata}}) | "
                     f"{len(tasks)} tasks |\n"
+                ),
+                helper_variables=(
+                    f"| `task_ids` | Ordered task ids for this batch | {len(tasks)} ids |\n"
+                    f'| `task_id_to_index` | Maps task id to `traces["tasks"][i]` | {len(tasks)} entries |\n'
+                    f"| `task_preview_by_id` | Compact question/feedback previews per task | {len(tasks)} entries |\n"
+                    f"| `survey_items` | Precomputed `batch_analyze` items with explicit task references | {len(self._build_survey_items(tasks))} items |\n"
                 ),
                 traces_previews=(
                     f"| Task | Steps | First message |\n"
-                    f"|------|-------|---------------|\n"
-                    + "\n".join(preview_rows)
+                    f"|------|-------|---------------|\n" + "\n".join(preview_rows)
                 ),
                 step_count=total_steps,
                 skillbook_length=len(skillbook_text),
@@ -548,6 +669,7 @@ class RRStep:
                     "steps (List[Dict])"
                 ),
                 batch_variables="",
+                helper_variables="",
                 traces_previews=(
                     f"| Field | Preview | Size |\n"
                     f"|-------|---------|------|\n"
@@ -561,8 +683,7 @@ class RRStep:
                     f"| {len(t_feedback) if t_feedback else 0} chars |"
                 ),
                 step_count=(
-                    len(t_steps) if t_steps
-                    else (len(trace_obj) if trace_obj else 0)
+                    len(t_steps) if t_steps else (len(trace_obj) if trace_obj else 0)
                 ),
                 skillbook_length=len(skillbook_text),
                 trace_size_chars=trace_size_chars,

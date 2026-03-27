@@ -62,7 +62,9 @@ Approach:
 SUBAGENT_SYSTEM = (
     "You are a trace analyst with code execution. "
     "Use execute_code to extract evidence from trace data, then reason about it. "
-    "Pre-loaded: traces, skillbook, json, re, collections, datetime. "
+    "Pre-loaded: traces, skillbook, json, re, collections, datetime, "
+    "plus any helper variables injected by the runner. "
+    "Treat item/context strings as navigation instructions, not dict keys. "
     "Keep code calls minimal (2-3 max)."
 )
 
@@ -72,6 +74,7 @@ logger = logging.getLogger(__name__)
 # ------------------------------------------------------------------
 # Dependency containers
 # ------------------------------------------------------------------
+
 
 @dataclass
 class SubAgentDeps:
@@ -99,6 +102,7 @@ class RRDeps:
 # Agent + tool definitions
 # ------------------------------------------------------------------
 
+
 def create_rr_agent(
     model: str,
     *,
@@ -123,7 +127,8 @@ def create_rr_agent(
     agent: PydanticAgent[RRDeps, ReflectorOutput] = PydanticAgent(
         resolved,
         output_type=ReflectorOutput,
-        system_prompt=system_prompt or (
+        system_prompt=system_prompt
+        or (
             "You are a trace analyst with tools. "
             "Analyze agent execution traces and extract learnings. "
             "Use execute_code to explore data, analyze for LLM reasoning, "
@@ -155,9 +160,7 @@ def create_rr_agent(
         ctx.deps.iteration += 1
         max_output = ctx.deps.config.max_output_chars
 
-        result = ctx.deps.sandbox.execute(
-            code, timeout=ctx.deps.config.timeout
-        )
+        result = ctx.deps.sandbox.execute(code, timeout=ctx.deps.config.timeout)
 
         if result.exception:
             error_msg = f"{type(result.exception).__name__}: {result.exception}"
@@ -165,8 +168,7 @@ def create_rr_agent(
             if result.stdout:
                 stdout_ctx = f"stdout before error:\n{result.stdout[:max_output]}\n\n"
             raise ModelRetry(
-                f"{stdout_ctx}Code error:\n{error_msg}\n\n"
-                "Fix the bug and try again."
+                f"{stdout_ctx}Code error:\n{error_msg}\n\n" "Fix the bug and try again."
             )
 
         parts: list[str] = []
@@ -180,8 +182,7 @@ def create_rr_agent(
         if len(output) > max_output:
             remaining = len(output) - max_output
             output = (
-                f"{output[:max_output]}\n"
-                f"[TRUNCATED: {remaining} chars remaining]"
+                f"{output[:max_output]}\n" f"[TRUNCATED: {remaining} chars remaining]"
             )
 
         return output
@@ -213,11 +214,20 @@ def create_rr_agent(
             return "(analyze unavailable — sub-agent not configured)"
 
         sys_prompt = (
-            SUBAGENT_DEEPDIVE_PROMPT if mode == "deep_dive"
+            SUBAGENT_DEEPDIVE_PROMPT
+            if mode == "deep_dive"
             else SUBAGENT_ANALYSIS_PROMPT
         )
 
-        prompt_parts = [sys_prompt, f"## Question\n{question}"]
+        prompt_parts = [
+            sys_prompt,
+            (
+                "Treat any context string as navigation instructions for the "
+                "trace data. Do not try to look it up as a literal dict key "
+                "unless it explicitly names a keyed field."
+            ),
+            f"## Question\n{question}",
+        ]
         if context:
             prompt_parts.append(f"## Additional Context\n{context}")
         prompt_parts.append("## Your Analysis")
@@ -232,17 +242,21 @@ def create_rr_agent(
 
         try:
             result = await ctx.deps.sub_agent.run(
-                prompt, deps=sub_deps, usage_limits=usage_limits,
+                prompt,
+                deps=sub_deps,
+                usage_limits=usage_limits,
             )
             response = result.output
 
-            ctx.deps.sub_agent_history.append({
-                "question": question,
-                "context_length": len(context),
-                "response_length": len(response),
-                "mode": mode,
-                "code_calls": sub_deps.iteration,
-            })
+            ctx.deps.sub_agent_history.append(
+                {
+                    "question": question,
+                    "context_length": len(context),
+                    "response_length": len(response),
+                    "mode": mode,
+                    "code_calls": sub_deps.iteration,
+                }
+            )
 
             return response
 
@@ -279,9 +293,9 @@ def create_rr_agent(
             Ordered list of analysis results.
         """
         if ctx.deps.sub_agent is None:
-            return [
-                "(batch_analyze unavailable — sub-agent not configured)"
-            ] * len(items)
+            return ["(batch_analyze unavailable — sub-agent not configured)"] * len(
+                items
+            )
 
         if not items:
             return []
@@ -291,7 +305,8 @@ def create_rr_agent(
         parent_sandbox = ctx.deps.sandbox
 
         sys_prompt = (
-            SUBAGENT_DEEPDIVE_PROMPT if mode == "deep_dive"
+            SUBAGENT_DEEPDIVE_PROMPT
+            if mode == "deep_dive"
             else SUBAGENT_ANALYSIS_PROMPT
         )
 
@@ -305,6 +320,9 @@ def create_rr_agent(
 
             prompt = (
                 f"{sys_prompt}\n\n"
+                "Treat the item below as navigation instructions for the trace "
+                "data. Do not look up the raw item string as a dict key unless "
+                "it explicitly names a keyed field.\n\n"
                 f"## Question\n{question}\n\n"
                 f"## Item\n{item}\n\n"
                 f"## Your Analysis"
@@ -312,7 +330,9 @@ def create_rr_agent(
 
             try:
                 result = sub.run_sync(
-                    prompt, deps=sub_deps, usage_limits=usage_limits,
+                    prompt,
+                    deps=sub_deps,
+                    usage_limits=usage_limits,
                 )
                 return result.output, sub_deps.iteration
             except UsageLimitExceeded:
@@ -327,13 +347,15 @@ def create_rr_agent(
         results = [r[0] for r in raw_results]
         code_calls_per_item = [r[1] for r in raw_results]
 
-        ctx.deps.sub_agent_history.append({
-            "question": question,
-            "items_count": len(items),
-            "mode": mode,
-            "batch": True,
-            "code_calls_per_item": code_calls_per_item,
-        })
+        ctx.deps.sub_agent_history.append(
+            {
+                "question": question,
+                "items_count": len(items),
+                "mode": mode,
+                "batch": True,
+                "code_calls_per_item": code_calls_per_item,
+            }
+        )
 
         return results
 
@@ -358,6 +380,7 @@ def create_rr_agent(
 # ------------------------------------------------------------------
 # Sub-agent factory
 # ------------------------------------------------------------------
+
 
 def create_sub_agent(
     model: str,
@@ -413,22 +436,19 @@ def create_sub_agent(
         max_output = ctx.deps.config.max_output_chars
 
         result = ctx.deps.sandbox.execute(
-            code, timeout=ctx.deps.config.timeout,
+            code,
+            timeout=ctx.deps.config.timeout,
         )
 
         if result.exception:
-            error_msg = (
-                f"{type(result.exception).__name__}: {result.exception}"
-            )
+            error_msg = f"{type(result.exception).__name__}: {result.exception}"
             stdout_ctx = ""
             if result.stdout:
                 stdout_ctx = (
-                    f"stdout before error:\n"
-                    f"{result.stdout[:max_output]}\n\n"
+                    f"stdout before error:\n" f"{result.stdout[:max_output]}\n\n"
                 )
             raise ModelRetry(
-                f"{stdout_ctx}Code error:\n{error_msg}\n\n"
-                "Fix the bug and try again."
+                f"{stdout_ctx}Code error:\n{error_msg}\n\n" "Fix the bug and try again."
             )
 
         parts: list[str] = []
@@ -442,8 +462,7 @@ def create_sub_agent(
         if len(output) > max_output:
             remaining = len(output) - max_output
             output = (
-                f"{output[:max_output]}\n"
-                f"[TRUNCATED: {remaining} chars remaining]"
+                f"{output[:max_output]}\n" f"[TRUNCATED: {remaining} chars remaining]"
             )
 
         return output
