@@ -37,6 +37,10 @@ Preferred auth order:
 3. `LOGFIRE_TOKEN` from the repo-local `.env` only as a bootstrap path when you
    need to create or recover a read token
 
+Do not assume `LOGFIRE_TOKEN` can query traces. In this repository it is
+usually the project write token used by the SDK for emission, and the query API
+will reject it with `401 Invalid token`.
+
 Do not hardcode token values into source files, docs, tests, or shell history.
 Do not print full tokens in logs or user-facing output.
 
@@ -106,13 +110,17 @@ Authorization: Bearer <read-token>
 Accept: application/json
 ```
 
+Use `GET` for the query API in this repo. `POST /v1/query` currently returns
+`405 Method Not Allowed`.
+
 Useful query parameters:
 
 - `sql`: required SQL query
 - `limit`: response row cap, default `500`, maximum `10000`
 - `min_timestamp`: optional lower time bound
 - `max_timestamp`: optional upper time bound
-- `row_oriented`: only affects JSON output; otherwise the response is column-oriented
+- `row_oriented`: may be accepted by the API, but agents in this repo should not
+  rely on it to change the payload shape
 
 Official Logfire query API docs:
 
@@ -120,7 +128,9 @@ Official Logfire query API docs:
 
 ## Important Response Shape
 
-By default, Logfire returns **column-oriented JSON**, not a list of row dicts.
+Treat Logfire responses as **column-oriented JSON**, not as a list of row dicts.
+Even when `row_oriented` is provided, the safe assumption in this repo is still
+that the payload will come back in `columns`.
 
 Example shape:
 
@@ -319,11 +329,25 @@ Likely causes:
 - token is expired
 - token is the wrong token type
 - token belongs to the wrong project or region
+- you are trying to use `LOGFIRE_TOKEN` instead of `LOGFIRE_READ_TOKEN`
 
 Action:
 
 - use a valid read token for `kayba/ace`
 - prefer the global API endpoint if region selection is unclear
+
+### `429 Too Many Requests`
+
+Likely causes:
+
+- several query requests were fired back-to-back while drilling into the same trace
+- one large query pulled too many records or wide JSON attributes
+
+Action:
+
+- pause briefly and retry with fewer queries
+- prefer one narrow query over several broad exploratory ones
+- fetch counts first, then ordered records for a single `trace_id`
 
 ### `200 OK` But No Rows
 
