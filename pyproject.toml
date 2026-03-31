@@ -39,7 +39,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "litellm>=1.78.0",
+    "litellm>=1.83.0",
     "pydantic>=2.0.0",
     "pydantic-ai-slim[litellm]>=0.0.36",
     "python-toon>=0.1.0",
@@ -135,7 +135,7 @@ dev = [
     "types-requests>=2.32.4.20260107",
 ]
 tau-bench = [
-    "tau2 @ git+https://github.com/sierra-research/tau2-bench.git",
+    "tau2 @ git+https://github.com/sierra-research/tau2-bench.git@dev/tau3",
 ]
 demos = [
     "browser-use>=0.9.0",
@@ -203,4 +203,4 @@ markers = [
 ]
 
 [tool.uv.sources]
-tau2 = { git = "https://github.com/sierra-research/tau2-bench.git" }
+tau2 = { git = "https://github.com/sierra-research/tau2-bench.git", branch = "dev/tau3" }
