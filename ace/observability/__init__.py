@@ -44,7 +44,19 @@ def configure_logfire() -> bool:
     try:
         import logfire
 
-        logfire.configure()
+        def scrubbing_callback(m: logfire.ScrubMatch):
+            if m.path == ("attributes", "trace", "reasoning"):
+                return m.value
+            if m.path == ("attributes", "trace", "answer"):
+                return m.value
+            if "messages" in m.path and "content" in m.path:
+                return m.value
+            if "payment_id" in m.path:
+                return m.value
+
+        logfire.configure(
+            scrubbing=logfire.ScrubbingOptions(callback=scrubbing_callback)
+        )
         logfire.instrument_pydantic_ai()
         _logfire_configured = True
         logger.info("Logfire configured — PydanticAI agents instrumented")

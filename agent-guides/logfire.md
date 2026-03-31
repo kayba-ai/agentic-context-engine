@@ -220,7 +220,9 @@ LIMIT 20
 Notes:
 
 - root traces usually have `parent_span_id IS NULL`
-- in this project, root messages are often `agent run`
+- in this project, root messages are often `agent run` for PydanticAI flows
+- Tau benchmark runs now emit explicit benchmark spans such as `benchmark run`
+  and `tau task run`
 
 ### 2. Full Trace By `trace_id`
 
@@ -294,11 +296,14 @@ LIMIT 50
 
 Typical messages you may see:
 
-- `agent run`: root span for a run
+- `agent run`: root span for a PydanticAI run
+- `benchmark run`: explicit root span for ace-eval benchmark execution
+- `benchmark trial`: one benchmark trial within a benchmark run
+- `tau task run`: one TauBench task execution; check attributes such as
+  `run_phase`, `task_index`, `task_id`, and `skillbook_injected`
 - `chat <model>`: one LLM call
 - `running tool: execute_code`: sandbox code execution
 - `running tool: batch_analyze`: batch semantic analysis
-- `sub run`: nested sub-agent execution
 
 Interpretation guidance:
 
@@ -308,8 +313,10 @@ Interpretation guidance:
   attempt and retried; this is not automatically a top-level pipeline failure
 - `UsageLimitExceeded` indicates an internal request budget or tool budget issue,
   not necessarily a transport failure
-- long traces with many `sub run` spans often indicate recursive reflection or
-  batch analysis behavior
+- long traces with many nested `agent run` spans where `agent_name = sub` often
+  indicate recursive reflection or batch analysis behavior
+- if a user asks about benchmark behavior, start from `benchmark run` or
+  `tau task run` spans instead of expecting PydanticAI `agent run` traces
 
 ## Safety And Operational Rules
 
