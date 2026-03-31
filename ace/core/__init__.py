@@ -2,6 +2,12 @@
 
 from .context import ACESample, ACEStepContext, SkillbookView
 from .environments import EnvironmentResult, Sample, SimpleEnvironment, TaskEnvironment
+from .insight_source import (
+    TRACE_IDENTITY_METADATA_KEY,
+    InsightSource,
+    TraceIdentity,
+    TraceReference,
+)
 from .outputs import (
     AgentOutput,
     ExtractedLearning,
@@ -18,6 +24,7 @@ from .skillbook import (
     UpdateBatch,
     UpdateOperation,
 )
+
 __all__ = [
     # Skillbook types
     "VALID_SKILL_TAGS",
@@ -42,4 +49,9 @@ __all__ = [
     "Sample",
     "SimpleEnvironment",
     "TaskEnvironment",
+    # Provenance
+    "InsightSource",
+    "TraceIdentity",
+    "TraceReference",
+    "TRACE_IDENTITY_METADATA_KEY",
 ]

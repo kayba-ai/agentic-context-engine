@@ -10,6 +10,7 @@ from unittest.mock import patch
 import pytest
 
 from ace.core.context import ACEStepContext, SkillbookView
+from ace.core.insight_source import InsightSource, TraceReference
 from ace.core.outputs import AgentOutput, ReflectorOutput
 from ace.core.skillbook import (
     Skill,
@@ -184,6 +185,112 @@ class TestSkillbookSerialization:
         assert skill.embedding is None
         assert skill.status == "active"
         assert skill.sources == []
+
+    def test_sources_round_trip(self):
+        sb = Skillbook()
+        sb.add_skill(
+            "api",
+            "Check for a next-page token before stopping.",
+            skill_id="api-001",
+            insight_source=InsightSource(
+                trace_uid="kayba-hosted:conv-123",
+                source_system="kayba-hosted",
+                trace_id="conv-123",
+                display_name="checkout-failure.md",
+                sample_question="Why did pagination stop early?",
+                epoch=1,
+                step=2,
+                trace_refs=[
+                    TraceReference(
+                        text_excerpt="next_page_token was present",
+                        excerpt_location="operation.evidence",
+                    )
+                ],
+            ),
+        )
+
+        restored = Skillbook.from_dict(sb.to_dict())
+        skill = restored.get_skill("api-001")
+
+        assert skill is not None
+        assert skill.sources[0].trace_id == "conv-123"
+        assert (
+            skill.sources[0].trace_refs[0].text_excerpt == "next_page_token was present"
+        )
+
+    def test_source_summary_and_filter_include_trace_identity(self):
+        sb = Skillbook()
+        sb.add_skill(
+            "api",
+            "Check for a next-page token before stopping.",
+            skill_id="api-001",
+            insight_source=InsightSource(
+                trace_uid="kayba-hosted:conv-123",
+                source_system="kayba-hosted",
+                trace_id="conv-123",
+                display_name="checkout-failure.md",
+                sample_question="Why did pagination stop early?",
+                epoch=2,
+                step=4,
+            ),
+        )
+
+        summary = sb.source_summary()
+        filtered = sb.source_filter(trace_uid="kayba-hosted:conv-123")
+
+        assert summary["source_systems"]["kayba-hosted"] == 1
+        assert summary["trace_uids"]["kayba-hosted:conv-123"] == 1
+        assert filtered["api-001"][0]["trace_id"] == "conv-123"
+
+    def test_update_skill_dedupes_identical_sources(self):
+        sb = Skillbook()
+        source = InsightSource(
+            trace_uid="synthetic:trace-001",
+            source_system="synthetic",
+            trace_id="trace-001",
+            display_name="trace-001",
+        )
+
+        sb.add_skill(
+            "api",
+            "Always check the continuation token.",
+            skill_id="api-001",
+            insight_source=source,
+        )
+        sb.update_skill("api-001", insight_source=source)
+
+        skill = sb.get_skill("api-001")
+        assert skill is not None
+        assert len(skill.sources) == 1
+
+    def test_add_skill_accepts_multiple_sources(self):
+        sb = Skillbook()
+        sb.add_skill(
+            "api",
+            "Generalize pagination handling across traces.",
+            skill_id="api-001",
+            insight_source=[
+                InsightSource(
+                    trace_uid="synthetic:trace-001",
+                    source_system="synthetic",
+                    trace_id="trace-001",
+                    display_name="trace-001",
+                ),
+                InsightSource(
+                    trace_uid="synthetic:trace-002",
+                    source_system="synthetic",
+                    trace_id="trace-002",
+                    display_name="trace-002",
+                    relation="supporting",
+                ),
+            ],
+        )
+
+        skill = sb.get_skill("api-001")
+        assert skill is not None
+        assert len(skill.sources) == 2
+        assert skill.sources[0].trace_id == "trace-001"
+        assert skill.sources[1].trace_id == "trace-002"
 
 
 # ------------------------------------------------------------------ #
@@ -424,6 +531,24 @@ class TestUpdateOperationParsing:
         assert op.type == "ADD"
         assert op.section == "math"
         assert op.content == "skill content"
+
+    def test_from_json_parses_reflection_index(self):
+        op = UpdateOperation.from_json(
+            {
+                "type": "ADD",
+                "section": "math",
+                "content": "skill content",
+                "learning_index": 1,
+                "reflection_index": 2,
+                "reflection_indices": [0, 2],
+            }
+        )
+
+        assert op.learning_index == 1
+        assert op.reflection_index == 2
+        assert op.reflection_indices == [0, 2]
+        assert op.to_json()["reflection_index"] == 2
+        assert op.to_json()["reflection_indices"] == [0, 2]
 
     def test_from_json_tag_filters_metadata(self):
         op = UpdateOperation.from_json(

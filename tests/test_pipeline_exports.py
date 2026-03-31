@@ -117,6 +117,7 @@ class TestStepExports:
             "ReflectStep",
             "TagStep",
             "UpdateStep",
+            "AttachInsightSourcesStep",
             "ApplyStep",
             "DeduplicateStep",
             "CheckpointStep",
@@ -141,6 +142,7 @@ class TestStepExports:
             "ReflectStep",
             "TagStep",
             "UpdateStep",
+            "AttachInsightSourcesStep",
             "ApplyStep",
             "DeduplicateStep",
             "CheckpointStep",
@@ -170,7 +172,7 @@ class TestBuildSteps:
             skill_manager=MockSkillManager(),
         )
         assert isinstance(steps, list)
-        assert len(steps) >= 4  # Agent, Evaluate, Reflect, Tag, Update, Apply
+        assert len(steps) >= 5  # Agent, Evaluate, Reflect, Tag, Update, Sources, Apply
         assert isinstance(steps[0], AgentStep)
         assert isinstance(steps[1], EvaluateStep)
         assert isinstance(steps[2], ReflectStep)
@@ -184,7 +186,7 @@ class TestBuildSteps:
             skill_manager=MockSkillManager(),
         )
         assert isinstance(steps, list)
-        assert len(steps) >= 4  # Reflect, Tag, Update, Apply
+        assert len(steps) >= 5  # Reflect, Tag, Update, Sources, Apply
         assert isinstance(steps[0], ReflectStep)
 
     def test_ace_from_roles_delegates_to_build_steps(self):
