@@ -257,6 +257,8 @@ op = UpdateOperation(
     type="ADD",
     section="Math",
     content="Break problems into smaller steps",
+    reflection_index=0,
+    reflection_indices=[0, 1],
     skill_id="math-00001",
 )
 ```

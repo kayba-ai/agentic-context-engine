@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import collections
+import copy
 import io
 import json
 import logging
@@ -210,6 +211,11 @@ class TraceSandbox:
             "FINAL": self._final,
             "FINAL_VAR": self._final_var,
             "SHOW_VARS": self._show_vars,
+            "helper_registry": {},
+            "register_helper": self._register_helper,
+            "list_helpers": self._list_helpers,
+            "run_helper": self._run_helper,
+            "get_batch_item": self._get_batch_item,
             "parallel_map": self._parallel_map,
             # Safe stdlib modules
             "json": json,
@@ -322,6 +328,69 @@ class TraceSandbox:
         }
         user_vars = [k for k in user_vars if k not in excluded]
         logger.debug("Available variables: %s", sorted(user_vars))
+
+    def _register_helper(
+        self,
+        name: str,
+        source: str,
+        description: str = "",
+    ) -> str:
+        """Register reusable helper code in the sandbox.
+
+        The helper source is executed immediately and stored so that future
+        sandbox snapshots can recreate the same helper definitions for
+        sub-agents.
+        """
+        if not name.isidentifier():
+            raise ValueError(f"Invalid helper name: {name!r}")
+        if not source.strip():
+            raise ValueError("Helper source cannot be empty")
+
+        exec(source, self.namespace, self.namespace)
+        helper = self.namespace.get(name)
+        if not callable(helper):
+            raise ValueError(
+                f"Helper source must define a callable named {name!r}"
+            )
+
+        registry = self.namespace.setdefault("helper_registry", {})
+        registry[name] = {
+            "description": description,
+            "source": source,
+        }
+        return f"Registered helper {name}"
+
+    def _list_helpers(self) -> list[dict[str, str]]:
+        """Return metadata for registered helpers."""
+        registry = self.namespace.get("helper_registry", {})
+        if not isinstance(registry, dict):
+            return []
+
+        helpers: list[dict[str, str]] = []
+        for name, meta in registry.items():
+            if not isinstance(meta, dict):
+                continue
+            helpers.append(
+                {
+                    "name": str(name),
+                    "description": str(meta.get("description", "")),
+                }
+            )
+        return helpers
+
+    def _run_helper(self, name: str, *args: Any, **kwargs: Any) -> Any:
+        """Invoke a registered helper by name."""
+        helper = self.namespace.get(name)
+        if not callable(helper):
+            raise KeyError(f"Helper {name!r} is not registered")
+        return helper(*args, **kwargs)
+
+    def _get_batch_item(self, index: int) -> Any:
+        """Return a batch item by index when batch helpers are available."""
+        batch_items = self.namespace.get("batch_items")
+        if not isinstance(batch_items, list):
+            raise RuntimeError("batch_items is not available in this sandbox")
+        return batch_items[index]
 
     def _parallel_map(
         self, fn: Callable[[Any], Any], inputs: list, *, return_exceptions: bool = False
@@ -544,3 +613,52 @@ class TraceSandbox:
         """Reset the sandbox state for a new execution."""
         self._final_value = None
         self._final_called = False
+
+
+def create_readonly_sandbox(parent: TraceSandbox) -> TraceSandbox:
+    """Create an isolated sandbox snapshot for sub-agent use.
+
+    Deep-copies data variables from the parent sandbox so the sub-agent
+    can explore trace data via ``execute_code`` without affecting the
+    parent's state.  Safe for parallel use — each snapshot is independent.
+
+    Args:
+        parent: The parent sandbox to snapshot.
+
+    Returns:
+        A new TraceSandbox with deep-copied data variables.
+    """
+    sandbox = TraceSandbox(trace=None, llm_query_fn=None)
+
+    # Keys already set up by TraceSandbox.__init__ — skip them
+    infrastructure = {
+        "__builtins__", "FINAL", "FINAL_VAR", "SHOW_VARS",
+        "parallel_map", "llm_query", "safe_getattr", "trace",
+        "register_helper", "list_helpers", "run_helper", "get_batch_item",
+        "json", "re", "math", "collections",
+        "datetime", "timedelta", "date", "time", "timezone",
+    }
+
+    for key, value in parent.namespace.items():
+        if key in infrastructure or key.startswith("_"):
+            continue
+        try:
+            sandbox.namespace[key] = copy.deepcopy(value)
+        except (TypeError, copy.Error):
+            # Modules, functions, etc. — share by reference
+            sandbox.namespace[key] = value
+
+    registry = sandbox.namespace.get("helper_registry", {})
+    if isinstance(registry, dict):
+        for name, meta in registry.items():
+            if not isinstance(meta, dict):
+                continue
+            source = meta.get("source")
+            if not isinstance(source, str) or not source.strip():
+                continue
+            try:
+                exec(source, sandbox.namespace, sandbox.namespace)
+            except Exception as exc:
+                logger.warning("Failed to restore helper %s in snapshot: %s", name, exc)
+
+    return sandbox

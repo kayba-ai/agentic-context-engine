@@ -566,6 +566,8 @@ Return ONLY valid JSON:
       "content": "<strategy text, imperative>",
       "skill_id": "<required for UPDATE/TAG/REMOVE>",
       "metadata": {{"helpful": 1, "harmful": 0}},
+      "reflection_index": "<int, 0-based index into reflections; required when multiple reflections are provided>",
+      "reflection_indices": "<list[int], all contributing reflection indices when the operation synthesizes a pattern across multiple reflections>",
       "learning_index": "<int, 0-based index into extracted_learnings; for ADD/UPDATE only>",
       "justification": "<why this improves skillbook>",
       "evidence": "<specific detail from reflection>"
@@ -573,7 +575,11 @@ Return ONLY valid JSON:
   ]
 }}
 
-For ADD/UPDATE operations, set `learning_index` to the 0-based index of the extracted_learning this operation implements. Omit for TAG/REMOVE.
+Set `reflection_index` to the 0-based index of the reflection that produced the operation. When only one reflection is provided, you may omit it or set it to `0`.
+
+If an operation generalizes across multiple reflections, set `reflection_indices` to all contributing reflection indices. Keep `reflection_index` as the primary supporting reflection when there is one; otherwise omit it.
+
+For ADD/UPDATE operations, set `learning_index` to the 0-based index of the extracted_learning within that reflection. Omit for TAG/REMOVE.
 
 CRITICAL: Begin response with `{{` and end with `}}`
 </output_format>

@@ -134,7 +134,7 @@ class SkillbookView:
 - **Runtime** — `AttributeError` if someone calls a write method anyway.
 - **Convention** — the underlying `_sb` is underscore-prefixed. Accessing it is a deliberate violation, not an accident.
 
-Steps that only **read** the skillbook (AgentStep, ReflectStep, UpdateStep) access `ctx.skillbook` — the view. Steps that **write** the skillbook (TagStep, ApplyStep, DeduplicateStep, CheckpointStep) receive the real `Skillbook` via constructor injection and use `self.skillbook`.
+Steps that only **read** the skillbook (AgentStep, ReflectStep, UpdateStep, AttachInsightSourcesStep) access `ctx.skillbook` — the view. Steps that **write** the skillbook (TagStep, ApplyStep, DeduplicateStep, CheckpointStep) receive the real `Skillbook` via constructor injection and use `self.skillbook`.
 
 ### ACEStepContext
 
@@ -162,7 +162,7 @@ class ACEStepContext(StepContext):
     global_sample_index: int = 0
 ```
 
-The `reflections` field is a tuple of `ReflectorOutput` instances. In single-trace mode, this is a 1-tuple. In batch mode (e.g. when `RRStep` receives a trace dict with a `"tasks"` list), the reflector produces one `ReflectorOutput` per trace and `reflections` holds the full batch. Downstream steps (`TagStep`, `UpdateStep`) iterate over the tuple uniformly — no special-casing for single vs batch. An empty tuple means no reflection has run yet.
+The `reflections` field is a tuple of `ReflectorOutput` instances. In single-trace mode, this is a 1-tuple. In batch mode (e.g. when `RRStep` receives a trace dict with a `"tasks"` list), the reflector produces one `ReflectorOutput` per trace and `reflections` holds the full batch. Downstream steps (`TagStep`, `UpdateStep`, `AttachInsightSourcesStep`) iterate over the tuple uniformly — no special-casing for single vs batch. An empty tuple means no reflection has run yet.
 
 The `trace` field holds the raw execution record from any external system — a browser-use `AgentHistoryList`, a LangChain result dict, a Claude Code transcript, or any arbitrary Python object. It has no enforced schema. The Reflector receives the raw trace and is responsible for making sense of it — this gives maximum flexibility for analysis without constraining trace format. Extraction helpers can be added later as an optional layer if needed.
 
@@ -329,12 +329,12 @@ No key ever touches ACE code. LiteLLM handles provider-specific key lookup inter
 
 ```
 ACERunner (shared infrastructure: epoch loop, delegates to Pipeline.run())
-├── TraceAnalyser       — [Reflect → Tag → Update → Apply]; input = any trace object
-├── ACE                 — [Agent → Evaluate → Reflect → Tag → Update → Apply]; input = Sample + Environment
-├── BrowserUse          — [BrowserExecute → BrowserToTrace → Reflect → Tag → Update → Apply]; input = task strings
-├── LangChain           — [LangChainExecute → LangChainToTrace → Reflect → Tag → Update → Apply]; input = chain inputs
-├── ClaudeCode          — [ClaudeCodeExecute → ClaudeCodeToTrace → Reflect → Tag → Update → Apply]; input = task strings
-└── OpenClaw (script)   — [LoadTraces → OpenClawToTrace → Reflect → Tag → Update → Apply]; input = JSONL trace files
+├── TraceAnalyser       — [Reflect/RRStep → Tag → Update → AttachInsightSources → Apply]; input = any trace object
+├── ACE                 — [Agent → Evaluate → Reflect → Tag → Update → AttachInsightSources → Apply]; input = Sample + Environment
+├── BrowserUse          — [BrowserExecute → BrowserToTrace → Reflect → Tag → Update → AttachInsightSources → Apply]; input = task strings
+├── LangChain           — [LangChainExecute → LangChainToTrace → Reflect → Tag → Update → AttachInsightSources → Apply]; input = chain inputs
+├── ClaudeCode          — [ClaudeCodeExecute → ClaudeCodeToTrace → Reflect → Tag → Update → AttachInsightSources → Apply]; input = task strings
+└── OpenClaw (script)   — [LoadTraces → OpenClawToTrace → Reflect → Tag → Update → AttachInsightSources → Apply]; input = JSONL trace files
 
 ACELiteLLM (standalone convenience wrapper — not an ACERunner subclass)
 ├── ask()               — direct Agent call, no pipeline
@@ -468,7 +468,7 @@ Analyses pre-recorded traces without executing an agent. Runs the learning tail 
 ### Pipeline
 
 ```
-[ReflectStep] → [TagStep] → [UpdateStep] → [ApplyStep]
+[ReflectStep] → [TagStep] → [UpdateStep] → [AttachInsightSourcesStep] → [ApplyStep]
 ```
 
 No AgentStep, no EvaluateStep. The trace already contains the agent's output and the evaluation feedback.
@@ -482,6 +482,7 @@ def _build_context(self, raw_trace, *, epoch, total_epochs, index, total, global
     return ACEStepContext(
         skillbook=SkillbookView(self.skillbook),
         trace=raw_trace,                         # raw object, no enforced schema
+        metadata={...},                         # inferred trace identity for provenance
         epoch=epoch,
         total_epochs=total_epochs,
         step_index=index,
@@ -490,7 +491,7 @@ def _build_context(self, raw_trace, *, epoch, total_epochs, index, total, global
     )
 ```
 
-The `skillbook` field is a `SkillbookView` — read-only steps access it from the context. Write steps (TagStep, ApplyStep) receive the real `Skillbook` via constructor injection. Each sample is independent — no state carries over from previous samples.
+The `skillbook` field is a `SkillbookView` — read-only steps access it from the context. Write steps (TagStep, ApplyStep) receive the real `Skillbook` via constructor injection. The runner also seeds `ctx.metadata` with a normalised trace identity so downstream steps can attach stable provenance. Each sample is independent — no state carries over from previous samples.
 
 ### Interface
 
@@ -546,7 +547,7 @@ The full live adaptive pipeline. An agent executes, the reflector analyses, the 
 ### Pipeline
 
 ```
-[AgentStep] → [EvaluateStep] → [ReflectStep] → [TagStep] → [UpdateStep] → [ApplyStep]
+[AgentStep] → [EvaluateStep] → [ReflectStep] → [TagStep] → [UpdateStep] → [AttachInsightSourcesStep] → [ApplyStep]
 ```
 
 ### Context building
@@ -556,6 +557,7 @@ def _build_context(self, sample, *, epoch, total_epochs, index, total, global_sa
     return ACEStepContext(
         sample=sample,
         skillbook=SkillbookView(self.skillbook),
+        metadata={...},                         # inferred trace identity for provenance
         epoch=epoch,
         total_epochs=total_epochs,
         step_index=index,
@@ -570,7 +572,7 @@ Each sample is independent. The `skillbook` field is a `SkillbookView` (read-onl
 
 ```python
 class ACE(ACERunner):
-    """Live adaptive pipeline: Agent → Evaluate → Reflect → Tag → Update → Apply."""
+    """Live adaptive pipeline: Agent → Evaluate → Reflect → Tag → Update → AttachInsightSources → Apply."""
 
     @classmethod
     def from_roles(cls, *, agent, reflector, skill_manager, environment=None, skillbook=None, **kwargs) -> "ACE": ...
@@ -689,7 +691,7 @@ def from_roles(cls, *, agent, reflector, skill_manager, environment=None,
     return cls(pipeline=Pipeline(steps), skillbook=skillbook)
 ```
 
-Read-only steps (ReflectStep, UpdateStep) access the skillbook via `ctx.skillbook` (a `SkillbookView`). Write steps (TagStep, ApplyStep, DeduplicateStep, CheckpointStep) receive the real `Skillbook` via constructor.
+Read-only steps (ReflectStep, UpdateStep, AttachInsightSourcesStep) access the skillbook via `ctx.skillbook` (a `SkillbookView`). Write steps (TagStep, ApplyStep, DeduplicateStep, CheckpointStep) receive the real `Skillbook` via constructor.
 
 ---
 
@@ -715,7 +717,8 @@ from ace import ACERunner
 
 # Core steps
 from ace import (
-    AgentStep, EvaluateStep, ReflectStep, TagStep, UpdateStep, ApplyStep,
+    AgentStep, EvaluateStep, ReflectStep, TagStep, UpdateStep,
+    AttachInsightSourcesStep, ApplyStep,
     DeduplicateStep, CheckpointStep, LoadTracesStep, ExportSkillbookMarkdownStep,
     ObservabilityStep, PersistStep, learning_tail,
 )
@@ -742,6 +745,7 @@ Every runner also exposes a `build_steps()` classmethod that returns the step li
 | **ReflectStep** | `trace`, `skillbook` | `reflector` | `reflections` | None (pure) | 3; `async_boundary = True` |
 | **TagStep** | `reflections` | `skillbook` (real) | — | Tags skills on skillbook | 1 |
 | **UpdateStep** | `reflections`, `skillbook` | `skill_manager` | `skill_manager_output` | None (pure) | 1 |
+| **AttachInsightSourcesStep** | `trace`, `reflections`, `skill_manager_output`, `metadata` | — | `skill_manager_output` | None (pure) | default (1) |
 | **ApplyStep** | `skill_manager_output` | `skillbook` (real) | — | Applies update batch to skillbook | 1 |
 | **DeduplicateStep** | `global_sample_index` | `manager` (DeduplicationManagerLike), `skillbook` (real) | — | Consolidates similar skills | 1 |
 | **CheckpointStep** | `global_sample_index` | `skillbook` (real) | — | Saves skillbook to disk | 1 |
@@ -903,6 +907,34 @@ class UpdateStep:
 
 Pure — generates update operations from the reflections tuple and the current skillbook state. The Reflector has already done the heavy lifting of analysing the trace; the SkillManager turns those insights into concrete skillbook operations (ADD, UPDATE, TAG, REMOVE). When the tuple contains multiple reflections (batch mode), the SkillManager sees all of them in one call — enabling cross-trace pattern recognition and reducing duplicate skill entries. Does not mutate the skillbook. `max_workers = 1` because the skill manager reads the current skillbook state and concurrent calls would see stale data.
 
+### AttachInsightSourcesStep
+
+```python
+class AttachInsightSourcesStep:
+    requires = frozenset({"trace", "reflections", "skill_manager_output", "metadata"})
+    provides = frozenset({"skill_manager_output"})
+
+    def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
+        operations = deepcopy(ctx.skill_manager_output.operations)
+        build_insight_source(
+            trace=ctx.trace,
+            reflections=ctx.reflections,
+            operations=operations,
+            metadata=ctx.metadata,
+            sample=ctx.sample,
+            epoch=ctx.epoch,
+            step=ctx.step_index,
+        )
+        return ctx.replace(
+            skill_manager_output=UpdateBatch(
+                reasoning=ctx.skill_manager_output.reasoning,
+                operations=operations,
+            )
+        )
+```
+
+Pure enrichment step — converts the current trace plus reflection context into structured provenance on each update operation before the batch is applied. The runner seeds `ctx.metadata` with a stable trace identity (`source_system`, `trace_id`, `trace_uid`, `display_name`), and this step combines that with reflection-local anchors such as `reflection_index`, `reflection_indices`, `learning_index`, `error_identification`, and `trace_refs`. In batch mode, `reflection_index` maps a single-source operation back to one sub-trace, while `reflection_indices` allows a synthesized operation to carry multiple provenance sources when it generalizes across several traces. When the model omits or misstates the reflection indices, the step falls back to evidence-based batch matching. `trace_refs` stay best-effort: structured traces can populate navigable anchors like `json_path`, `step_indices`, `message_indices`, and `span_ids`, while opaque traces fall back to excerpt-only references. Keeping this separate from `UpdateStep` preserves the pure "decide what to change" contract for the SkillManager while making provenance attachment deterministic and testable.
+
 ### ApplyStep
 
 ```python
@@ -920,7 +952,7 @@ class ApplyStep:
         return ctx
 ```
 
-Side-effect step — applies the update batch to `self.skillbook` (the real `Skillbook`, injected via constructor). Separated from UpdateStep so that:
+Side-effect step — applies the update batch, now already enriched with insight-source provenance, to `self.skillbook` (the real `Skillbook`, injected via constructor). Separated from UpdateStep so that:
 - UpdateStep can be tested without mutating a skillbook (check that correct operations are generated).
 - ApplyStep can be tested with a mock update batch (check that operations are applied correctly).
 
@@ -1224,7 +1256,7 @@ ace = ACE.from_roles(
     dedup_manager=DeduplicationManager(DeduplicationConfig(similarity_threshold=0.85)),
     dedup_interval=10,
 )
-# Pipeline: Agent → Evaluate → Reflect → Tag → Update → Apply → Deduplicate
+# Pipeline: Agent → Evaluate → Reflect → Tag → Update → AttachInsightSources → Apply → Deduplicate
 ```
 
 ---
@@ -1246,16 +1278,16 @@ Each integration defines its own input/output format. A converter step acts as a
 > **MCP Server — a different pattern.** The MCP integration does *not* add pipeline steps. It is a thin async layer over `ACELiteLLM` that exposes ACE as an MCP tool provider. MCP handlers validate requests, manage sessions, enforce safety guards, then delegate to `ACELiteLLM` methods (`ask`, `learn`, `learn_from_feedback`, `save`, `load`) via `asyncio.to_thread()`. See [MCP Server docs](integrations/mcp.md) for details.
 
 ```
-Standard ACE:      [Agent → Evaluate]                          → [Reflect → Tag → Update → Apply]
+Standard ACE:      [Agent → Evaluate]                          → [Reflect → Tag → Update → AttachInsightSources → Apply]
                     ╰── execute (built-in) ──╯                    ╰──────── learn (shared) ──────╯
                          provides: trace (dict) ─────────────────► requires: trace
 
-Browser-use:       [BrowserExecute] → [BrowserToTrace]         → [Reflect → Tag → Update → Apply]
+Browser-use:       [BrowserExecute] → [BrowserToTrace]         → [Reflect → Tag → Update → AttachInsightSources → Apply]
                     ╰── execute ────╯   ╰── convert ──╯           ╰──────── learn (shared) ──────╯
                     provides: trace      rewrites trace             requires: trace
                     (BrowserResult)      (BrowserResult → dict)
 
-TraceAnalyser:     [_build_context]                            → [Reflect → Tag → Update → Apply]
+TraceAnalyser:     [_build_context]                            → [Reflect → Tag → Update → AttachInsightSources → Apply]
                     ╰── sets ctx.trace (raw object) ───────╯      ╰──────── learn (shared) ──────╯
 ```
 
@@ -1391,7 +1423,7 @@ The pattern is the same for every integration: subclass `ACERunner`, compose `[E
 
 ### `learning_tail()` — reusable learning steps
 
-Every integration assembles the same `[Reflect → Tag → Update → Apply]` suffix with optional dedup and checkpoint steps. Rather than duplicating this wiring in every factory method, `learning_tail()` returns the standard step list:
+Every integration assembles the same `[Reflect → Tag → Update → AttachInsightSources → Apply]` suffix with optional dedup and checkpoint steps. Rather than duplicating this wiring in every factory method, `learning_tail()` returns the standard step list. If the provided reflector is already a step that exposes `provides = {'reflections'}` (for example `RRStep`), `learning_tail()` inserts it directly instead of wrapping it in `ReflectStep`, preserving batch-aware reflector behavior:
 
 ```python
 # ace/steps/__init__.py
@@ -1415,6 +1447,7 @@ def learning_tail(
         ReflectStep(reflector),
         TagStep(skillbook),
         UpdateStep(skill_manager),
+        AttachInsightSourcesStep(),
         ApplyStep(skillbook),
     ]
     if dedup_manager:
@@ -1629,6 +1662,7 @@ The exception is `ACELiteLLM`, which is genuinely different: it wraps two runner
 ace/
   __init__.py               ← Public API re-exports
   context.py                ← ACEStepContext, SkillbookView, ACESample
+  insight_source.py         ← Public provenance helpers and builders
   skill.py                  ← Skill, SimilarityDecision
   skillbook.py              ← Skillbook
   updates.py                ← UpdateOperation, UpdateBatch
@@ -1660,6 +1694,7 @@ ace/
     reflect.py              ← ReflectStep
     tag.py                  ← TagStep
     update.py               ← UpdateStep
+    attach_insight_sources.py ← AttachInsightSourcesStep
     apply.py                ← ApplyStep
     deduplicate.py          ← DeduplicateStep
     checkpoint.py           ← CheckpointStep
@@ -1699,6 +1734,13 @@ ace/
     pydantic_ai.py            ← resolve_model, settings_from_config
     config.py                 ← ACEModelConfig, ModelConfig, load_config, save_config
     registry.py               ← validate_connection, search_models
+  core/
+    __init__.py
+    context.py
+    environments.py
+    insight_source.py       ← TraceIdentity, TraceReference, InsightSource
+    outputs.py
+    skillbook.py
 ```
 
 Each integration provides: (1) an execute step, (2) a result type, and (3) a ToTrace converter step. Runners in `ace/runners/` compose these with `learning_tail()`. For offline analysis, raw trace objects are passed directly to TraceAnalyser.
@@ -1709,7 +1751,7 @@ Each integration provides: (1) an execute step, (2) a result type, and (3) a ToT
 
 | Module | Contents |
 |---|---|
-| `ace/core/` | `ACEStepContext`, `SkillbookView`, `Skillbook`, `AgentOutput`, `ReflectorOutput` |
+| `ace/core/` | `ACEStepContext`, `SkillbookView`, `Skillbook`, `AgentOutput`, `ReflectorOutput`, `InsightSource` |
 | `ace/protocols/` | `AgentLike`, `ReflectorLike`, `SkillManagerLike` protocols |
 | `ace/implementations/` | PydanticAI-backed `Agent`, `Reflector`, `SkillManager` |
 | `ace/steps/` | All pipeline steps + `learning_tail()` |
@@ -1728,11 +1770,11 @@ Both TraceAnalyser and ACE inherit async capabilities from the pipeline engine. 
 
 ### ReflectStep as async boundary
 
-`ReflectStep.async_boundary = True` means: when the pipeline processes a sample, everything before ReflectStep (Agent, Evaluate) runs in the foreground, and everything from ReflectStep onwards (Tag, Update, Apply, Deduplicate, Checkpoint) runs in a background thread pool.
+`ReflectStep.async_boundary = True` means: when the pipeline processes a sample, everything before ReflectStep (Agent, Evaluate) runs in the foreground, and everything from ReflectStep onwards (Tag, Update, AttachInsightSources, Apply, Deduplicate, Checkpoint) runs in a background thread pool.
 
 ```
-sample 1:  [AgentStep] [EvaluateStep] ──fire──► [ReflectStep] [TagStep] [UpdateStep] [ApplyStep]  (background)
-sample 2:  [AgentStep] [EvaluateStep] ──fire──► [ReflectStep] [TagStep] [UpdateStep] [ApplyStep]  (background)
+sample 1:  [AgentStep] [EvaluateStep] ──fire──► [ReflectStep] [TagStep] [UpdateStep] [AttachInsightSourcesStep] [ApplyStep]  (background)
+sample 2:  [AgentStep] [EvaluateStep] ──fire──► [ReflectStep] [TagStep] [UpdateStep] [AttachInsightSourcesStep] [ApplyStep]  (background)
                                        ↑
                                  async_boundary
 ```
@@ -1740,8 +1782,8 @@ sample 2:  [AgentStep] [EvaluateStep] ──fire──► [ReflectStep] [TagStep
 For TraceAnalyser, there is no AgentStep or EvaluateStep in the foreground. The boundary still applies — context building is foreground, the learning tail is background:
 
 ```
-trace 1:  [build_context] ──fire──► [ReflectStep] [TagStep] [UpdateStep] [ApplyStep]  (background)
-trace 2:  [build_context] ──fire──► [ReflectStep] [TagStep] [UpdateStep] [ApplyStep]  (background)
+trace 1:  [build_context] ──fire──► [ReflectStep] [TagStep] [UpdateStep] [AttachInsightSourcesStep] [ApplyStep]  (background)
+trace 2:  [build_context] ──fire──► [ReflectStep] [TagStep] [UpdateStep] [AttachInsightSourcesStep] [ApplyStep]  (background)
 ```
 
 ### Controlling concurrency
@@ -1883,7 +1925,7 @@ ace = ACE.from_roles(
     checkpoint_dir="./checkpoints",
     checkpoint_interval=10,
 )
-# Pipeline: Agent → Evaluate → Reflect → Tag → Update → Apply → Deduplicate → Checkpoint
+# Pipeline: Agent → Evaluate → Reflect → Tag → Update → AttachInsightSources → Apply → Deduplicate → Checkpoint
 results = ace.run(samples, epochs=3)
 ```
 
@@ -1974,7 +2016,7 @@ ace = ACE.from_roles(
 )
 
 # wait=False: returns after foreground steps (Agent + Evaluate)
-# Background learning (Reflect → Tag → Update → Apply) continues
+# Background learning (Reflect → Tag → Update → AttachInsightSources → Apply) continues
 results = ace.run(samples, epochs=1, wait=False)
 
 # Use agent outputs immediately

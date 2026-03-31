@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any
 
 from pipeline import Pipeline
@@ -11,6 +12,7 @@ from pipeline.errors import CancellationToken
 from pipeline.protocol import SampleResult, StepProtocol
 
 from ..core.context import ACEStepContext, SkillbookView
+from ..core.insight_source import TRACE_IDENTITY_METADATA_KEY, infer_trace_identity
 from ..protocols import (
     DeduplicationManagerLike,
     ReflectorLike,
@@ -168,6 +170,12 @@ class TraceAnalyser(ACERunner):
         return ACEStepContext(
             skillbook=SkillbookView(self.skillbook),
             trace=raw_trace,
+            metadata=MappingProxyType({
+                TRACE_IDENTITY_METADATA_KEY: infer_trace_identity(
+                    trace=raw_trace,
+                    default_source_system="trace",
+                ).to_dict()
+            }),
             epoch=epoch,
             total_epochs=total_epochs,
             step_index=index,

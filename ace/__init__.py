@@ -16,12 +16,15 @@ if TYPE_CHECKING:
     from .core import (
         ACEStepContext,
         EnvironmentResult,
+        InsightSource,
         Sample,
         SimpleEnvironment,
         Skill,
         Skillbook,
         SkillbookView,
         TaskEnvironment,
+        TraceIdentity,
+        TraceReference,
         UpdateBatch,
         UpdateOperation,
     )
@@ -43,6 +46,7 @@ if TYPE_CHECKING:
     from .steps import (
         AgentStep,
         ApplyStep,
+        AttachInsightSourcesStep,
         CheckpointStep,
         DeduplicateStep,
         EvaluateStep,
@@ -69,8 +73,11 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     "ACEStepContext": ("ace.core", "ACEStepContext"),
     "SkillbookView": ("ace.core", "SkillbookView"),
     # Core data types
+    "InsightSource": ("ace.core", "InsightSource"),
     "Skill": ("ace.core", "Skill"),
     "Skillbook": ("ace.core", "Skillbook"),
+    "TraceIdentity": ("ace.core", "TraceIdentity"),
+    "TraceReference": ("ace.core", "TraceReference"),
     "UpdateOperation": ("ace.core", "UpdateOperation"),
     "UpdateBatch": ("ace.core", "UpdateBatch"),
     "Sample": ("ace.core", "Sample"),
@@ -104,6 +111,7 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     "ReflectStep": ("ace.steps", "ReflectStep"),
     "TagStep": ("ace.steps", "TagStep"),
     "UpdateStep": ("ace.steps", "UpdateStep"),
+    "AttachInsightSourcesStep": ("ace.steps", "AttachInsightSourcesStep"),
     "ApplyStep": ("ace.steps", "ApplyStep"),
     "DeduplicateStep": ("ace.steps", "DeduplicateStep"),
     "CheckpointStep": ("ace.steps", "CheckpointStep"),
@@ -142,8 +150,11 @@ __all__ = [
     "ACEStepContext",
     "SkillbookView",
     # Core data types
+    "InsightSource",
     "Skill",
     "Skillbook",
+    "TraceIdentity",
+    "TraceReference",
     "UpdateOperation",
     "UpdateBatch",
     # Environments
@@ -172,6 +183,7 @@ __all__ = [
     "ReflectStep",
     "TagStep",
     "UpdateStep",
+    "AttachInsightSourcesStep",
     "ApplyStep",
     "DeduplicateStep",
     "CheckpointStep",

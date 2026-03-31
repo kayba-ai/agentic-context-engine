@@ -36,10 +36,28 @@ class ReflectStep:
     def __init__(self, reflector: ReflectorLike) -> None:
         self.reflector = reflector
 
+    @staticmethod
+    def _is_batch_container(trace: dict) -> bool:
+        for key in ("items", "tasks"):
+            if isinstance(trace.get(key), list):
+                return True
+
+        steps = trace.get("steps")
+        return (
+            isinstance(steps, list)
+            and bool(steps)
+            and all(
+                isinstance(step, dict)
+                and step.get("role") == "conversation"
+                and isinstance(step.get("content"), dict)
+                for step in steps
+            )
+        )
+
     def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
         trace = ctx.trace
 
-        if isinstance(trace, dict):
+        if isinstance(trace, dict) and not self._is_batch_container(trace):
             # Structured trace from EvaluateStep — extract known fields
             agent_output = AgentOutput(
                 reasoning=trace.get("reasoning", ""),

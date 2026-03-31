@@ -9,6 +9,7 @@ import pytest
 
 from ace.core.context import ACEStepContext, SkillbookView
 from ace.core.environments import Sample, SimpleEnvironment
+from ace.core.insight_source import TRACE_IDENTITY_METADATA_KEY
 from ace.core.outputs import (
     AgentOutput,
     ReflectorOutput,
@@ -206,6 +207,37 @@ class TestACERunner:
         results = runner.run(samples, epochs=2)
         assert len(results) == 2  # 1 sample × 2 epochs
 
+    def test_build_context_adds_trace_identity_metadata(self):
+        from ace.runners.ace import ACE
+
+        runner = ACE.from_roles(
+            agent=MockAgent(),
+            reflector=MockReflector(),
+            skill_manager=MockSkillManager(),
+        )
+        sample = Sample(
+            question="Why did pagination stop early?",
+            id="conv-123",
+            metadata={
+                "source_system": "kayba-hosted",
+                "trace_id": "conv-123",
+                "display_name": "checkout-failure.md",
+            },
+        )
+
+        ctx = runner._build_context(
+            sample,
+            epoch=1,
+            total_epochs=1,
+            index=1,
+            total=1,
+            global_sample_index=1,
+        )
+
+        identity = ctx.metadata[TRACE_IDENTITY_METADATA_KEY]
+        assert identity["trace_uid"] == "kayba-hosted:conv-123"
+        assert identity["display_name"] == "checkout-failure.md"
+
 
 # ------------------------------------------------------------------ #
 # TraceAnalyser runner
@@ -235,6 +267,27 @@ class TestTraceAnalyser:
         results = runner.run(traces)
         assert len(results) == 1
         assert len(runner.skillbook.skills()) > 0
+
+    def test_build_context_adds_inferred_trace_identity(self):
+        from ace.runners.trace_analyser import TraceAnalyser
+
+        runner = TraceAnalyser.from_roles(
+            reflector=MockReflector(),
+            skill_manager=MockSkillManager(),
+        )
+
+        ctx = runner._build_context(
+            {"sample_id": "trace-001", "question": "Q"},
+            epoch=1,
+            total_epochs=1,
+            index=1,
+            total=1,
+            global_sample_index=1,
+        )
+
+        identity = ctx.metadata[TRACE_IDENTITY_METADATA_KEY]
+        assert identity["trace_uid"] == "trace:trace-001"
+        assert identity["trace_id"] == "trace-001"
 
 
 # ------------------------------------------------------------------ #

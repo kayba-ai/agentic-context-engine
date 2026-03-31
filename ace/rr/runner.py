@@ -94,12 +94,13 @@ class RRStep:
     def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
         """Run the Recursive Reflector and attach the reflection(s).
 
-        When the trace is a batch dict (has a ``"tasks"`` key), a single
-        session analyzes all tasks.  Per-task results are parsed from
+        When the trace is a batch container (a raw list, ``"items"``,
+        ``"tasks"``, or a legacy combined ``steps`` batch), a single
+        session analyzes all items. Per-item results are parsed from
         the structured output.
         """
         trace = ctx.trace or {}
-        if isinstance(trace, dict) and "tasks" in trace:
+        if self._get_batch_items(trace) is not None:
             reflections = self._run_batch_reflections(trace, ctx.skillbook)
             return ctx.replace(reflections=reflections)
         elif isinstance(trace, dict):
@@ -255,45 +256,47 @@ class RRStep:
 
     def _run_batch_reflections(
         self,
-        batch_trace: dict[str, Any],
+        batch_trace: Any,
         skillbook: Any,
     ) -> tuple[ReflectorOutput, ...]:
-        """Run a single session for all tasks in a batch."""
-        tasks = batch_trace["tasks"]
+        """Run a single session for all items in a batch."""
+        items = self._get_batch_items(batch_trace) or []
 
         reflection = self._run_reflection(
             traces=batch_trace,
             skillbook=skillbook,
         )
 
-        return self._split_batch_reflection(reflection, tasks)
+        return self._split_batch_reflection(reflection, items)
 
     def _split_batch_reflection(
         self,
         reflection: ReflectorOutput,
-        tasks: list[dict[str, Any]],
+        items: list[Any],
     ) -> tuple[ReflectorOutput, ...]:
-        """Extract per-task ReflectorOutputs from batch output."""
-        task_results = reflection.raw.get("tasks", [])
+        """Extract per-item ReflectorOutputs from batch output."""
+        item_results = reflection.raw.get("items")
+        if not item_results:
+            item_results = reflection.raw.get("tasks", [])
 
-        if not task_results or len(task_results) != len(tasks):
+        if not item_results or len(item_results) != len(items):
             logger.warning(
-                "Batch missing per-task results (got %d, expected %d); "
+                "Batch missing per-item results (got %d, expected %d); "
                 "duplicating single reflection",
-                len(task_results) if task_results else 0,
-                len(tasks),
+                len(item_results) if item_results else 0,
+                len(items),
             )
             fallback = []
-            for i, task in enumerate(tasks):
+            for i, item in enumerate(items):
                 r = reflection.model_copy(deep=True)
-                r.raw["task_id"] = task.get("task_id", f"task_{i}")
+                r.raw["item_id"] = self._get_batch_item_id(item, i)
                 fallback.append(r)
             return tuple(fallback)
 
         reflections: list[ReflectorOutput] = []
         rr_trace = reflection.raw.get("rr_trace", {})
-        for i, (task, tr) in enumerate(zip(tasks, task_results)):
-            task_id = task.get("task_id", f"task_{i}")
+        for i, (item, tr) in enumerate(zip(items, item_results)):
+            item_id = self._get_batch_item_id(item, i)
             if not isinstance(tr, dict):
                 tr = {}
             learnings = tr.get("extracted_learnings", tr.get("learnings", []))
@@ -317,7 +320,7 @@ class RRStep:
                     ],
                     raw={
                         **tr,
-                        "task_id": task_id,
+                        "item_id": item_id,
                         "rr_trace": rr_trace,
                     },
                 )
@@ -355,7 +358,7 @@ class RRStep:
     def _create_sandbox(
         self,
         trace_obj: Any,
-        traces: dict[str, Any],
+        traces: Any,
         skillbook: Any,
     ) -> TraceSandbox:
         """Create a simplified sandbox for code execution.
@@ -376,56 +379,202 @@ class RRStep:
 
         # Traces data
         sandbox.inject("traces", traces)
-
-        # Working memory for save_notes tool
-        sandbox.inject("notes", {})
+        self._inject_helper_variables(sandbox, traces)
 
         return sandbox
 
-    def _build_data_summary(self, traces: dict[str, Any]) -> str:
+    def _looks_like_combined_steps_batch(self, traces: dict[str, Any]) -> bool:
+        """Return True for legacy combined batches encoded inside ``steps``."""
+        steps = traces.get("steps")
+        if not isinstance(steps, list) or not steps:
+            return False
+
+        return all(
+            isinstance(step, dict)
+            and step.get("role") == "conversation"
+            and isinstance(step.get("content"), dict)
+            for step in steps
+        )
+
+    def _get_batch_items(self, traces: Any) -> list[Any] | None:
+        """Return batch items from a raw list or common batch container shapes."""
+        if isinstance(traces, list):
+            return traces
+        if not isinstance(traces, dict):
+            return None
+        for key in ("items", "tasks"):
+            items = traces.get(key)
+            if isinstance(items, list):
+                return items
+        if self._looks_like_combined_steps_batch(traces):
+            return traces.get("steps")
+        return None
+
+    def _extract_batch_item_payload(self, item: Any) -> Any:
+        """Return the analysis payload for a batch item without rewriting it."""
+        if (
+            isinstance(item, dict)
+            and item.get("role") == "conversation"
+            and isinstance(item.get("content"), dict)
+        ):
+            return item["content"]
+        return item
+
+    def _get_batch_item_id(self, item: Any, index: int) -> str:
+        """Choose a stable identifier for a batch item."""
+        payload = self._extract_batch_item_payload(item)
+        if isinstance(item, dict):
+            for key in ("item_id", "task_id", "id"):
+                value = item.get(key)
+                if value is not None:
+                    return str(value)
+        if isinstance(payload, dict):
+            for key in ("item_id", "task_id", "id"):
+                value = payload.get(key)
+                if value is not None:
+                    return str(value)
+        return f"item_{index}"
+
+    def _extract_batch_messages(self, item: Any) -> list[Any]:
+        """Return a best-effort message/step list for previews and summaries."""
+        payload = self._extract_batch_item_payload(item)
+        if isinstance(payload, list):
+            return payload
+        if isinstance(payload, dict):
+            trace_value = payload.get("trace")
+            if isinstance(trace_value, list):
+                return trace_value
+            if isinstance(trace_value, dict):
+                for key in ("messages", "steps", "trace"):
+                    nested = trace_value.get(key)
+                    if isinstance(nested, list):
+                        return nested
+            for key in ("steps", "messages"):
+                value = payload.get(key)
+                if isinstance(value, list):
+                    return value
+        return []
+
+    def _extract_batch_field(self, item: Any, field: str) -> str:
+        """Extract a string field from a batch item payload when present."""
+        payload = self._extract_batch_item_payload(item)
+        if isinstance(payload, dict):
+            value = payload.get(field)
+            if value is not None:
+                return str(value)
+        return ""
+
+    def _inject_helper_variables(
+        self,
+        sandbox: TraceSandbox,
+        traces: Any,
+    ) -> None:
+        """Inject generic helper data for raw batch traces."""
+        batch_items = self._get_batch_items(traces)
+        if batch_items is None:
+            return
+
+        item_ids = [
+            self._get_batch_item_id(item, index)
+            for index, item in enumerate(batch_items)
+        ]
+        item_id_to_index = {item_id: index for index, item_id in enumerate(item_ids)}
+        item_preview_by_id = {
+            item_id: self._build_item_preview(item)
+            for item_id, item in zip(item_ids, batch_items)
+        }
+        survey_items = self._build_survey_items(batch_items)
+
+        sandbox.inject("batch_items", batch_items)
+        sandbox.inject("item_ids", item_ids)
+        sandbox.inject("item_id_to_index", item_id_to_index)
+        sandbox.inject("item_preview_by_id", item_preview_by_id)
+        sandbox.inject("survey_items", survey_items)
+
+    def _build_item_preview(self, item: Any) -> dict[str, Any]:
+        """Build a compact preview row for a generic batch item."""
+        item_trace = self._extract_batch_messages(item)
+        first_message = ""
+        if item_trace and isinstance(item_trace[0], dict):
+            first_message = str(item_trace[0].get("content", ""))
+        elif item_trace:
+            first_message = str(item_trace[0])
+
+        feedback = self._extract_batch_field(item, "feedback")
+        question = self._extract_batch_field(item, "question")
+        payload_type = type(self._extract_batch_item_payload(item)).__name__
+
+        return {
+            "question_preview": _preview(question, 120),
+            "feedback_preview": _preview(feedback, 120),
+            "first_message_preview": _preview(first_message, 120),
+            "message_count": len(item_trace) if isinstance(item_trace, list) else 0,
+            "payload_type": payload_type,
+        }
+
+    def _build_survey_items(self, batch_items: list[Any]) -> list[str]:
+        """Precompute explicit batch_analyze items for grouped item survey."""
+        survey_items: list[str] = []
+        group_size = 3
+        for start in range(0, len(batch_items), group_size):
+            stop = min(start + group_size, len(batch_items))
+            refs = []
+            for index in range(start, stop):
+                item_id = self._get_batch_item_id(batch_items[index], index)
+                refs.append(f"batch_items[{index}] (item_id='{item_id}')")
+            survey_items.append("Inspect " + ", ".join(refs))
+        return survey_items
+
+    def _build_data_summary(self, traces: Any) -> str:
         """Pre-compute a data summary so the agent doesn't waste calls exploring structure."""
-        is_batch = isinstance(traces, dict) and "tasks" in traces
+        batch_items = self._get_batch_items(traces)
+        is_batch = batch_items is not None
 
         if is_batch:
-            tasks = traces.get("tasks", [])
+            assert batch_items is not None
+            survey_items = self._build_survey_items(batch_items)
             # Compute pass/fail breakdown
             pass_count = 0
             fail_count = 0
-            task_summaries = []
-            for t in tasks:
-                task_id = t.get("task_id", "?")
-                trace = t.get("trace", [])
-                feedback = t.get("feedback", "")
+            item_summaries = []
+            for index, item in enumerate(batch_items):
+                item_id = self._get_batch_item_id(item, index)
+                trace = self._extract_batch_messages(item)
+                feedback = self._extract_batch_field(item, "feedback")
                 reward_str = ""
-                if "reward=1.0" in str(feedback) or "PASSED" in str(
-                    feedback
-                ).upper():
+                if "reward=1.0" in str(feedback) or "PASSED" in str(feedback).upper():
                     pass_count += 1
                     reward_str = "PASS"
-                elif "reward=0.0" in str(feedback) or "FAILED" in str(
-                    feedback
-                ).upper():
+                elif "reward=0.0" in str(feedback) or "FAILED" in str(feedback).upper():
                     fail_count += 1
                     reward_str = "FAIL"
-                task_summaries.append(
-                    f"  {task_id}: {reward_str}, {len(trace)} messages"
+                item_summaries.append(
+                    f"  {item_id}: {reward_str}, {len(trace)} messages"
                 )
 
             lines = [
                 "### Data Summary (pre-computed)",
-                f"- **{len(tasks)} tasks**: {pass_count} PASS, {fail_count} FAIL",
-                f"- Task list:",
+                f"- **{len(batch_items)} batch items**: {pass_count} PASS, {fail_count} FAIL",
+                f"- Item list:",
             ]
             # Show all tasks compactly
-            lines.extend(task_summaries[:50])  # cap at 50
-            if len(task_summaries) > 50:
-                lines.append(f"  ... and {len(task_summaries) - 50} more")
+            lines.extend(item_summaries[:50])  # cap at 50
+            if len(item_summaries) > 50:
+                lines.append(f"  ... and {len(item_summaries) - 50} more")
+            if survey_items:
+                lines.append(
+                    "- **Precomputed survey_items**: pass these strings directly "
+                    "to `batch_analyze`; they already reference `batch_items[i]`."
+                )
+                lines.extend(f"  - {item}" for item in survey_items[:10])
+                if len(survey_items) > 10:
+                    lines.append(f"  - ... and {len(survey_items) - 10} more groups")
 
-            # Check for policy/rules in first task
-            if tasks:
-                first_trace = tasks[0].get("trace", [])
+            # Check for policy/rules in the first batch item
+            if batch_items:
+                first_trace = self._extract_batch_messages(batch_items[0])
                 for msg in first_trace[:3]:
-                    content = str(msg.get("content", ""))
+                    content = str(msg.get("content", "")) if isinstance(msg, dict) else str(msg)
                     if len(content) > 500 and any(
                         kw in content.lower()
                         for kw in [
@@ -437,9 +586,9 @@ class RRStep:
                         ]
                     ):
                         lines.append(
-                            f"- **Agent has embedded policy/rules** in system "
-                            f"prompt ({len(content)} chars) — extract via "
-                            f"`execute_code`"
+                            "- **Potential embedded policy/rules** detected in early "
+                            f"content ({len(content)} chars) — inspect via helpers "
+                            "or a small `execute_code` call."
                         )
                         break
 
@@ -447,6 +596,15 @@ class RRStep:
 
         else:
             # Single trace
+            if not isinstance(traces, dict):
+                return "\n".join(
+                    [
+                        "### Data Summary (pre-computed)",
+                        f"- **Trace type**: {type(traces).__name__}",
+                        f'- **Preview**: "{_preview(str(traces), 200)}"',
+                    ]
+                )
+
             steps = traces.get("steps", [])
             question = traces.get("question", "")
             feedback = traces.get("feedback", "")
@@ -456,9 +614,7 @@ class RRStep:
             if feedback:
                 lines.append(f"- **Feedback**: {_preview(feedback, 200)}")
             if ground_truth:
-                lines.append(
-                    f"- **Ground truth**: {_preview(ground_truth, 200)}"
-                )
+                lines.append(f"- **Ground truth**: {_preview(ground_truth, 200)}")
             lines.append(f"- **Steps**: {len(steps)}")
             if question:
                 lines.append(f"- **Task**: {_preview(question, 200)}")
@@ -466,14 +622,10 @@ class RRStep:
             # Check for messages in trace
             messages = traces.get("messages", [])
             if messages:
-                lines.append(
-                    f"- **Messages**: {len(messages)} conversation turns"
-                )
+                lines.append(f"- **Messages**: {len(messages)} conversation turns")
                 # Count tool calls
                 tool_calls = sum(
-                    1
-                    for m in messages
-                    if isinstance(m, dict) and m.get("tool_calls")
+                    1 for m in messages if isinstance(m, dict) and m.get("tool_calls")
                 )
                 if tool_calls:
                     lines.append(f"- **Tool calls**: {tool_calls}")
@@ -482,13 +634,14 @@ class RRStep:
 
     def _build_initial_prompt(
         self,
-        traces: dict[str, Any],
+        traces: Any,
         skillbook: Any,
         trace_obj: Any,
     ) -> str:
         """Format the prompt template with previews and metadata."""
-        is_batch = isinstance(traces, dict) and "tasks" in traces
-        t_steps = traces.get("steps", []) if not is_batch else []
+        batch_items = self._get_batch_items(traces)
+        is_batch = batch_items is not None
+        t_steps = traces.get("steps", []) if isinstance(traces, dict) and not is_batch else []
 
         trace_size_chars = len(_json.dumps(traces, default=str))
 
@@ -500,43 +653,86 @@ class RRStep:
                 skillbook_text = str(skillbook)
 
         if is_batch:
-            tasks = traces["tasks"]
-            total_steps = sum(len(t.get("trace", [])) for t in tasks)
+            assert batch_items is not None
+            total_steps = sum(len(self._extract_batch_messages(item)) for item in batch_items)
             preview_rows = []
-            for t in tasks:
-                tid = t.get("task_id", "?")
-                tr = t.get("trace", [])
+            for index, item in enumerate(batch_items):
+                item_id = self._get_batch_item_id(item, index)
+                tr = self._extract_batch_messages(item)
                 first_msg = ""
                 if tr and isinstance(tr[0], dict):
                     first_msg = tr[0].get("content", "")
+                elif tr:
+                    first_msg = str(tr[0])
                 preview_rows.append(
-                    f"| `{tid}` | {len(tr)} messages | "
+                    f"| `{item_id}` | {len(tr)} messages | "
                     f'"{_preview(first_msg, 80)}" |'
                 )
 
+            if isinstance(traces, list):
+                traces_description = f"List of {len(batch_items)} raw trace items"
+            elif isinstance(traces, dict):
+                traces_description = (
+                    f"Batch container with keys {sorted(traces.keys())}. "
+                    "Use the injected `batch_items` helper list for iteration."
+                )
+            else:
+                traces_description = f"Batch-like trace container of type {type(traces).__name__}"
+
             fmt_kwargs = dict(
-                traces_description=(
-                    f"Batch of {len(tasks)} tasks. "
-                    f"Keys: tasks (list of {{task_id, trace}})"
-                ),
+                traces_description=traces_description,
                 batch_variables=(
-                    f'| `traces["tasks"]` | All tasks in this batch '
-                    f"(list of {{task_id, trace}}) | "
-                    f"{len(tasks)} tasks |\n"
+                    f"| `batch_items` | Ordered batch view over the raw trace items | "
+                    f"{len(batch_items)} items |\n"
+                ),
+                helper_variables=(
+                    "| `helper_registry` | Registered reusable helper functions and descriptions | dynamic |\n"
+                    "| `register_helper` | Persist helper code for this run and sub-agent snapshots | callable |\n"
+                    "| `list_helpers()` | List registered helper names/descriptions | callable |\n"
+                    "| `run_helper(name, *args, **kwargs)` | Invoke a registered helper by name | callable |\n"
+                    "| `get_batch_item(index)` | Convenience accessor for `batch_items[index]` | callable |\n"
+                    f"| `item_ids` | Ordered item ids for this batch | {len(batch_items)} ids |\n"
+                    f"| `item_id_to_index` | Maps item id to `batch_items[i]` | {len(batch_items)} entries |\n"
+                    f"| `item_preview_by_id` | Compact previews per batch item | {len(batch_items)} entries |\n"
+                    f"| `survey_items` | Precomputed `batch_analyze` items with explicit item references | {len(self._build_survey_items(batch_items))} items |\n"
                 ),
                 traces_previews=(
-                    f"| Task | Steps | First message |\n"
-                    f"|------|-------|---------------|\n"
-                    + "\n".join(preview_rows)
+                    f"| Item | Steps | First message |\n"
+                    f"|------|-------|---------------|\n" + "\n".join(preview_rows)
                 ),
                 step_count=total_steps,
                 skillbook_length=len(skillbook_text),
                 trace_size_chars=trace_size_chars,
                 max_iterations=self.config.max_llm_calls,
-                task_count=len(tasks),
+                task_count=len(batch_items),
                 data_summary=self._build_data_summary(traces),
             )
         else:
+            single_trace_type = type(traces).__name__
+            if not isinstance(traces, dict):
+                fmt_kwargs = dict(
+                    traces_description=f"Raw trace object of type {single_trace_type}",
+                    batch_variables="",
+                    helper_variables=(
+                        "| `helper_registry` | Registered reusable helper functions and descriptions | dynamic |\n"
+                        "| `register_helper` | Persist helper code for this run and sub-agent snapshots | callable |\n"
+                        "| `list_helpers()` | List registered helper names/descriptions | callable |\n"
+                        "| `run_helper(name, *args, **kwargs)` | Invoke a registered helper by name | callable |\n"
+                    ),
+                    traces_previews=(
+                        "| Field | Preview | Size |\n"
+                        "|-------|---------|------|\n"
+                        f'| raw trace | "{_preview(str(traces), 120)}" | {len(str(traces))} chars |'
+                    ),
+                    step_count=0,
+                    skillbook_length=len(skillbook_text),
+                    trace_size_chars=trace_size_chars,
+                    max_iterations=self.config.max_llm_calls,
+                    task_count=1,
+                    data_summary=self._build_data_summary(traces),
+                )
+                return self.prompt_template.format(**fmt_kwargs)
+
             t_question = traces.get("question", "")
             t_ground_truth = traces.get("ground_truth")
             t_feedback = traces.get("feedback")
@@ -551,6 +747,12 @@ class RRStep:
                     "steps (List[Dict])"
                 ),
                 batch_variables="",
+                helper_variables=(
+                    "| `helper_registry` | Registered reusable helper functions and descriptions | dynamic |\n"
+                    "| `register_helper` | Persist helper code for this run and sub-agent snapshots | callable |\n"
+                    "| `list_helpers()` | List registered helper names/descriptions | callable |\n"
+                    "| `run_helper(name, *args, **kwargs)` | Invoke a registered helper by name | callable |\n"
+                ),
                 traces_previews=(
                     f"| Field | Preview | Size |\n"
                     f"|-------|---------|------|\n"
@@ -564,8 +766,7 @@ class RRStep:
                     f"| {len(t_feedback) if t_feedback else 0} chars |"
                 ),
                 step_count=(
-                    len(t_steps) if t_steps
-                    else (len(trace_obj) if trace_obj else 0)
+                    len(t_steps) if t_steps else (len(trace_obj) if trace_obj else 0)
                 ),
                 skillbook_length=len(skillbook_text),
                 trace_size_chars=trace_size_chars,

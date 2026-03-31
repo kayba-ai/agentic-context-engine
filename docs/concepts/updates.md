@@ -77,6 +77,14 @@ batch = UpdateBatch(operations=[
 skillbook.apply_update(batch)
 ```
 
+In batch reflection mode, `ADD` and `UPDATE` operations may also include
+`reflection_index` to indicate which reflection in the input tuple primarily
+produced the operation.
+
+When an operation is synthesized from multiple reflections, it may instead use
+`reflection_indices` to list all contributing reflections. This lets downstream
+provenance attach multiple trace sources to one learned skill.
+
 ## How Updates Flow
 
 ```

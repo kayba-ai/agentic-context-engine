@@ -1,4 +1,4 @@
-"""Tests for ace steps: ReflectStep, TagStep, UpdateStep, ApplyStep, learning_tail."""
+"""Tests for ace steps: ReflectStep, TagStep, UpdateStep, provenance, ApplyStep."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from ace.core.context import ACEStepContext, SkillbookView
+from ace.core.insight_source import TRACE_IDENTITY_METADATA_KEY, InsightSource
 from ace.core.outputs import (
     AgentOutput,
     ExtractedLearning,
@@ -20,6 +21,7 @@ from ace.core.outputs import (
 from ace.core.skillbook import Skillbook, UpdateBatch, UpdateOperation
 from ace.steps import learning_tail
 from ace.steps.apply import ApplyStep
+from ace.steps.attach_insight_sources import AttachInsightSourcesStep
 from ace.steps.reflect import ReflectStep
 from ace.steps.tag import TagStep
 from ace.steps.update import UpdateStep
@@ -144,6 +146,31 @@ class TestReflectStep:
         assert call["question"] == ""
         assert call["agent_output"].final_answer == ""
         assert call.get("trace") is raw_trace
+
+    def test_batch_dict_trace_is_passed_raw(self):
+        """Batch dict traces should bypass structured trace extraction."""
+        reflector = MockReflector()
+        step = ReflectStep(reflector)
+
+        batch_trace = {
+            "tasks": [
+                {"task_id": "task-0", "trace": {"question": "What is 2+2?"}},
+                {"task_id": "task-1", "trace": {"question": "What is 3+3?"}},
+            ]
+        }
+        sb = Skillbook()
+        ctx = ACEStepContext(
+            trace=batch_trace,
+            skillbook=SkillbookView(sb),
+        )
+
+        result = step(ctx)
+        assert len(result.reflections) == 1
+        assert len(reflector.calls) == 1
+        call = reflector.calls[0]
+        assert call["question"] == ""
+        assert call["agent_output"].final_answer == ""
+        assert call.get("trace") is batch_trace
 
     def test_provides_and_requires(self):
         step = ReflectStep(MockReflector())
@@ -344,6 +371,467 @@ class TestUpdateStep:
 
 
 # ------------------------------------------------------------------ #
+# AttachInsightSourcesStep
+# ------------------------------------------------------------------ #
+
+
+class TestAttachInsightSourcesStep:
+    def test_enriches_operations_with_trace_provenance(self):
+        step = AttachInsightSourcesStep()
+        reflection = ReflectorOutput(
+            reasoning="r",
+            correct_approach="c",
+            key_insight="k",
+            error_identification="Missed pagination signal",
+            extracted_learnings=[
+                ExtractedLearning(
+                    learning="Check for a next-page token before stopping.",
+                    evidence="The API response included next_page_token.",
+                )
+            ],
+        )
+        batch = UpdateBatch(
+            reasoning="test",
+            operations=[
+                UpdateOperation(
+                    type="ADD",
+                    section="api",
+                    content="Check for a next-page token before stopping.",
+                    evidence="The API response included next_page_token.",
+                    learning_index=0,
+                )
+            ],
+        )
+        ctx = ACEStepContext(
+            trace={"question": "Why did pagination stop early?"},
+            reflections=(reflection,),
+            skill_manager_output=batch,
+            metadata={
+                TRACE_IDENTITY_METADATA_KEY: {
+                    "source_system": "kayba-hosted",
+                    "trace_id": "conv-123",
+                    "display_name": "checkout-failure.md",
+                }
+            },
+            epoch=2,
+            step_index=4,
+        )
+
+        result = step(ctx)
+
+        assert result.skill_manager_output is not batch
+        assert batch.operations[0].insight_source is None
+        source = result.skill_manager_output.operations[0].insight_source
+        assert isinstance(source, InsightSource)
+        assert source.trace_uid == "kayba-hosted:conv-123"
+        assert source.trace_id == "conv-123"
+        assert source.learning_text == "Check for a next-page token before stopping."
+        assert source.error_identification == "Missed pagination signal"
+        assert (
+            source.trace_refs[0].text_excerpt
+            == "The API response included next_page_token."
+        )
+
+    def test_populates_exact_anchor_for_structured_trace(self):
+        step = AttachInsightSourcesStep()
+        reflection = ReflectorOutput(
+            reasoning="r",
+            correct_approach="c",
+            key_insight="k",
+            extracted_learnings=[
+                ExtractedLearning(
+                    learning="Inspect pagination markers before stopping.",
+                    evidence="The API response included next_page_token.",
+                )
+            ],
+        )
+        batch = UpdateBatch(
+            reasoning="test",
+            operations=[
+                UpdateOperation(
+                    type="ADD",
+                    section="api",
+                    content="Inspect pagination markers before stopping.",
+                    learning_index=0,
+                )
+            ],
+        )
+        ctx = ACEStepContext(
+            trace={
+                "question": "Why did pagination stop early?",
+                "steps": [
+                    {"reasoning": "Fetched the first page."},
+                    {"reasoning": "The API response included next_page_token."},
+                ],
+            },
+            reflections=(reflection,),
+            skill_manager_output=batch,
+        )
+
+        result = step(ctx)
+
+        source = result.skill_manager_output.operations[0].insight_source
+        assert isinstance(source, InsightSource)
+        assert source.trace_refs[0].json_path == "$.steps[1].reasoning"
+        assert source.trace_refs[0].step_indices == [1]
+        assert (
+            source.trace_refs[0].text_excerpt
+            == "The API response included next_page_token."
+        )
+
+    def test_batch_context_uses_per_reflection_trace_identity(self):
+        step = AttachInsightSourcesStep()
+        reflections = (
+            ReflectorOutput(
+                reasoning="r0",
+                correct_approach="c0",
+                key_insight="k0",
+                extracted_learnings=[
+                    ExtractedLearning(
+                        learning="Use the continuation token.",
+                        evidence="first batch evidence",
+                    )
+                ],
+                raw={"item_id": "task-0"},
+            ),
+            ReflectorOutput(
+                reasoning="r1",
+                correct_approach="c1",
+                key_insight="k1",
+                extracted_learnings=[
+                    ExtractedLearning(
+                        learning="Verify exact constants.",
+                        evidence="second batch evidence",
+                    )
+                ],
+                raw={"item_id": "task-1"},
+            ),
+        )
+        batch = UpdateBatch(
+            reasoning="test",
+            operations=[
+                UpdateOperation(
+                    type="ADD",
+                    section="api",
+                    content="Use the continuation token.",
+                    learning_index=0,
+                    reflection_index=0,
+                ),
+                UpdateOperation(
+                    type="ADD",
+                    section="science",
+                    content="Verify exact constants.",
+                    learning_index=0,
+                    reflection_index=1,
+                ),
+            ],
+        )
+        ctx = ACEStepContext(
+            trace={
+                "tasks": [
+                    {
+                        "task_id": "task-0",
+                        "trace": {
+                            "question": "Why did pagination stop early?",
+                            "messages": [
+                                {
+                                    "role": "assistant",
+                                    "content": "first batch evidence",
+                                }
+                            ],
+                        },
+                    },
+                    {
+                        "task_id": "task-1",
+                        "trace": {
+                            "question": "What temperature does water boil at?",
+                            "messages": [
+                                {
+                                    "role": "assistant",
+                                    "content": "second batch evidence",
+                                }
+                            ],
+                        },
+                    },
+                ]
+            },
+            reflections=reflections,
+            skill_manager_output=batch,
+            metadata={
+                TRACE_IDENTITY_METADATA_KEY: {
+                    "source_system": "rr-batch",
+                    "trace_id": "batch-root",
+                    "display_name": "rr batch",
+                }
+            },
+        )
+
+        result = step(ctx)
+
+        first_source = result.skill_manager_output.operations[0].insight_source
+        second_source = result.skill_manager_output.operations[1].insight_source
+        assert isinstance(first_source, InsightSource)
+        assert isinstance(second_source, InsightSource)
+        assert first_source.trace_uid == "rr-batch:task-0"
+        assert first_source.sample_question == "Why did pagination stop early?"
+        assert first_source.trace_refs[0].json_path == "$.trace.messages[0].content"
+        assert first_source.trace_refs[0].message_indices == [0]
+        assert second_source.trace_uid == "rr-batch:task-1"
+        assert second_source.sample_question == "What temperature does water boil at?"
+        assert second_source.trace_refs[0].json_path == "$.trace.messages[0].content"
+        assert second_source.trace_refs[0].message_indices == [0]
+
+    def test_batch_context_can_attach_multiple_sources(self):
+        step = AttachInsightSourcesStep()
+        reflections = (
+            ReflectorOutput(
+                reasoning="r0",
+                correct_approach="c0",
+                key_insight="k0",
+                raw={"item_id": "task-0"},
+            ),
+            ReflectorOutput(
+                reasoning="r1",
+                correct_approach="c1",
+                key_insight="k1",
+                raw={"item_id": "task-1"},
+            ),
+        )
+        batch = UpdateBatch(
+            reasoning="test",
+            operations=[
+                UpdateOperation(
+                    type="ADD",
+                    section="general",
+                    content="Generalize verification across arithmetic and factual tasks.",
+                    evidence="Both Task-0 and Task-1 failed because verification was skipped.",
+                    reflection_indices=[0, 1],
+                )
+            ],
+        )
+        ctx = ACEStepContext(
+            trace={
+                "tasks": [
+                    {
+                        "task_id": "task-0",
+                        "trace": {
+                            "question": "What is 12 * 15?",
+                            "messages": [
+                                {
+                                    "role": "assistant",
+                                    "content": "task-0 arithmetic failure",
+                                }
+                            ],
+                        },
+                    },
+                    {
+                        "task_id": "task-1",
+                        "trace": {
+                            "question": "What is the capital of Japan?",
+                            "messages": [
+                                {
+                                    "role": "assistant",
+                                    "content": "task-1 factual failure",
+                                }
+                            ],
+                        },
+                    },
+                ]
+            },
+            reflections=reflections,
+            skill_manager_output=batch,
+            metadata={
+                TRACE_IDENTITY_METADATA_KEY: {
+                    "source_system": "rr-batch",
+                    "trace_id": "batch-root",
+                    "display_name": "rr batch",
+                }
+            },
+        )
+
+        result = step(ctx)
+
+        sources = result.skill_manager_output.operations[0].insight_source
+        assert isinstance(sources, list)
+        assert [source.trace_uid for source in sources] == [
+            "rr-batch:task-0",
+            "rr-batch:task-1",
+        ]
+        assert [source.relation for source in sources] == ["seed", "supporting"]
+
+    def test_batch_heuristics_can_attach_multiple_sources_without_explicit_indices(
+        self,
+    ):
+        step = AttachInsightSourcesStep()
+        reflections = (
+            ReflectorOutput(
+                reasoning="r0",
+                correct_approach="c0",
+                key_insight="k0",
+                raw={"item_id": "task-0"},
+            ),
+            ReflectorOutput(
+                reasoning="r1",
+                correct_approach="c1",
+                key_insight="k1",
+                raw={"item_id": "task-1"},
+            ),
+        )
+        batch = UpdateBatch(
+            reasoning="test",
+            operations=[
+                UpdateOperation(
+                    type="ADD",
+                    section="general",
+                    content="Generalize verification across tasks.",
+                    evidence=(
+                        "Both Task-0 and Task-1 failed because each answer was "
+                        "accepted without verification."
+                    ),
+                    reflection_index=0,
+                )
+            ],
+        )
+        ctx = ACEStepContext(
+            trace={
+                "tasks": [
+                    {
+                        "task_id": "task-0",
+                        "trace": {
+                            "question": "What is 12 * 15?",
+                            "messages": [
+                                {
+                                    "role": "assistant",
+                                    "content": "task-0 arithmetic failure",
+                                }
+                            ],
+                        },
+                    },
+                    {
+                        "task_id": "task-1",
+                        "trace": {
+                            "question": "What is the capital of Japan?",
+                            "messages": [
+                                {
+                                    "role": "assistant",
+                                    "content": "task-1 factual failure",
+                                }
+                            ],
+                        },
+                    },
+                ]
+            },
+            reflections=reflections,
+            skill_manager_output=batch,
+            metadata={
+                TRACE_IDENTITY_METADATA_KEY: {
+                    "source_system": "rr-batch",
+                    "trace_id": "batch-root",
+                    "display_name": "rr batch",
+                }
+            },
+        )
+
+        result = step(ctx)
+
+        sources = result.skill_manager_output.operations[0].insight_source
+        assert isinstance(sources, list)
+        assert {source.trace_uid for source in sources} == {
+            "rr-batch:task-0",
+            "rr-batch:task-1",
+        }
+
+    def test_none_update_is_noop(self):
+        step = AttachInsightSourcesStep()
+        ctx = ACEStepContext(
+            trace={"question": "Q"},
+            reflections=(),
+            skill_manager_output=None,
+        )
+        assert step(ctx) is ctx
+
+    def test_batch_evidence_overrides_bad_reflection_index(self):
+        step = AttachInsightSourcesStep()
+        reflections = (
+            ReflectorOutput(
+                reasoning="r0",
+                correct_approach="c0",
+                key_insight="k0",
+                raw={"item_id": "task-0"},
+            ),
+            ReflectorOutput(
+                reasoning="r1",
+                correct_approach="c1",
+                key_insight="k1",
+                raw={"item_id": "task-1"},
+            ),
+        )
+        batch = UpdateBatch(
+            reasoning="test",
+            operations=[
+                UpdateOperation(
+                    type="ADD",
+                    section="science",
+                    content="Verify factual claims against canonical sources.",
+                    evidence=(
+                        "Task 1: Kyoto feels plausible because of its history, "
+                        "but the correct answer is Tokyo."
+                    ),
+                    reflection_index=0,
+                )
+            ],
+        )
+        ctx = ACEStepContext(
+            trace={
+                "tasks": [
+                    {
+                        "task_id": "task-0",
+                        "trace": {
+                            "question": "What is 12 * 15?",
+                            "messages": [
+                                {
+                                    "role": "assistant",
+                                    "content": "I computed it directly and got 170.",
+                                }
+                            ],
+                        },
+                    },
+                    {
+                        "task_id": "task-1",
+                        "trace": {
+                            "question": "What is the capital of Japan?",
+                            "messages": [
+                                {
+                                    "role": "assistant",
+                                    "content": (
+                                        "Kyoto feels plausible because of its history."
+                                    ),
+                                }
+                            ],
+                        },
+                    },
+                ]
+            },
+            reflections=reflections,
+            skill_manager_output=batch,
+            metadata={
+                TRACE_IDENTITY_METADATA_KEY: {
+                    "source_system": "rr-batch",
+                    "trace_id": "batch-root",
+                    "display_name": "rr batch",
+                }
+            },
+        )
+
+        result = step(ctx)
+
+        source = result.skill_manager_output.operations[0].insight_source
+        assert isinstance(source, InsightSource)
+        assert source.trace_uid == "rr-batch:task-1"
+        assert source.sample_question == "What is the capital of Japan?"
+
+
+# ------------------------------------------------------------------ #
 # ApplyStep
 # ------------------------------------------------------------------ #
 
@@ -397,11 +885,30 @@ class TestLearningTail:
         sb = Skillbook()
 
         steps = learning_tail(reflector, sm, sb)
-        assert len(steps) == 4
+        assert len(steps) == 5
         assert isinstance(steps[0], ReflectStep)
         assert isinstance(steps[1], TagStep)
         assert isinstance(steps[2], UpdateStep)
-        assert isinstance(steps[3], ApplyStep)
+        assert isinstance(steps[3], AttachInsightSourcesStep)
+        assert isinstance(steps[4], ApplyStep)
+
+    def test_step_like_reflector_is_inserted_directly(self):
+        class ReflectorStep(MockReflector):
+            requires = frozenset({"trace", "skillbook"})
+            provides = frozenset({"reflections"})
+
+            def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
+                return ctx.replace(reflections=(self.output,))
+
+        reflector = ReflectorStep()
+        sm = MockSkillManager()
+        sb = Skillbook()
+
+        steps = learning_tail(reflector, sm, sb)
+
+        assert steps[0] is reflector
+        assert isinstance(steps[1], TagStep)
+        assert isinstance(steps[2], UpdateStep)
 
     def test_with_checkpoint(self, tmp_path):
         reflector = MockReflector()
@@ -415,7 +922,7 @@ class TestLearningTail:
             checkpoint_dir=str(tmp_path),
             checkpoint_interval=5,
         )
-        assert len(steps) == 5  # 4 + CheckpointStep
+        assert len(steps) == 6  # 5 + CheckpointStep
 
     def test_with_dedup(self):
         reflector = MockReflector()
@@ -430,7 +937,7 @@ class TestLearningTail:
             dedup_manager=dedup,
             dedup_interval=5,
         )
-        assert len(steps) == 5  # 4 + DeduplicateStep
+        assert len(steps) == 6  # 5 + DeduplicateStep
 
     def test_with_both(self, tmp_path):
         reflector = MockReflector()
@@ -447,4 +954,4 @@ class TestLearningTail:
             checkpoint_dir=str(tmp_path),
             checkpoint_interval=5,
         )
-        assert len(steps) == 6  # 4 + DeduplicateStep + CheckpointStep
+        assert len(steps) == 7  # 5 + DeduplicateStep + CheckpointStep

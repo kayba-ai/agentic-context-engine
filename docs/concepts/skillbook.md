@@ -14,6 +14,7 @@ A skill is a single strategy entry with:
 | `helpful` | Times this skill contributed to a correct answer |
 | `harmful` | Times this skill led to an incorrect answer |
 | `neutral` | Times cited but had no clear effect |
+| `sources` | Provenance records linking the skill back to supporting traces |
 
 Example skill:
 
@@ -122,7 +123,42 @@ runner = ACE.from_roles(
 
 ## Insight Source Tracing
 
-Each skill tracks where it came from — which sample, epoch, and step produced it. Query this with:
+Each skill tracks where it came from using structured provenance records.
+Each source stores a stable trace identity (`trace_uid`, `source_system`,
+`trace_id`, `display_name`) plus optional learning metadata such as
+`epoch`, `step`, `learning_text`, and `trace_refs`.
+
+One skill can carry multiple source records. This is especially useful for
+skills synthesized from several traces, where ACE can attach one primary
+source plus additional supporting sources instead of collapsing everything
+onto a single trace.
+
+Trace identity is exact. In-trace anchors are best-effort: when the trace is
+structured enough, `trace_refs` can include `json_path`, `step_indices`,
+`message_indices`, and `span_ids`; otherwise ACE falls back to excerpt-only
+references.
+
+Typical source record:
+
+```json
+{
+  "trace_uid": "kayba-hosted:conv-123",
+  "source_system": "kayba-hosted",
+  "trace_id": "conv-123",
+  "display_name": "checkout-failure.md",
+  "epoch": 1,
+  "step": 3,
+  "learning_text": "Check for a next-page token before stopping",
+  "trace_refs": [
+    {
+      "text_excerpt": "The API response included next_page_token.",
+      "excerpt_location": "operation.evidence"
+    }
+  ]
+}
+```
+
+Query provenance with:
 
 ```python
 sources = skillbook.source_map()     # skill_id -> source info

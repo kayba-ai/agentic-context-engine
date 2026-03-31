@@ -17,9 +17,10 @@ class RecursiveConfig:
         max_output_chars: Maximum characters per code execution output before truncation (default: 20000)
         enable_subagent: Whether to enable the ask_llm() sub-agent function (default: True)
         subagent_model: Model to use for sub-agent (None = same as main reflector)
-        subagent_max_tokens: Max tokens for sub-agent responses (default: 4096)
+        subagent_max_tokens: Max tokens for sub-agent responses (default: 8192)
         subagent_temperature: Temperature for sub-agent responses (default: 0.3)
         subagent_system_prompt: Custom system prompt for sub-agent (None = default)
+        subagent_max_requests: Max requests per sub-agent run (default: 15)
         enable_fallback_synthesis: Whether to attempt LLM synthesis on timeout (default: True)
     """
 
@@ -35,4 +36,5 @@ class RecursiveConfig:
     subagent_max_tokens: int = 8192
     subagent_temperature: float = 0.3
     subagent_system_prompt: Optional[str] = None
+    subagent_max_requests: int = 15
     enable_fallback_synthesis: bool = True

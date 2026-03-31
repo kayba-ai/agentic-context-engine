@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-03-31
+
+### Added
+- **Insight source provenance** — `InsightSource` typed model captures the origin of each skillbook update (trace ID, sample question, epoch/step, reflection summary, integration metadata); `AttachInsightSourcesStep` automatically enriches `UpdateBatch` operations with provenance and is wired into the default learning tail
+- **Claude SDK step** — `ClaudeSDKStep` integration for running Claude Code sub-agents from within ACE pipelines
+- **RR sub-agent code execution** — Recursive Reflector can now delegate to code-execution sub-agents at runtime
+- **RR raw trace batch helpers** — `build_raw_trace_batches` and related runtime utilities for feeding raw traces directly into the RR pipeline
+
+### Fixed
+- **Logfire scrubbing** — added scrubbing callback to stop Logfire over-redacting trace content (reasoning, answers, messages now visible in Logfire UI)
+- **RR combined-batch normalization** — fixed ordering/deduplication of combined task batches in multi-sample runs
+
+### Docs
+- Logfire query API guide clarifications
+- MCP client setup guide and compatibility tests
+- Design docs updated to reflect insight source provenance model
+
 ## [0.9.1] - 2026-03-26
 
 ### Fixed

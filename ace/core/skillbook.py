@@ -19,6 +19,11 @@ from typing import (
     cast,
 )
 
+from .insight_source import (
+    InsightSource,
+    coerce_insight_source,
+    coerce_insight_sources,
+)
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -31,6 +36,28 @@ VALID_SKILL_TAGS: FrozenSet[str] = frozenset({"helpful", "harmful", "neutral"})
 # ---------------------------------------------------------------------------
 
 OperationType = Literal["ADD", "UPDATE", "TAG", "REMOVE"]
+InsightSourceInput = Union[
+    InsightSource,
+    Dict[str, Any],
+    List[Union[InsightSource, Dict[str, Any]]],
+]
+
+
+def _insight_source_signature(source: InsightSource) -> str:
+    return json.dumps(source.to_dict(), ensure_ascii=False, sort_keys=True, default=str)
+
+
+def _append_unique_sources(
+    existing: List[InsightSource],
+    incoming: Iterable[InsightSource],
+) -> None:
+    seen = {_insight_source_signature(source) for source in existing}
+    for source in incoming:
+        signature = _insight_source_signature(source)
+        if signature in seen:
+            continue
+        existing.append(source)
+        seen.add(signature)
 
 
 @dataclass
@@ -44,8 +71,10 @@ class UpdateOperation:
     metadata: Dict[str, int] = field(default_factory=dict)
     justification: Optional[str] = None
     evidence: Optional[str] = None
-    insight_source: Optional[Dict[str, Any]] = None
+    insight_source: Optional[InsightSourceInput] = None
     learning_index: Optional[int] = None
+    reflection_index: Optional[int] = None
+    reflection_indices: List[int] = field(default_factory=list)
 
     @classmethod
     def from_json(cls, payload: Dict[str, object]) -> "UpdateOperation":
@@ -63,9 +92,17 @@ class UpdateOperation:
             raise ValueError(f"Invalid operation type: {op_type}")
 
         raw_source = payload.get("insight_source")
-        insight_source = (
-            cast(Dict[str, Any], raw_source) if isinstance(raw_source, dict) else None
-        )
+        insight_source: Optional[InsightSourceInput] = None
+        if isinstance(raw_source, dict):
+            insight_source = InsightSource.from_dict(cast(Dict[str, Any], raw_source))
+        elif isinstance(raw_source, Iterable) and not isinstance(
+            raw_source, (str, bytes)
+        ):
+            insight_source = [
+                InsightSource.from_dict(cast(Dict[str, Any], item))
+                for item in raw_source
+                if isinstance(item, dict)
+            ]
 
         raw_learning_index = payload.get("learning_index")
         learning_index: Optional[int] = None
@@ -74,6 +111,25 @@ class UpdateOperation:
                 learning_index = int(cast(int, raw_learning_index))
             except (TypeError, ValueError):
                 pass
+
+        raw_reflection_index = payload.get("reflection_index")
+        reflection_index: Optional[int] = None
+        if raw_reflection_index is not None:
+            try:
+                reflection_index = int(cast(int, raw_reflection_index))
+            except (TypeError, ValueError):
+                pass
+
+        reflection_indices: List[int] = []
+        raw_reflection_indices = payload.get("reflection_indices")
+        if isinstance(raw_reflection_indices, Iterable) and not isinstance(
+            raw_reflection_indices, (str, bytes)
+        ):
+            for value in raw_reflection_indices:
+                try:
+                    reflection_indices.append(int(cast(int, value)))
+                except (TypeError, ValueError):
+                    continue
 
         return cls(
             type=cast(OperationType, op_type),
@@ -99,6 +155,8 @@ class UpdateOperation:
             ),
             insight_source=insight_source,
             learning_index=learning_index,
+            reflection_index=reflection_index,
+            reflection_indices=reflection_indices,
         )
 
     def to_json(self) -> Dict[str, object]:
@@ -114,9 +172,17 @@ class UpdateOperation:
         if self.evidence is not None:
             data["evidence"] = self.evidence
         if self.insight_source is not None:
-            data["insight_source"] = self.insight_source
+            sources = coerce_insight_sources(self.insight_source)
+            if len(sources) == 1:
+                data["insight_source"] = sources[0].to_dict()
+            elif sources:
+                data["insight_source"] = [source.to_dict() for source in sources]
         if self.learning_index is not None:
             data["learning_index"] = self.learning_index
+        if self.reflection_index is not None:
+            data["reflection_index"] = self.reflection_index
+        if self.reflection_indices:
+            data["reflection_indices"] = list(self.reflection_indices)
         return data
 
 
@@ -179,7 +245,7 @@ class Skill:
     )
     embedding: Optional[List[float]] = None
     status: Literal["active", "invalid"] = "active"
-    sources: List[Dict[str, Any]] = field(default_factory=list)
+    sources: List[InsightSource] = field(default_factory=list)
 
     def apply_metadata(self, metadata: Dict[str, int]) -> None:
         for key, value in metadata.items():
@@ -239,7 +305,7 @@ class Skillbook:
         metadata: Optional[Dict[str, int]] = None,
         justification: Optional[str] = None,
         evidence: Optional[str] = None,
-        insight_source: Optional[Dict[str, Any]] = None,
+        insight_source: Optional[InsightSourceInput] = None,
     ) -> Skill:
         with self._lock:
             skill_id = skill_id or self._generate_id(section)
@@ -250,7 +316,10 @@ class Skillbook:
                 content=content,
                 justification=justification,
                 evidence=evidence,
-                sources=[insight_source] if insight_source else [],
+                sources=[],
+            )
+            _append_unique_sources(
+                skill.sources, coerce_insight_sources(insight_source)
             )
             skill.apply_metadata(metadata)
             self._skills[skill_id] = skill
@@ -265,7 +334,7 @@ class Skillbook:
         metadata: Optional[Dict[str, int]] = None,
         justification: Optional[str] = None,
         evidence: Optional[str] = None,
-        insight_source: Optional[Dict[str, Any]] = None,
+        insight_source: Optional[InsightSourceInput] = None,
     ) -> Optional[Skill]:
         with self._lock:
             skill = self._skills.get(skill_id)
@@ -280,7 +349,10 @@ class Skillbook:
             if metadata:
                 skill.apply_metadata(metadata)
             if insight_source is not None:
-                skill.sources.append(insight_source)
+                _append_unique_sources(
+                    skill.sources,
+                    coerce_insight_sources(insight_source),
+                )
             skill.updated_at = datetime.now(timezone.utc).isoformat()
             return skill
 
@@ -380,7 +452,19 @@ class Skillbook:
                         skill_data["justification"] = None
                     if "evidence" not in skill_data:
                         skill_data["evidence"] = None
-                    if "sources" not in skill_data:
+                    raw_sources = skill_data.get("sources") or []
+                    if isinstance(raw_sources, list):
+                        deduped_sources: list[InsightSource] = []
+                        _append_unique_sources(
+                            deduped_sources,
+                            [
+                                coerce_insight_source(item)
+                                for item in raw_sources
+                                if isinstance(item, (InsightSource, dict))
+                            ],
+                        )
+                        skill_data["sources"] = deduped_sources
+                    else:
                         skill_data["sources"] = []
                     valid_fields = {f.name for f in dataclass_fields(Skill)}
                     skill_data = {
@@ -524,24 +608,32 @@ class Skillbook:
         result: Dict[str, List[Dict[str, Any]]] = {}
         for skill_id, skill in self._skills.items():
             if skill.sources:
-                result[skill_id] = list(skill.sources)
+                result[skill_id] = [source.to_dict() for source in skill.sources]
         return result
 
     def source_summary(self) -> Dict[str, Any]:
         epochs: Dict[int, int] = {}
+        source_systems: Dict[str, int] = {}
+        trace_uids: Dict[str, int] = {}
         sample_questions: Dict[str, int] = {}
         total = 0
         for skill in self._skills.values():
             for src in skill.sources:
                 total += 1
-                ep = src.get("epoch", 0)
+                ep = src.epoch or 0
                 epochs[ep] = epochs.get(ep, 0) + 1
-                sq = src.get("sample_question", "")
+                source_systems[src.source_system] = (
+                    source_systems.get(src.source_system, 0) + 1
+                )
+                trace_uids[src.trace_uid] = trace_uids.get(src.trace_uid, 0) + 1
+                sq = src.sample_question or ""
                 if sq:
                     sample_questions[sq] = sample_questions.get(sq, 0) + 1
         return {
             "total_sources": total,
             "epochs": epochs,
+            "source_systems": source_systems,
+            "trace_uids": trace_uids,
             "sample_questions": sample_questions,
         }
 
@@ -550,18 +642,27 @@ class Skillbook:
         *,
         epoch: Optional[int] = None,
         sample_question: Optional[str] = None,
+        trace_uid: Optional[str] = None,
+        trace_id: Optional[str] = None,
+        source_system: Optional[str] = None,
     ) -> Dict[str, List[Dict[str, Any]]]:
         result: Dict[str, List[Dict[str, Any]]] = {}
         for skill_id, skill in self._skills.items():
             matches = []
             for src in skill.sources:
-                if epoch is not None and src.get("epoch") != epoch:
+                if epoch is not None and src.epoch != epoch:
+                    continue
+                if trace_uid is not None and src.trace_uid != trace_uid:
+                    continue
+                if trace_id is not None and src.trace_id != trace_id:
+                    continue
+                if source_system is not None and src.source_system != source_system:
                     continue
                 if sample_question is not None:
-                    sq = src.get("sample_question", "")
+                    sq = src.sample_question or ""
                     if sample_question.lower() not in sq.lower():
                         continue
-                matches.append(src)
+                matches.append(src.to_dict())
             if matches:
                 result[skill_id] = matches
         return result
