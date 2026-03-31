@@ -531,6 +531,7 @@ class RRStep:
         is_batch = batch_items is not None
 
         if is_batch:
+            assert batch_items is not None
             survey_items = self._build_survey_items(batch_items)
             # Compute pass/fail breakdown
             pass_count = 0
@@ -652,6 +653,7 @@ class RRStep:
                 skillbook_text = str(skillbook)
 
         if is_batch:
+            assert batch_items is not None
             total_steps = sum(len(self._extract_batch_messages(item)) for item in batch_items)
             preview_rows = []
             for index, item in enumerate(batch_items):

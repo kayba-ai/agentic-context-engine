@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any
 
 from pipeline import Pipeline
@@ -169,12 +170,12 @@ class TraceAnalyser(ACERunner):
         return ACEStepContext(
             skillbook=SkillbookView(self.skillbook),
             trace=raw_trace,
-            metadata={
+            metadata=MappingProxyType({
                 TRACE_IDENTITY_METADATA_KEY: infer_trace_identity(
                     trace=raw_trace,
                     default_source_system="trace",
                 ).to_dict()
-            },
+            }),
             epoch=epoch,
             total_epochs=total_epochs,
             step_index=index,

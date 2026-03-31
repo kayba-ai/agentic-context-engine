@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping, Sequence, cast
 
 from .core.insight_source import (
     TRACE_IDENTITY_METADATA_KEY,
@@ -767,12 +767,12 @@ def build_insight_source(
             if not batch_indices:
                 source_entries.append((None, trace, matched_reflection, learning))
             else:
-                for batch_index in batch_indices:
+                for bidx in batch_indices:
                     source_reflection_index, source_reflection = (
                         _reflection_for_batch_index(
                             reflection_seq,
                             batch_items,
-                            batch_index,
+                            bidx,
                         )
                     )
                     source_learning = (
@@ -784,8 +784,8 @@ def build_insight_source(
                     )
                     source_entries.append(
                         (
-                            batch_index,
-                            batch_items[batch_index],
+                            bidx,
+                            batch_items[bidx],
                             source_reflection,
                             source_learning,
                         )
@@ -860,7 +860,11 @@ def build_insight_source(
 
         if not sources:
             continue
-        operation.insight_source = sources[0] if len(sources) == 1 else sources
+        operation.insight_source = (
+            sources[0]
+            if len(sources) == 1
+            else cast("list[InsightSource | dict[str, Any]]", sources)
+        )
 
     return operations
 
