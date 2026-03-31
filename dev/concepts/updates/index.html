@@ -2046,6 +2046,12 @@
 <a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>
 <a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="n">skillbook</span><span class="o">.</span><span class="n">apply_update</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
 </code></pre></div>
+<p>In batch reflection mode, <code>ADD</code> and <code>UPDATE</code> operations may also include
+<code>reflection_index</code> to indicate which reflection in the input tuple primarily
+produced the operation.</p>
+<p>When an operation is synthesized from multiple reflections, it may instead use
+<code>reflection_indices</code> to list all contributing reflections. This lets downstream
+provenance attach multiple trace sources to one learned skill.</p>
 <h2 id="how-updates-flow">How Updates Flow<a class="headerlink" href="#how-updates-flow" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>Agent cites skill_ids --&gt; Reflector tags them --&gt; SkillManager emits ADD/UPDATE/REMOVE
 </code></pre></div>

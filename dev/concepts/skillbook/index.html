@@ -1992,6 +1992,10 @@
 <td><code>neutral</code></td>
 <td>Times cited but had no clear effect</td>
 </tr>
+<tr>
+<td><code>sources</code></td>
+<td>Provenance records linking the skill back to supporting traces</td>
+</tr>
 </tbody>
 </table>
 <p>Example skill:</p>
@@ -2069,9 +2073,38 @@
 <a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="p">)</span>
 </code></pre></div>
 <h2 id="insight-source-tracing">Insight Source Tracing<a class="headerlink" href="#insight-source-tracing" title="Permanent link">&para;</a></h2>
-<p>Each skill tracks where it came from — which sample, epoch, and step produced it. Query this with:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">sources</span> <span class="o">=</span> <span class="n">skillbook</span><span class="o">.</span><span class="n">source_map</span><span class="p">()</span>     <span class="c1"># skill_id -&gt; source info</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">summary</span> <span class="o">=</span> <span class="n">skillbook</span><span class="o">.</span><span class="n">source_summary</span><span class="p">()</span> <span class="c1"># Aggregated statistics</span>
+<p>Each skill tracks where it came from using structured provenance records.
+Each source stores a stable trace identity (<code>trace_uid</code>, <code>source_system</code>,
+<code>trace_id</code>, <code>display_name</code>) plus optional learning metadata such as
+<code>epoch</code>, <code>step</code>, <code>learning_text</code>, and <code>trace_refs</code>.</p>
+<p>One skill can carry multiple source records. This is especially useful for
+skills synthesized from several traces, where ACE can attach one primary
+source plus additional supporting sources instead of collapsing everything
+onto a single trace.</p>
+<p>Trace identity is exact. In-trace anchors are best-effort: when the trace is
+structured enough, <code>trace_refs</code> can include <code>json_path</code>, <code>step_indices</code>,
+<code>message_indices</code>, and <code>span_ids</code>; otherwise ACE falls back to excerpt-only
+references.</p>
+<p>Typical source record:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="p">{</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">&quot;trace_uid&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;kayba-hosted:conv-123&quot;</span><span class="p">,</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span><span class="nt">&quot;source_system&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;kayba-hosted&quot;</span><span class="p">,</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">  </span><span class="nt">&quot;trace_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;conv-123&quot;</span><span class="p">,</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">  </span><span class="nt">&quot;display_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;checkout-failure.md&quot;</span><span class="p">,</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">  </span><span class="nt">&quot;epoch&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">  </span><span class="nt">&quot;step&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">  </span><span class="nt">&quot;learning_text&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Check for a next-page token before stopping&quot;</span><span class="p">,</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">  </span><span class="nt">&quot;trace_refs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="w">      </span><span class="nt">&quot;text_excerpt&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;The API response included next_page_token.&quot;</span><span class="p">,</span>
+<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="w">      </span><span class="nt">&quot;excerpt_location&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;operation.evidence&quot;</span>
+<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a><span class="w">  </span><span class="p">]</span>
+<a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a><span class="p">}</span>
+</code></pre></div>
+<p>Query provenance with:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">sources</span> <span class="o">=</span> <span class="n">skillbook</span><span class="o">.</span><span class="n">source_map</span><span class="p">()</span>     <span class="c1"># skill_id -&gt; source info</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="n">summary</span> <span class="o">=</span> <span class="n">skillbook</span><span class="o">.</span><span class="n">source_summary</span><span class="p">()</span> <span class="c1"># Aggregated statistics</span>
 </code></pre></div>
 <h2 id="what-to-read-next">What to Read Next<a class="headerlink" href="#what-to-read-next" title="Permanent link">&para;</a></h2>
 <ul>

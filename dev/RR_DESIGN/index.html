@@ -1916,6 +1916,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#runtime-helper-registry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Runtime Helper Registry
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#reset" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1944,10 +1955,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#analyzequestion-context-mode" class="md-nav__link">
+  <a href="#analyzequestion-mode-context" class="md-nav__link">
     <span class="md-ellipsis">
       
-        analyze(question, context, mode)
+        analyze(question, mode, context="")
       
     </span>
   </a>
@@ -2198,15 +2209,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#traces-dict" class="md-nav__link">
+  <a href="#traces-input" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Traces Dict
+        Traces Input
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Traces Dict">
+    <nav class="md-nav" aria-label="Traces Input">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -2314,34 +2325,42 @@
 <h2 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h2>
 <h3 id="pydanticai-agent-loop">PydanticAI Agent Loop<a class="headerlink" href="#pydanticai-agent-loop" title="Permanent link">&para;</a></h3>
 <p>Each invocation of <code>RRStep</code> runs a PydanticAI agent that drives the analysis through tool calls:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>┌───────────────────────────────────────────────────────────────┐
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>│  RRStep._run_reflection()                                     │
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>│                                                               │
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>│  ┌─────────────────────────────────────────────────────────┐  │
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>│  │  PydanticAI Agent (model, output_type=ReflectorOutput)  │  │
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>│  │                                                         │  │
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>│  │  Tools:                                                 │  │
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>│  │  ┌──────────────┐  ┌─────────┐  ┌───────────────┐      │  │
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>│  │  │ execute_code │  │ analyze │  │ batch_analyze │      │  │
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>│  │  │  (sandbox)   │  │ (sub-   │  │ (parallel     │      │  │
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>│  │  │              │  │  agent) │  │  sub-agent)   │      │  │
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>│  │  └──────┬───────┘  └────┬────┘  └──────┬────────┘      │  │
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>│  │         │               │              │               │  │
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>│  │         ▼               ▼              ▼               │  │
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>│  │    TraceSandbox    PydanticAI      ThreadPool +        │  │
-<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>│  │    exec() env      sub-agent      PydanticAI          │  │
-<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>│  │                    (text out)     sub-agent            │  │
-<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>│  │                                                         │  │
-<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>│  │  Output:                                                │  │
-<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>│  │  ┌───────────────────────────────────────────────────┐  │  │
-<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>│  │  │  ReflectorOutput (structured, validated)          │  │  │
-<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>│  │  │  + output_validator enforces exploration depth    │  │  │
-<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>│  │  └───────────────────────────────────────────────────┘  │  │
-<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>│  └─────────────────────────────────────────────────────────┘  │
-<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>│                                                               │
-<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>│  UsageLimits(request_limit=max_llm_calls)                     │
-<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>│  → UsageLimitExceeded triggers timeout fallback               │
-<a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a>└───────────────────────────────────────────────────────────────┘
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>RR accepts raw trace objects directly. For batch mode it recognizes:
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>- a raw `list[...]` of trace items
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>- a dict with an `&quot;items&quot;` list
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>- a dict with a `&quot;tasks&quot;` list
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>- a legacy combined `&quot;steps&quot;` batch of conversation wrapper dicts
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>RR does **not** rewrite the inner trace payload into a benchmark-specific schema. Instead it injects generic helper variables such as `batch_items`, `item_ids`, and `survey_items`, plus a runtime helper registry so the model can define reusable accessors for whatever raw structure it sees.
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>┌───────────────────────────────────────────────────────────────┐
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>│  RRStep._run_reflection()                                     │
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>│                                                               │
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>│  ┌─────────────────────────────────────────────────────────┐  │
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>│  │  PydanticAI Agent (model, output_type=ReflectorOutput)  │  │
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>│  │                                                         │  │
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>│  │  Tools:                                                 │  │
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>│  │  ┌──────────────┐  ┌─────────┐  ┌───────────────┐      │  │
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>│  │  │ execute_code │  │ analyze │  │ batch_analyze │      │  │
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>│  │  │  (sandbox)   │  │ (sub-   │  │ (parallel     │      │  │
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>│  │  │              │  │  agent) │  │  sub-agent)   │      │  │
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>│  │  └──────┬───────┘  └────┬────┘  └──────┬────────┘      │  │
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>│  │         │               │              │               │  │
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>│  │         ▼               ▼              ▼               │  │
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>│  │    TraceSandbox    PydanticAI      ThreadPool +        │  │
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>│  │    exec() env      sub-agent      PydanticAI          │  │
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>│  │                    (text out)     sub-agent            │  │
+<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>│  │                                                         │  │
+<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>│  │  Output:                                                │  │
+<a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a>│  │  ┌───────────────────────────────────────────────────┐  │  │
+<a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a>│  │  │  ReflectorOutput (structured, validated)          │  │  │
+<a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a>│  │  │  + output_validator enforces exploration depth    │  │  │
+<a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a>│  │  └───────────────────────────────────────────────────┘  │  │
+<a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a>│  └─────────────────────────────────────────────────────────┘  │
+<a id="__codelineno-1-33" name="__codelineno-1-33" href="#__codelineno-1-33"></a>│                                                               │
+<a id="__codelineno-1-34" name="__codelineno-1-34" href="#__codelineno-1-34"></a>│  UsageLimits(request_limit=max_llm_calls)                     │
+<a id="__codelineno-1-35" name="__codelineno-1-35" href="#__codelineno-1-35"></a>│  → UsageLimitExceeded triggers timeout fallback               │
+<a id="__codelineno-1-36" name="__codelineno-1-36" href="#__codelineno-1-36"></a>└───────────────────────────────────────────────────────────────┘
 </code></pre></div>
 <h3 id="tools">Tools<a class="headerlink" href="#tools" title="Permanent link">&para;</a></h3>
 <p>The PydanticAI agent has three tools, defined in <code>ace/rr/agent.py</code>:</p>
@@ -2455,12 +2474,12 @@
 <tr>
 <td><code>{traces_description}</code></td>
 <td><code>str</code></td>
-<td>Human-readable summary of the traces (single: schema keys; batch: task count)</td>
+<td>Human-readable summary of the traces (single: schema keys or raw type; batch: container summary)</td>
 </tr>
 <tr>
 <td><code>{step_count}</code></td>
 <td><code>int</code></td>
-<td>Total number of trace steps (summed across tasks in batch mode)</td>
+<td>Total number of trace steps/messages seen in previews (summed across batch items in batch mode)</td>
 </tr>
 <tr>
 <td><code>{skillbook_length}</code></td>
@@ -2473,9 +2492,14 @@
 <td>Extra sandbox variable table row for batch mode (empty string in single-trace mode)</td>
 </tr>
 <tr>
+<td><code>{helper_variables}</code></td>
+<td><code>str</code></td>
+<td>Extra sandbox variable/function rows for reusable helper registration</td>
+</tr>
+<tr>
 <td><code>{traces_previews}</code></td>
 <td><code>str</code></td>
-<td>Markdown table of trace previews (single: per-field; batch: per-task with message count)</td>
+<td>Markdown table of trace previews (single: per-field; batch: per-item with message count)</td>
 </tr>
 <tr>
 <td><code>{trace_size_chars}</code></td>
@@ -2490,7 +2514,7 @@
 <tr>
 <td><code>{task_count}</code></td>
 <td><code>int</code></td>
-<td>Number of tasks (1 for single-trace, N for batch)</td>
+<td>Number of analyzed items (1 for single-trace, N for batch)</td>
 </tr>
 </tbody>
 </table>
@@ -2573,6 +2597,11 @@
 <td>Custom system prompt for sub-agent. <code>None</code> uses the default analysis prompt.</td>
 </tr>
 <tr>
+<td><code>subagent_max_requests</code></td>
+<td><code>15</code></td>
+<td>Per-sub-agent request budget. Used for both <code>analyze()</code> and each item in <code>batch_analyze()</code>.</td>
+</tr>
+<tr>
 <td><code>enable_fallback_synthesis</code></td>
 <td><code>True</code></td>
 <td>Legacy field kept for compat. Timeout now always builds a fallback <code>ReflectorOutput</code>.</td>
@@ -2614,13 +2643,63 @@
 </tr>
 <tr>
 <td><code>traces</code></td>
-<td><code>dict</code></td>
-<td>Canonical traces dict (injected by <code>RRStep</code>)</td>
+<td><code>Any</code></td>
+<td>Raw trace payload provided to RR (injected by <code>RRStep</code>)</td>
 </tr>
 <tr>
 <td><code>skillbook</code></td>
 <td><code>str</code></td>
 <td>Skillbook text (injected by <code>RRStep</code>)</td>
+</tr>
+<tr>
+<td><code>batch_items</code></td>
+<td><code>list[Any]</code></td>
+<td>Present in batch mode. Ordered view over the raw batch elements regardless of the original container shape.</td>
+</tr>
+<tr>
+<td><code>item_ids</code></td>
+<td><code>list[str]</code></td>
+<td>Present in batch mode. Stable identifiers derived from each batch item.</td>
+</tr>
+<tr>
+<td><code>item_id_to_index</code></td>
+<td><code>dict[str, int]</code></td>
+<td>Present in batch mode. Maps item IDs to <code>batch_items[i]</code>.</td>
+</tr>
+<tr>
+<td><code>item_preview_by_id</code></td>
+<td><code>dict[str, dict]</code></td>
+<td>Present in batch mode. Compact previews for question, feedback, first message, and payload type.</td>
+</tr>
+<tr>
+<td><code>survey_items</code></td>
+<td><code>list[str]</code></td>
+<td>Present in batch mode. Precomputed <code>batch_analyze()</code> items with explicit <code>batch_items[i]</code> references.</td>
+</tr>
+<tr>
+<td><code>helper_registry</code></td>
+<td><code>dict[str, dict]</code></td>
+<td>Metadata for reusable helper functions registered during the run.</td>
+</tr>
+<tr>
+<td><code>register_helper</code></td>
+<td><code>Callable</code></td>
+<td>Define and persist helper code so later <code>execute_code</code> calls and sub-agent snapshots can reuse it.</td>
+</tr>
+<tr>
+<td><code>list_helpers</code></td>
+<td><code>Callable</code></td>
+<td>Return registered helper names and descriptions.</td>
+</tr>
+<tr>
+<td><code>run_helper</code></td>
+<td><code>Callable</code></td>
+<td>Invoke a registered helper by name.</td>
+</tr>
+<tr>
+<td><code>get_batch_item</code></td>
+<td><code>Callable</code></td>
+<td>Convenience accessor for <code>batch_items[index]</code>.</td>
 </tr>
 <tr>
 <td><code>SHOW_VARS</code></td>
@@ -2708,12 +2787,20 @@
 </ul>
 <h3 id="injectname-value">inject(name, value)<a class="headerlink" href="#injectname-value" title="Permanent link">&para;</a></h3>
 <p>Add or override a variable in the sandbox namespace after construction.</p>
+<h3 id="runtime-helper-registry">Runtime Helper Registry<a class="headerlink" href="#runtime-helper-registry" title="Permanent link">&para;</a></h3>
+<p>The sandbox includes a lightweight helper registry for trace-shape adaptation:</p>
+<ul>
+<li><code>register_helper(name, source, description="")</code> executes helper source code, stores the source, and records metadata.</li>
+<li>Registered helpers persist across later <code>execute_code</code> calls in the same RR session.</li>
+<li><code>create_readonly_sandbox()</code> replays the stored helper source in sub-agent snapshots so helpers are rebound to the child namespace rather than the parent sandbox.</li>
+<li>Sub-agent prompts include the registered helper catalog when available, so they can start from those helpers instead of re-discovering the raw schema.</li>
+</ul>
 <h3 id="reset">reset()<a class="headerlink" href="#reset" title="Permanent link">&para;</a></h3>
 <p>Clear <code>final_value</code> and <code>final_called</code> state.</p>
 <hr />
 <h2 id="sub-agent">Sub-Agent<a class="headerlink" href="#sub-agent" title="Permanent link">&para;</a></h2>
 <p>The sub-agent system provides LLM reasoning capabilities to the main reflector agent via the <code>analyze</code> and <code>batch_analyze</code> PydanticAI tools.</p>
-<h3 id="analyzequestion-context-mode">analyze(question, context, mode)<a class="headerlink" href="#analyzequestion-context-mode" title="Permanent link">&para;</a></h3>
+<h3 id="analyzequestion-mode-context">analyze(question, mode, context="")<a class="headerlink" href="#analyzequestion-mode-context" title="Permanent link">&para;</a></h3>
 <p>PydanticAI tool on the main agent. Calls the sub-agent asynchronously with a formatted prompt.</p>
 <table>
 <thead>
@@ -2732,19 +2819,21 @@
 <td>The question to ask</td>
 </tr>
 <tr>
-<td><code>context</code></td>
-<td><code>str</code></td>
-<td><code>""</code></td>
-<td>Data to analyse (trace excerpt, code output, etc.)</td>
-</tr>
-<tr>
 <td><code>mode</code></td>
 <td><code>str</code></td>
 <td><code>"analysis"</code></td>
 <td>Prompt protocol: <code>"analysis"</code> for survey, <code>"deep_dive"</code> for investigation</td>
 </tr>
+<tr>
+<td><code>context</code></td>
+<td><code>str</code></td>
+<td><code>""</code></td>
+<td>Optional focus instructions. The sub-agent reads raw trace data directly via <code>execute_code</code>.</td>
+</tr>
 </tbody>
 </table>
+<p>The sub-agent receives an isolated readonly sandbox snapshot plus its own
+<code>UsageLimits(request_limit=config.subagent_max_requests)</code>.</p>
 <p>When the sub-agent is not configured (<code>config.enable_subagent=False</code>), returns <code>"(analyze unavailable — sub-agent not configured)"</code>.</p>
 <h3 id="batch_analyzequestion-items-mode">batch_analyze(question, items, mode)<a class="headerlink" href="#batch_analyzequestion-items-mode" title="Permanent link">&para;</a></h3>
 <p>PydanticAI tool that analyzes multiple items in parallel. Uses <code>ThreadPoolExecutor</code> to call <code>sub_agent.run_sync()</code> for each item concurrently.</p>
@@ -2768,7 +2857,7 @@
 <td><code>items</code></td>
 <td><code>list[str]</code></td>
 <td>required</td>
-<td>List of data items to analyze</td>
+<td>List of focus instructions to analyze</td>
 </tr>
 <tr>
 <td><code>mode</code></td>
@@ -2778,7 +2867,8 @@
 </tr>
 </tbody>
 </table>
-<p>Concurrency is capped at <code>min(len(items), 10)</code> workers.</p>
+<p>Each item gets its own readonly sandbox snapshot and request budget.
+Concurrency is capped at <code>min(len(items), 10)</code> workers.</p>
 <h3 id="modes-and-system-prompts">Modes and System Prompts<a class="headerlink" href="#modes-and-system-prompts" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -2808,16 +2898,19 @@
 <a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="o">*</span><span class="p">,</span>
 <a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="n">config</span><span class="p">:</span> <span class="n">RecursiveConfig</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>    <span class="n">model_settings</span><span class="p">:</span> <span class="n">ModelSettings</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PydanticAgent</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PydanticAgent</span><span class="p">[</span><span class="n">SubAgentDeps</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
 </code></pre></div>
-<p>The sub-agent is a simple prompt-in / text-out PydanticAI agent with no tools and <code>output_type=str</code>. Model settings default to <code>temperature=config.subagent_temperature</code> and <code>max_tokens=config.subagent_max_tokens</code>.</p>
+<p>The sub-agent is a text-output PydanticAI agent with its own <code>execute_code</code>
+tool and isolated sandbox snapshot. Model settings default to
+<code>temperature=config.subagent_temperature</code> and
+<code>max_tokens=config.subagent_max_tokens</code>.</p>
 <h3 id="sub-agent-call-history">Sub-Agent Call History<a class="headerlink" href="#sub-agent-call-history" title="Permanent link">&para;</a></h3>
 <p>Each <code>analyze</code> and <code>batch_analyze</code> call appends metadata to <code>RRDeps.sub_agent_history</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># analyze call</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="p">{</span><span class="s2">&quot;question&quot;</span><span class="p">:</span> <span class="s2">&quot;...&quot;</span><span class="p">,</span> <span class="s2">&quot;context_length&quot;</span><span class="p">:</span> <span class="mi">1234</span><span class="p">,</span> <span class="s2">&quot;response_length&quot;</span><span class="p">:</span> <span class="mi">567</span><span class="p">,</span> <span class="s2">&quot;mode&quot;</span><span class="p">:</span> <span class="s2">&quot;analysis&quot;</span><span class="p">}</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="p">{</span><span class="s2">&quot;question&quot;</span><span class="p">:</span> <span class="s2">&quot;...&quot;</span><span class="p">,</span> <span class="s2">&quot;context_length&quot;</span><span class="p">:</span> <span class="mi">1234</span><span class="p">,</span> <span class="s2">&quot;response_length&quot;</span><span class="p">:</span> <span class="mi">567</span><span class="p">,</span> <span class="s2">&quot;mode&quot;</span><span class="p">:</span> <span class="s2">&quot;analysis&quot;</span><span class="p">,</span> <span class="s2">&quot;code_calls&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">}</span>
 <a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
 <a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="c1"># batch_analyze call</span>
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="p">{</span><span class="s2">&quot;question&quot;</span><span class="p">:</span> <span class="s2">&quot;...&quot;</span><span class="p">,</span> <span class="s2">&quot;items_count&quot;</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span> <span class="s2">&quot;mode&quot;</span><span class="p">:</span> <span class="s2">&quot;analysis&quot;</span><span class="p">,</span> <span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">}</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="p">{</span><span class="s2">&quot;question&quot;</span><span class="p">:</span> <span class="s2">&quot;...&quot;</span><span class="p">,</span> <span class="s2">&quot;items_count&quot;</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span> <span class="s2">&quot;mode&quot;</span><span class="p">:</span> <span class="s2">&quot;analysis&quot;</span><span class="p">,</span> <span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;code_calls_per_item&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">]}</span>
 </code></pre></div>
 <p>This history is included in the <code>rr_trace</code> output for observability.</p>
 <hr />
@@ -3041,35 +3134,39 @@
 <p>When any other exception occurs during the agent run, a minimal <code>ReflectorOutput</code> is returned with <code>raw["error"]</code> set.</p>
 <hr />
 <h2 id="batch-mode">Batch Mode<a class="headerlink" href="#batch-mode" title="Permanent link">&para;</a></h2>
-<p>When <code>RRStep.__call__</code> receives a batch trace (a dict with a <code>"tasks"</code> key), it runs a <strong>single PydanticAI agent session</strong> that analyzes all tasks. The agent uses <code>batch_analyze</code> to explore tasks concurrently within that session.</p>
+<p>When <code>RRStep.__call__</code> receives a batch trace (a raw list, a dict with <code>"items"</code> or <code>"tasks"</code>, or a legacy combined <code>"steps"</code> batch), it runs a <strong>single PydanticAI agent session</strong> that analyzes all items. The agent uses <code>batch_analyze</code> to explore items concurrently within that session.</p>
 <h3 id="detection">Detection<a class="headerlink" href="#detection" title="Permanent link">&para;</a></h3>
-<p>A trace is a batch when <code>isinstance(trace, dict) and "tasks" in trace</code>. The <code>"tasks"</code> value is a list of <code>{"task_id": str, "trace": list}</code> dicts — one per task in the batch.</p>
+<p>A trace is treated as a batch when:</p>
+<ul>
+<li><code>trace</code> is a raw <code>list</code></li>
+<li>or <code>trace["items"]</code> is a list</li>
+<li>or <code>trace["tasks"]</code> is a list</li>
+<li>or <code>trace["steps"]</code> looks like a legacy combined batch of conversation wrapper dicts</li>
+</ul>
 <h3 id="single-session-design">Single-Session Design<a class="headerlink" href="#single-session-design" title="Permanent link">&para;</a></h3>
-<p>The full batch trace is passed directly to <code>_run_reflection</code>. The sandbox's <code>traces</code> variable contains:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="p">{</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>    <span class="s2">&quot;tasks&quot;</span><span class="p">:</span> <span class="p">[</span>
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>        <span class="p">{</span><span class="s2">&quot;task_id&quot;</span><span class="p">:</span> <span class="s2">&quot;task_0&quot;</span><span class="p">,</span> <span class="s2">&quot;trace&quot;</span><span class="p">:</span> <span class="p">[{</span><span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;user&quot;</span><span class="p">,</span> <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="s2">&quot;...&quot;</span><span class="p">},</span> <span class="o">...</span><span class="p">]},</span>
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>        <span class="p">{</span><span class="s2">&quot;task_id&quot;</span><span class="p">:</span> <span class="s2">&quot;task_1&quot;</span><span class="p">,</span> <span class="s2">&quot;trace&quot;</span><span class="p">:</span> <span class="p">[</span><span class="o">...</span><span class="p">]},</span>
-<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>        <span class="o">...</span>
-<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>    <span class="p">]</span>
-<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="p">}</span>
+<p>The full batch trace is passed directly to <code>_run_reflection</code> without rewriting the inner payloads. The sandbox exposes:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="n">traces</span>        <span class="c1"># raw caller-provided payload</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="n">batch_items</span>   <span class="c1"># ordered list of raw batch elements</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="n">item_ids</span>      <span class="c1"># stable ids derived from batch items</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="n">survey_items</span>  <span class="c1"># precomputed batch_analyze instructions referencing batch_items[i]</span>
 </code></pre></div>
 <p>The RR prompt instructs the LLM to:
-1. Discover all tasks and their schema in one <code>execute_code</code> call.
-2. Use <code>batch_analyze</code> to fan out analysis across tasks concurrently.
-3. Identify cross-task patterns.
-4. Return a structured <code>ReflectorOutput</code> with a <code>"tasks"</code> list in <code>raw</code> containing per-task results.</p>
-<p><code>_split_batch_reflection</code> then parses the single <code>ReflectorOutput</code> into per-task outputs. If the output doesn't contain per-task results, the single reflection is duplicated as a fallback.</p>
+1. Inspect minimal structure only once.
+2. Register reusable helpers when repeated access would help.
+3. Use <code>batch_analyze</code> to fan out analysis across items concurrently.
+4. Identify cross-item patterns.
+5. Return a structured <code>ReflectorOutput</code> with a <code>raw["items"]</code> list containing per-item results.</p>
+<p><code>_split_batch_reflection</code> then parses the single <code>ReflectorOutput</code> into per-item outputs. If the output doesn't contain per-item results, the single reflection is duplicated as a fallback.</p>
 <h3 id="output">Output<a class="headerlink" href="#output" title="Permanent link">&para;</a></h3>
-<p>Returns <code>ctx.replace(reflections=(refl_0, refl_1, ..., refl_n))</code> where <code>reflections[i]</code> corresponds to <code>tasks[i]</code>.</p>
+<p>Returns <code>ctx.replace(reflections=(refl_0, refl_1, ..., refl_n))</code> where <code>reflections[i]</code> corresponds to <code>batch_items[i]</code>.</p>
 <h3 id="cost">Cost<a class="headerlink" href="#cost" title="Permanent link">&para;</a></h3>
-<p>1 batch = 1 PydanticAI agent session regardless of task count. The session runs up to <code>max_llm_calls</code> requests total. Within the session, <code>batch_analyze</code> calls run sub-agent analyses concurrently via <code>ThreadPoolExecutor</code>.</p>
-<p>For a batch of 5 tasks with <code>batch_analyze</code> fanning out sub-agent calls, cost is typically the main agent turns + sub-agent calls, all counted against the single <code>UsageLimits(request_limit=max_llm_calls)</code> budget.</p>
+<p>1 batch = 1 PydanticAI agent session regardless of item count. The session runs up to <code>max_llm_calls</code> requests total. Within the session, <code>batch_analyze</code> calls run sub-agent analyses concurrently via <code>ThreadPoolExecutor</code>.</p>
+<p>For a batch of 5 items with <code>batch_analyze</code> fanning out sub-agent calls, cost is typically the main agent turns + sub-agent calls, all counted against the single <code>UsageLimits(request_limit=max_llm_calls)</code> budget.</p>
 <h3 id="single-task-backward-compatibility">Single-Task Backward Compatibility<a class="headerlink" href="#single-task-backward-compatibility" title="Permanent link">&para;</a></h3>
-<p>When the trace does not have a <code>"tasks"</code> key, <code>__call__</code> follows the existing single-trace path and returns a 1-tuple <code>reflections=(reflection,)</code>.</p>
+<p>When the trace is not recognized as a batch container, <code>__call__</code> follows the existing single-trace path and returns a 1-tuple <code>reflections=(reflection,)</code>.</p>
 <hr />
-<h2 id="traces-dict">Traces Dict<a class="headerlink" href="#traces-dict" title="Permanent link">&para;</a></h2>
-<p>The canonical data structure passed to the sandbox as the <code>traces</code> variable.</p>
+<h2 id="traces-input">Traces Input<a class="headerlink" href="#traces-input" title="Permanent link">&para;</a></h2>
+<p>The raw data structure passed to the sandbox as the <code>traces</code> variable.</p>
 <h3 id="single-trace-mode">Single-trace mode<a class="headerlink" href="#single-trace-mode" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="p">{</span>
 <a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>    <span class="s2">&quot;question&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>              <span class="c1"># The question/task</span>
@@ -3086,56 +3183,52 @@
 <a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a><span class="p">}</span>
 </code></pre></div>
 <h3 id="batch-mode_1">Batch mode<a class="headerlink" href="#batch-mode_1" title="Permanent link">&para;</a></h3>
-<p>When the trace has a <code>"tasks"</code> key, the sandbox receives the full batch:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="p">{</span>
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>    <span class="s2">&quot;tasks&quot;</span><span class="p">:</span> <span class="p">[</span>
-<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>        <span class="p">{</span>
-<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>            <span class="s2">&quot;task_id&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>            <span class="s2">&quot;trace&quot;</span><span class="p">:</span> <span class="p">[</span>            <span class="c1"># Per-task message list</span>
-<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>                <span class="p">{</span>
-<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>                    <span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>                    <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>                    <span class="s2">&quot;tool_calls&quot;</span><span class="p">:</span> <span class="p">[</span><span class="o">...</span><span class="p">]</span>  <span class="c1"># Optional, preserved when present</span>
-<a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a>                <span class="p">},</span>
-<a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a>                <span class="o">...</span>
-<a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a>            <span class="p">]</span>
-<a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a>        <span class="p">},</span>
-<a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a>        <span class="o">...</span>
-<a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a>    <span class="p">]</span>
-<a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a><span class="p">}</span>
+<p>RR accepts several batch container shapes:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="p">[</span><span class="n">raw_item_0</span><span class="p">,</span> <span class="n">raw_item_1</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
 </code></pre></div>
-<p>Batch traces are built by <code>BatchOrchestrator.build_batch_trace()</code> in the eval pipeline. Tool calls are preserved in the same format as the single-trace <code>context_bridge</code>.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="p">{</span><span class="s2">&quot;items&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">raw_item_0</span><span class="p">,</span> <span class="n">raw_item_1</span><span class="p">,</span> <span class="o">...</span><span class="p">]}</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="p">{</span><span class="s2">&quot;tasks&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">raw_item_0</span><span class="p">,</span> <span class="n">raw_item_1</span><span class="p">,</span> <span class="o">...</span><span class="p">]}</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="p">{</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>    <span class="s2">&quot;steps&quot;</span><span class="p">:</span> <span class="p">[</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>        <span class="p">{</span><span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;conversation&quot;</span><span class="p">,</span> <span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="s2">&quot;...&quot;</span><span class="p">,</span> <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="n">raw_item_0</span><span class="p">},</span>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>        <span class="p">{</span><span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;conversation&quot;</span><span class="p">,</span> <span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="s2">&quot;...&quot;</span><span class="p">,</span> <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="n">raw_item_1</span><span class="p">},</span>
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>    <span class="p">]</span>
+<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="p">}</span>
+</code></pre></div>
+<p>RR leaves each <code>raw_item_n</code> untouched and injects a generic <code>batch_items</code> view plus runtime helper registration so the model can adapt to the item shape during execution.</p>
 <hr />
 <h2 id="rr_trace-output-schema">rr_trace Output Schema<a class="headerlink" href="#rr_trace-output-schema" title="Permanent link">&para;</a></h2>
 <p>After the agent run completes, <code>RRStep</code> enriches <code>ReflectorOutput.raw["rr_trace"]</code> with execution metadata:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="p">{</span>
-<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>    <span class="s2">&quot;total_iterations&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>       <span class="c1"># Number of execute_code calls</span>
-<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>    <span class="s2">&quot;subagent_calls&quot;</span><span class="p">:</span> <span class="p">[</span>            <span class="c1"># Sub-agent call history</span>
-<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>        <span class="p">{</span>
-<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>            <span class="s2">&quot;question&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>            <span class="s2">&quot;context_length&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>            <span class="s2">&quot;response_length&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-<a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>            <span class="s2">&quot;mode&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>           <span class="c1"># &quot;analysis&quot; or &quot;deep_dive&quot;</span>
-<a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>        <span class="p">},</span>
-<a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a>        <span class="c1"># batch_analyze entries:</span>
-<a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a>        <span class="p">{</span>
-<a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a>            <span class="s2">&quot;question&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a>            <span class="s2">&quot;items_count&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-<a id="__codelineno-14-14" name="__codelineno-14-14" href="#__codelineno-14-14"></a>            <span class="s2">&quot;mode&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-14-15" name="__codelineno-14-15" href="#__codelineno-14-15"></a>            <span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-<a id="__codelineno-14-16" name="__codelineno-14-16" href="#__codelineno-14-16"></a>        <span class="p">},</span>
-<a id="__codelineno-14-17" name="__codelineno-14-17" href="#__codelineno-14-17"></a>        <span class="o">...</span>
-<a id="__codelineno-14-18" name="__codelineno-14-18" href="#__codelineno-14-18"></a>    <span class="p">],</span>
-<a id="__codelineno-14-19" name="__codelineno-14-19" href="#__codelineno-14-19"></a>    <span class="s2">&quot;timed_out&quot;</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
-<a id="__codelineno-14-20" name="__codelineno-14-20" href="#__codelineno-14-20"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="p">{</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>    <span class="s2">&quot;total_iterations&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>       <span class="c1"># Number of execute_code calls</span>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>    <span class="s2">&quot;subagent_calls&quot;</span><span class="p">:</span> <span class="p">[</span>            <span class="c1"># Sub-agent call history</span>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>        <span class="p">{</span>
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>            <span class="s2">&quot;question&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>            <span class="s2">&quot;context_length&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>            <span class="s2">&quot;response_length&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+<a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>            <span class="s2">&quot;mode&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>           <span class="c1"># &quot;analysis&quot; or &quot;deep_dive&quot;</span>
+<a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a>        <span class="p">},</span>
+<a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a>        <span class="c1"># batch_analyze entries:</span>
+<a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a>        <span class="p">{</span>
+<a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a>            <span class="s2">&quot;question&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a>            <span class="s2">&quot;items_count&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+<a id="__codelineno-17-14" name="__codelineno-17-14" href="#__codelineno-17-14"></a>            <span class="s2">&quot;mode&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-17-15" name="__codelineno-17-15" href="#__codelineno-17-15"></a>            <span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-17-16" name="__codelineno-17-16" href="#__codelineno-17-16"></a>        <span class="p">},</span>
+<a id="__codelineno-17-17" name="__codelineno-17-17" href="#__codelineno-17-17"></a>        <span class="o">...</span>
+<a id="__codelineno-17-18" name="__codelineno-17-18" href="#__codelineno-17-18"></a>    <span class="p">],</span>
+<a id="__codelineno-17-19" name="__codelineno-17-19" href="#__codelineno-17-19"></a>    <span class="s2">&quot;timed_out&quot;</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+<a id="__codelineno-17-20" name="__codelineno-17-20" href="#__codelineno-17-20"></a><span class="p">}</span>
 </code></pre></div>
 <p>Additionally, <code>ReflectorOutput.raw["usage"]</code> contains PydanticAI usage statistics:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="p">{</span>
-<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>    <span class="s2">&quot;input_tokens&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>    <span class="s2">&quot;output_tokens&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>    <span class="s2">&quot;total_tokens&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>    <span class="s2">&quot;requests&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="p">{</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>    <span class="s2">&quot;input_tokens&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>    <span class="s2">&quot;output_tokens&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>    <span class="s2">&quot;total_tokens&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>    <span class="s2">&quot;requests&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="p">}</span>
 </code></pre></div>
 <p>This structure can be inspected by users for debugging. For full observability, Logfire auto-instruments PydanticAI agents (traces, spans, tool calls) without any extra pipeline steps.</p>
 <hr />
@@ -3151,25 +3244,25 @@
 <hr />
 <h2 id="public-api">Public API<a class="headerlink" href="#public-api" title="Permanent link">&para;</a></h2>
 <p>All exports from <code>ace.rr</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace.rr</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>    <span class="c1"># Core</span>
-<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>    <span class="n">RRStep</span><span class="p">,</span>                  <span class="c1"># Main entry point (StepProtocol + ReflectorLike)</span>
-<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>    <span class="n">RRConfig</span><span class="p">,</span>                <span class="c1"># Configuration (alias for RecursiveConfig)</span>
-<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>    <span class="n">RRDeps</span><span class="p">,</span>                  <span class="c1"># PydanticAI RunContext dependencies</span>
-<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>
-<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>    <span class="c1"># Agent factories</span>
-<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>    <span class="n">create_rr_agent</span><span class="p">,</span>         <span class="c1"># Build the PydanticAI reflector agent</span>
-<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a>    <span class="n">create_sub_agent</span><span class="p">,</span>        <span class="c1"># Build the PydanticAI sub-agent</span>
-<a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a>
-<a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a>    <span class="c1"># Sandbox</span>
-<a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a>    <span class="n">TraceSandbox</span><span class="p">,</span>
-<a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a>    <span class="n">ExecutionResult</span><span class="p">,</span>
-<a id="__codelineno-16-14" name="__codelineno-16-14" href="#__codelineno-16-14"></a>    <span class="n">ExecutionTimeoutError</span><span class="p">,</span>
-<a id="__codelineno-16-15" name="__codelineno-16-15" href="#__codelineno-16-15"></a>
-<a id="__codelineno-16-16" name="__codelineno-16-16" href="#__codelineno-16-16"></a>    <span class="c1"># Trace</span>
-<a id="__codelineno-16-17" name="__codelineno-16-17" href="#__codelineno-16-17"></a>    <span class="n">TraceContext</span><span class="p">,</span>
-<a id="__codelineno-16-18" name="__codelineno-16-18" href="#__codelineno-16-18"></a>    <span class="n">TraceStep</span><span class="p">,</span>
-<a id="__codelineno-16-19" name="__codelineno-16-19" href="#__codelineno-16-19"></a><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace.rr</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>    <span class="c1"># Core</span>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>    <span class="n">RRStep</span><span class="p">,</span>                  <span class="c1"># Main entry point (StepProtocol + ReflectorLike)</span>
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>    <span class="n">RRConfig</span><span class="p">,</span>                <span class="c1"># Configuration (alias for RecursiveConfig)</span>
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>    <span class="n">RRDeps</span><span class="p">,</span>                  <span class="c1"># PydanticAI RunContext dependencies</span>
+<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>
+<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a>    <span class="c1"># Agent factories</span>
+<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a>    <span class="n">create_rr_agent</span><span class="p">,</span>         <span class="c1"># Build the PydanticAI reflector agent</span>
+<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a>    <span class="n">create_sub_agent</span><span class="p">,</span>        <span class="c1"># Build the PydanticAI sub-agent</span>
+<a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a>
+<a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a>    <span class="c1"># Sandbox</span>
+<a id="__codelineno-19-12" name="__codelineno-19-12" href="#__codelineno-19-12"></a>    <span class="n">TraceSandbox</span><span class="p">,</span>
+<a id="__codelineno-19-13" name="__codelineno-19-13" href="#__codelineno-19-13"></a>    <span class="n">ExecutionResult</span><span class="p">,</span>
+<a id="__codelineno-19-14" name="__codelineno-19-14" href="#__codelineno-19-14"></a>    <span class="n">ExecutionTimeoutError</span><span class="p">,</span>
+<a id="__codelineno-19-15" name="__codelineno-19-15" href="#__codelineno-19-15"></a>
+<a id="__codelineno-19-16" name="__codelineno-19-16" href="#__codelineno-19-16"></a>    <span class="c1"># Trace</span>
+<a id="__codelineno-19-17" name="__codelineno-19-17" href="#__codelineno-19-17"></a>    <span class="n">TraceContext</span><span class="p">,</span>
+<a id="__codelineno-19-18" name="__codelineno-19-18" href="#__codelineno-19-18"></a>    <span class="n">TraceStep</span><span class="p">,</span>
+<a id="__codelineno-19-19" name="__codelineno-19-19" href="#__codelineno-19-19"></a><span class="p">)</span>
 </code></pre></div>
 
 
