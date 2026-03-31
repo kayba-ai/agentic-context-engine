@@ -441,7 +441,15 @@ class RRStep:
         if isinstance(payload, list):
             return payload
         if isinstance(payload, dict):
-            for key in ("trace", "steps", "messages"):
+            trace_value = payload.get("trace")
+            if isinstance(trace_value, list):
+                return trace_value
+            if isinstance(trace_value, dict):
+                for key in ("messages", "steps", "trace"):
+                    nested = trace_value.get(key)
+                    if isinstance(nested, list):
+                        return nested
+            for key in ("steps", "messages"):
                 value = payload.get(key)
                 if isinstance(value, list):
                     return value

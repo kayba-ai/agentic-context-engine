@@ -11,6 +11,7 @@ from pipeline.errors import CancellationToken
 from pipeline.protocol import SampleResult, StepProtocol
 
 from ..core.context import ACEStepContext, SkillbookView
+from ..core.insight_source import TRACE_IDENTITY_METADATA_KEY, infer_trace_identity
 from ..protocols import (
     DeduplicationManagerLike,
     ReflectorLike,
@@ -168,6 +169,12 @@ class TraceAnalyser(ACERunner):
         return ACEStepContext(
             skillbook=SkillbookView(self.skillbook),
             trace=raw_trace,
+            metadata={
+                TRACE_IDENTITY_METADATA_KEY: infer_trace_identity(
+                    trace=raw_trace,
+                    default_source_system="trace",
+                ).to_dict()
+            },
             epoch=epoch,
             total_epochs=total_epochs,
             step_index=index,

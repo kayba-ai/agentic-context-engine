@@ -471,3 +471,44 @@ class TestRRBatchReflection:
         assert "survey_items" in prompt
         assert 'raw["items"]' in prompt
         assert "Inspect batch_items[0] (item_id='t0')" in prompt
+
+    def test_batch_prompt_uses_nested_trace_messages_for_previews(self):
+        """Wrapped batch items should surface nested trace messages in previews."""
+        rr = RRStep("test-model", config=RRConfig(enable_subagent=False))
+        batch_trace = {
+            "tasks": [
+                {
+                    "task_id": "task_0",
+                    "question": "Please cancel my reservation.",
+                    "feedback": "Task PASSED (reward=1.0)",
+                    "trace": {
+                        "question": "Please cancel my reservation.",
+                        "messages": [
+                            {"role": "assistant", "content": "Hi! How can I help you today?"},
+                            {"role": "user", "content": "Please cancel my reservation."},
+                        ],
+                        "reasoning": "Ask for identifiers and confirm refund policy.",
+                        "answer": "I can help with that.",
+                    },
+                }
+            ]
+        }
+
+        sandbox = rr._create_sandbox(
+            trace_obj=None,
+            traces=batch_trace,
+            skillbook=SkillbookView(Skillbook()),
+        )
+        preview = sandbox.namespace["item_preview_by_id"]["task_0"]
+
+        assert preview["message_count"] == 2
+        assert "Hi! How can I help you today?" in preview["first_message_preview"]
+
+        prompt = rr._build_initial_prompt(
+            traces=batch_trace,
+            skillbook=SkillbookView(Skillbook()),
+            trace_obj=None,
+        )
+
+        assert "| `task_0` | 2 messages |" in prompt
+        assert "task_0: PASS, 2 messages" in prompt
