@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-03-26
+
+### Fixed
+- **CLI packaging** — include .md data files in wheel so `kayba setup` and skill install work on pip/uv-installed packages
+
+## [0.9.0] - 2026-03-26
+
+### Added
+- **PydanticAI migration** — ACE roles (Agent, Reflector, SkillManager) rebuilt on PydanticAI agents with structured output, replacing the legacy role system
+- **Recursive Reflector** — PydanticAI-powered trace analysis agent with sandboxed code execution, sub-agent delegation, and working memory (`save_notes` tool)
+- **Kayba CLI** — full hosted API client with trace upload/management, interactive run, insights, prompts, batch processing, materialization, and integration commands (`kayba` entry point)
+
 ## [0.8.8] - 2026-03-17
 
 ### Added
@@ -296,6 +308,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Type hints and modern Python practices
 - MIT licensed for open source use
 
+[0.9.1]: https://github.com/Kayba-ai/agentic-context-engine/compare/v0.9.0...v0.9.1
+[0.9.0]: https://github.com/Kayba-ai/agentic-context-engine/compare/v0.8.9...v0.9.0
 [0.8.8]: https://github.com/Kayba-ai/agentic-context-engine/compare/v0.8.7...v0.8.8
 [0.8.7]: https://github.com/Kayba-ai/agentic-context-engine/compare/v0.8.6...v0.8.7
 [0.8.5]: https://github.com/Kayba-ai/agentic-context-engine/compare/v0.8.4...v0.8.5
