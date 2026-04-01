@@ -29,7 +29,7 @@ from .insight_source import (
 # Constants
 # ---------------------------------------------------------------------------
 
-VALID_SKILL_TAGS: FrozenSet[str] = frozenset({"helpful", "harmful", "neutral"})
+VALID_SKILL_TAGS: FrozenSet[str] = frozenset({"helpful", "harmful", "neutral"})  # deprecated
 
 # ---------------------------------------------------------------------------
 # Update operations
@@ -234,9 +234,6 @@ class Skill:
     content: str
     justification: Optional[str] = None
     evidence: Optional[str] = None
-    helpful: int = 0
-    harmful: int = 0
-    neutral: int = 0
     created_at: str = field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )
@@ -247,26 +244,11 @@ class Skill:
     status: Literal["active", "invalid"] = "active"
     sources: List[InsightSource] = field(default_factory=list)
 
-    def apply_metadata(self, metadata: Dict[str, int]) -> None:
-        for key, value in metadata.items():
-            if hasattr(self, key):
-                setattr(self, key, int(value))
-
-    def tag(self, tag: str, increment: int = 1) -> None:
-        if tag not in VALID_SKILL_TAGS:
-            raise ValueError(f"Unsupported tag: {tag}")
-        current = getattr(self, tag)
-        setattr(self, tag, current + increment)
-        self.updated_at = datetime.now(timezone.utc).isoformat()
-
     def to_llm_dict(self) -> Dict[str, Any]:
         return {
             "id": self.id,
             "section": self.section,
             "content": self.content,
-            "helpful": self.helpful,
-            "harmful": self.harmful,
-            "neutral": self.neutral,
         }
 
 
@@ -302,14 +284,12 @@ class Skillbook:
         section: str,
         content: str,
         skill_id: Optional[str] = None,
-        metadata: Optional[Dict[str, int]] = None,
         justification: Optional[str] = None,
         evidence: Optional[str] = None,
         insight_source: Optional[InsightSourceInput] = None,
     ) -> Skill:
         with self._lock:
             skill_id = skill_id or self._generate_id(section)
-            metadata = metadata or {}
             skill = Skill(
                 id=skill_id,
                 section=section,
@@ -321,7 +301,6 @@ class Skillbook:
             _append_unique_sources(
                 skill.sources, coerce_insight_sources(insight_source)
             )
-            skill.apply_metadata(metadata)
             self._skills[skill_id] = skill
             self._sections.setdefault(section, []).append(skill_id)
             return skill
@@ -331,7 +310,6 @@ class Skillbook:
         skill_id: str,
         *,
         content: Optional[str] = None,
-        metadata: Optional[Dict[str, int]] = None,
         justification: Optional[str] = None,
         evidence: Optional[str] = None,
         insight_source: Optional[InsightSourceInput] = None,
@@ -346,22 +324,12 @@ class Skillbook:
                 skill.justification = justification
             if evidence is not None:
                 skill.evidence = evidence
-            if metadata:
-                skill.apply_metadata(metadata)
             if insight_source is not None:
                 _append_unique_sources(
                     skill.sources,
                     coerce_insight_sources(insight_source),
                 )
             skill.updated_at = datetime.now(timezone.utc).isoformat()
-            return skill
-
-    def tag_skill(self, skill_id: str, tag: str, increment: int = 1) -> Optional[Skill]:
-        with self._lock:
-            skill = self._skills.get(skill_id)
-            if skill is None:
-                return None
-            skill.tag(tag, increment=increment)
             return skill
 
     def remove_skill(self, skill_id: str, soft: bool = False) -> None:
@@ -426,8 +394,14 @@ class Skillbook:
         skills_serialized = {}
         for skill_id, skill in self._skills.items():
             skill_dict = asdict(skill)
-            if exclude_embeddings:
-                skill_dict["embedding"] = None
+            # Omit embedding when null or explicitly excluded
+            if skill_dict.get("embedding") is None or exclude_embeddings:
+                del skill_dict["embedding"]
+            # Use InsightSource.to_dict() for clean sparse serialization
+            # instead of the recursive asdict() which dumps empty/null fields.
+            skill_dict["sources"] = [
+                source.to_dict() for source in skill.sources
+            ]
             skills_serialized[skill_id] = skill_dict
         return {
             "skills": skills_serialized,
@@ -537,7 +511,6 @@ class Skillbook:
                 section=operation.section,
                 content=operation.content or "",
                 skill_id=operation.skill_id,
-                metadata=operation.metadata,
                 justification=operation.justification,
                 evidence=operation.evidence,
                 insight_source=operation.insight_source,
@@ -548,17 +521,12 @@ class Skillbook:
             self.update_skill(
                 operation.skill_id,
                 content=operation.content,
-                metadata=operation.metadata,
                 justification=operation.justification,
                 evidence=operation.evidence,
                 insight_source=operation.insight_source,
             )
         elif op_type == "TAG":
-            if operation.skill_id is None:
-                return
-            for tag, increment in operation.metadata.items():
-                if tag in VALID_SKILL_TAGS:
-                    self.tag_skill(operation.skill_id, tag, increment)
+            pass  # Tags are no longer tracked on skills
         elif op_type == "REMOVE":
             if operation.skill_id is None:
                 return
@@ -585,19 +553,13 @@ class Skillbook:
             parts.append(f"## {section}")
             for skill_id in skill_ids:
                 skill = self._skills[skill_id]
-                counters = f"(helpful={skill.helpful}, harmful={skill.harmful}, neutral={skill.neutral})"
-                parts.append(f"- [{skill.id}] {skill.content} {counters}")
+                parts.append(f"- [{skill.id}] {skill.content}")
         return "\n".join(parts)
 
     def stats(self) -> Dict[str, object]:
         return {
             "sections": len(self._sections),
             "skills": len(self._skills),
-            "tags": {
-                "helpful": sum(s.helpful for s in self._skills.values()),
-                "harmful": sum(s.harmful for s in self._skills.values()),
-                "neutral": sum(s.neutral for s in self._skills.values()),
-            },
         }
 
     # ------------------------------------------------------------------ #
@@ -605,37 +567,40 @@ class Skillbook:
     # ------------------------------------------------------------------ #
 
     def source_map(self) -> Dict[str, List[Dict[str, Any]]]:
-        result: Dict[str, List[Dict[str, Any]]] = {}
-        for skill_id, skill in self._skills.items():
-            if skill.sources:
-                result[skill_id] = [source.to_dict() for source in skill.sources]
-        return result
+        with self._lock:
+            result: Dict[str, List[Dict[str, Any]]] = {}
+            for skill_id, skill in self._skills.items():
+                if skill.sources:
+                    result[skill_id] = [source.to_dict() for source in skill.sources]
+            return result
 
     def source_summary(self) -> Dict[str, Any]:
-        epochs: Dict[int, int] = {}
-        source_systems: Dict[str, int] = {}
-        trace_uids: Dict[str, int] = {}
-        sample_questions: Dict[str, int] = {}
-        total = 0
-        for skill in self._skills.values():
-            for src in skill.sources:
-                total += 1
-                ep = src.epoch or 0
-                epochs[ep] = epochs.get(ep, 0) + 1
-                source_systems[src.source_system] = (
-                    source_systems.get(src.source_system, 0) + 1
-                )
-                trace_uids[src.trace_uid] = trace_uids.get(src.trace_uid, 0) + 1
-                sq = src.sample_question or ""
-                if sq:
-                    sample_questions[sq] = sample_questions.get(sq, 0) + 1
-        return {
-            "total_sources": total,
-            "epochs": epochs,
-            "source_systems": source_systems,
-            "trace_uids": trace_uids,
-            "sample_questions": sample_questions,
-        }
+        with self._lock:
+            epochs: Dict[Optional[int], int] = {}
+            source_systems: Dict[str, int] = {}
+            trace_uids: Dict[str, int] = {}
+            sample_questions: Dict[str, int] = {}
+            total = 0
+            for skill in self._skills.values():
+                for src in skill.sources:
+                    total += 1
+                    epochs[src.epoch] = epochs.get(src.epoch, 0) + 1
+                    source_systems[src.source_system] = (
+                        source_systems.get(src.source_system, 0) + 1
+                    )
+                    trace_uids[src.trace_uid] = (
+                        trace_uids.get(src.trace_uid, 0) + 1
+                    )
+                    sq = src.sample_question or ""
+                    if sq:
+                        sample_questions[sq] = sample_questions.get(sq, 0) + 1
+            return {
+                "total_sources": total,
+                "epochs": epochs,
+                "source_systems": source_systems,
+                "trace_uids": trace_uids,
+                "sample_questions": sample_questions,
+            }
 
     def source_filter(
         self,
@@ -646,26 +611,27 @@ class Skillbook:
         trace_id: Optional[str] = None,
         source_system: Optional[str] = None,
     ) -> Dict[str, List[Dict[str, Any]]]:
-        result: Dict[str, List[Dict[str, Any]]] = {}
-        for skill_id, skill in self._skills.items():
-            matches = []
-            for src in skill.sources:
-                if epoch is not None and src.epoch != epoch:
-                    continue
-                if trace_uid is not None and src.trace_uid != trace_uid:
-                    continue
-                if trace_id is not None and src.trace_id != trace_id:
-                    continue
-                if source_system is not None and src.source_system != source_system:
-                    continue
-                if sample_question is not None:
-                    sq = src.sample_question or ""
-                    if sample_question.lower() not in sq.lower():
+        with self._lock:
+            result: Dict[str, List[Dict[str, Any]]] = {}
+            for skill_id, skill in self._skills.items():
+                matches = []
+                for src in skill.sources:
+                    if epoch is not None and src.epoch != epoch:
                         continue
-                matches.append(src.to_dict())
-            if matches:
-                result[skill_id] = matches
-        return result
+                    if trace_uid is not None and src.trace_uid != trace_uid:
+                        continue
+                    if trace_id is not None and src.trace_id != trace_id:
+                        continue
+                    if source_system is not None and src.source_system != source_system:
+                        continue
+                    if sample_question is not None:
+                        sq = src.sample_question or ""
+                        if sample_question.lower() not in sq.lower():
+                            continue
+                    matches.append(src.to_dict())
+                if matches:
+                    result[skill_id] = matches
+            return result
 
     # ------------------------------------------------------------------ #
     # Internal

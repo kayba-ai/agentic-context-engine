@@ -114,9 +114,9 @@ async def test_handle_skillbook_get_uses_skill_type(handlers, registry):
         assert resp.skills[0].id == "s1"
         assert resp.skills[0].topic == "topic-a"
         assert resp.skills[0].content == "do X"
-        assert resp.skills[0].helpful == 0
-        assert resp.skills[0].harmful == 0
-        assert resp.skills[0].neutral == 0
+        assert resp.skills[0].helpful is None
+        assert resp.skills[0].harmful is None
+        assert resp.skills[0].neutral is None
 
 
 # ── ace.learn.sample ─────────────────────────────────────────────

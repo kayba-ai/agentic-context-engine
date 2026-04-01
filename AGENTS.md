@@ -7,7 +7,7 @@ This file provides guidance to coding agents working in this repository.
 ### Pipeline-First Development (MANDATORY)
 **All new functionality MUST be implemented as pipeline Steps composed via the Pipeline engine.** Do NOT write standalone scripts, ad-hoc loops, or inline logic that bypasses the pipeline. Before writing any code:
 
-1. Read `docs/PIPELINE_DESIGN.md` to understand the Step -> Pipeline -> Branch model.
+1. Read `docs/design/PIPELINE_DESIGN.md` to understand the Step -> Pipeline -> Branch model.
 2. Implement logic as a `Step` class with `requires`/`provides` declarations and a `__call__(self, ctx) -> ctx` method.
 3. Compose steps using `Pipeline().then(...)` and `.branch(...)` - never manual for-loops or direct function chaining.
 4. Use `StepContext.replace()` for immutable context updates - never mutate context directly.
@@ -24,25 +24,26 @@ If a task seems like it cannot fit the pipeline model, explain why to the user b
 
 ### Core Code Protection
 **Do NOT modify core modules (`ace/`, `ace/core/`, `pipeline/`) without explicit user approval.** Before proposing any change to these directories:
-1. Read the relevant design docs (`docs/ACE_DESIGN.md`, `docs/PIPELINE_DESIGN.md`) thoroughly.
+1. Read the relevant design docs (`docs/design/ACE_ARCHITECTURE.md`, `docs/design/PIPELINE_DESIGN.md`) thoroughly.
 2. Evaluate whether the change is truly required or if it can be achieved outside the core (for example, in an integration, step, or example).
 3. Clearly explain the proposed change and its justification to the user before making any edits.
 4. Wait for the user to explicitly accept before proceeding.
 
 ### Documentation Maintenance
-Before working on code in `ace/`, read `docs/ACE_DESIGN.md` to understand the current architecture.
-Before working on code in `pipeline/`, read `docs/PIPELINE_DESIGN.md` to understand the pipeline engine.
-Before working on code in `ace/rr/`, read `docs/RR_DESIGN.md` to understand the recursive reflection design.
-Before working on code in `ace/cli/`, read `docs/CLI_DESIGN.md` to understand the CLI architecture.
+Before working on code in `ace/`, read `docs/design/ACE_ARCHITECTURE.md` to understand the current architecture.
+Before working on code in `pipeline/`, read `docs/design/PIPELINE_DESIGN.md` to understand the pipeline engine.
+Before working on code in `ace/rr/`, read `docs/design/RR_DESIGN.md` to understand the recursive reflection design.
+Before working on code in `ace/cli/`, read `docs/design/CLI_DESIGN.md` to understand the CLI architecture.
 
 **Docs MUST be kept in sync with code.** Any change that alters a public API, renames a concept, adds or removes a module, or changes execution flow requires a corresponding update to the relevant docs. Do not merge code changes that make the documentation inaccurate.
 
 Key design docs:
-- `docs/ACE_DESIGN.md` - core ACE architecture: roles, runners, skillbook, adaptation loops, integrations, and public API
-- `docs/PIPELINE_DESIGN.md` - pipeline engine: steps, `StepProtocol`, `Pipeline`, branching, execution, and `SubRunner`
-- `docs/RR_DESIGN.md` - recursive reflection design in `ace/rr/`
-- `docs/CLI_DESIGN.md` - CLI architecture, lazy imports, and command design
-- `docs/PYDANTIC_AI_MIGRATION.md` - migration context for the PydanticAI-based architecture
+- `docs/design/ACE_ARCHITECTURE.md` - core ACE architecture: roles, runners, skillbook, adaptation loops, integrations, and public API
+- `docs/design/PIPELINE_DESIGN.md` - pipeline engine: steps, `StepProtocol`, `Pipeline`, branching, execution, and `SubRunner`
+- `docs/design/RR_DESIGN.md` - recursive reflection design in `ace/rr/`
+- `docs/design/CLI_DESIGN.md` - CLI architecture, lazy imports, and command design
+- `docs/design/ACE_REFERENCE.md` - code reference and examples
+- `docs/design/ACE_DECISIONS.md` - design decisions and rejected alternatives
 - If you need to work with collected traces from Logfire, read `agent-guides/logfire.md`
 
 ### Project Structure
@@ -61,7 +62,7 @@ Key design docs:
   - `docs/integrations/` - per-integration docs for LiteLLM, browser-use, LangChain, Claude Code, Claude SDK, MCP, OpenClaw, hosted API, and Opik
   - `docs/pipeline/` - pipeline engine guides and API reference
   - `docs/api/` - package API index
-  - `docs/ACE_DESIGN.md`, `docs/PIPELINE_DESIGN.md`, `docs/RR_DESIGN.md`, `docs/CLI_DESIGN.md` - architecture references
+  - `docs/design/` - architecture references (ACE_ARCHITECTURE, ACE_REFERENCE, ACE_DECISIONS, PIPELINE_DESIGN, RR_DESIGN, CLI_DESIGN)
 
 ### Commands
 - `uv sync` - install dependencies

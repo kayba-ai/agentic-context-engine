@@ -753,4 +753,4 @@ This pattern is known as **Pipes and Filters**. Several open source libraries im
 
 **Conclusion:** The specific combination of `async_boundary`, per-step `max_workers`, `Pipeline`-as-`Step` nesting, and `SampleResult` error wrapping is not provided by any of the above out of the box. Adapting any of them would cost as much as writing the ~300-line core cleanly.
 
-**What is borrowed rather than written:** `concurrent.futures.ThreadPoolExecutor` for the background step pools, and `asyncio.gather` (or `anyio` task groups) for `Branch` internals. These are well-tested primitives that are not reinvented.
+**What is borrowed rather than written:** `concurrent.futures.ThreadPoolExecutor` for the background step pools, and `asyncio.gather` (or `anyio` task groups) for `Branch` internals.

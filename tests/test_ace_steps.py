@@ -1,4 +1,4 @@
-"""Tests for ace steps: ReflectStep, TagStep, UpdateStep, provenance, ApplyStep."""
+"""Tests for ace steps: ReflectStep, UpdateStep, provenance, ApplyStep."""
 
 from __future__ import annotations
 
@@ -16,14 +16,12 @@ from ace.core.outputs import (
     ExtractedLearning,
     ReflectorOutput,
     SkillManagerOutput,
-    SkillTag,
 )
 from ace.core.skillbook import Skillbook, UpdateBatch, UpdateOperation
 from ace.steps import learning_tail
 from ace.steps.apply import ApplyStep
 from ace.steps.attach_insight_sources import AttachInsightSourcesStep
 from ace.steps.reflect import ReflectStep
-from ace.steps.tag import TagStep
 from ace.steps.update import UpdateStep
 
 # ------------------------------------------------------------------ #
@@ -181,114 +179,6 @@ class TestReflectStep:
         assert step.max_workers == 3
 
 
-# ------------------------------------------------------------------ #
-# TagStep
-# ------------------------------------------------------------------ #
-
-
-class TestTagStep:
-    def test_tag_existing_skills(self):
-        sb = Skillbook()
-        sb.add_skill("math", "content", skill_id="math-001")
-        sb.add_skill("writing", "content", skill_id="writing-001")
-
-        reflection = ReflectorOutput(
-            reasoning="r",
-            correct_approach="c",
-            key_insight="k",
-            skill_tags=[
-                SkillTag(id="math-001", tag="helpful"),
-                SkillTag(id="writing-001", tag="harmful"),
-            ],
-        )
-        ctx = ACEStepContext(reflections=(reflection,))
-        step = TagStep(sb)
-        step(ctx)
-
-        assert sb.get_skill("math-001").helpful == 1
-        assert sb.get_skill("writing-001").harmful == 1
-
-    def test_hallucinated_skill_id_no_crash(self):
-        """Hallucinated skill IDs should be silently ignored, not crash."""
-        sb = Skillbook()
-        reflection = ReflectorOutput(
-            reasoning="r",
-            correct_approach="c",
-            key_insight="k",
-            skill_tags=[
-                SkillTag(id="nonexistent-001", tag="helpful"),
-            ],
-        )
-        ctx = ACEStepContext(reflections=(reflection,))
-        step = TagStep(sb)
-
-        result = step(ctx)
-        assert result is ctx
-
-    def test_invalid_tag_name_warns(self, caplog):
-        """Invalid tag name should warn, not crash."""
-        sb = Skillbook()
-        sb.add_skill("math", "content", skill_id="math-001")
-        reflection = ReflectorOutput(
-            reasoning="r",
-            correct_approach="c",
-            key_insight="k",
-            skill_tags=[
-                SkillTag(id="math-001", tag="invalid_tag"),
-            ],
-        )
-        ctx = ACEStepContext(reflections=(reflection,))
-        step = TagStep(sb)
-
-        with caplog.at_level(logging.WARNING):
-            result = step(ctx)
-
-        assert result is ctx
-        assert "math-001" in caplog.text
-
-    def test_multiple_reflections_tags_all(self):
-        """TagStep iterates ALL reflections in the tuple, not just the first."""
-        sb = Skillbook()
-        sb.add_skill("math", "content", skill_id="math-001")
-        sb.add_skill("writing", "content", skill_id="writing-001")
-
-        r1 = ReflectorOutput(
-            reasoning="r",
-            correct_approach="c",
-            key_insight="k",
-            skill_tags=[SkillTag(id="math-001", tag="helpful")],
-        )
-        r2 = ReflectorOutput(
-            reasoning="r",
-            correct_approach="c",
-            key_insight="k",
-            skill_tags=[SkillTag(id="writing-001", tag="harmful")],
-        )
-        ctx = ACEStepContext(reflections=(r1, r2))
-        step = TagStep(sb)
-        step(ctx)
-
-        assert sb.get_skill("math-001").helpful == 1
-        assert sb.get_skill("writing-001").harmful == 1
-
-    def test_empty_reflections_is_noop(self):
-        """Empty reflections tuple should be a safe no-op."""
-        sb = Skillbook()
-        sb.add_skill("math", "content", skill_id="math-001")
-        ctx = ACEStepContext(reflections=())
-        step = TagStep(sb)
-        result = step(ctx)
-        assert result is ctx
-        assert sb.get_skill("math-001").helpful == 0
-        assert sb.get_skill("math-001").harmful == 0
-
-    def test_provides_and_requires(self):
-        sb = Skillbook()
-        step = TagStep(sb)
-        assert "reflections" in step.requires
-        assert len(step.provides) == 0
-        assert step.max_workers == 1
-
 
 # ------------------------------------------------------------------ #
 # UpdateStep
@@ -425,59 +315,9 @@ class TestAttachInsightSourcesStep:
         assert isinstance(source, InsightSource)
         assert source.trace_uid == "kayba-hosted:conv-123"
         assert source.trace_id == "conv-123"
-        assert source.learning_text == "Check for a next-page token before stopping."
-        assert source.error_identification == "Missed pagination signal"
-        assert (
-            source.trace_refs[0].text_excerpt
-            == "The API response included next_page_token."
-        )
-
-    def test_populates_exact_anchor_for_structured_trace(self):
-        step = AttachInsightSourcesStep()
-        reflection = ReflectorOutput(
-            reasoning="r",
-            correct_approach="c",
-            key_insight="k",
-            extracted_learnings=[
-                ExtractedLearning(
-                    learning="Inspect pagination markers before stopping.",
-                    evidence="The API response included next_page_token.",
-                )
-            ],
-        )
-        batch = UpdateBatch(
-            reasoning="test",
-            operations=[
-                UpdateOperation(
-                    type="ADD",
-                    section="api",
-                    content="Inspect pagination markers before stopping.",
-                    learning_index=0,
-                )
-            ],
-        )
-        ctx = ACEStepContext(
-            trace={
-                "question": "Why did pagination stop early?",
-                "steps": [
-                    {"reasoning": "Fetched the first page."},
-                    {"reasoning": "The API response included next_page_token."},
-                ],
-            },
-            reflections=(reflection,),
-            skill_manager_output=batch,
-        )
-
-        result = step(ctx)
-
-        source = result.skill_manager_output.operations[0].insight_source
-        assert isinstance(source, InsightSource)
-        assert source.trace_refs[0].json_path == "$.steps[1].reasoning"
-        assert source.trace_refs[0].step_indices == [1]
-        assert (
-            source.trace_refs[0].text_excerpt
-            == "The API response included next_page_token."
-        )
+        assert source.sample_question == "Why did pagination stop early?"
+        assert source.epoch == 2
+        assert source.operation_type == "ADD"
 
     def test_batch_context_uses_per_reflection_trace_identity(self):
         step = AttachInsightSourcesStep()
@@ -574,12 +414,8 @@ class TestAttachInsightSourcesStep:
         assert isinstance(second_source, InsightSource)
         assert first_source.trace_uid == "rr-batch:task-0"
         assert first_source.sample_question == "Why did pagination stop early?"
-        assert first_source.trace_refs[0].json_path == "$.trace.messages[0].content"
-        assert first_source.trace_refs[0].message_indices == [0]
         assert second_source.trace_uid == "rr-batch:task-1"
         assert second_source.sample_question == "What temperature does water boil at?"
-        assert second_source.trace_refs[0].json_path == "$.trace.messages[0].content"
-        assert second_source.trace_refs[0].message_indices == [0]
 
     def test_batch_context_can_attach_multiple_sources(self):
         step = AttachInsightSourcesStep()
@@ -659,9 +495,8 @@ class TestAttachInsightSourcesStep:
         ]
         assert [source.relation for source in sources] == ["seed", "supporting"]
 
-    def test_batch_heuristics_can_attach_multiple_sources_without_explicit_indices(
-        self,
-    ):
+    def test_single_reflection_index_matches_single_batch_item(self):
+        """Without explicit reflection_indices, only the positional match is used."""
         step = AttachInsightSourcesStep()
         reflections = (
             ReflectorOutput(
@@ -734,12 +569,9 @@ class TestAttachInsightSourcesStep:
 
         result = step(ctx)
 
-        sources = result.skill_manager_output.operations[0].insight_source
-        assert isinstance(sources, list)
-        assert {source.trace_uid for source in sources} == {
-            "rr-batch:task-0",
-            "rr-batch:task-1",
-        }
+        source = result.skill_manager_output.operations[0].insight_source
+        assert isinstance(source, InsightSource)
+        assert source.trace_uid == "rr-batch:task-0"
 
     def test_none_update_is_noop(self):
         step = AttachInsightSourcesStep()
@@ -750,7 +582,8 @@ class TestAttachInsightSourcesStep:
         )
         assert step(ctx) is ctx
 
-    def test_batch_evidence_overrides_bad_reflection_index(self):
+    def test_reflection_index_determines_batch_match(self):
+        """reflection_index is used deterministically — no fuzzy overrides."""
         step = AttachInsightSourcesStep()
         reflections = (
             ReflectorOutput(
@@ -773,10 +606,6 @@ class TestAttachInsightSourcesStep:
                     type="ADD",
                     section="science",
                     content="Verify factual claims against canonical sources.",
-                    evidence=(
-                        "Task 1: Kyoto feels plausible because of its history, "
-                        "but the correct answer is Tokyo."
-                    ),
                     reflection_index=0,
                 )
             ],
@@ -827,8 +656,8 @@ class TestAttachInsightSourcesStep:
 
         source = result.skill_manager_output.operations[0].insight_source
         assert isinstance(source, InsightSource)
-        assert source.trace_uid == "rr-batch:task-1"
-        assert source.sample_question == "What is the capital of Japan?"
+        assert source.trace_uid == "rr-batch:task-0"
+        assert source.sample_question == "What is 12 * 15?"
 
 
 # ------------------------------------------------------------------ #
@@ -885,12 +714,11 @@ class TestLearningTail:
         sb = Skillbook()
 
         steps = learning_tail(reflector, sm, sb)
-        assert len(steps) == 5
+        assert len(steps) == 4
         assert isinstance(steps[0], ReflectStep)
-        assert isinstance(steps[1], TagStep)
-        assert isinstance(steps[2], UpdateStep)
-        assert isinstance(steps[3], AttachInsightSourcesStep)
-        assert isinstance(steps[4], ApplyStep)
+        assert isinstance(steps[1], UpdateStep)
+        assert isinstance(steps[2], AttachInsightSourcesStep)
+        assert isinstance(steps[3], ApplyStep)
 
     def test_step_like_reflector_is_inserted_directly(self):
         class ReflectorStep(MockReflector):
@@ -907,8 +735,7 @@ class TestLearningTail:
         steps = learning_tail(reflector, sm, sb)
 
         assert steps[0] is reflector
-        assert isinstance(steps[1], TagStep)
-        assert isinstance(steps[2], UpdateStep)
+        assert isinstance(steps[1], UpdateStep)
 
     def test_with_checkpoint(self, tmp_path):
         reflector = MockReflector()
@@ -922,7 +749,7 @@ class TestLearningTail:
             checkpoint_dir=str(tmp_path),
             checkpoint_interval=5,
         )
-        assert len(steps) == 6  # 5 + CheckpointStep
+        assert len(steps) == 5  # 4 + CheckpointStep
 
     def test_with_dedup(self):
         reflector = MockReflector()
@@ -937,7 +764,7 @@ class TestLearningTail:
             dedup_manager=dedup,
             dedup_interval=5,
         )
-        assert len(steps) == 6  # 5 + DeduplicateStep
+        assert len(steps) == 5  # 4 + DeduplicateStep
 
     def test_with_both(self, tmp_path):
         reflector = MockReflector()
@@ -954,4 +781,4 @@ class TestLearningTail:
             checkpoint_dir=str(tmp_path),
             checkpoint_interval=5,
         )
-        assert len(steps) == 7  # 5 + DeduplicateStep + CheckpointStep
+        assert len(steps) == 6  # 4 + DeduplicateStep + CheckpointStep

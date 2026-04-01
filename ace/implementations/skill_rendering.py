@@ -26,7 +26,7 @@ def render_skills_xml(skills: list[Skill]) -> str:
 
     Each skill becomes::
 
-        <strategy id="general-00042" section="general" helpful="5" harmful="0">
+        <strategy id="general-00042" section="general">
         When a customer requests a flight change, ...
         </strategy>
 
@@ -42,8 +42,7 @@ def render_skills_xml(skills: list[Skill]) -> str:
     parts: list[str] = []
     for s in skills:
         parts.append(
-            f'<strategy id="{s.id}" section="{s.section}" '
-            f'helpful="{s.helpful}" harmful="{s.harmful}">\n'
+            f'<strategy id="{s.id}" section="{s.section}">\n'
             f"{s.content}\n"
             f"</strategy>"
         )
@@ -52,8 +51,8 @@ def render_skills_xml(skills: list[Skill]) -> str:
 
     return (
         f"{strategies_block}\n\n"
-        "Prioritize strategies with high helpful counts. "
-        "Adapt them to your current situation — they are patterns, not rigid rules."
+        "Adapt these strategies to your current situation — "
+        "they are patterns, not rigid rules."
     )
 
 

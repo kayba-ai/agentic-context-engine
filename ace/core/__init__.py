@@ -6,17 +6,14 @@ from .insight_source import (
     TRACE_IDENTITY_METADATA_KEY,
     InsightSource,
     TraceIdentity,
-    TraceReference,
 )
 from .outputs import (
     AgentOutput,
     ExtractedLearning,
     ReflectorOutput,
     SkillManagerOutput,
-    SkillTag,
 )
 from .skillbook import (
-    VALID_SKILL_TAGS,
     OperationType,
     Skill,
     Skillbook,
@@ -39,7 +36,6 @@ __all__ = [
     "ExtractedLearning",
     "ReflectorOutput",
     "SkillManagerOutput",
-    "SkillTag",
     # Context
     "ACESample",
     "ACEStepContext",
@@ -52,6 +48,5 @@ __all__ = [
     # Provenance
     "InsightSource",
     "TraceIdentity",
-    "TraceReference",
     "TRACE_IDENTITY_METADATA_KEY",
 ]

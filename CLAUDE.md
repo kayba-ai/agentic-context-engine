@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Pipeline-First Development (MANDATORY)
 **All new functionality MUST be implemented as pipeline Steps composed via the Pipeline engine.** Do NOT write standalone scripts, ad-hoc loops, or inline logic that bypasses the pipeline. Before writing any code:
 
-1. Read `docs/PIPELINE_DESIGN.md` to understand the Step → Pipeline → Branch model.
+1. Read `docs/design/PIPELINE_DESIGN.md` to understand the Step → Pipeline → Branch model.
 2. Implement logic as a `Step` class with `requires`/`provides` declarations and a `__call__(self, ctx) -> ctx` method.
 3. Compose steps using `Pipeline().then(...)` and `.branch(...)` — never manual for-loops or direct function chaining.
 4. Use `StepContext.replace()` for immutable context updates — never mutate context directly.
@@ -24,33 +24,36 @@ If a task seems like it cannot fit the pipeline model, explain why to the user b
 
 ### Core Code Protection
 **Do NOT modify core modules (`ace/core/`, `pipeline/`) without explicit user approval.** Before proposing any change to these directories:
-1. Read the relevant design docs (`docs/ACE_DESIGN.md`, `docs/PIPELINE_DESIGN.md`) thoroughly.
+1. Read the relevant design docs (`docs/design/ACE_ARCHITECTURE.md`, `docs/design/PIPELINE_DESIGN.md`) thoroughly.
 2. Evaluate whether the change is truly required or if it can be achieved outside the core (e.g., in an integration, step, or example).
 3. Clearly explain the proposed change and its justification to the user **before** making any edits.
 4. Wait for the user to explicitly accept before proceeding.
 
 ### Documentation Maintenance
-Before working on code in `ace/`, read `docs/ACE_DESIGN.md` to understand the current architecture.
-Before working on code in `pipeline/` or `ace/core/`, read `docs/PIPELINE_DESIGN.md` to understand the pipeline engine.
+Before working on code in `ace/`, read `docs/design/ACE_ARCHITECTURE.md` to understand the current architecture.
+Before working on code in `pipeline/` or `ace/core/`, read `docs/design/PIPELINE_DESIGN.md` to understand the pipeline engine.
 
 **Docs MUST be kept in sync with code.** Any change that alters a public API, renames a concept, adds/removes a module, or changes execution flow **requires** a corresponding update to the relevant docs. Do not merge code changes that make the documentation inaccurate.
 
 Key design docs:
-- `docs/ACE_DESIGN.md` — core ACE architecture: roles, skillbook, adaptation loops, insight levels, integration patterns
-- `docs/PIPELINE_DESIGN.md` — pipeline engine: steps, StepProtocol, Pipeline, RR pipeline
+- `docs/design/ACE_ARCHITECTURE.md` — ACE architecture: layers, core concepts, roles, steps, runners, integrations
+- `docs/design/ACE_REFERENCE.md` — ACE code reference: full implementations, API signatures, usage examples
+- `docs/design/ACE_DECISIONS.md` — design decisions and rejected alternatives (ACE, pipeline, migration)
+- `docs/design/PIPELINE_DESIGN.md` — pipeline engine: steps, StepProtocol, Pipeline, Branch, concurrency
 - If you need to work with collected traces from Logfire, read `agent-guides/logfire.md`
 
 ### Project Structure
 - `ace/` — core library: roles (PydanticAI-backed), skillbook, steps, runners, providers, RR, integrations, observability
-- `pipeline/` — generic pipeline engine that `ace` is built on (see `docs/PIPELINE_DESIGN.md`)
+- `pipeline/` — generic pipeline engine that `ace` is built on (see `docs/design/PIPELINE_DESIGN.md`)
 - `ace-eval/` — evaluation framework (submodule, separate repo)
 - `tests/` — unit/integration tests (pytest)
 - `examples/` — runnable demos grouped by integration
 - `agent-guides/` — internal development guides for LLM agents; not part of the public docs site
 - `docs/` — guides and reference material
-  - `docs/ACE_DESIGN.md` — architecture design doc (keep in sync with code)
-  - `docs/PIPELINE_DESIGN.md` — pipeline engine design doc (keep in sync with code)
-  - `docs/PYDANTIC_AI_MIGRATION.md` — PydanticAI migration guide
+  - `docs/design/ACE_ARCHITECTURE.md` — architecture and concepts (keep in sync with code)
+  - `docs/design/ACE_REFERENCE.md` — code reference and examples (keep in sync with code)
+  - `docs/design/ACE_DECISIONS.md` — design decisions and rejected alternatives
+  - `docs/design/PIPELINE_DESIGN.md` — pipeline engine design doc (keep in sync with code)
 
 ### Commands
 - `uv sync` — install all dependencies

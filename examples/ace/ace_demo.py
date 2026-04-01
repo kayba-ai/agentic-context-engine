@@ -340,7 +340,7 @@ for r in results_manual:
 # ### Using `learning_tail()` as a building block
 #
 # `learning_tail()` returns the standard learning steps:
-# `[ReflectStep, TagStep, UpdateStep, ApplyStep]` with optional
+# `[ReflectStep, UpdateStep, ApplyStep]` with optional
 # deduplication and checkpoint steps appended.
 
 # %%

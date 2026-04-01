@@ -168,7 +168,7 @@ ACE + Claude Code translated this library from Python to TypeScript with zero su
 ACE is built on a composable pipeline engine. Each step declares what it requires and what it produces:
 
 ```
-AgentStep -> EvaluateStep -> ReflectStep -> TagStep -> UpdateStep -> ApplyStep -> DeduplicateStep
+AgentStep -> EvaluateStep -> ReflectStep -> UpdateStep -> ApplyStep -> DeduplicateStep
 ```
 
 Use `learning_tail()` for the standard learning sequence, or compose custom pipelines:
@@ -180,7 +180,7 @@ steps = [AgentStep(agent), EvaluateStep(env)] + learning_tail(reflector, skill_m
 pipeline = Pipeline(steps)
 ```
 
-The pipeline engine ([`pipeline/`](pipeline/)) is framework-agnostic with `requires`/`provides` contracts, immutable context, and error isolation. See [Pipeline Design](docs/PIPELINE_DESIGN.md) and [Architecture](docs/ACE_DESIGN.md).
+The pipeline engine ([`pipeline/`](pipeline/)) is framework-agnostic with `requires`/`provides` contracts, immutable context, and error isolation. See [Pipeline Design](docs/design/PIPELINE_DESIGN.md) and [Architecture](docs/design/ACE_ARCHITECTURE.md).
 
 ---
 
@@ -202,9 +202,10 @@ The pipeline engine ([`pipeline/`](pipeline/)) is framework-agnostic with `requi
 - [Full Documentation](https://kayba-ai.github.io/agentic-context-engine/latest/) — Guides, API reference, examples
 - [Quick Start](https://kayba-ai.github.io/agentic-context-engine/latest/getting-started/quick-start/) — 5-minute setup
 - [Setup Guide](https://kayba-ai.github.io/agentic-context-engine/latest/getting-started/setup/) — Configuration and providers
-- [Architecture](docs/ACE_DESIGN.md) — Design decisions and core types
-- [Pipeline Engine](docs/PIPELINE_DESIGN.md) — Step composition and context flow
-- [PydanticAI Migration](docs/PYDANTIC_AI_MIGRATION.md) — What changed and why
+- [Architecture](docs/design/ACE_ARCHITECTURE.md) — Core concepts and system design
+- [Code Reference](docs/design/ACE_REFERENCE.md) — Implementations, API, usage examples
+- [Design Decisions](docs/design/ACE_DECISIONS.md) — Rejected alternatives and rationale
+- [Pipeline Engine](docs/design/PIPELINE_DESIGN.md) — Step composition and context flow
 - [Examples](examples/) — Runnable demos
 - [Changelog](CHANGELOG.md) — Version history
 

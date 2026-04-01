@@ -431,7 +431,7 @@ class ACELiteLLM:
         """Learn from the last :meth:`ask` interaction.
 
         Runs the standard ``learning_tail`` pipeline (ReflectStep,
-        TagStep, UpdateStep, ApplyStep) on the most recent ``ask()``
+        UpdateStep, ApplyStep) on the most recent ``ask()``
         call with the provided feedback.
 
         Args:
