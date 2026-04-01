@@ -13,7 +13,7 @@ from ..core.insight_source import (
     coerce_trace_identity,
     infer_trace_identity,
 )
-from ..core.outputs import ReflectorOutput
+from ..core.outputs import ExtractedLearning, ReflectorOutput
 from ..core.skillbook import UpdateBatch, UpdateOperation
 
 
@@ -176,10 +176,10 @@ def _match_batch_indices_for_operation(
 def _resolve_operation_reflection(
     operation: UpdateOperation,
     reflections: Sequence[ReflectorOutput],
-) -> tuple[int | None, ReflectorOutput | None]:
-    """Determine which reflection an operation is associated with."""
+) -> tuple[int | None, ReflectorOutput | None, ExtractedLearning | None]:
+    """Determine which reflection and learning an operation is associated with."""
     if not reflections:
-        return None, None
+        return None, None, None
 
     explicit_indices = _valid_reflection_indices(operation, reflections)
     reflection_index = operation.reflection_index
@@ -192,7 +192,6 @@ def _resolve_operation_reflection(
         if len(reflections) == 1:
             reflection_index = 0
         elif operation.learning_index is not None:
-            # Use learning_index to infer which reflection
             local_candidates = [
                 index
                 for index, reflection in enumerate(reflections)
@@ -202,7 +201,16 @@ def _resolve_operation_reflection(
                 reflection_index = local_candidates[0]
 
     reflection = reflections[reflection_index] if reflection_index is not None else None
-    return reflection_index, reflection
+
+    learning = None
+    if (
+        reflection is not None
+        and operation.learning_index is not None
+        and 0 <= operation.learning_index < len(reflection.extracted_learnings)
+    ):
+        learning = reflection.extracted_learnings[operation.learning_index]
+
+    return reflection_index, reflection, learning
 
 
 # ---------------------------------------------------------------------------
@@ -247,9 +255,9 @@ def build_insight_source(
     Returns a *new* list of operations with ``insight_source`` populated on
     operations that did not already have one.  The input list is not mutated.
 
-    Provenance is pure identity — which trace, which epoch, what task.
-    Reflector analysis (learning_text, error_identification) is ephemeral
-    and not stored on the skillbook.
+    Provenance records which trace, which epoch, what task, plus the
+    Reflector's error_identification and learning_text for downstream
+    trace highlighting.
     """
     if not operations:
         return list(operations)
@@ -268,12 +276,15 @@ def build_insight_source(
         _trace_question(trace),
         getattr(sample, "question", None),
     )
+    fallback_error = _first_non_empty(
+        *[item.error_identification for item in reflections],
+    )
 
     for operation in operations:
         if operation.insight_source is not None:
             continue
 
-        reflection_index, matched_reflection = _resolve_operation_reflection(
+        reflection_index, matched_reflection, learning = _resolve_operation_reflection(
             operation,
             reflections,
         )
@@ -300,6 +311,12 @@ def build_insight_source(
         sources: list[InsightSource] = []
         seen_signatures: set[str] = set()
         primary_batch_index = source_entries[0][0] if source_entries else None
+
+        effective_error = _first_non_empty(
+            getattr(matched_reflection, "error_identification", None),
+            fallback_error,
+        )
+        effective_learning = getattr(learning, "learning", None)
 
         for batch_index, operation_trace in source_entries:
             identity = (
@@ -336,6 +353,8 @@ def build_insight_source(
                 sample_question=effective_question,
                 epoch=epoch,
                 operation_type=operation.type,
+                error_identification=effective_error,
+                learning_text=effective_learning,
             )
             signature = _source_signature(source)
             if signature in seen_signatures:

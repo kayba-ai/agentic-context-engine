@@ -116,6 +116,8 @@ class InsightSource:
     sample_question: str | None = None
     epoch: int | None = None
     operation_type: str | None = None
+    error_identification: str | None = None
+    learning_text: str | None = None
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> "InsightSource":
@@ -130,6 +132,8 @@ class InsightSource:
             sample_question=_coerce_str(payload.get("sample_question")),
             epoch=_safe_int(payload.get("epoch")),
             operation_type=_coerce_str(payload.get("operation_type")),
+            error_identification=_coerce_str(payload.get("error_identification")),
+            learning_text=_coerce_str(payload.get("learning_text")),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -148,6 +152,10 @@ class InsightSource:
             data["epoch"] = self.epoch
         if self.operation_type is not None:
             data["operation_type"] = self.operation_type
+        if self.error_identification is not None:
+            data["error_identification"] = self.error_identification
+        if self.learning_text is not None:
+            data["learning_text"] = self.learning_text
         return data
 
 
