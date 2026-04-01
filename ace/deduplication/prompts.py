@@ -20,10 +20,10 @@ Work your way methodologically through each pair. For each pair, you can decide 
 """
 
 PAIR_TEMPLATE = """### Pair {index}: {similarity:.0%} similar
-**Skill A** [{id_a}] (helpful={helpful_a}, harmful={harmful_a})
+**Skill A** [{id_a}]
 > {content_a}
 
-**Skill B** [{id_b}] (helpful={helpful_b}, harmful={harmful_b})
+**Skill B** [{id_b}]
 > {content_b}
 
 """
@@ -51,12 +51,8 @@ def generate_similarity_report(
                 index=i,
                 similarity=similarity,
                 id_a=skill_a.id,
-                helpful_a=skill_a.helpful,
-                harmful_a=skill_a.harmful,
                 content_a=skill_a.content,
                 id_b=skill_b.id,
-                helpful_b=skill_b.helpful,
-                harmful_b=skill_b.harmful,
                 content_b=skill_b.content,
             )
         )
@@ -100,7 +96,6 @@ Each operation should have a `type` field and relevant fields for that type:
 ```
 
 **Guidelines:**
-- Consider helpful/harmful counts (higher = more validated, prefer keeping these)
 - MERGE when skills are semantically identical or near-identical
 - KEEP when they serve different contexts (batch vs real-time, different APIs, etc.)
 - UPDATE to add context tags like "[Batch Jobs]" or "[User-Facing API]" to differentiate

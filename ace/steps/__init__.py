@@ -25,7 +25,6 @@ from .load_traces import LoadTracesStep
 from .observability import ObservabilityStep
 from .persist import PersistStep
 from .reflect import ReflectStep
-from .tag import TagStep
 from .update import UpdateStep
 
 __all__ = [
@@ -40,7 +39,6 @@ __all__ = [
     "ObservabilityStep",
     "PersistStep",
     "ReflectStep",
-    "TagStep",
     "UpdateStep",
     "learning_tail",
 ]
@@ -75,13 +73,12 @@ def learning_tail(
 
     The returned list starts with either ``ReflectStep`` or the provided
     reflector itself when it already satisfies the step protocol and exposes
-    ``provides = {'reflections'}``, followed by ``TagStep``, ``UpdateStep``,
+    ``provides = {'reflections'}``, followed by ``UpdateStep``,
     ``AttachInsightSourcesStep``, and ``ApplyStep``. Optional
     ``DeduplicateStep`` and ``CheckpointStep`` are appended when configured.
     """
     steps: list[StepProtocol[ACEStepContext]] = [
         _reflect_step(reflector),
-        TagStep(skillbook),
         UpdateStep(skill_manager),
         AttachInsightSourcesStep(),
         ApplyStep(skillbook),

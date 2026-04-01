@@ -16,6 +16,37 @@ Why not always use ``litellm:``?  PydanticAI's LiteLLM provider is an
 OpenAI-compatible HTTP client.  Providers that aren't OpenAI-compatible
 (Bedrock via SigV4, Anthropic's native API, etc.) need PydanticAI's
 native provider instead.
+
+Provider SDK requirements
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+By default ACE installs ``pydantic-ai-slim[litellm]`` — LiteLLM is the
+only provider backend available out of the box.  To use a PydanticAI
+**native** provider (faster, no litellm proxy overhead, uses the
+provider's own API key env vars directly), install the corresponding
+``pydantic-ai-slim`` extra and its SDK:
+
+============  ====================================  ========================
+Provider      Install                               API key env var
+============  ====================================  ========================
+Anthropic     ``pip install pydantic-ai-slim[anthropic]``  ``ANTHROPIC_API_KEY``
+OpenAI        ``pip install pydantic-ai-slim[openai]``     ``OPENAI_API_KEY``
+Bedrock       ``pip install pydantic-ai-slim[bedrock]``    AWS credentials / ``AWS_BEARER_TOKEN_BEDROCK``
+Google        ``pip install pydantic-ai-slim[google]``     ``GEMINI_API_KEY``
+============  ====================================  ========================
+
+Without the native extra, models that match a known prefix (e.g.
+``openai/gpt-4o-mini``, ``anthropic/claude-...``) are rewritten to
+the native PydanticAI prefix — but will fail at runtime if the SDK
+package is missing.  Models with **no** recognized prefix fall through
+to ``litellm:<model>`` automatically.
+
+.. warning::
+
+   LiteLLM may override API keys if proxy-related env vars (e.g.
+   ``LITELLM_API_KEY``, ``SPH_LITELLM_KEY``) are set.  When using
+   native providers, ensure these are unset or scoped to avoid key
+   conflicts.
 """
 
 from __future__ import annotations

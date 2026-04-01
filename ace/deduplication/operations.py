@@ -106,9 +106,6 @@ def _apply_merge(op: MergeOp, skillbook: "Skillbook") -> None:
         if source is None:
             logger.warning("MERGE: Source skill %s not found", source_id)
             continue
-        keep_skill.helpful += source.helpful
-        keep_skill.harmful += source.harmful
-        keep_skill.neutral += source.neutral
         skillbook.remove_skill(source_id, soft=True)
         logger.info("MERGE: Soft-deleted %s into %s", source_id, op.keep_id)
 

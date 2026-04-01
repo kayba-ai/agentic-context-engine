@@ -10,7 +10,7 @@ from unittest.mock import patch
 import pytest
 
 from ace.core.context import ACEStepContext, SkillbookView
-from ace.core.insight_source import InsightSource, TraceReference
+from ace.core.insight_source import InsightSource
 from ace.core.outputs import AgentOutput, ReflectorOutput
 from ace.core.skillbook import (
     Skill,
@@ -48,26 +48,6 @@ class TestSkillbookCRUD:
     def test_update_nonexistent_skill(self):
         sb = Skillbook()
         assert sb.update_skill("missing-id", content="x") is None
-
-    def test_tag_skill(self):
-        sb = Skillbook()
-        skill = sb.add_skill("math", "content")
-        sb.tag_skill(skill.id, "helpful")
-        sb.tag_skill(skill.id, "helpful")
-        sb.tag_skill(skill.id, "harmful")
-        assert skill.helpful == 2
-        assert skill.harmful == 1
-        assert skill.neutral == 0
-
-    def test_tag_invalid_tag(self):
-        sb = Skillbook()
-        skill = sb.add_skill("math", "content")
-        with pytest.raises(ValueError, match="Unsupported tag"):
-            sb.tag_skill(skill.id, "invalid_tag")
-
-    def test_tag_nonexistent_skill(self):
-        sb = Skillbook()
-        assert sb.tag_skill("missing-id", "helpful") is None
 
     def test_remove_skill_hard(self):
         sb = Skillbook()
@@ -115,13 +95,12 @@ class TestSkillbookSerialization:
         sb = Skillbook()
         sb.add_skill("math", "content A", skill_id="math-001")
         sb.add_skill("writing", "content B", skill_id="writing-001")
-        sb.tag_skill("math-001", "helpful")
 
         data = sb.to_dict()
         restored = Skillbook.from_dict(data)
 
         assert len(restored.skills()) == 2
-        assert restored.get_skill("math-001").helpful == 1
+        assert restored.get_skill("math-001").content == "content A"
         assert restored.get_skill("writing-001").content == "content B"
 
     def test_json_round_trip(self):
@@ -170,9 +149,6 @@ class TestSkillbookSerialization:
                     "id": "s1",
                     "section": "a",
                     "content": "x",
-                    "helpful": 0,
-                    "harmful": 0,
-                    "neutral": 0,
                     "created_at": "2025-01-01T00:00:00",
                     "updated_at": "2025-01-01T00:00:00",
                 }
@@ -199,13 +175,6 @@ class TestSkillbookSerialization:
                 display_name="checkout-failure.md",
                 sample_question="Why did pagination stop early?",
                 epoch=1,
-                step=2,
-                trace_refs=[
-                    TraceReference(
-                        text_excerpt="next_page_token was present",
-                        excerpt_location="operation.evidence",
-                    )
-                ],
             ),
         )
 
@@ -214,9 +183,8 @@ class TestSkillbookSerialization:
 
         assert skill is not None
         assert skill.sources[0].trace_id == "conv-123"
-        assert (
-            skill.sources[0].trace_refs[0].text_excerpt == "next_page_token was present"
-        )
+        assert skill.sources[0].epoch == 1
+        assert skill.sources[0].sample_question == "Why did pagination stop early?"
 
     def test_source_summary_and_filter_include_trace_identity(self):
         sb = Skillbook()
@@ -231,7 +199,6 @@ class TestSkillbookSerialization:
                 display_name="checkout-failure.md",
                 sample_question="Why did pagination stop early?",
                 epoch=2,
-                step=4,
             ),
         )
 
@@ -328,7 +295,8 @@ class TestSkillbookUpdates:
         sb.apply_update(batch)
         assert skill.content == "new"
 
-    def test_apply_tag(self):
+    def test_apply_tag_is_noop(self):
+        """TAG operations are accepted but no longer modify skills."""
         sb = Skillbook()
         sb.add_skill("math", "content", skill_id="math-001")
         batch = UpdateBatch(
@@ -343,7 +311,7 @@ class TestSkillbookUpdates:
             ],
         )
         sb.apply_update(batch)
-        assert sb.get_skill("math-001").helpful == 1
+        assert sb.get_skill("math-001") is not None
 
     def test_apply_remove(self):
         sb = Skillbook()
@@ -378,12 +346,12 @@ class TestSkillbookUpdates:
 
 
 class TestSkillbookThreadSafety:
-    def test_concurrent_add_and_tag(self):
-        """Concurrent add_skill and tag_skill should not corrupt state."""
+    def test_concurrent_add_and_update(self):
+        """Concurrent add_skill and update_skill should not corrupt state."""
         sb = Skillbook()
         errors = []
         n_add = 50
-        n_tag = 50
+        n_update = 50
 
         def adder():
             try:
@@ -392,23 +360,20 @@ class TestSkillbookThreadSafety:
             except Exception as e:
                 errors.append(e)
 
-        def tagger():
+        def updater():
             try:
-                for _ in range(n_tag):
+                for _ in range(n_update):
                     skills = sb.skills()
                     if skills:
-                        try:
-                            sb.tag_skill(skills[0].id, "helpful")
-                        except (ValueError, KeyError):
-                            pass  # skill may have been removed
+                        sb.update_skill(skills[0].id, content="updated")
             except Exception as e:
                 errors.append(e)
 
         threads = [
             threading.Thread(target=adder),
-            threading.Thread(target=tagger),
+            threading.Thread(target=updater),
             threading.Thread(target=adder),
-            threading.Thread(target=tagger),
+            threading.Thread(target=updater),
         ]
         for t in threads:
             t.start()
@@ -455,7 +420,6 @@ class TestSkillbookView:
 
         assert not hasattr(view, "add_skill")
         assert not hasattr(view, "update_skill")
-        assert not hasattr(view, "tag_skill")
         assert not hasattr(view, "remove_skill")
         assert not hasattr(view, "apply_update")
 

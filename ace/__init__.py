@@ -24,7 +24,6 @@ if TYPE_CHECKING:
         SkillbookView,
         TaskEnvironment,
         TraceIdentity,
-        TraceReference,
         UpdateBatch,
         UpdateOperation,
     )
@@ -55,7 +54,6 @@ if TYPE_CHECKING:
         ObservabilityStep,
         PersistStep,
         ReflectStep,
-        TagStep,
         UpdateStep,
         learning_tail,
     )
@@ -77,7 +75,6 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     "Skill": ("ace.core", "Skill"),
     "Skillbook": ("ace.core", "Skillbook"),
     "TraceIdentity": ("ace.core", "TraceIdentity"),
-    "TraceReference": ("ace.core", "TraceReference"),
     "UpdateOperation": ("ace.core", "UpdateOperation"),
     "UpdateBatch": ("ace.core", "UpdateBatch"),
     "Sample": ("ace.core", "Sample"),
@@ -109,7 +106,6 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     "AgentStep": ("ace.steps", "AgentStep"),
     "EvaluateStep": ("ace.steps", "EvaluateStep"),
     "ReflectStep": ("ace.steps", "ReflectStep"),
-    "TagStep": ("ace.steps", "TagStep"),
     "UpdateStep": ("ace.steps", "UpdateStep"),
     "AttachInsightSourcesStep": ("ace.steps", "AttachInsightSourcesStep"),
     "ApplyStep": ("ace.steps", "ApplyStep"),
@@ -154,7 +150,6 @@ __all__ = [
     "Skill",
     "Skillbook",
     "TraceIdentity",
-    "TraceReference",
     "UpdateOperation",
     "UpdateBatch",
     # Environments
@@ -181,7 +176,6 @@ __all__ = [
     "AgentStep",
     "EvaluateStep",
     "ReflectStep",
-    "TagStep",
     "UpdateStep",
     "AttachInsightSourcesStep",
     "ApplyStep",

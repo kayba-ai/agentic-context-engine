@@ -39,70 +39,12 @@ def _legacy_trace_id(payload: Mapping[str, Any]) -> str | None:
     return None
 
 
-@dataclass
-class TraceReference:
-    """Anchor into a specific region within a trace."""
-
-    step_indices: list[int] = field(default_factory=list)
-    message_indices: list[int] = field(default_factory=list)
-    span_ids: list[str] = field(default_factory=list)
-    action_types: list[str] = field(default_factory=list)
-    json_path: str | None = None
-    text_excerpt: str | None = None
-    excerpt_location: str | None = None
-    extra: dict[str, Any] = field(default_factory=dict)
-
-    @classmethod
-    def from_dict(cls, payload: Mapping[str, Any]) -> "TraceReference":
-        known = {
-            "step_indices",
-            "message_indices",
-            "span_ids",
-            "action_types",
-            "json_path",
-            "text_excerpt",
-            "excerpt_location",
-        }
-        return cls(
-            step_indices=[
-                int(v)
-                for v in payload.get("step_indices", []) or []
-                if isinstance(v, (int, str)) and str(v).strip().lstrip("-").isdigit()
-            ],
-            message_indices=[
-                int(v)
-                for v in payload.get("message_indices", []) or []
-                if isinstance(v, (int, str)) and str(v).strip().lstrip("-").isdigit()
-            ],
-            span_ids=[
-                str(v) for v in payload.get("span_ids", []) or [] if v is not None
-            ],
-            action_types=[
-                str(v) for v in payload.get("action_types", []) or [] if v is not None
-            ],
-            json_path=_coerce_str(payload.get("json_path")),
-            text_excerpt=_coerce_str(payload.get("text_excerpt")),
-            excerpt_location=_coerce_str(payload.get("excerpt_location")),
-            extra={k: v for k, v in payload.items() if k not in known},
-        )
-
-    def to_dict(self) -> dict[str, Any]:
-        data: dict[str, Any] = dict(self.extra)
-        if self.step_indices:
-            data["step_indices"] = list(self.step_indices)
-        if self.message_indices:
-            data["message_indices"] = list(self.message_indices)
-        if self.span_ids:
-            data["span_ids"] = list(self.span_ids)
-        if self.action_types:
-            data["action_types"] = list(self.action_types)
-        if self.json_path is not None:
-            data["json_path"] = self.json_path
-        if self.text_excerpt is not None:
-            data["text_excerpt"] = self.text_excerpt
-        if self.excerpt_location is not None:
-            data["excerpt_location"] = self.excerpt_location
-        return data
+def _safe_int(value: Any) -> int | None:
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str) and value.strip().lstrip("-").isdigit():
+        return int(value)
+    return None
 
 
 @dataclass
@@ -113,7 +55,6 @@ class TraceIdentity:
     trace_id: str
     display_name: str | None = None
     trace_uid: str | None = None
-    extra: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         self.source_system = self.source_system.strip() or "local"
@@ -144,7 +85,6 @@ class TraceIdentity:
             source_system = "legacy"
         if trace_id is None:
             trace_id = fingerprint_trace(dict(payload))
-        known = {"trace_uid", "source_system", "trace_id", "display_name"}
         return cls(
             source_system=source_system,
             trace_id=trace_id,
@@ -152,11 +92,10 @@ class TraceIdentity:
             or _legacy_trace_id(payload)
             or trace_id,
             trace_uid=trace_uid,
-            extra={k: v for k, v in payload.items() if k not in known},
         )
 
     def to_dict(self) -> dict[str, Any]:
-        data: dict[str, Any] = dict(self.extra)
+        data: dict[str, Any] = {}
         data["trace_uid"] = self.trace_uid
         data["source_system"] = self.source_system
         data["trace_id"] = self.trace_id
@@ -176,43 +115,11 @@ class InsightSource:
     relation: str | None = None
     sample_question: str | None = None
     epoch: int | None = None
-    step: int | None = None
-    learning_index: int | None = None
-    learning_text: str | None = None
-    error_identification: str | None = None
     operation_type: str | None = None
-    trace_refs: list[TraceReference] = field(default_factory=list)
-    sample_id: str | None = None
-    extra: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> "InsightSource":
         identity = TraceIdentity.from_dict(payload)
-        trace_refs_raw = payload.get("trace_refs", []) or []
-        trace_refs = [
-            coerce_trace_reference(item)
-            for item in trace_refs_raw
-            if isinstance(item, (TraceReference, Mapping))
-        ]
-        known = {
-            "trace_uid",
-            "source_system",
-            "trace_id",
-            "display_name",
-            "relation",
-            "sample_question",
-            "epoch",
-            "step",
-            "learning_index",
-            "learning_text",
-            "error_identification",
-            "operation_type",
-            "trace_refs",
-            "sample_id",
-        }
-        epoch_value = payload.get("epoch")
-        step_value = payload.get("step")
-        learning_index_value = payload.get("learning_index")
         return cls(
             trace_uid=identity.trace_uid
             or make_trace_uid(identity.source_system, identity.trace_id),
@@ -221,37 +128,16 @@ class InsightSource:
             display_name=identity.display_name,
             relation=_coerce_str(payload.get("relation")),
             sample_question=_coerce_str(payload.get("sample_question")),
-            epoch=(
-                int(epoch_value)
-                if isinstance(epoch_value, (int, str))
-                and str(epoch_value).strip().lstrip("-").isdigit()
-                else None
-            ),
-            step=(
-                int(step_value)
-                if isinstance(step_value, (int, str))
-                and str(step_value).strip().lstrip("-").isdigit()
-                else None
-            ),
-            learning_index=(
-                int(learning_index_value)
-                if isinstance(learning_index_value, (int, str))
-                and str(learning_index_value).strip().lstrip("-").isdigit()
-                else None
-            ),
-            learning_text=_coerce_str(payload.get("learning_text")),
-            error_identification=_coerce_str(payload.get("error_identification")),
+            epoch=_safe_int(payload.get("epoch")),
             operation_type=_coerce_str(payload.get("operation_type")),
-            trace_refs=trace_refs,
-            sample_id=_coerce_str(payload.get("sample_id")) or identity.trace_id,
-            extra={k: v for k, v in payload.items() if k not in known},
         )
 
     def to_dict(self) -> dict[str, Any]:
-        data: dict[str, Any] = dict(self.extra)
-        data["trace_uid"] = self.trace_uid
-        data["source_system"] = self.source_system
-        data["trace_id"] = self.trace_id
+        data: dict[str, Any] = {
+            "trace_uid": self.trace_uid,
+            "source_system": self.source_system,
+            "trace_id": self.trace_id,
+        }
         if self.display_name is not None:
             data["display_name"] = self.display_name
         if self.relation is not None:
@@ -260,27 +146,9 @@ class InsightSource:
             data["sample_question"] = self.sample_question
         if self.epoch is not None:
             data["epoch"] = self.epoch
-        if self.step is not None:
-            data["step"] = self.step
-        if self.learning_index is not None:
-            data["learning_index"] = self.learning_index
-        if self.learning_text is not None:
-            data["learning_text"] = self.learning_text
-        if self.error_identification is not None:
-            data["error_identification"] = self.error_identification
         if self.operation_type is not None:
             data["operation_type"] = self.operation_type
-        if self.trace_refs:
-            data["trace_refs"] = [ref.to_dict() for ref in self.trace_refs]
-        if self.sample_id is not None:
-            data["sample_id"] = self.sample_id
         return data
-
-
-def coerce_trace_reference(value: TraceReference | Mapping[str, Any]) -> TraceReference:
-    if isinstance(value, TraceReference):
-        return value
-    return TraceReference.from_dict(value)
 
 
 def coerce_trace_identity(value: TraceIdentity | Mapping[str, Any]) -> TraceIdentity:
