@@ -28,7 +28,6 @@ from ace.integrations.mcp.errors import (
     ValidationError,
 )
 from ace.core.environments import Sample
-from ace.core.skillbook import Skill
 
 
 class MCPHandlers:
@@ -121,29 +120,16 @@ class MCPHandlers:
 
                 limited_skills = []
                 for s in skills:
-                    if isinstance(s, Skill):
-                        limited_skills.append(
-                            SkillItem(
-                                id=s.id,
-                                content=s.content,
-                                topic=s.section,
-                                helpful=s.helpful,
-                                harmful=s.harmful,
-                                neutral=s.neutral,
-                            )
+                    limited_skills.append(
+                        SkillItem(
+                            id=getattr(s, "id", str(len(limited_skills))),
+                            content=getattr(s, "content", str(s)),
+                            topic=getattr(s, "section", None),
+                            helpful=getattr(s, "helpful", None),
+                            harmful=getattr(s, "harmful", None),
+                            neutral=getattr(s, "neutral", None),
                         )
-                    else:
-                        # Defensive fallback for non-standard skill objects
-                        limited_skills.append(
-                            SkillItem(
-                                id=getattr(s, "id", str(len(limited_skills))),
-                                content=getattr(s, "content", str(s)),
-                                topic=getattr(s, "section", None),
-                                helpful=getattr(s, "helpful", None),
-                                harmful=getattr(s, "harmful", None),
-                                neutral=getattr(s, "neutral", None),
-                            )
-                        )
+                    )
 
                 limited_skills = limited_skills[: request.limit]
 
