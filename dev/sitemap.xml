@@ -5,26 +5,6 @@
          <lastmod>2026-04-01</lastmod>
     </url>
     <url>
-         <loc>https://kayba-ai.github.io/agentic-context-engine/latest/ACE_DESIGN/</loc>
-         <lastmod>2026-04-01</lastmod>
-    </url>
-    <url>
-         <loc>https://kayba-ai.github.io/agentic-context-engine/latest/CLI_DESIGN/</loc>
-         <lastmod>2026-04-01</lastmod>
-    </url>
-    <url>
-         <loc>https://kayba-ai.github.io/agentic-context-engine/latest/PIPELINE_DESIGN/</loc>
-         <lastmod>2026-04-01</lastmod>
-    </url>
-    <url>
-         <loc>https://kayba-ai.github.io/agentic-context-engine/latest/PYDANTIC_AI_MIGRATION/</loc>
-         <lastmod>2026-04-01</lastmod>
-    </url>
-    <url>
-         <loc>https://kayba-ai.github.io/agentic-context-engine/latest/RR_DESIGN/</loc>
-         <lastmod>2026-04-01</lastmod>
-    </url>
-    <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/api/</loc>
          <lastmod>2026-04-01</lastmod>
     </url>
@@ -46,6 +26,30 @@
     </url>
     <url>
          <loc>https://kayba-ai.github.io/agentic-context-engine/latest/concepts/updates/</loc>
+         <lastmod>2026-04-01</lastmod>
+    </url>
+    <url>
+         <loc>https://kayba-ai.github.io/agentic-context-engine/latest/design/ACE_ARCHITECTURE/</loc>
+         <lastmod>2026-04-01</lastmod>
+    </url>
+    <url>
+         <loc>https://kayba-ai.github.io/agentic-context-engine/latest/design/ACE_DECISIONS/</loc>
+         <lastmod>2026-04-01</lastmod>
+    </url>
+    <url>
+         <loc>https://kayba-ai.github.io/agentic-context-engine/latest/design/ACE_REFERENCE/</loc>
+         <lastmod>2026-04-01</lastmod>
+    </url>
+    <url>
+         <loc>https://kayba-ai.github.io/agentic-context-engine/latest/design/CLI_DESIGN/</loc>
+         <lastmod>2026-04-01</lastmod>
+    </url>
+    <url>
+         <loc>https://kayba-ai.github.io/agentic-context-engine/latest/design/PIPELINE_DESIGN/</loc>
+         <lastmod>2026-04-01</lastmod>
+    </url>
+    <url>
+         <loc>https://kayba-ai.github.io/agentic-context-engine/latest/design/RR_DESIGN/</loc>
          <lastmod>2026-04-01</lastmod>
     </url>
     <url>

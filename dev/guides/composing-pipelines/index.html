@@ -1926,9 +1926,9 @@ steps — or writing custom ones.</p>
 <h2 id="anatomy-of-an-ace-pipeline">Anatomy of an ACE Pipeline<a class="headerlink" href="#anatomy-of-an-ace-pipeline" title="Permanent link">&para;</a></h2>
 <p>Every ACE pipeline is a sequence of steps, each with a <code>requires</code>/<code>provides</code>
 contract that declares what context fields it reads and writes:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>AgentStep ─────&gt; EvaluateStep ─────&gt; ReflectStep ─────&gt; TagStep ─────&gt; UpdateStep ─────&gt; ApplyStep
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  provides:        provides:           provides:          (metadata)    provides:         (mutates
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>  agent_output     trace                reflections                     skill_manager     skillbook)
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>AgentStep ─────&gt; EvaluateStep ─────&gt; ReflectStep ─────&gt; UpdateStep ─────&gt; ApplyStep
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  provides:        provides:           provides:          provides:         (mutates
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>  agent_output     trace                reflections       skill_manager     skillbook)
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>                                                                        _output
 </code></pre></div>
 <p>The pipeline validates these contracts at construction time — if a step requires
@@ -1967,7 +1967,7 @@ a field that no earlier step provides, you'll get an error immediately.</p>
 <a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="n">dedup_manager</span><span class="o">=</span><span class="n">my_dedup_manager</span><span class="p">,</span>      <span class="c1"># optional</span>
 <a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="n">checkpoint_dir</span><span class="o">=</span><span class="s2">&quot;/tmp/checkpoints&quot;</span><span class="p">,</span>    <span class="c1"># optional</span>
 <a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="p">)</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="c1"># Returns: [ReflectStep, TagStep, UpdateStep, ApplyStep,</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="c1"># Returns: [ReflectStep, UpdateStep, ApplyStep,</span>
 <a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="c1">#           DeduplicateStep, CheckpointStep]</span>
 </code></pre></div>
 <p>Use it when building custom integrations that provide their own execute step but
@@ -2104,7 +2104,7 @@ in two ways:</p>
 <a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>    <span class="n">config</span><span class="o">=</span><span class="n">RRConfig</span><span class="p">(</span><span class="n">max_llm_calls</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span> <span class="n">subagent_model</span><span class="o">=</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">),</span>
 <a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="p">)</span>
 </code></pre></div>
-<p>See <a href="../../RR_DESIGN/">RR_DESIGN.md</a> for the full architecture, sandbox API,
+<p>See <a href="../RR_DESIGN.md">RR_DESIGN.md</a> for the full architecture, sandbox API,
 configuration reference, and trace schema.</p>
 <h2 id="available-steps">Available Steps<a class="headerlink" href="#available-steps" title="Permanent link">&para;</a></h2>
 <p>All steps are importable from <code>ace</code>:</p>
@@ -2127,10 +2127,6 @@ configuration reference, and trace schema.</p>
 <tr>
 <td><code>ReflectStep</code></td>
 <td>Run Reflector role (async boundary)</td>
-</tr>
-<tr>
-<td><code>TagStep</code></td>
-<td>Tag skills for update</td>
 </tr>
 <tr>
 <td><code>UpdateStep</code></td>
