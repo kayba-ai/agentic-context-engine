@@ -212,6 +212,7 @@ class RRStep:
             usage = result.usage()
             output.raw = {
                 **output.raw,
+                "max_llm_calls_scope": "main_agent_session",
                 "usage": {
                     "input_tokens": usage.input_tokens,
                     "output_tokens": usage.output_tokens,
@@ -574,7 +575,11 @@ class RRStep:
             if batch_items:
                 first_trace = self._extract_batch_messages(batch_items[0])
                 for msg in first_trace[:3]:
-                    content = str(msg.get("content", "")) if isinstance(msg, dict) else str(msg)
+                    content = (
+                        str(msg.get("content", ""))
+                        if isinstance(msg, dict)
+                        else str(msg)
+                    )
                     if len(content) > 500 and any(
                         kw in content.lower()
                         for kw in [
@@ -641,7 +646,9 @@ class RRStep:
         """Format the prompt template with previews and metadata."""
         batch_items = self._get_batch_items(traces)
         is_batch = batch_items is not None
-        t_steps = traces.get("steps", []) if isinstance(traces, dict) and not is_batch else []
+        t_steps = (
+            traces.get("steps", []) if isinstance(traces, dict) and not is_batch else []
+        )
 
         trace_size_chars = len(_json.dumps(traces, default=str))
 
@@ -654,7 +661,9 @@ class RRStep:
 
         if is_batch:
             assert batch_items is not None
-            total_steps = sum(len(self._extract_batch_messages(item)) for item in batch_items)
+            total_steps = sum(
+                len(self._extract_batch_messages(item)) for item in batch_items
+            )
             preview_rows = []
             for index, item in enumerate(batch_items):
                 item_id = self._get_batch_item_id(item, index)
@@ -677,7 +686,9 @@ class RRStep:
                     "Use the injected `batch_items` helper list for iteration."
                 )
             else:
-                traces_description = f"Batch-like trace container of type {type(traces).__name__}"
+                traces_description = (
+                    f"Batch-like trace container of type {type(traces).__name__}"
+                )
 
             fmt_kwargs = dict(
                 traces_description=traces_description,
@@ -799,7 +810,7 @@ class RRStep:
 
         return ReflectorOutput(
             reasoning=(
-                f"Recursive analysis reached usage limit "
+                f"Recursive analysis reached the main-agent usage limit "
                 f"({self.config.max_llm_calls} requests). "
                 f"Basic analysis: Answer was "
                 f"{'correct' if is_correct else 'incorrect'}."
@@ -822,6 +833,7 @@ class RRStep:
             raw={
                 "timeout": True,
                 "max_llm_calls": self.config.max_llm_calls,
+                "max_llm_calls_scope": "main_agent_session",
                 "question": question,
                 "feedback": feedback,
                 "rr_trace": {

@@ -70,7 +70,7 @@ RR does **not** rewrite the inner trace payload into a benchmark-specific schema
 │  └─────────────────────────────────────────────────────────┘  │
 │                                                               │
 │  UsageLimits(request_limit=max_llm_calls)                     │
-│  → UsageLimitExceeded triggers timeout fallback               │
+│  → limits the main RR agent session, then falls back         │
 └───────────────────────────────────────────────────────────────┘
 ```
 
@@ -148,7 +148,7 @@ The `prompt_template` is formatted with these variables:
 | `{helper_variables}` | `str` | Extra sandbox variable/function rows for reusable helper registration |
 | `{traces_previews}` | `str` | Markdown table of trace previews (single: per-field; batch: per-item with message count) |
 | `{trace_size_chars}` | `int` | Total character count of the serialised traces dict |
-| `{max_iterations}` | `int` | The `max_llm_calls` budget (shown so the LLM can pace itself) |
+| `{max_iterations}` | `int` | The main-agent `max_llm_calls` budget for this RR session |
 | `{task_count}` | `int` | Number of analyzed items (1 for single-trace, N for batch) |
 
 ---
@@ -162,15 +162,17 @@ from ace.rr import RRConfig
 
 config = RRConfig(
     max_iterations=20,           # Legacy: max REPL iterations (kept for compat)
-    timeout=30.0,                # Per-execution timeout in seconds (Unix only)
-    max_llm_calls=30,            # Primary limit: PydanticAI UsageLimits request_limit
-    max_context_chars=50_000,    # Message history trim threshold
-    max_output_chars=20_000,     # Per-execution output truncation limit
-    enable_subagent=True,        # Enable analyze/batch_analyze tools
-    subagent_model=None,         # Sub-agent model (None = same as main)
-    subagent_max_tokens=8192,    # Max tokens for sub-agent responses
-    subagent_temperature=0.3,    # Temperature for sub-agent responses
-    subagent_system_prompt=None, # Custom sub-agent system prompt (None = default)
+    timeout=30.0,                    # Per-execution timeout in seconds (Unix only)
+    max_llm_calls=30,                # Main RR agent request budget
+    max_context_chars=50_000,        # Message history trim threshold
+    max_output_chars=20_000,         # Per-execution output truncation limit
+    enable_subagent=True,            # Enable analyze/batch_analyze tools
+    subagent_model=None,             # Sub-agent model (None = same as main)
+    subagent_max_tokens=8192,        # Max tokens for sub-agent responses
+    subagent_temperature=0.3,        # Temperature for sub-agent responses
+    subagent_system_prompt=None,     # Custom sub-agent system prompt (None = default)
+    subagent_max_requests=15,        # Request budget per sub-agent run
+    subagent_max_parallel=10,        # Concurrent sub-agents in batch_analyze()
     enable_fallback_synthesis=True,  # Attempt LLM synthesis on timeout
 )
 ```
@@ -179,7 +181,7 @@ config = RRConfig(
 |-----------|---------|-------------|
 | `max_iterations` | `20` | Legacy field kept for backward compatibility. The primary limit is now `max_llm_calls` via PydanticAI's `UsageLimits`. |
 | `timeout` | `30.0` | Seconds per sandbox `execute()` call. Uses `signal.SIGALRM` on Unix; not enforced on Windows or non-main threads. |
-| `max_llm_calls` | `30` | **Primary budget.** Passed as `UsageLimits(request_limit=N)` to the PydanticAI agent. Covers all requests — main agent turns plus any requests made by tools. When exhausted, `UsageLimitExceeded` triggers the timeout fallback. |
+| `max_llm_calls` | `30` | **Main-agent budget.** Passed as `UsageLimits(request_limit=N)` to the top-level RR agent session. Sub-agent runs have their own `subagent_max_requests` limits. When exhausted, `UsageLimitExceeded` triggers the timeout fallback. |
 | `max_context_chars` | `50_000` | Trim threshold for message scoring logic (see [Message Trimming](#message-trimming)). |
 | `max_output_chars` | `20_000` | Per-execution stdout/stderr is truncated at this limit with a `[TRUNCATED: N chars remaining]` suffix. |
 | `enable_subagent` | `True` | Whether the `analyze`/`batch_analyze` tools are functional. When `False`, the sub-agent is not created and the tools return stub messages. |
@@ -188,6 +190,7 @@ config = RRConfig(
 | `subagent_temperature` | `0.3` | Temperature for sub-agent responses. |
 | `subagent_system_prompt` | `None` | Custom system prompt for sub-agent. `None` uses the default analysis prompt. |
 | `subagent_max_requests` | `15` | Per-sub-agent request budget. Used for both `analyze()` and each item in `batch_analyze()`. |
+| `subagent_max_parallel` | `10` | Maximum concurrent sub-agents launched by a single `batch_analyze()` call. |
 | `enable_fallback_synthesis` | `True` | Legacy field kept for compat. Timeout now always builds a fallback `ReflectorOutput`. |
 
 ---
@@ -333,7 +336,7 @@ When the sub-agent is not configured (`config.enable_subagent=False`), returns `
 
 ### batch_analyze(question, items, mode)
 
-PydanticAI tool that analyzes multiple items in parallel. Uses `ThreadPoolExecutor` to call `sub_agent.run_sync()` for each item concurrently.
+PydanticAI tool that analyzes multiple items in parallel. Uses `ThreadPoolExecutor` to call `sub_agent.run_sync()` for each item concurrently, capped by `config.subagent_max_parallel`.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -488,7 +491,7 @@ Each `execute_code` call truncates output at `config.max_output_chars` with a `[
 
 ## Timeout / Fallback
 
-When `UsageLimitExceeded` is raised (the `max_llm_calls` budget is exhausted):
+When `UsageLimitExceeded` is raised (the main-agent `max_llm_calls` budget is exhausted):
 
 1. `RRStep._build_timeout_output()` constructs a basic `ReflectorOutput` with `raw["timeout"] = True`.
 2. If `agent_output` and `ground_truth` are available, a simple correct/incorrect assessment is included.
@@ -500,7 +503,7 @@ When any other exception occurs during the agent run, a minimal `ReflectorOutput
 
 ## Batch Mode
 
-When `RRStep.__call__` receives a batch trace (a raw list, a dict with `"items"` or `"tasks"`, or a legacy combined `"steps"` batch), it runs a **single PydanticAI agent session** that analyzes all items. The agent uses `batch_analyze` to explore items concurrently within that session.
+When `RRStep.__call__` receives a batch trace (a raw list, a dict with `"items"` or `"tasks"`, or a legacy combined `"steps"` batch), it runs a single RR session that analyzes all items together. The agent uses `batch_analyze` to explore items concurrently within that session.
 
 ### Detection
 
@@ -537,9 +540,9 @@ Returns `ctx.replace(reflections=(refl_0, refl_1, ..., refl_n))` where `reflecti
 
 ### Cost
 
-1 batch = 1 PydanticAI agent session regardless of item count. The session runs up to `max_llm_calls` requests total. Within the session, `batch_analyze` calls run sub-agent analyses concurrently via `ThreadPoolExecutor`.
+1 batch = 1 PydanticAI agent session regardless of item count. The session runs up to `max_llm_calls` main-agent requests, while sub-agent runs consume their own `subagent_max_requests` budgets.
 
-For a batch of 5 items with `batch_analyze` fanning out sub-agent calls, cost is typically the main agent turns + sub-agent calls, all counted against the single `UsageLimits(request_limit=max_llm_calls)` budget.
+For a batch of 5 items with `batch_analyze` fanning out sub-agent calls, cost is typically the main agent turns plus sub-agent calls. The main-agent turns count against `max_llm_calls`; each sub-agent run counts against its own `subagent_max_requests` limit.
 
 ### Single-Task Backward Compatibility
 

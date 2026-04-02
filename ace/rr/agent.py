@@ -86,7 +86,9 @@ def _format_registered_helpers(sandbox: TraceSandbox) -> str:
     for name, meta in registry.items():
         if not isinstance(meta, dict):
             continue
-        description = str(meta.get("description", "")).strip() or "No description provided."
+        description = (
+            str(meta.get("description", "")).strip() or "No description provided."
+        )
         lines.append(f"- `{name}`: {description}")
     lines.append(
         "Use `print(list_helpers())` for the full catalog, call helpers directly in code, or use `run_helper(name, ...)`."
@@ -367,7 +369,8 @@ def create_rr_agent(
             except Exception as e:
                 return f"(Error: {e})", sub_deps.iteration
 
-        pool_size = min(len(items), 10)
+        pool_cap = max(1, cfg.subagent_max_parallel)
+        pool_size = min(len(items), pool_cap)
         with ThreadPoolExecutor(max_workers=pool_size) as pool:
             raw_results = list(pool.map(_analyze_one, items))
 

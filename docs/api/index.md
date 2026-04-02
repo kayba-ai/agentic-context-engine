@@ -381,16 +381,18 @@ pipe = Pipeline([..., rr, ...])
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `max_iterations` | `20` | Max REPL loop iterations |
+| `max_iterations` | `20` | Legacy compatibility field from the older REPL-based RR |
 | `timeout` | `30.0` | Per-execution timeout in seconds (Unix only) |
-| `max_llm_calls` | `30` | Shared budget across main + sub-agent calls |
+| `max_llm_calls` | `30` | Main RR agent request budget |
 | `max_context_chars` | `50_000` | Message history trim threshold |
 | `max_output_chars` | `20_000` | Per-execution output truncation limit |
-| `enable_subagent` | `True` | Enable `ask_llm()` in sandbox |
+| `enable_subagent` | `True` | Enable `analyze()` and `batch_analyze()` tools |
 | `subagent_model` | `None` | Sub-agent model (None = same as main) |
 | `subagent_max_tokens` | `8192` | Max tokens for sub-agent responses |
 | `subagent_temperature` | `0.3` | Sub-agent temperature |
 | `subagent_system_prompt` | `None` | Custom sub-agent system prompt |
+| `subagent_max_requests` | `15` | Request budget per sub-agent run |
+| `subagent_max_parallel` | `10` | Max concurrent sub-agents in `batch_analyze()` |
 | `enable_fallback_synthesis` | `True` | Attempt LLM synthesis on timeout |
 
 ### Sandbox Functions

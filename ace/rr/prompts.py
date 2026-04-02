@@ -74,7 +74,7 @@ The data summary above gives you the structure. Start with any precomputed helpe
 - Your final output must include a `raw["items"]` list with per-item results in batch order.
 
 ### Step 2: Survey (batch_analyze)
-Fan out ALL survey batches in parallel. Each sub-agent has code access to the full trace data.
+Fan out survey batches with `batch_analyze`. Each sub-agent has code access to the full trace data.
 Items should be explicit focus instructions. If you registered helpers, mention which helper to use in the context so sub-agents can start from it instead of re-discovering the schema.
 
 ### Step 3: Deep-dive (analyze or batch_analyze)
@@ -87,7 +87,7 @@ Every deep-dive includes a verification pass:
 Combine survey summaries with deep-dive results and produce your structured ReflectorOutput.
 
 ### Budget
-You have {max_iterations} LLM calls total. Use them wisely — partial results beat running out of budget.
+You have {max_iterations} main-agent LLM calls in this RR session. Sub-agent runs have their own per-run limits, so keep fan-out focused and use deep-dives selectively.
 </strategy>
 
 <output_rules>

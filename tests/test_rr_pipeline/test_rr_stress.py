@@ -124,6 +124,10 @@ class TestLoopLifecycle:
         """Deep-dive sub-agents get a less fragile default request budget."""
         assert RecursiveConfig().subagent_max_requests == 15
 
+    def test_subagent_parallelism_default(self):
+        """Batch sub-agent fan-out should have an explicit configurable cap."""
+        assert RecursiveConfig().subagent_max_parallel == 10
+
     def test_rr_trace_metadata_on_success(self):
         """Successful reflection populates rr_trace metadata."""
         rr = RRStep("test-model", config=RRConfig(enable_subagent=False))
