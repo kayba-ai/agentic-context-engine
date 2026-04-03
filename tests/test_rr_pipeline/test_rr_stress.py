@@ -233,6 +233,48 @@ register_helper(
         assert "10" in result.stdout
         assert parent.namespace["traces"]["values"] == [1, 2, 3]
 
+    def test_batch_accessors_handle_nested_task_payloads(self):
+        """Batch helpers should expose a stable view over nested task items."""
+        sandbox = TraceSandbox(trace=None)
+        batch_items = [
+            {
+                "task_id": "task_0",
+                "question": "Where is my order?",
+                "feedback": "Task FAILED (reward=0.0)",
+                "trace": {
+                    "messages": [
+                        {"role": "assistant", "content": "Hi!"},
+                        {"role": "user", "content": "Where is my order?"},
+                    ]
+                },
+            }
+        ]
+        sandbox.inject("batch_items", batch_items)
+        sandbox.inject("item_ids", ["task_0"])
+
+        result = sandbox.execute(
+            """
+item = get_batch_item(0)
+print(get_item_id(0))
+print(get_item_question(item))
+print(get_item_feedback(item))
+messages = get_item_messages(item)
+print(len(messages))
+print(get_message_text(messages[1]))
+print(preview_item(0)["payload_type"])
+            """.strip(),
+            timeout=5.0,
+        )
+
+        assert result.success
+        lines = result.stdout.strip().splitlines()
+        assert lines[0] == "task_0"
+        assert lines[1] == "Where is my order?"
+        assert lines[2] == "Task FAILED (reward=0.0)"
+        assert lines[3] == "2"
+        assert lines[4] == "Where is my order?"
+        assert lines[5] == "dict"
+
 
 # =========================================================================
 # 3. Entry points (PydanticAI-based)

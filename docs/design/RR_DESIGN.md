@@ -174,6 +174,12 @@ config = RRConfig(
     subagent_max_requests=15,        # Request budget per sub-agent run
     subagent_max_parallel=10,        # Concurrent sub-agents in batch_analyze()
     enable_fallback_synthesis=True,  # Attempt LLM synthesis on timeout
+    orchestrator_max_llm_calls=50,   # Batch orchestrator request budget
+    worker_model=None,               # Delegated worker model (None = same as main)
+    worker_enable_subagent=False,    # Allow workers to call analyze/batch_analyze
+    worker_subagent_max_parallel=2,  # Concurrent worker sub-agents
+    local_parallel_max_concurrency=8,# Max threads for parallel_map extraction
+    local_parallel_timeout=30.0,     # Per-item timeout for parallel_map
 )
 ```
 
@@ -192,6 +198,12 @@ config = RRConfig(
 | `subagent_max_requests` | `15` | Per-sub-agent request budget. Used for both `analyze()` and each item in `batch_analyze()`. |
 | `subagent_max_parallel` | `10` | Maximum concurrent sub-agents launched by a single `batch_analyze()` call. |
 | `enable_fallback_synthesis` | `True` | Legacy field kept for compat. Timeout now always builds a fallback `ReflectorOutput`. |
+| `orchestrator_max_llm_calls` | `50` | Batch orchestrator request budget. Defaults independently from `max_llm_calls`, but callers often set it to the same value. |
+| `worker_model` | `None` | Model for delegated worker RR sessions. `None` reuses the main reflector model. |
+| `worker_enable_subagent` | `False` | Whether worker RR sessions expose functional `analyze`/`batch_analyze` tools. |
+| `worker_subagent_max_parallel` | `2` | Maximum concurrent sub-agents launched by a worker `batch_analyze()` call. |
+| `local_parallel_max_concurrency` | `8` | Maximum threads used by sandbox `parallel_map(...)` extraction helpers. |
+| `local_parallel_timeout` | `30.0` | Optional per-item timeout used by sandbox `parallel_map(...)`. |
 
 ---
 
@@ -523,16 +535,23 @@ traces        # raw caller-provided payload
 batch_items   # ordered list of raw batch elements
 item_ids      # stable ids derived from batch items
 survey_items  # precomputed batch_analyze instructions referencing batch_items[i]
+get_item_payload(item_or_index)
+get_item_messages(item_or_index)
+get_item_question(item_or_index)
+get_item_feedback(item_or_index)
+get_item_id(item_or_index)
+get_message_text(message)
+preview_item(item_or_index)
 ```
 
 The RR prompt instructs the LLM to:
 1. Inspect minimal structure only once.
-2. Register reusable helpers when repeated access would help.
+2. Use the stable batch accessors above instead of guessing nested trace schema.
 3. Use `batch_analyze` to fan out analysis across items concurrently.
 4. Identify cross-item patterns.
 5. Return a structured `ReflectorOutput` with a `raw["items"]` list containing per-item results.
 
-`_split_batch_reflection` then parses the single `ReflectorOutput` into per-item outputs. If the output doesn't contain per-item results, the single reflection is duplicated as a fallback.
+`_split_batch_reflection` then parses the single `ReflectorOutput` into per-item outputs. Direct batch output is validated strictly: `raw["items"]` must be present, must be a list, and must match the batch size. Invalid direct output fails loudly instead of duplicating a generic reflection.
 
 ### Output
 
@@ -543,6 +562,30 @@ Returns `ctx.replace(reflections=(refl_0, refl_1, ..., refl_n))` where `reflecti
 1 batch = 1 PydanticAI agent session regardless of item count. The session runs up to `max_llm_calls` main-agent requests, while sub-agent runs consume their own `subagent_max_requests` budgets.
 
 For a batch of 5 items with `batch_analyze` fanning out sub-agent calls, cost is typically the main agent turns plus sub-agent calls. The main-agent turns count against `max_llm_calls`; each sub-agent run counts against its own `subagent_max_requests` limit.
+
+### Orchestrated Batch Mode (Manager/Worker)
+
+For larger or more complex batches, the RR uses a manager/worker orchestration pattern. See `docs/design/RR_ORCHESTRATION.md` for the full design.
+
+**Key points:**
+
+- Batch mode always uses an orchestrator-capable RR path. The orchestrator decides whether to analyze directly or delegate to workers.
+- Worker sessions are independent RR sessions that analyze a subset of traces.
+- Workers inherit registered helpers from the orchestrator.
+- Delegated workers can run on a different `worker_model`.
+- Worker `analyze`/`batch_analyze` tools are controlled separately by `worker_enable_subagent`.
+- Workers cannot spawn further workers.
+- Final per-item results are validated for exact-once coverage before merging.
+- No silent fallbacks: missing coverage, invalid results, or failed workers cause the batch run to fail loudly.
+
+**Agents:**
+
+| Agent | Purpose | Tools |
+|-------|---------|-------|
+| `_orchestrator_agent` | All batch sessions | `execute_code`, `analyze`, `batch_analyze`, `spawn_analysis`, `collect_results` |
+| `_worker_agent` | Spawned worker sessions | `execute_code`, optionally `analyze`/`batch_analyze` |
+
+Orchestrator and worker agents are created lazily on first batch use.
 
 ### Single-Task Backward Compatibility
 

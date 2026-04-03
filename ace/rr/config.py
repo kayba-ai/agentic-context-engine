@@ -23,6 +23,14 @@ class RecursiveConfig:
         subagent_max_requests: Max requests per sub-agent run (default: 15)
         subagent_max_parallel: Max concurrent sub-agents in batch_analyze() (default: 10)
         enable_fallback_synthesis: Whether to attempt LLM synthesis on timeout (default: True)
+        orchestrator_max_llm_calls: Max LLM calls for the orchestrator session (default: 50)
+        max_cluster_workers: Max concurrent worker RR sessions (default: 5)
+        worker_collect_timeout: Seconds to wait when collecting worker results (default: 120.0)
+        worker_model: Model to use for delegated worker RR sessions (default: None = same as main)
+        worker_enable_subagent: Whether workers can use analyze/batch_analyze (default: False)
+        worker_subagent_max_parallel: Max concurrent sub-agents per worker (default: 2)
+        local_parallel_max_concurrency: Max threads for parallel_map extraction (default: 8)
+        local_parallel_timeout: Per-item timeout for parallel_map (default: 30.0)
     """
 
     max_iterations: int = 20
@@ -40,3 +48,12 @@ class RecursiveConfig:
     subagent_max_requests: int = 15
     subagent_max_parallel: int = 10
     enable_fallback_synthesis: bool = True
+    # Orchestration settings (batch RR manager/worker pattern)
+    orchestrator_max_llm_calls: int = 50
+    max_cluster_workers: int = 5
+    worker_collect_timeout: float = 120.0
+    worker_model: Optional[str] = None
+    worker_enable_subagent: bool = False
+    worker_subagent_max_parallel: int = 2
+    local_parallel_max_concurrency: int = 8
+    local_parallel_timeout: float | None = 30.0

@@ -216,6 +216,13 @@ class TraceSandbox:
             "list_helpers": self._list_helpers,
             "run_helper": self._run_helper,
             "get_batch_item": self._get_batch_item,
+            "get_item_payload": self._get_item_payload,
+            "get_item_messages": self._get_item_messages,
+            "get_item_question": self._get_item_question,
+            "get_item_feedback": self._get_item_feedback,
+            "get_item_id": self._get_item_id,
+            "get_message_text": self._get_message_text,
+            "preview_item": self._preview_item,
             "parallel_map": self._parallel_map,
             # Safe stdlib modules
             "json": json,
@@ -349,9 +356,7 @@ class TraceSandbox:
         exec(source, self.namespace, self.namespace)
         helper = self.namespace.get(name)
         if not callable(helper):
-            raise ValueError(
-                f"Helper source must define a callable named {name!r}"
-            )
+            raise ValueError(f"Helper source must define a callable named {name!r}")
 
         registry = self.namespace.setdefault("helper_registry", {})
         registry[name] = {
@@ -391,6 +396,129 @@ class TraceSandbox:
         if not isinstance(batch_items, list):
             raise RuntimeError("batch_items is not available in this sandbox")
         return batch_items[index]
+
+    def _resolve_batch_item(self, item_or_index: Any) -> Any:
+        """Resolve a batch helper argument to the underlying item."""
+        if isinstance(item_or_index, int):
+            return self._get_batch_item(item_or_index)
+        return item_or_index
+
+    def _get_item_payload(self, item_or_index: Any) -> Any:
+        """Return the payload for a batch item or index without rewriting it."""
+        item = self._resolve_batch_item(item_or_index)
+        if (
+            isinstance(item, dict)
+            and item.get("role") == "conversation"
+            and isinstance(item.get("content"), dict)
+        ):
+            return item["content"]
+        return item
+
+    def _get_item_messages(self, item_or_index: Any) -> list[Any]:
+        """Return a best-effort message list for a batch item or index."""
+        payload = self._get_item_payload(item_or_index)
+        if isinstance(payload, list):
+            return payload
+        if isinstance(payload, dict):
+            trace_value = payload.get("trace")
+            if isinstance(trace_value, list):
+                return trace_value
+            if isinstance(trace_value, dict):
+                for key in ("messages", "steps", "trace"):
+                    nested = trace_value.get(key)
+                    if isinstance(nested, list):
+                        return nested
+            for key in ("messages", "steps"):
+                value = payload.get(key)
+                if isinstance(value, list):
+                    return value
+        return []
+
+    def _get_item_field(self, item_or_index: Any, field: str) -> str:
+        """Extract a string field from a batch item payload when present."""
+        payload = self._get_item_payload(item_or_index)
+        if isinstance(payload, dict):
+            value = payload.get(field)
+            if value is not None:
+                return str(value)
+        return ""
+
+    def _get_item_question(self, item_or_index: Any) -> str:
+        """Return the question field for a batch item or index."""
+        return self._get_item_field(item_or_index, "question")
+
+    def _get_item_feedback(self, item_or_index: Any) -> str:
+        """Return the feedback field for a batch item or index."""
+        return self._get_item_field(item_or_index, "feedback")
+
+    def _get_item_id(self, item_or_index: Any) -> str:
+        """Return a stable identifier for a batch item or index."""
+        item = self._resolve_batch_item(item_or_index)
+        payload = self._get_item_payload(item)
+
+        if isinstance(item_or_index, int):
+            item_ids = self.namespace.get("item_ids")
+            if isinstance(item_ids, list) and 0 <= item_or_index < len(item_ids):
+                return str(item_ids[item_or_index])
+
+        if isinstance(item, dict):
+            for key in ("item_id", "task_id", "id"):
+                value = item.get(key)
+                if value is not None:
+                    return str(value)
+        if isinstance(payload, dict):
+            for key in ("item_id", "task_id", "id"):
+                value = payload.get(key)
+                if value is not None:
+                    return str(value)
+
+        return "unknown_item"
+
+    def _get_message_text(self, message: Any) -> str:
+        """Return a readable text summary for a message-like object."""
+        if isinstance(message, dict):
+            content = message.get("content")
+            if content not in (None, ""):
+                if isinstance(content, str):
+                    return content
+                try:
+                    return json.dumps(content, default=str)
+                except Exception:
+                    return str(content)
+
+            tool_calls = message.get("tool_calls")
+            if tool_calls:
+                return f"tool_calls={json.dumps(tool_calls, default=str)}"
+
+            tool_results = message.get("tool_results")
+            if tool_results:
+                return f"tool_results={json.dumps(tool_results, default=str)}"
+
+            for key in ("reasoning", "answer", "text"):
+                value = message.get(key)
+                if value not in (None, ""):
+                    return str(value)
+
+            try:
+                return json.dumps(message, default=str)
+            except Exception:
+                return str(message)
+
+        return str(message)
+
+    def _preview_item(self, item_or_index: Any) -> dict[str, Any]:
+        """Return a compact preview for a batch item or index."""
+        messages = self._get_item_messages(item_or_index)
+        first_message = self._get_message_text(messages[0]) if messages else ""
+        payload = self._get_item_payload(item_or_index)
+        return {
+            "item_id": self._get_item_id(item_or_index),
+            "question_preview": self._get_item_question(item_or_index)[:120],
+            "feedback_preview": self._get_item_feedback(item_or_index)[:120],
+            "message_count": len(messages),
+            "first_message_preview": first_message[:120],
+            "payload_type": type(payload).__name__,
+        }
 
     def _parallel_map(
         self, fn: Callable[[Any], Any], inputs: list, *, return_exceptions: bool = False
@@ -628,15 +756,45 @@ def create_readonly_sandbox(parent: TraceSandbox) -> TraceSandbox:
     Returns:
         A new TraceSandbox with deep-copied data variables.
     """
-    sandbox = TraceSandbox(trace=None, llm_query_fn=None)
+    sandbox = TraceSandbox(
+        trace=None,
+        llm_query_fn=None,
+        parallel_max_concurrency=parent._parallel_max_concurrency,
+        parallel_max_retries=parent._parallel_max_retries,
+        parallel_retry_delay=parent._parallel_retry_delay,
+        parallel_timeout=parent._parallel_timeout,
+    )
 
     # Keys already set up by TraceSandbox.__init__ — skip them
     infrastructure = {
-        "__builtins__", "FINAL", "FINAL_VAR", "SHOW_VARS",
-        "parallel_map", "llm_query", "safe_getattr", "trace",
-        "register_helper", "list_helpers", "run_helper", "get_batch_item",
-        "json", "re", "math", "collections",
-        "datetime", "timedelta", "date", "time", "timezone",
+        "__builtins__",
+        "FINAL",
+        "FINAL_VAR",
+        "SHOW_VARS",
+        "parallel_map",
+        "llm_query",
+        "safe_getattr",
+        "trace",
+        "register_helper",
+        "list_helpers",
+        "run_helper",
+        "get_batch_item",
+        "get_item_payload",
+        "get_item_messages",
+        "get_item_question",
+        "get_item_feedback",
+        "get_item_id",
+        "get_message_text",
+        "preview_item",
+        "json",
+        "re",
+        "math",
+        "collections",
+        "datetime",
+        "timedelta",
+        "date",
+        "time",
+        "timezone",
     }
 
     for key, value in parent.namespace.items():

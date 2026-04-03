@@ -213,9 +213,15 @@ class TestRRStepProtocol:
 class TestRRBatchReflection:
     """Test generic batch reflection paths."""
 
+    def _make_batch_rr(self):
+        """Create an RRStep with the orchestrator agent eagerly initialized."""
+        rr = RRStep("test-model", config=RRConfig(enable_subagent=False))
+        rr._ensure_batch_agents()
+        return rr
+
     def test_batch_splits_into_per_task_outputs(self):
         """Batch with per-item results in raw produces per-item ReflectorOutputs."""
-        rr = RRStep("test-model", config=RRConfig(enable_subagent=False))
+        rr = self._make_batch_rr()
 
         # Mock a batch result with per-item data in raw
         output = ReflectorOutput(
@@ -256,7 +262,7 @@ class TestRRBatchReflection:
         }
         ctx = ACEStepContext(trace=batch_trace, skillbook=SkillbookView(Skillbook()))
 
-        with patch.object(rr._agent, "run_sync", return_value=mock_result):
+        with patch.object(rr._orchestrator_agent, "run_sync", return_value=mock_result):
             result_ctx = rr(ctx)
 
         assert len(result_ctx.reflections) == 2
@@ -265,9 +271,9 @@ class TestRRBatchReflection:
         assert len(result_ctx.reflections[1].extracted_learnings) == 1
         assert result_ctx.reflections[0].raw["item_id"] == "t0"
 
-    def test_batch_fallback_duplicates_when_no_per_task(self):
-        """When batch output lacks per-item results, duplicate the single reflection."""
-        rr = RRStep("test-model", config=RRConfig(enable_subagent=False))
+    def test_batch_missing_per_item_results_fails_loudly(self):
+        """Direct batch output without per-item results should raise."""
+        rr = self._make_batch_rr()
 
         output = ReflectorOutput(
             reasoning="single batch analysis",
@@ -291,16 +297,13 @@ class TestRRBatchReflection:
         }
         ctx = ACEStepContext(trace=batch_trace, skillbook=SkillbookView(Skillbook()))
 
-        with patch.object(rr._agent, "run_sync", return_value=mock_result):
-            result_ctx = rr(ctx)
-
-        assert len(result_ctx.reflections) == 2
-        assert result_ctx.reflections[0].raw["item_id"] == "t0"
-        assert result_ctx.reflections[1].raw["item_id"] == "t1"
+        with patch.object(rr._orchestrator_agent, "run_sync", return_value=mock_result):
+            with pytest.raises(RuntimeError, match="raw\\['items'\\]"):
+                rr(ctx)
 
     def test_raw_list_batch_is_supported_without_preprocessing(self):
         """A raw list of trace items should route through generic batch mode."""
-        rr = RRStep("test-model", config=RRConfig(enable_subagent=False))
+        rr = self._make_batch_rr()
 
         output = ReflectorOutput(
             reasoning="raw list analysis",
@@ -336,7 +339,7 @@ class TestRRBatchReflection:
         ]
         ctx = ACEStepContext(trace=batch_trace, skillbook=SkillbookView(Skillbook()))
 
-        with patch.object(rr._agent, "run_sync", return_value=mock_result):
+        with patch.object(rr._orchestrator_agent, "run_sync", return_value=mock_result):
             result_ctx = rr(ctx)
 
         assert len(result_ctx.reflections) == 2
@@ -345,7 +348,7 @@ class TestRRBatchReflection:
 
     def test_combined_steps_batch_routes_through_generic_batch_mode(self):
         """Legacy combined-step batches should batch without inner normalization."""
-        rr = RRStep("test-model", config=RRConfig(enable_subagent=False))
+        rr = self._make_batch_rr()
 
         output = ReflectorOutput(
             reasoning="normalized batch analysis",
@@ -400,7 +403,7 @@ class TestRRBatchReflection:
         }
         ctx = ACEStepContext(trace=combined_trace, skillbook=SkillbookView(Skillbook()))
 
-        with patch.object(rr._agent, "run_sync", return_value=mock_result):
+        with patch.object(rr._orchestrator_agent, "run_sync", return_value=mock_result):
             result_ctx = rr(ctx)
 
         assert len(result_ctx.reflections) == 2

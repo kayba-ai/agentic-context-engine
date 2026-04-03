@@ -5,16 +5,22 @@ Uses a PydanticAI agent with ``execute_code``, ``analyze``, and
 and sub-agent analysis, then produces ``ReflectorOutput`` as structured
 output.
 
+Batch mode uses an orchestrator/worker pattern: the orchestrator agent
+can delegate trace subsets to focused worker RR sessions via
+``spawn_analysis`` / ``collect_results`` tools.
+
 Satisfies both ``StepProtocol`` (for Pipeline composition) and
 ``ReflectorLike`` (drop-in replacement for simple Reflector).
 """
 
 from __future__ import annotations
 
+import copy
 import json as _json
 import logging
 from typing import Any, Optional
 
+from pydantic_ai import Agent as PydanticAgent
 from pydantic_ai.exceptions import UsageLimitExceeded
 from pydantic_ai.settings import ModelSettings
 from pydantic_ai.usage import UsageLimits
@@ -22,13 +28,27 @@ from pydantic_ai.usage import UsageLimits
 from ace.core.context import ACEStepContext
 from ace.core.outputs import AgentOutput, ExtractedLearning, ReflectorOutput
 
-from .agent import RRDeps, create_rr_agent, create_sub_agent
+from .agent import (
+    RRDeps,
+    create_orchestrator_agent,
+    create_rr_agent,
+    create_sub_agent,
+    create_worker_agent,
+)
 from .config import RecursiveConfig
-from .prompts import REFLECTOR_RECURSIVE_PROMPT, REFLECTOR_RECURSIVE_SYSTEM
+from .prompts import (
+    ORCHESTRATOR_PROMPT,
+    ORCHESTRATOR_SYSTEM,
+    REFLECTOR_RECURSIVE_PROMPT,
+    REFLECTOR_RECURSIVE_SYSTEM,
+    WORKER_PROMPT,
+    WORKER_SYSTEM,
+)
 from .sandbox import TraceSandbox
 from .trace_context import TraceContext
 
 logger = logging.getLogger(__name__)
+_USE_DEFAULT_SUB_AGENT = object()
 
 
 def _preview(text: str | None, max_len: int = 150) -> str:
@@ -48,6 +68,9 @@ class RRStep:
     Internally uses a PydanticAI agent with tools for code execution
     and sub-agent analysis.  The agent produces ``ReflectorOutput``
     as structured output when it has gathered enough evidence.
+
+    Batch mode uses an orchestrator/worker pattern where the orchestrator
+    can delegate subsets of traces to focused worker sessions.
 
     Args:
         model: LiteLLM or PydanticAI model string.
@@ -70,8 +93,9 @@ class RRStep:
         self.config = config or RecursiveConfig()
         self.prompt_template = prompt_template
         self._model = model
+        self._model_settings = model_settings
 
-        # Build PydanticAI agents
+        # Build PydanticAI agents (single-trace)
         self._agent = create_rr_agent(
             model,
             system_prompt=REFLECTOR_RECURSIVE_SYSTEM,
@@ -87,6 +111,37 @@ class RRStep:
             else None
         )
 
+        # Batch-only agents — created lazily on first batch use
+        self._orchestrator_agent: PydanticAgent[RRDeps, ReflectorOutput] | None = None
+        self._worker_agent: PydanticAgent[RRDeps, ReflectorOutput] | None = None
+
+    # ------------------------------------------------------------------
+    # Lazy batch agent creation
+    # ------------------------------------------------------------------
+
+    def _ensure_batch_agents(self) -> None:
+        """Create orchestrator and worker agents on first batch use."""
+        if self._orchestrator_agent is not None:
+            return
+
+        self._orchestrator_agent = create_orchestrator_agent(
+            self._model,
+            system_prompt=ORCHESTRATOR_SYSTEM,
+            config=self.config,
+            model_settings=self._model_settings,
+            spawn_worker_fn=self._run_worker_session,
+            slice_batch_fn=self._slice_batch_trace,
+            get_batch_items_fn=self._get_batch_items,
+        )
+
+        self._worker_agent = create_worker_agent(
+            self.config.worker_model or self._model,
+            system_prompt=WORKER_SYSTEM,
+            config=self.config,
+            model_settings=self._model_settings,
+            enable_subagent=self.config.worker_enable_subagent,
+        )
+
     # ------------------------------------------------------------------
     # StepProtocol entry
     # ------------------------------------------------------------------
@@ -95,9 +150,8 @@ class RRStep:
         """Run the Recursive Reflector and attach the reflection(s).
 
         When the trace is a batch container (a raw list, ``"items"``,
-        ``"tasks"``, or a legacy combined ``steps`` batch), a single
-        session analyzes all items. Per-item results are parsed from
-        the structured output.
+        ``"tasks"``, or a legacy combined ``steps`` batch), the
+        orchestrator agent manages the analysis.
         """
         trace = ctx.trace or {}
         if self._get_batch_items(trace) is not None:
@@ -132,11 +186,7 @@ class RRStep:
         feedback: Optional[str] = None,
         **kwargs: Any,
     ) -> ReflectorOutput:
-        """ReflectorLike — delegates to the PydanticAI agent.
-
-        Allows RRStep to be used as a drop-in replacement for Reflector
-        in any runner or learning_tail pipeline.
-        """
+        """ReflectorLike — delegates to the PydanticAI agent."""
         return self._run_reflection(
             question=question,
             agent_output=agent_output,
@@ -147,7 +197,7 @@ class RRStep:
         )
 
     # ------------------------------------------------------------------
-    # Core reflection logic
+    # Core reflection logic (single-trace)
     # ------------------------------------------------------------------
 
     def _run_reflection(
@@ -174,8 +224,80 @@ class RRStep:
                 question, agent_output, ground_truth, feedback, trace_obj
             )
 
-        # Build sandbox with trace data (no ask_llm/FINAL injection)
+        output, deps = self._run_reflection_session(
+            traces=traces,
+            skillbook=skillbook,
+            agent=self._agent,
+            max_llm_calls=self.config.max_llm_calls,
+            config=self.config,
+            trace_obj=trace_obj,
+        )
+
+        # Enrich timeout output with ground-truth comparison if available
+        if output.raw.get("timeout") and (ground_truth or agent_output):
+            output = self._build_timeout_output(
+                question, agent_output, ground_truth, feedback, deps
+            )
+
+        return output
+
+    # ------------------------------------------------------------------
+    # Factored session helper
+    # ------------------------------------------------------------------
+
+    def _run_reflection_session(
+        self,
+        *,
+        traces: Any,
+        skillbook: Any,
+        agent: PydanticAgent[RRDeps, ReflectorOutput],
+        max_llm_calls: int,
+        config: RecursiveConfig,
+        is_orchestrator: bool = False,
+        assignment: dict[str, Any] | None = None,
+        inherited_helpers: dict[str, dict[str, str]] | None = None,
+        trace_obj: Any = None,
+        sub_agent: Any = _USE_DEFAULT_SUB_AGENT,
+    ) -> tuple[ReflectorOutput, RRDeps]:
+        """Run a complete RR session lifecycle.
+
+        Shared by single-trace, orchestrator, and worker paths.
+
+        Args:
+            traces: Trace data (single or batch).
+            skillbook: Skillbook instance or text.
+            agent: PydanticAI agent to run.
+            max_llm_calls: LLM call budget for this session.
+            config: RR configuration.
+            is_orchestrator: Whether this is an orchestrator session.
+            assignment: Worker assignment metadata (workers only).
+            inherited_helpers: Helper definitions from parent session.
+            trace_obj: Optional TraceContext for single-trace sessions.
+
+        Returns:
+            Tuple of (ReflectorOutput, RRDeps).
+        """
+        # Build sandbox
         sandbox = self._create_sandbox(trace_obj, traces, skillbook)
+
+        # Inject inherited helpers into worker sandbox
+        if inherited_helpers:
+            for hname, meta in inherited_helpers.items():
+                source = meta.get("source", "")
+                if source.strip():
+                    try:
+                        sandbox.execute(source, timeout=config.timeout)
+                        registry = sandbox.namespace.setdefault("helper_registry", {})
+                        registry[hname] = {
+                            "description": meta.get("description", ""),
+                            "source": source,
+                        }
+                    except Exception as exc:
+                        logger.warning(
+                            "Failed to inject helper %s into worker: %s",
+                            hname,
+                            exc,
+                        )
 
         # Resolve skillbook text
         skillbook_text = ""
@@ -185,30 +307,45 @@ class RRStep:
             else:
                 skillbook_text = str(skillbook)
 
-        # Build deps for PydanticAI agent
+        # Compute expected item count for worker output validation
+        expected_item_count = None
+        if assignment is not None:
+            expected_item_count = len(assignment.get("trace_indices", []))
+
+        # Build deps
+        deps_sub_agent = self._sub_agent
+        if sub_agent is not _USE_DEFAULT_SUB_AGENT:
+            deps_sub_agent = sub_agent
         deps = RRDeps(
             sandbox=sandbox,
             trace_data=traces,
             skillbook_text=skillbook_text or "(empty skillbook)",
-            config=self.config,
-            sub_agent=self._sub_agent,
+            config=config,
+            sub_agent=deps_sub_agent,
+            is_orchestrator=is_orchestrator,
+            expected_item_count=expected_item_count,
         )
 
-        # Build user prompt
-        initial_prompt = self._build_initial_prompt(traces, skillbook, trace_obj)
+        # Build prompt
+        if is_orchestrator:
+            initial_prompt = self._build_orchestrator_prompt(traces, skillbook)
+        elif assignment is not None:
+            initial_prompt = self._build_worker_prompt(traces, skillbook, assignment)
+        else:
+            initial_prompt = self._build_initial_prompt(traces, skillbook, trace_obj)
 
-        # Run the PydanticAI agent with usage limits
-        usage_limits = UsageLimits(request_limit=self.config.max_llm_calls)
+        # Run the PydanticAI agent
+        usage_limits = UsageLimits(request_limit=max_llm_calls)
 
         try:
-            result = self._agent.run_sync(
+            result = agent.run_sync(
                 initial_prompt,
                 deps=deps,
                 usage_limits=usage_limits,
             )
             output = result.output
 
-            # Merge execution metadata into raw (preserve LLM-populated fields)
+            # Merge execution metadata into raw
             usage = result.usage()
             output.raw = {
                 **output.raw,
@@ -227,32 +364,131 @@ class RRStep:
             }
 
             logger.info(
-                "RR completed: %d tool calls, %d sub-agent calls",
+                "RR session completed: %d tool calls, %d sub-agent calls%s",
                 deps.iteration,
                 len(deps.sub_agent_history),
+                " (orchestrator)" if is_orchestrator else "",
             )
 
-            return output
+            return output, deps
 
         except UsageLimitExceeded:
             logger.warning(
-                "RR usage limit reached (%d requests)",
-                self.config.max_llm_calls,
+                "RR usage limit reached (%d requests)%s",
+                max_llm_calls,
+                " in orchestrator" if is_orchestrator else "",
             )
-            return self._build_timeout_output(
-                question, agent_output, ground_truth, feedback, deps
+            output = ReflectorOutput(
+                reasoning=(
+                    f"Recursive analysis reached usage limit "
+                    f"({max_llm_calls} requests)."
+                ),
+                error_identification="timeout",
+                root_cause_analysis="Analysis incomplete due to request limit",
+                correct_approach=(
+                    "Consider increasing budget or simplifying the analysis"
+                ),
+                key_insight="Session reached usage limit before completing",
+                raw={
+                    "timeout": True,
+                    "max_llm_calls": max_llm_calls,
+                    "max_llm_calls_scope": "main_agent_session",
+                    "rr_trace": {
+                        "total_iterations": deps.iteration,
+                        "subagent_calls": deps.sub_agent_history,
+                        "timed_out": True,
+                    },
+                },
             )
+            return output, deps
+
         except Exception as e:
             logger.error("RR agent failed: %s", e, exc_info=True)
-            return ReflectorOutput(
+            output = ReflectorOutput(
                 reasoning=f"Recursive analysis failed: {e}",
                 correct_approach="",
                 key_insight="",
                 raw={"error": str(e)},
             )
+            return output, deps
+
+        finally:
+            # Clean up worker pool if orchestrator
+            if is_orchestrator:
+                self._harvest_pending_clusters(deps)
+                if deps.cluster_pool is not None:
+                    deps.cluster_pool.shutdown(wait=False)
+                    deps.cluster_pool = None
 
     # ------------------------------------------------------------------
-    # Batch reflection
+    # Worker session
+    # ------------------------------------------------------------------
+
+    def _run_worker_session(
+        self,
+        *,
+        sub_batch: Any,
+        skillbook_text: str,
+        assignment: dict[str, Any],
+        inherited_helpers: dict[str, dict[str, str]],
+        trace_indices: list[int],
+    ) -> tuple[ReflectorOutput, RRDeps]:
+        """Run a worker RR session for a delegated trace subset.
+
+        Called by the orchestrator's ``spawn_analysis`` tool via the
+        thread pool.
+
+        Args:
+            sub_batch: Sliced batch trace for this worker.
+            skillbook_text: Skillbook text from the orchestrator.
+            assignment: Assignment metadata (cluster_name, goal, etc.).
+            inherited_helpers: Helper definitions from the orchestrator.
+            trace_indices: Original indices in the parent batch.
+
+        Returns:
+            Tuple of (ReflectorOutput, RRDeps).
+        """
+        assert self._worker_agent is not None, "Worker agent not initialized"
+
+        # Compute worker budget from assignment size
+        item_count = len(trace_indices)
+        serialized_size = len(_json.dumps(sub_batch, default=str))
+
+        # Budget heuristic: base + per-item + size factor
+        base_budget = 10
+        per_item_budget = 3
+        size_factor = max(1, serialized_size // 50_000)
+        computed_budget = base_budget + (per_item_budget * item_count) + size_factor
+
+        # Cap at main agent budget
+        max_budget = self.config.max_llm_calls
+        worker_budget = min(computed_budget, max_budget)
+
+        # Worker sub-agent: use separate sub-agent if enabled
+        worker_sub_agent = None
+        if self.config.worker_enable_subagent:
+            subagent_model = (
+                self.config.subagent_model
+                or self.config.worker_model
+                or self._model
+            )
+            worker_sub_agent = create_sub_agent(subagent_model, config=self.config)
+
+        output, deps = self._run_reflection_session(
+            traces=sub_batch,
+            skillbook=skillbook_text,
+            agent=self._worker_agent,
+            max_llm_calls=worker_budget,
+            config=self.config,
+            assignment=assignment,
+            inherited_helpers=inherited_helpers,
+            sub_agent=worker_sub_agent,
+        )
+
+        return output, deps
+
+    # ------------------------------------------------------------------
+    # Batch reflection (orchestrator path)
     # ------------------------------------------------------------------
 
     def _run_batch_reflections(
@@ -260,46 +496,325 @@ class RRStep:
         batch_trace: Any,
         skillbook: Any,
     ) -> tuple[ReflectorOutput, ...]:
-        """Run a single session for all items in a batch."""
+        """Run orchestrated batch analysis.
+
+        Uses the orchestrator agent which can delegate to worker sessions.
+        The orchestrator decides whether to analyze directly or delegate
+        based on batch size and complexity.
+        """
+        self._ensure_batch_agents()
+        assert self._orchestrator_agent is not None
+
         items = self._get_batch_items(batch_trace) or []
 
-        reflection = self._run_reflection(
+        output, deps = self._run_reflection_session(
             traces=batch_trace,
             skillbook=skillbook,
+            agent=self._orchestrator_agent,
+            max_llm_calls=self.config.orchestrator_max_llm_calls,
+            config=self.config,
+            is_orchestrator=True,
         )
 
-        return self._split_batch_reflection(reflection, items)
+        # Determine if workers were used
+        has_workers = bool(deps.cluster_results)
+
+        if has_workers:
+            # Validate and merge worker results
+            reflections = self._merge_cluster_results(deps, items)
+            orchestration_summary = self._build_orchestration_summary(output)
+            for reflection in reflections:
+                reflection.raw["orchestration_summary"] = copy.deepcopy(
+                    orchestration_summary
+                )
+            return reflections
+        else:
+            # Direct analysis — orchestrator produced raw["items"]
+            return self._split_batch_reflection(output, items)
+
+    # ------------------------------------------------------------------
+    # Batch slicing
+    # ------------------------------------------------------------------
+
+    def _slice_batch_trace(self, traces: Any, indices: list[int]) -> Any:
+        """Slice a batch trace to a subset of items, preserving container shape.
+
+        Supports:
+        - Raw ``list[...]``
+        - Dict with ``"items"`` key
+        - Dict with ``"tasks"`` key
+        - Legacy combined ``"steps"`` batch
+        - Preserves batch-level metadata outside the item list
+        """
+        if isinstance(traces, list):
+            return [traces[i] for i in indices]
+
+        if not isinstance(traces, dict):
+            return traces
+
+        # Find the item list key
+        for key in ("items", "tasks"):
+            item_list = traces.get(key)
+            if isinstance(item_list, list):
+                sliced = {k: v for k, v in traces.items() if k != key}
+                sliced[key] = [item_list[i] for i in indices]
+                return sliced
+
+        # Legacy combined steps batch
+        if self._looks_like_combined_steps_batch(traces):
+            steps = traces["steps"]
+            sliced = {k: v for k, v in traces.items() if k != "steps"}
+            sliced["steps"] = [steps[i] for i in indices]
+            return sliced
+
+        return traces
+
+    # ------------------------------------------------------------------
+    # Validation and merge
+    # ------------------------------------------------------------------
+
+    def _merge_cluster_results(
+        self,
+        deps: RRDeps,
+        batch_items: list[Any],
+    ) -> tuple[ReflectorOutput, ...]:
+        """Merge validated cluster results into original item order.
+
+        Raises:
+            RuntimeError: If coverage is incomplete, overlapping, or
+                any cluster has unresolved issues.
+        """
+        batch_size = len(batch_items)
+        result_slots: list[ReflectorOutput | None] = [None] * batch_size
+        coverage: set[int] = set()
+        errors: list[str] = []
+
+        for name, cr in deps.cluster_results.items():
+            status = cr["status"]
+            assignment = cr["assignment"]
+            trace_indices: list[int] = assignment["trace_indices"]
+
+            if status == "completed":
+                per_item: tuple[ReflectorOutput, ...] = cr["per_item_reflections"]
+                if len(per_item) != len(trace_indices):
+                    errors.append(
+                        f"Cluster {name!r}: expected {len(trace_indices)} "
+                        f"items, got {len(per_item)}"
+                    )
+                    continue
+
+                for local_idx, global_idx in enumerate(trace_indices):
+                    if global_idx in coverage:
+                        errors.append(
+                            f"Cluster {name!r}: index {global_idx} already "
+                            f"covered by another cluster"
+                        )
+                        continue
+                    coverage.add(global_idx)
+                    item_id = self._get_batch_item_id(
+                        batch_items[global_idx], global_idx
+                    )
+                    r = per_item[local_idx]
+                    r.raw["item_id"] = item_id
+                    result_slots[global_idx] = r
+
+            elif status in ("failed", "timed_out", "invalid"):
+                issues = cr.get("issues", [])
+                errors.append(f"Cluster {name!r}: {status} — {issues}")
+            else:
+                errors.append(f"Cluster {name!r}: unexpected status {status!r}")
+
+        # Check for missing coverage
+        missing = set(range(batch_size)) - coverage
+        if missing:
+            errors.append(f"Missing coverage for trace indices: {sorted(missing)}")
+
+        if errors:
+            error_detail = "\n".join(f"  - {e}" for e in errors)
+            raise RuntimeError(
+                f"Orchestrated batch RR failed validation:\n{error_detail}\n"
+                f"Coverage: {len(coverage)}/{batch_size} traces."
+            )
+
+        # All slots must be populated
+        assert all(s is not None for s in result_slots)
+        return tuple(result_slots)  # type: ignore[arg-type]
+
+    def _build_orchestration_summary(
+        self,
+        output: ReflectorOutput,
+    ) -> dict[str, Any]:
+        """Preserve the orchestrator's own final output for observability."""
+        raw = {k: v for k, v in output.raw.items() if k not in {"items", "tasks"}}
+        return {
+            "reasoning": output.reasoning,
+            "error_identification": output.error_identification,
+            "root_cause_analysis": output.root_cause_analysis,
+            "correct_approach": output.correct_approach,
+            "key_insight": output.key_insight,
+            "raw": raw,
+        }
+
+    def _record_cluster_result(
+        self,
+        deps: RRDeps,
+        *,
+        name: str,
+        assignment: dict[str, Any],
+        worker_output: ReflectorOutput,
+        expected_count: int,
+    ) -> None:
+        """Validate a worker output and store it in ``cluster_results``."""
+        item_results = worker_output.raw.get("items", [])
+        issues: list[str] = []
+
+        if not item_results:
+            issues.append("Missing raw['items'] in worker output")
+            status = "invalid"
+        elif len(item_results) != expected_count:
+            issues.append(f"Expected {expected_count} items, got {len(item_results)}")
+            status = "invalid"
+        else:
+            status = "completed"
+
+        per_item: list[ReflectorOutput] = []
+        if status == "completed":
+            rr_trace = worker_output.raw.get("rr_trace", {})
+            for tr in item_results:
+                if not isinstance(tr, dict):
+                    issues.append("Non-dict item in raw['items']")
+                    status = "invalid"
+                    break
+                learnings = tr.get("extracted_learnings", tr.get("learnings", [])) or []
+                per_item.append(
+                    ReflectorOutput(
+                        reasoning=tr.get("reasoning", ""),
+                        error_identification=str(tr.get("error_identification", "")),
+                        root_cause_analysis=tr.get("root_cause_analysis", ""),
+                        correct_approach=tr.get("correct_approach", ""),
+                        key_insight=tr.get("key_insight", ""),
+                        extracted_learnings=[
+                            ExtractedLearning(
+                                learning=l.get("learning", ""),
+                                atomicity_score=float(l.get("atomicity_score", 0.0)),
+                                evidence=l.get("evidence", ""),
+                            )
+                            for l in learnings
+                            if isinstance(l, dict)
+                        ],
+                        raw={**tr, "rr_trace": rr_trace},
+                    )
+                )
+
+        deps.cluster_results[name] = {
+            "assignment": assignment,
+            "status": status,
+            "issues": issues,
+            "worker_output": worker_output,
+            "per_item_reflections": tuple(per_item),
+            "usage": worker_output.raw.get("usage", {}),
+            "rr_trace": worker_output.raw.get("rr_trace", {}),
+        }
+
+    def _record_cluster_failure(
+        self,
+        deps: RRDeps,
+        *,
+        name: str,
+        assignment: dict[str, Any],
+        status: str,
+        issues: list[str],
+    ) -> None:
+        """Record an explicit failed or timed-out cluster result."""
+        deps.cluster_results[name] = {
+            "assignment": assignment,
+            "status": status,
+            "issues": issues,
+            "worker_output": None,
+            "per_item_reflections": (),
+            "usage": {},
+            "rr_trace": {},
+        }
+
+    def _harvest_pending_clusters(self, deps: RRDeps) -> None:
+        """Record any uncollected worker results before the session ends."""
+        if not deps.pending_clusters:
+            return
+
+        for name, info in list(deps.pending_clusters.items()):
+            future = info["future"]
+            assignment = info["assignment"]
+            expected_count = len(assignment["trace_indices"])
+
+            if not future.done():
+                self._record_cluster_failure(
+                    deps,
+                    name=name,
+                    assignment=assignment,
+                    status="failed",
+                    issues=[
+                        "Worker assignment was still pending when the "
+                        "orchestrator session ended. Call collect_results() "
+                        "before finalizing."
+                    ],
+                )
+                continue
+
+            try:
+                worker_output, _worker_deps = future.result()
+            except Exception as exc:
+                self._record_cluster_failure(
+                    deps,
+                    name=name,
+                    assignment=assignment,
+                    status="failed",
+                    issues=[f"{type(exc).__name__}: {exc}"],
+                )
+                continue
+
+            self._record_cluster_result(
+                deps,
+                name=name,
+                assignment=assignment,
+                worker_output=worker_output,
+                expected_count=expected_count,
+            )
+
+        deps.pending_clusters.clear()
+        deps.sandbox.inject("cluster_results", deps.cluster_results)
 
     def _split_batch_reflection(
         self,
         reflection: ReflectorOutput,
         items: list[Any],
     ) -> tuple[ReflectorOutput, ...]:
-        """Extract per-item ReflectorOutputs from batch output."""
-        item_results = reflection.raw.get("items")
-        if not item_results:
-            item_results = reflection.raw.get("tasks", [])
+        """Extract per-item ReflectorOutputs from validated batch output."""
+        if not items:
+            return ()
 
-        if not item_results or len(item_results) != len(items):
-            logger.warning(
-                "Batch missing per-item results (got %d, expected %d); "
-                "duplicating single reflection",
-                len(item_results) if item_results else 0,
-                len(items),
+        item_results = reflection.raw.get("items")
+        if item_results is None:
+            item_results = reflection.raw.get("tasks")
+
+        if not isinstance(item_results, list):
+            raise RuntimeError(
+                "Direct batch analysis did not return raw['items'] as a list."
             )
-            fallback = []
-            for i, item in enumerate(items):
-                r = reflection.model_copy(deep=True)
-                r.raw["item_id"] = self._get_batch_item_id(item, i)
-                fallback.append(r)
-            return tuple(fallback)
+        if len(item_results) != len(items):
+            raise RuntimeError(
+                "Direct batch analysis returned the wrong number of per-item "
+                f"results: expected {len(items)}, got {len(item_results)}."
+            )
 
         reflections: list[ReflectorOutput] = []
         rr_trace = reflection.raw.get("rr_trace", {})
         for i, (item, tr) in enumerate(zip(items, item_results)):
             item_id = self._get_batch_item_id(item, i)
             if not isinstance(tr, dict):
-                tr = {}
+                raise RuntimeError(
+                    "Direct batch analysis returned a non-dict entry in "
+                    f"raw['items'] at index {i}."
+                )
             learnings = tr.get("extracted_learnings", tr.get("learnings", []))
             reflections.append(
                 ReflectorOutput(
@@ -327,6 +842,159 @@ class RRStep:
                 )
             )
         return tuple(reflections)
+
+    # ------------------------------------------------------------------
+    # Orchestrator prompt
+    # ------------------------------------------------------------------
+
+    def _build_orchestrator_prompt(
+        self,
+        traces: Any,
+        skillbook: Any,
+    ) -> str:
+        """Build the slim batch manager prompt for the orchestrator."""
+        batch_items = self._get_batch_items(traces) or []
+        batch_count = len(batch_items)
+
+        # Compute totals
+        total_size_chars = len(_json.dumps(traces, default=str))
+        total_message_count = sum(
+            len(self._extract_batch_messages(item)) for item in batch_items
+        )
+
+        # Pass/fail breakdown
+        pass_count = 0
+        fail_count = 0
+        unknown_count = 0
+        for item in batch_items:
+            feedback = self._extract_batch_field(item, "feedback")
+            if "reward=1.0" in str(feedback) or "PASSED" in str(feedback).upper():
+                pass_count += 1
+            elif "reward=0.0" in str(feedback) or "FAILED" in str(feedback).upper():
+                fail_count += 1
+            else:
+                unknown_count += 1
+
+        # Capped exemplar IDs
+        exemplar_ids = []
+        cap = min(10, batch_count)
+        for i in range(cap):
+            exemplar_ids.append(self._get_batch_item_id(batch_items[i], i))
+        exemplar_section = ""
+        if exemplar_ids:
+            exemplar_section = f"- **Exemplar IDs (first {cap}):** " + ", ".join(
+                f"`{eid}`" for eid in exemplar_ids
+            )
+            if batch_count > cap:
+                exemplar_section += f" ... and {batch_count - cap} more"
+
+        # Survey group count
+        survey_items = self._build_survey_items(batch_items)
+        survey_group_section = f"- **Precomputed survey groups:** {len(survey_items)}"
+
+        # Skillbook length
+        skillbook_text = ""
+        if skillbook is not None:
+            if hasattr(skillbook, "as_prompt"):
+                skillbook_text = skillbook.as_prompt() or ""
+            else:
+                skillbook_text = str(skillbook)
+
+        return ORCHESTRATOR_PROMPT.format(
+            batch_count=batch_count,
+            total_size_chars=total_size_chars,
+            total_message_count=total_message_count,
+            pass_count=pass_count,
+            fail_count=fail_count,
+            unknown_count=unknown_count,
+            exemplar_section=exemplar_section,
+            survey_group_section=survey_group_section,
+            skillbook_length=len(skillbook_text),
+            max_iterations=self.config.orchestrator_max_llm_calls,
+        )
+
+    # ------------------------------------------------------------------
+    # Worker prompt
+    # ------------------------------------------------------------------
+
+    def _build_worker_prompt(
+        self,
+        traces: Any,
+        skillbook: Any,
+        assignment: dict[str, Any],
+    ) -> str:
+        """Build the worker prompt for a delegated trace subset."""
+        batch_items = self._get_batch_items(traces) or []
+        trace_count = len(batch_items)
+
+        skillbook_text = ""
+        if skillbook is not None:
+            if isinstance(skillbook, str):
+                skillbook_text = skillbook
+            elif hasattr(skillbook, "as_prompt"):
+                skillbook_text = skillbook.as_prompt() or "(empty skillbook)"
+            else:
+                skillbook_text = str(skillbook)
+
+        # Helper section
+        sandbox = self._create_sandbox(None, traces, skillbook)
+        helper_prompt = ""
+        registry = sandbox.namespace.get("helper_registry", {})
+        if isinstance(registry, dict) and registry:
+            helper_lines = [
+                "| `helper_registry` | Inherited helpers from parent session | dynamic |"
+            ]
+            for hname, meta in registry.items():
+                if isinstance(meta, dict):
+                    desc = meta.get("description", "no description")
+                    helper_lines.append(f"| `{hname}` | {desc} | callable |")
+            helper_prompt = "\n".join(helper_lines)
+
+        # Analysis tools section
+        analysis_tools = ""
+        if self.config.worker_enable_subagent:
+            analysis_tools = (
+                "| `analyze(question, mode, context?)` | Sub-agent analysis. |\n"
+                "| `batch_analyze(question, items, mode)` | Parallel sub-agent analysis. |\n"
+            )
+
+        # Analysis strategy
+        if self.config.worker_enable_subagent:
+            analysis_strategy = (
+                "Use analyze/batch_analyze for deep investigation, "
+                "execute_code for data preparation."
+            )
+        else:
+            analysis_strategy = (
+                "Use execute_code to explore and analyze traces directly. "
+                "Build your analysis from code-extracted evidence."
+            )
+
+        # Compute worker budget
+        item_count = trace_count
+        serialized_size = len(_json.dumps(traces, default=str))
+        base_budget = 10
+        per_item_budget = 3
+        size_factor = max(1, serialized_size // 50_000)
+        worker_budget = min(
+            base_budget + (per_item_budget * item_count) + size_factor,
+            self.config.max_llm_calls,
+        )
+
+        return WORKER_PROMPT.format(
+            cluster_name=assignment.get("cluster_name", "unknown"),
+            goal=assignment.get("goal", "Analyze assigned traces"),
+            success_criteria=assignment.get(
+                "success_criteria", "Per-item reflections with evidence"
+            ),
+            trace_count=trace_count,
+            trace_indices=assignment.get("trace_indices", []),
+            skillbook_length=len(skillbook_text),
+            helper_section=helper_prompt,
+            analysis_tools_section=analysis_tools,
+            analysis_strategy=analysis_strategy,
+            max_iterations=worker_budget,
+        )
 
     # ------------------------------------------------------------------
     # Setup helpers
@@ -362,17 +1030,20 @@ class RRStep:
         traces: Any,
         skillbook: Any,
     ) -> TraceSandbox:
-        """Create a simplified sandbox for code execution.
-
-        Unlike the old RRStep, does NOT inject ask_llm, FINAL, or
-        parallel_map — those are now PydanticAI tools.
-        """
-        sandbox = TraceSandbox(trace=trace_obj, llm_query_fn=None)
+        """Create a simplified sandbox for code execution."""
+        sandbox = TraceSandbox(
+            trace=trace_obj,
+            llm_query_fn=None,
+            parallel_max_concurrency=self.config.local_parallel_max_concurrency,
+            parallel_timeout=self.config.local_parallel_timeout,
+        )
 
         # Skillbook text
         skillbook_text = ""
         if skillbook is not None:
-            if hasattr(skillbook, "as_prompt"):
+            if isinstance(skillbook, str):
+                skillbook_text = skillbook
+            elif hasattr(skillbook, "as_prompt"):
                 skillbook_text = skillbook.as_prompt() or "(empty skillbook)"
             else:
                 skillbook_text = str(skillbook)
@@ -654,7 +1325,9 @@ class RRStep:
 
         skillbook_text = ""
         if skillbook is not None:
-            if hasattr(skillbook, "as_prompt"):
+            if isinstance(skillbook, str):
+                skillbook_text = skillbook
+            elif hasattr(skillbook, "as_prompt"):
                 skillbook_text = skillbook.as_prompt() or ""
             else:
                 skillbook_text = str(skillbook)
@@ -702,6 +1375,13 @@ class RRStep:
                     "| `list_helpers()` | List registered helper names/descriptions | callable |\n"
                     "| `run_helper(name, *args, **kwargs)` | Invoke a registered helper by name | callable |\n"
                     "| `get_batch_item(index)` | Convenience accessor for `batch_items[index]` | callable |\n"
+                    "| `get_item_payload(item_or_index)` | Normalize a batch item or index to its payload dict/list | callable |\n"
+                    "| `get_item_messages(item_or_index)` | Return the best-effort message list for a batch item | callable |\n"
+                    "| `get_item_question(item_or_index)` | Return the question string for a batch item | callable |\n"
+                    "| `get_item_feedback(item_or_index)` | Return the feedback string for a batch item | callable |\n"
+                    "| `get_item_id(item_or_index)` | Return the stable item identifier | callable |\n"
+                    "| `get_message_text(message)` | Safely render message content/tool metadata as text | callable |\n"
+                    "| `preview_item(item_or_index)` | Compact summary for one batch item | callable |\n"
                     f"| `item_ids` | Ordered item ids for this batch | {len(batch_items)} ids |\n"
                     f"| `item_id_to_index` | Maps item id to `batch_items[i]` | {len(batch_items)} entries |\n"
                     f"| `item_preview_by_id` | Compact previews per batch item | {len(batch_items)} entries |\n"
@@ -729,6 +1409,7 @@ class RRStep:
                         "| `register_helper` | Persist helper code for this run and sub-agent snapshots | callable |\n"
                         "| `list_helpers()` | List registered helper names/descriptions | callable |\n"
                         "| `run_helper(name, *args, **kwargs)` | Invoke a registered helper by name | callable |\n"
+                        "| `get_message_text(message)` | Safely render message content/tool metadata as text | callable |\n"
                     ),
                     traces_previews=(
                         "| Field | Preview | Size |\n"
@@ -789,7 +1470,7 @@ class RRStep:
         return self.prompt_template.format(**fmt_kwargs)
 
     # ------------------------------------------------------------------
-    # Timeout / error fallback
+    # Timeout / error fallback (single-trace only)
     # ------------------------------------------------------------------
 
     def _build_timeout_output(
