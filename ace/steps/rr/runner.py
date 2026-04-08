@@ -29,13 +29,12 @@ from ace.core.context import ACEStepContext
 from ace.core.outputs import AgentOutput, ExtractedLearning, ReflectorOutput
 
 from .agent import (
-    RRDeps,
-    build_cluster_results_view,
     create_orchestrator_agent,
     create_rr_agent,
     create_sub_agent,
     create_worker_agent,
 )
+from .tools import RRDeps, build_cluster_results_view
 from .config import RecursiveConfig
 from .prompts import (
     ORCHESTRATOR_PROMPT,

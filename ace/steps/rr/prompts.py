@@ -216,6 +216,25 @@ Use execute_code to explore data. Registered helpers are available from the pare
 Your output MUST include raw["items"] with one entry per assigned trace, in order."""
 
 
+# ---------------------------------------------------------------------------
+# Sub-agent prompts
+# ---------------------------------------------------------------------------
+
+SUBAGENT_SYSTEM = """\
+You are a trace analysis sub-agent with code execution access.
+Explore the trace data directly using execute_code — all variables from the parent session \
+are available. Provide a focused, evidence-based analysis."""
+
+SUBAGENT_ANALYSIS_PROMPT = """\
+Perform a survey-level analysis. Identify the key patterns, outcomes, and notable events. \
+Use execute_code to read the relevant data directly — do not guess or assume structure."""
+
+SUBAGENT_DEEPDIVE_PROMPT = """\
+Perform a deep investigation. Verify claims against raw data, trace root causes, and \
+identify the specific decision points that determined the outcome. \
+Use execute_code to examine evidence directly."""
+
+
 WORKER_PROMPT = """\
 <assignment>
 ## Worker Assignment: {cluster_name}
@@ -264,7 +283,3 @@ You have {max_iterations} LLM calls in this session.
 Now analyze the assigned traces.
 """
 
-
-# Backward-compat aliases
-REFLECTOR_RECURSIVE_V3_SYSTEM = REFLECTOR_RECURSIVE_SYSTEM
-REFLECTOR_RECURSIVE_V3_PROMPT = REFLECTOR_RECURSIVE_PROMPT

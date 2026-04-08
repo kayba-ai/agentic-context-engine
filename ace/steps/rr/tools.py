@@ -1,82 +1,72 @@
-"""PydanticAI-based Recursive Reflector agent.
+"""RR agent tool registrars.
 
-Replaces the SubRunner REPL loop with a PydanticAI agent that has three
-tools:
-
-- ``execute_code`` — run Python in the analysis sandbox
-- ``analyze`` — ask a sub-agent for targeted analysis
-- ``batch_analyze`` — parallel sub-agent analysis of multiple items
-
-Orchestrator agents additionally have:
-
-- ``spawn_analysis`` — delegate a subset of traces to a worker RR session
-- ``collect_results`` — collect completed worker results
-
-Sub-agents have their own ``execute_code`` tool backed by an isolated
-sandbox snapshot, so they can explore trace data directly without the
-main agent having to serialize data into tool parameters.
-
-The agent produces ``ReflectorOutput`` as structured output when it has
-gathered enough evidence.
+Each ``_register_*`` function attaches one or more PydanticAI tools to an
+agent instance.  Keeping tool definitions separate from agent factories
+makes both easier to read and test independently.
 """
 
 from __future__ import annotations
 
 import logging
-import time as _time_mod
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable
 
-from pydantic_ai import Agent as PydanticAgent, ModelRetry, RunContext
+from pydantic_ai import ModelRetry, RunContext
 from pydantic_ai.exceptions import UsageLimitExceeded
-from pydantic_ai.settings import ModelSettings
 from pydantic_ai.usage import UsageLimits
 
-from ace.core.outputs import ReflectorOutput
-from ace.providers.pydantic_ai import resolve_model
+from ace.core.outputs import ExtractedLearning, ReflectorOutput
 
 from .config import RecursiveConfig
+from .prompts import SUBAGENT_ANALYSIS_PROMPT, SUBAGENT_DEEPDIVE_PROMPT
 from .sandbox import TraceSandbox, create_readonly_sandbox
 
-# --- Sub-agent prompt protocols ---
-
-SUBAGENT_ANALYSIS_PROMPT = """\
-You are a trace reader for a multi-phase analysis pipeline. A downstream agent will use your output to categorize traces and decide which ones deserve deep investigation. It will not read the raw traces itself — your summary is its only view into the data.
-
-For each trace or conversation in the context:
-1. **Task** — what was requested or attempted (brief).
-2. **Approach** — the agent's key steps, tools used, and the overall sequence of actions.
-3. **Decision points** — where the agent chose between alternatives. What did it choose and what were the other options?
-4. **Mistakes** — errors, wrong turns, retries, wasted steps. Describe what went wrong factually — do not analyze root causes.
-5. **What stood out** — anything non-obvious: clever recoveries, unusual tool usage, unexpected results, or signs of a pattern.
-6. **Evaluation criteria** — if evaluation criteria, rules, or a checklist are provided in the context, actively evaluate every applicable criterion for every trace — even successful ones. Cite evidence for any violations.
-
-Cite step numbers or message excerpts as evidence. Be thorough — the downstream agent cannot go back to the raw data."""
-
-SUBAGENT_DEEPDIVE_PROMPT = """\
-You are an investigator analyzing agent execution traces. A downstream agent has already surveyed these traces and selected them for deeper analysis. Your job is to answer the specific question asked, providing the evidence and reasoning the downstream agent needs to formulate learnings.
-
-Approach:
-- **Verify before analyzing.** Before investigating causes, check whether the agent's claims and conclusions accurately reflect the data it received. "Confident but wrong" — where the agent proceeds without hesitation based on incorrect reasoning — is a high-value finding that behavioral analysis alone misses.
-- **Check against rules.** If agent operating rules or policy are provided, verify that the agent's actions comply with them. Rule violations are high-value findings even when the agent appeared to succeed — they often look "normal" because many traces share the same violation.
-- **Causes, not symptoms.** When something went wrong, identify the root decision or assumption that led to it. What should the agent have done instead — concretely?
-- **Contrast directly.** When given multiple traces, find the specific point where they diverged. Do not describe each trace separately — compare them.
-- **Cite everything.** Every claim must reference specific evidence (step number, message content, tool output). If something is ambiguous, say so — do not speculate.
-- **Suggest alternatives.** For mistakes, describe the concrete action the agent should have taken instead."""
-
-SUBAGENT_SYSTEM = (
-    "You are a trace analyst with code execution. "
-    "Use execute_code to extract evidence from trace data, then reason about it. "
-    "Pre-loaded: traces, skillbook, json, re, collections, datetime, "
-    "plus any helper variables injected by the runner. "
-    "If helper_registry is populated, prefer those registered helpers before "
-    "re-discovering the trace schema. "
-    "Treat item/context strings as navigation instructions, not dict keys. "
-    "Keep code calls minimal (2-3 max)."
-)
+if TYPE_CHECKING:
+    from pydantic_ai import Agent as PydanticAgent
 
 logger = logging.getLogger(__name__)
+
+
+# ------------------------------------------------------------------
+# Dependency containers
+# ------------------------------------------------------------------
+
+
+@dataclass
+class SubAgentDeps:
+    """Dependencies for sub-agent tool calls."""
+
+    sandbox: TraceSandbox
+    config: RecursiveConfig
+    iteration: int = 0
+
+
+@dataclass
+class RRDeps:
+    """Dependencies injected into RR tool calls via ``RunContext``."""
+
+    sandbox: TraceSandbox
+    trace_data: dict[str, Any]
+    skillbook_text: str
+    config: RecursiveConfig
+    iteration: int = 0
+    sub_agent: PydanticAgent[SubAgentDeps, str] | None = None
+    sub_agent_history: list[dict[str, Any]] = field(default_factory=list)
+
+    # Orchestration state (only populated for orchestrator sessions)
+    is_orchestrator: bool = False
+    pending_clusters: dict[str, dict[str, Any]] = field(default_factory=dict)
+    cluster_results: dict[str, dict[str, Any]] = field(default_factory=dict)
+    cluster_pool: ThreadPoolExecutor | None = None
+
+    # Worker validation: expected per-item count (workers only)
+    expected_item_count: int | None = None
+
+
+# ------------------------------------------------------------------
+# Helpers
+# ------------------------------------------------------------------
 
 
 def _format_registered_helpers(sandbox: TraceSandbox) -> str:
@@ -87,7 +77,8 @@ def _format_registered_helpers(sandbox: TraceSandbox) -> str:
 
     lines = [
         "## Registered Helpers",
-        "These helpers are already available inside `execute_code`. Prefer them before inspecting the raw schema again.",
+        "These helpers are already available inside `execute_code`. "
+        "Prefer them before inspecting the raw schema again.",
     ]
     for name, meta in registry.items():
         if not isinstance(meta, dict):
@@ -97,12 +88,13 @@ def _format_registered_helpers(sandbox: TraceSandbox) -> str:
         )
         lines.append(f"- `{name}`: {description}")
     lines.append(
-        "Use `print(list_helpers())` for the full catalog, call helpers directly in code, or use `run_helper(name, ...)`."
+        "Use `print(list_helpers())` for the full catalog, call helpers "
+        "directly in code, or use `run_helper(name, ...)`."
     )
     return "\n".join(lines)
 
 
-def _get_subagent_parallel_cap(deps: "RRDeps") -> int:
+def _get_subagent_parallel_cap(deps: RRDeps) -> int:
     """Return the sub-agent concurrency cap for this session."""
     if deps.expected_item_count is not None:
         return max(1, deps.config.worker_subagent_max_parallel)
@@ -192,48 +184,12 @@ def validate_worker_assignment_size(
 
 
 # ------------------------------------------------------------------
-# Dependency containers
+# Tool registrars
 # ------------------------------------------------------------------
 
 
-@dataclass
-class SubAgentDeps:
-    """Dependencies for sub-agent tool calls."""
-
-    sandbox: TraceSandbox
-    config: RecursiveConfig
-    iteration: int = 0
-
-
-@dataclass
-class RRDeps:
-    """Dependencies injected into RR tool calls via ``RunContext``."""
-
-    sandbox: TraceSandbox
-    trace_data: dict[str, Any]
-    skillbook_text: str
-    config: RecursiveConfig
-    iteration: int = 0
-    sub_agent: PydanticAgent[SubAgentDeps, str] | None = None
-    sub_agent_history: list[dict[str, Any]] = field(default_factory=list)
-
-    # Orchestration state (only populated for orchestrator sessions)
-    is_orchestrator: bool = False
-    pending_clusters: dict[str, dict[str, Any]] = field(default_factory=dict)
-    cluster_results: dict[str, dict[str, Any]] = field(default_factory=dict)
-    cluster_pool: ThreadPoolExecutor | None = None
-
-    # Worker validation: expected per-item count (workers only)
-    expected_item_count: int | None = None
-
-
-# ------------------------------------------------------------------
-# Shared tool registrars
-# ------------------------------------------------------------------
-
-
-def _register_execute_code(agent: PydanticAgent[RRDeps, Any]) -> None:
-    """Register the execute_code tool on any RR agent."""
+def register_execute_code(agent: PydanticAgent[RRDeps, Any]) -> None:
+    """Register the ``execute_code`` tool on any RR agent."""
 
     @agent.tool(retries=3)
     def execute_code(ctx: RunContext[RRDeps], code: str) -> str:
@@ -261,7 +217,7 @@ def _register_execute_code(agent: PydanticAgent[RRDeps, Any]) -> None:
             if result.stdout:
                 stdout_ctx = f"stdout before error:\n{result.stdout[:max_output]}\n\n"
             raise ModelRetry(
-                f"{stdout_ctx}Code error:\n{error_msg}\n\n" "Fix the bug and try again."
+                f"{stdout_ctx}Code error:\n{error_msg}\n\nFix the bug and try again."
             )
 
         parts: list[str] = []
@@ -275,14 +231,15 @@ def _register_execute_code(agent: PydanticAgent[RRDeps, Any]) -> None:
         if len(output) > max_output:
             remaining = len(output) - max_output
             output = (
-                f"{output[:max_output]}\n" f"[TRUNCATED: {remaining} chars remaining]"
+                f"{output[:max_output]}\n"
+                f"[TRUNCATED: {remaining} chars remaining]"
             )
 
         return output
 
 
-def _register_analysis_tools(agent: PydanticAgent[RRDeps, Any]) -> None:
-    """Register analyze and batch_analyze tools on any RR agent."""
+def register_analysis_tools(agent: PydanticAgent[RRDeps, Any]) -> None:
+    """Register ``analyze`` and ``batch_analyze`` tools on any RR agent."""
 
     @agent.tool
     async def analyze(
@@ -458,7 +415,7 @@ def _register_analysis_tools(agent: PydanticAgent[RRDeps, Any]) -> None:
         return results
 
 
-def _register_output_validator(agent: PydanticAgent[RRDeps, Any]) -> None:
+def register_output_validator(agent: PydanticAgent[RRDeps, Any]) -> None:
     """Register the standard output validator on any RR agent."""
 
     @agent.output_validator
@@ -490,98 +447,15 @@ def _register_output_validator(agent: PydanticAgent[RRDeps, Any]) -> None:
         return output
 
 
-# ------------------------------------------------------------------
-# Agent + tool definitions
-# ------------------------------------------------------------------
-
-
-def create_rr_agent(
-    model: str,
+def register_orchestration_tools(
+    agent: PydanticAgent[RRDeps, Any],
     *,
-    system_prompt: str = "",
-    config: RecursiveConfig | None = None,
-    model_settings: ModelSettings | None = None,
-) -> PydanticAgent[RRDeps, ReflectorOutput]:
-    """Create the PydanticAI agent for recursive reflection (single-trace).
-
-    Args:
-        model: LiteLLM or PydanticAI model string.
-        system_prompt: System prompt for the reflector.
-        config: RR configuration (timeouts, limits).
-        model_settings: PydanticAI model settings.
-
-    Returns:
-        Configured PydanticAI agent with tools.
-    """
-    resolved = resolve_model(model)
-
-    agent: PydanticAgent[RRDeps, ReflectorOutput] = PydanticAgent(
-        resolved,
-        output_type=ReflectorOutput,
-        system_prompt=system_prompt
-        or (
-            "You are a trace analyst with tools. "
-            "Analyze agent execution traces and extract learnings. "
-            "Use execute_code to explore data, analyze for LLM reasoning, "
-            "then produce your final structured output."
-        ),
-        retries=3,
-        model_settings=model_settings,
-        defer_model_check=True,
-        deps_type=RRDeps,
-    )
-
-    _register_execute_code(agent)
-    _register_analysis_tools(agent)
-    _register_output_validator(agent)
-
-    return agent
-
-
-def create_orchestrator_agent(
-    model: str,
-    *,
-    system_prompt: str = "",
-    config: RecursiveConfig | None = None,
-    model_settings: ModelSettings | None = None,
-    spawn_worker_fn: Callable[..., tuple[ReflectorOutput, RRDeps]] | None = None,
-    slice_batch_fn: Callable[[Any, list[int]], Any] | None = None,
-    get_batch_items_fn: Callable[[Any], list[Any] | None] | None = None,
-) -> PydanticAgent[RRDeps, ReflectorOutput]:
-    """Create the orchestrator agent for batch RR with manager/worker tools.
-
-    In addition to the standard tools (execute_code, analyze, batch_analyze),
-    the orchestrator agent has ``spawn_analysis`` and ``collect_results``.
-
-    Args:
-        model: LiteLLM or PydanticAI model string.
-        system_prompt: System prompt for the orchestrator.
-        config: RR configuration.
-        model_settings: PydanticAI model settings.
-        spawn_worker_fn: Callback to run a worker RR session.
-        slice_batch_fn: Callback to slice batch traces by indices.
-        get_batch_items_fn: Callback to extract batch items from traces.
-
-    Returns:
-        Configured orchestrator agent.
-    """
-    cfg = config or RecursiveConfig()
-    resolved = resolve_model(model)
-
-    agent: PydanticAgent[RRDeps, ReflectorOutput] = PydanticAgent(
-        resolved,
-        output_type=ReflectorOutput,
-        system_prompt=system_prompt,
-        retries=3,
-        model_settings=model_settings,
-        defer_model_check=True,
-        deps_type=RRDeps,
-    )
-
-    _register_execute_code(agent)
-    _register_analysis_tools(agent)
-
-    # -- Orchestration tools -------------------------------------------
+    cfg: RecursiveConfig,
+    spawn_worker_fn: Callable[..., tuple[ReflectorOutput, RRDeps]],
+    slice_batch_fn: Callable[[Any, list[int]], Any],
+    get_batch_items_fn: Callable[[Any], list[Any] | None],
+) -> None:
+    """Register ``spawn_analysis`` and ``collect_results`` on an orchestrator agent."""
 
     @agent.tool
     def spawn_analysis(
@@ -606,12 +480,6 @@ def create_orchestrator_agent(
         Returns:
             Status line confirming the assignment was queued.
         """
-        if spawn_worker_fn is None or slice_batch_fn is None:
-            raise ModelRetry("Worker spawning is not configured.")
-
-        if get_batch_items_fn is None:
-            raise ModelRetry("Batch item extraction is not configured.")
-
         # Validate cluster name
         if cluster_name in ctx.deps.pending_clusters:
             raise ModelRetry(
@@ -745,8 +613,6 @@ def create_orchestrator_agent(
                     status = "completed"
 
                 # Build per-item reflections from worker output
-                from ace.core.outputs import ExtractedLearning
-
                 per_item: list[ReflectorOutput] = []
                 if status == "completed":
                     rr_trace = worker_output.raw.get("rr_trace", {})
@@ -756,7 +622,8 @@ def create_orchestrator_agent(
                             status = "invalid"
                             break
                         learnings = (
-                            tr.get("extracted_learnings", tr.get("learnings", [])) or []
+                            tr.get("extracted_learnings", tr.get("learnings", []))
+                            or []
                         )
                         per_item.append(
                             ReflectorOutput(
@@ -764,7 +631,9 @@ def create_orchestrator_agent(
                                 error_identification=str(
                                     tr.get("error_identification", "")
                                 ),
-                                root_cause_analysis=tr.get("root_cause_analysis", ""),
+                                root_cause_analysis=tr.get(
+                                    "root_cause_analysis", ""
+                                ),
                                 correct_approach=tr.get("correct_approach", ""),
                                 key_insight=tr.get("key_insight", ""),
                                 extracted_learnings=[
@@ -824,7 +693,9 @@ def create_orchestrator_agent(
                     "usage": {},
                     "rr_trace": {},
                 }
-                lines.append(f"- {name}: failed ({type(exc).__name__}: {exc})")
+                lines.append(
+                    f"- {name}: failed ({type(exc).__name__}: {exc})"
+                )
 
         # Clear pending after collection
         ctx.deps.pending_clusters.clear()
@@ -838,97 +709,11 @@ def create_orchestrator_agent(
         summary = "## Collected Results\n" + "\n".join(lines)
         return summary
 
-    _register_output_validator(agent)
 
-    return agent
-
-
-def create_worker_agent(
-    model: str,
-    *,
-    system_prompt: str = "",
-    config: RecursiveConfig | None = None,
-    model_settings: ModelSettings | None = None,
-    enable_subagent: bool = False,
-) -> PydanticAgent[RRDeps, ReflectorOutput]:
-    """Create a worker agent for delegated RR sessions.
-
-    Workers have ``execute_code`` and optionally ``analyze``/``batch_analyze``.
-    They never have orchestration tools (spawn_analysis, collect_results).
-
-    Args:
-        model: LiteLLM or PydanticAI model string.
-        system_prompt: System prompt for the worker.
-        config: RR configuration.
-        model_settings: PydanticAI model settings.
-        enable_subagent: Whether to include analyze/batch_analyze tools.
-
-    Returns:
-        Configured worker agent.
-    """
-    resolved = resolve_model(model)
-
-    agent: PydanticAgent[RRDeps, ReflectorOutput] = PydanticAgent(
-        resolved,
-        output_type=ReflectorOutput,
-        system_prompt=system_prompt,
-        retries=3,
-        model_settings=model_settings,
-        defer_model_check=True,
-        deps_type=RRDeps,
-    )
-
-    _register_execute_code(agent)
-
-    if enable_subagent:
-        _register_analysis_tools(agent)
-
-    _register_output_validator(agent)
-
-    return agent
-
-
-# ------------------------------------------------------------------
-# Sub-agent factory
-# ------------------------------------------------------------------
-
-
-def create_sub_agent(
-    model: str,
-    *,
-    config: RecursiveConfig | None = None,
-    model_settings: ModelSettings | None = None,
-) -> PydanticAgent[SubAgentDeps, str]:
-    """Create the sub-agent for ``analyze`` / ``batch_analyze`` tools.
-
-    The sub-agent has its own ``execute_code`` tool backed by an isolated
-    sandbox snapshot.  It can explore trace data directly, so the main
-    agent doesn't need to serialize data into tool parameters.
-
-    Args:
-        model: LiteLLM or PydanticAI model string.
-        config: RR configuration for sub-agent settings.
-        model_settings: Override model settings.
-
-    Returns:
-        PydanticAI agent with execute_code tool, producing text output.
-    """
-    cfg = config or RecursiveConfig()
-    resolved = resolve_model(model)
-
-    settings = model_settings or ModelSettings(
-        temperature=cfg.subagent_temperature,
-        max_tokens=cfg.subagent_max_tokens,
-    )
-
-    sub_agent: PydanticAgent[SubAgentDeps, str] = PydanticAgent(
-        resolved,
-        output_type=str,
-        system_prompt=SUBAGENT_SYSTEM,
-        model_settings=settings,
-        defer_model_check=True,
-        deps_type=SubAgentDeps,
-    )
+def register_subagent_execute_code(
+    sub_agent: PydanticAgent[SubAgentDeps, str],
+) -> None:
+    """Register ``execute_code`` on a sub-agent (isolated sandbox snapshot)."""
 
     @sub_agent.tool(retries=3)
     def execute_code(ctx: RunContext[SubAgentDeps], code: str) -> str:
@@ -956,10 +741,10 @@ def create_sub_agent(
             stdout_ctx = ""
             if result.stdout:
                 stdout_ctx = (
-                    f"stdout before error:\n" f"{result.stdout[:max_output]}\n\n"
+                    f"stdout before error:\n{result.stdout[:max_output]}\n\n"
                 )
             raise ModelRetry(
-                f"{stdout_ctx}Code error:\n{error_msg}\n\n" "Fix the bug and try again."
+                f"{stdout_ctx}Code error:\n{error_msg}\n\nFix the bug and try again."
             )
 
         parts: list[str] = []
@@ -973,9 +758,8 @@ def create_sub_agent(
         if len(output) > max_output:
             remaining = len(output) - max_output
             output = (
-                f"{output[:max_output]}\n" f"[TRUNCATED: {remaining} chars remaining]"
+                f"{output[:max_output]}\n"
+                f"[TRUNCATED: {remaining} chars remaining]"
             )
 
         return output
-
-    return sub_agent
