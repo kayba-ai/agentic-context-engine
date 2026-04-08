@@ -217,10 +217,6 @@ def register_recurse_tool(
                 parts.append(f"Root cause: {output.root_cause_analysis}")
             if output.correct_approach:
                 parts.append(f"Correct approach: {output.correct_approach}")
-            if output.extracted_learnings:
-                learnings = [l.learning for l in output.extracted_learnings if l.learning]
-                if learnings:
-                    parts.append(f"Learnings: {'; '.join(learnings)}")
             if output.raw.get("items"):
                 parts.append(f"Per-item results: {len(output.raw['items'])} items analyzed")
             return "\n".join(parts) if parts else "(child session produced empty output)"

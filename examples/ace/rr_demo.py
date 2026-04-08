@@ -5,17 +5,14 @@ Shows the RR analyzing agent traces, iterating in its Python REPL sandbox,
 and producing structured learnings.  Requires an API key for LiteLLM.
 
 Usage:
-    # Default model (Claude Haiku):
+    # Default model (Bedrock Claude Haiku):
     uv run python examples/ace/rr_demo.py
 
     # Custom model:
-    ACE_MODEL=openai/gpt-4o-mini uv run python examples/ace/rr_demo.py
-
-    # With Logfire tracing:
-    #   from ace.observability import configure_logfire
-    #   configure_logfire()
+    ACE_MODEL=bedrock/us.anthropic.claude-sonnet-4-20250514-v1:0 uv run python examples/ace/rr_demo.py
 """
 
+import json
 import logging
 import os
 import sys
@@ -28,11 +25,11 @@ _root = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_root))
 load_dotenv(_root / ".env")
 
-from ace.steps.rr import RRConfig, RRStep, TraceSandbox, TraceContext, TraceStep
+from ace.steps.rr import RRConfig, RRStep, TraceSandbox
 from ace.core.context import ACEStepContext, SkillbookView
 from ace.core.skillbook import Skillbook
 
-MODEL = os.getenv("ACE_MODEL", "anthropic/claude-haiku-4-5-20251001")
+MODEL = os.getenv("ACE_MODEL", "bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0")
 
 # Show what the RR is doing at each iteration
 logging.basicConfig(
@@ -40,18 +37,42 @@ logging.basicConfig(
     format="  %(name)s | %(message)s",
 )
 # Quiet the noisy libraries
-logging.getLogger("LiteLLM").setLevel(logging.WARNING)
-logging.getLogger("litellm").setLevel(logging.WARNING)
-logging.getLogger("httpx").setLevel(logging.WARNING)
-logging.getLogger("httpcore").setLevel(logging.WARNING)
+for name in ("LiteLLM", "litellm", "httpx", "httpcore"):
+    logging.getLogger(name).setLevel(logging.WARNING)
 
 
 def section(name: str) -> None:
     print(f"\n{'=' * 60}\n  {name}\n{'=' * 60}\n")
 
 
+def print_result(result):
+    """Print a ReflectorOutput nicely."""
+    print(f"\n  --- Result ---")
+    print(f"  Reasoning: {result.reasoning[:300]}")
+    print(f"  Key insight: {result.key_insight}")
+    if result.error_identification:
+        print(f"  Error: {result.error_identification}")
+    if result.root_cause_analysis:
+        print(f"  Root cause: {result.root_cause_analysis}")
+    if result.correct_approach:
+        print(f"  Correct approach: {result.correct_approach}")
+    raw = result.raw or {}
+    if "rr_trace" in raw:
+        rt = raw["rr_trace"]
+        print(f"\n  RR trace: depth={rt.get('depth')}, "
+              f"iterations={rt.get('total_iterations')}, "
+              f"compactions={rt.get('compactions')}, "
+              f"timed_out={rt.get('timed_out')}")
+    if "usage" in raw:
+        u = raw["usage"]
+        print(f"  Usage: {u.get('input_tokens')} in, "
+              f"{u.get('output_tokens')} out, "
+              f"{u.get('total_tokens')} total, "
+              f"{u.get('requests')} requests")
+
+
 # ---------------------------------------------------------------------------
-# Demo 1: RRStep — agent got the wrong answer
+# Demo 1: RRStep — agent got the wrong answer (simple)
 # ---------------------------------------------------------------------------
 
 
@@ -61,7 +82,7 @@ def demo_wrong_answer():
 
     rr = RRStep(
         MODEL,
-        config=RRConfig(max_iterations=8, enable_subagent=False),
+        config=RRConfig(max_requests=15, max_depth=0),
     )
 
     ctx = ACEStepContext(
@@ -86,38 +107,23 @@ def demo_wrong_answer():
     )
 
     result_ctx = rr(ctx)
-    assert len(result_ctx.reflections) > 0
-    result = result_ctx.reflections[0]
-
-    print(f"\n  --- Result ---")
-    print(f"  Reasoning: {result.reasoning[:200]}")
-    print(f"  Key insight: {result.key_insight}")
-    if result.error_identification:
-        print(f"  Error: {result.error_identification}")
-    if result.correct_approach:
-        print(f"  Correct approach: {result.correct_approach}")
-    print(f"  Learnings ({len(result.extracted_learnings)}):")
-    for l in result.extracted_learnings:
-        print(f"    - [{l.atomicity_score:.1f}] {l.learning}")
-        if l.evidence:
-            print(f"      Evidence: {l.evidence[:120]}")
+    print_result(result_ctx.reflections[0])
 
 
 # ---------------------------------------------------------------------------
-# Demo 2: RRStep as pipeline step — multi-step tool-use failure
+# Demo 2: RRStep — multi-step tool-use failure
 # ---------------------------------------------------------------------------
 
 
-def demo_pipeline_step():
-    """RR used as a pipeline step via __call__, analyzing a tool-use failure."""
-    section("Demo 2: RRStep.__call__() — tool-use failure trace")
+def demo_tool_failure():
+    """RR analyzes a trace with tool-use errors."""
+    section("Demo 2: RRStep — tool-use failure trace")
 
     rr = RRStep(
         MODEL,
-        config=RRConfig(max_iterations=8, enable_subagent=False),
+        config=RRConfig(max_requests=15, max_depth=0),
     )
 
-    sb = Skillbook()
     ctx = ACEStepContext(
         trace={
             "question": "What's the current weather in Tokyo?",
@@ -147,99 +153,118 @@ def demo_pipeline_step():
                 },
             ],
         },
-        skillbook=SkillbookView(sb),
+        skillbook=SkillbookView(Skillbook()),
     )
 
     result_ctx = rr(ctx)
-    r = result_ctx.reflections[0]
-
-    print(f"\n  --- Result ---")
-    print(f"  Reasoning: {r.reasoning[:200]}")
-    print(f"  Key insight: {r.key_insight}")
-    if r.error_identification:
-        print(f"  Error: {r.error_identification}")
-    if r.root_cause_analysis:
-        print(f"  Root cause: {r.root_cause_analysis}")
-    print(f"  Learnings ({len(r.extracted_learnings)}):")
-    for l in r.extracted_learnings:
-        print(f"    - [{l.atomicity_score:.1f}] {l.learning}")
+    print_result(result_ctx.reflections[0])
 
 
 # ---------------------------------------------------------------------------
-# Demo 3: TraceSandbox — run code against trace data directly
+# Demo 3: Real benchmark trace (if available)
 # ---------------------------------------------------------------------------
 
 
-def demo_sandbox():
-    """Use TraceSandbox standalone to show how the REPL environment works."""
-    section("Demo 3: TraceSandbox — direct code execution")
+def demo_real_trace():
+    """RR analyzes a real benchmark trace."""
+    section("Demo 3: Real benchmark trace")
 
-    trace = TraceContext(
-        steps=[
-            TraceStep(
-                0, "user_message", "Find flights from NYC to London under $500", ""
-            ),
-            TraceStep(
-                1,
-                "tool_call:search_flights",
-                '{"from": "NYC", "to": "London", "max_price": 500}',
-                '[{"airline": "BA", "price": 450}, {"airline": "AA", "price": 520}]',
-            ),
-            TraceStep(
-                2,
-                "agent_reasoning",
-                "Found 2 results. BA at $450 is under budget. AA at $520 is over.",
-                "",
-            ),
-            TraceStep(
-                3,
-                "tool_call:book_flight",
-                '{"airline": "AA", "price": 520}',
-                "Error: Price $520 exceeds budget of $500",
-            ),
-            TraceStep(4, "agent_response", "I've booked your AA flight for $520.", ""),
-        ],
-        raw_reasoning="Agent searched flights, found options, but booked the wrong one.",
+    traces_path = _root / "ace-eval" / "results" / "benchmarks" / "bench_20260314_154608" / "benchmark" / "traces.json"
+    if not traces_path.exists():
+        print("  Benchmark traces not found, skipping.")
+        return
+
+    data = json.loads(traces_path.read_text())
+    # Find a failed trace (reward=0)
+    trace_dict = None
+    for key, val in data.items():
+        for trial in val.get("trials", []):
+            if trial.get("reward", 1.0) == 0.0 and trial.get("trace"):
+                trace_dict = trial["trace"]
+                print(f"  Using trace: task {key}, question: {trace_dict.get('question', '')[:100]}...")
+                break
+        if trace_dict:
+            break
+
+    if not trace_dict:
+        print("  No failed traces found, skipping.")
+        return
+
+    rr = RRStep(
+        MODEL,
+        config=RRConfig(max_requests=20, max_depth=0),
     )
 
-    sandbox = TraceSandbox(trace=trace)
-
-    # Show the trace structure
-    print("  Running: trace exploration code")
-    result = sandbox.execute(
-        """
-print(trace.summary())
-print()
-
-errors = trace.get_errors()
-print(f"Errors found: {len(errors)}")
-for e in errors:
-    print(f"  Step {e.index} [{e.action}]: {e.observation[:80]}")
-
-print()
-tool_calls = trace.get_actions("tool_call")
-print(f"Tool calls: {len(tool_calls)}")
-for t in tool_calls:
-    print(f"  {t.action}: input={t.thought[:60]}")
-    print(f"    output={t.observation[:80]}")
-"""
+    ctx = ACEStepContext(
+        trace=trace_dict,
+        skillbook=SkillbookView(Skillbook()),
     )
-    print(f"  Output:\n{result.stdout}")
 
-    # Show FINAL mechanism
-    print("  Running: FINAL() call")
-    sandbox.execute(
-        """
-FINAL({
-    "reasoning": "Agent booked AA ($520) instead of BA ($450) despite it exceeding the $500 budget",
-    "key_insight": "Always validate constraints before executing actions",
-    "error_identification": "Booked over-budget flight when a cheaper option was available",
-})
-"""
+    result_ctx = rr(ctx)
+    print_result(result_ctx.reflections[0])
+
+
+# ---------------------------------------------------------------------------
+# Demo 4: Batch traces with recursion
+# ---------------------------------------------------------------------------
+
+
+def demo_batch_recursion():
+    """RR analyzes multiple traces using recurse tool."""
+    section("Demo 4: Batch traces with recursion (depth=1)")
+
+    traces_path = _root / "ace-eval" / "results" / "benchmarks" / "bench_20260314_154608" / "benchmark" / "traces.json"
+    if not traces_path.exists():
+        print("  Benchmark traces not found, skipping.")
+        return
+
+    data = json.loads(traces_path.read_text())
+    # Collect first 3 failed traces as batch items
+    batch_items = []
+    for key, val in data.items():
+        for trial in val.get("trials", []):
+            if trial.get("reward", 1.0) == 0.0 and trial.get("trace"):
+                t = trial["trace"]
+                batch_items.append({
+                    "task_id": f"task_{key}",
+                    "question": t.get("question", ""),
+                    "feedback": t.get("feedback", ""),
+                    "trace": t,
+                })
+                if len(batch_items) >= 3:
+                    break
+        if len(batch_items) >= 3:
+            break
+
+    if len(batch_items) < 2:
+        print(f"  Only {len(batch_items)} failed traces found, need at least 2. Skipping.")
+        return
+
+    print(f"  Batch: {len(batch_items)} failed traces")
+    for bi in batch_items:
+        print(f"    - {bi['task_id']}: {bi['question'][:80]}...")
+
+    rr = RRStep(
+        MODEL,
+        config=RRConfig(
+            max_requests=30,
+            max_depth=1,  # allow one level of recursion
+        ),
     )
-    print(f"  FINAL called: {sandbox.final_called}")
-    print(f"  Final value keys: {list(sandbox.final_value.keys())}")
-    print(f"  Key insight: {sandbox.final_value['key_insight']}")
+
+    ctx = ACEStepContext(
+        trace={
+            "question": "Analyze these failed agent traces and extract common patterns",
+            "batch_items": batch_items,
+            "item_ids": [bi["task_id"] for bi in batch_items],
+        },
+        skillbook=SkillbookView(Skillbook()),
+    )
+
+    result_ctx = rr(ctx)
+    for i, ref in enumerate(result_ctx.reflections):
+        print(f"\n  --- Reflection {i} ---")
+        print_result(ref)
 
 
 # ---------------------------------------------------------------------------
@@ -247,10 +272,26 @@ FINAL({
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="RR Demo")
+    parser.add_argument("--demo", type=int, default=0,
+                        help="Run specific demo (1-4), 0=all")
+    args = parser.parse_args()
+
     print(f"Model: {MODEL}")
 
-    demo_wrong_answer()
-    demo_pipeline_step()
-    demo_sandbox()
+    demos = {
+        1: demo_wrong_answer,
+        2: demo_tool_failure,
+        3: demo_real_trace,
+        4: demo_batch_recursion,
+    }
 
-    section("All demos completed")
+    if args.demo:
+        demos[args.demo]()
+    else:
+        for d in demos.values():
+            d()
+
+    section("Done")
