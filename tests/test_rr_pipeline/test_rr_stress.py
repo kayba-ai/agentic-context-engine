@@ -52,7 +52,6 @@ def _mock_compaction_result(
     reasoning: str = "done",
     key_insight: str = "insight",
     correct_approach: str = "approach",
-    extracted_learnings: list | None = None,
     timed_out: bool = False,
 ) -> tuple[ReflectorOutput, MagicMock]:
     """Create a mock return value for _run_with_compaction."""
@@ -60,7 +59,6 @@ def _mock_compaction_result(
         reasoning=reasoning,
         key_insight=key_insight,
         correct_approach=correct_approach,
-        extracted_learnings=extracted_learnings or [],
         raw={
             "usage": {"input_tokens": 100, "output_tokens": 50, "total_tokens": 150, "requests": 3},
             "rr_trace": {
@@ -139,7 +137,6 @@ class TestLoopLifecycle:
         limits = cfg.build_usage_limits()
         assert limits.total_tokens_limit == 500_000
         assert limits.request_limit == 50
-        assert limits.input_tokens_limit == int(128_000 * 0.85)
 
     def test_config_build_usage_limits_with_remaining(self):
         """build_usage_limits() uses remaining_tokens when provided."""

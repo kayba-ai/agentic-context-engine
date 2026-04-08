@@ -44,6 +44,4 @@ class RecursiveConfig:
         return UsageLimits(
             total_tokens_limit=remaining_tokens or self.max_tokens,
             request_limit=self.max_requests,
-            request_tokens_limit=int(self.context_window * 0.85),
-            count_tokens_before_request=True,
         )
