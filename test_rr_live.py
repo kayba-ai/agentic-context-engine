@@ -22,8 +22,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from ace.rr import RRStep, RRConfig, TraceSandbox
-from ace.rr.sandbox import ExecutionResult
+from ace.steps.rr import RRStep, RRConfig, TraceSandbox
+from ace.steps.rr.sandbox import ExecutionResult
 from ace.core.context import ACEStepContext, SkillbookView
 from ace.core.skillbook import Skillbook
 
@@ -131,10 +131,9 @@ def run_rr_on_trace(task_id: str, trace: dict) -> None:
         MODEL,
         config=RRConfig(
             max_iterations=10,
-            max_llm_calls=20,
+            max_requests=20,
             enable_subagent=False,
             max_output_chars=10_000,
-            max_context_chars=30_000,
         ),
     )
 

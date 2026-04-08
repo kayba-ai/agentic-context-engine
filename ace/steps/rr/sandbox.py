@@ -19,8 +19,6 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, date, time, timezone
 from typing import Any, Callable, Dict, List, Optional
 
-from .trace_context import TraceContext
-
 logger = logging.getLogger(__name__)
 
 
@@ -62,7 +60,7 @@ class TraceSandbox:
     Restrictions (defense-in-depth, not security guarantees):
         - No file access: `open` and `__import__` are blocked
         - No code injection: `eval`, `exec`, `compile` are blocked
-        - Read-only trace: TraceContext is immutable
+        - Read-only trace: trace data is injected as-is
         - Timeout protection: Configurable per-execution timeout (Unix only)
         - Worst case: bad code fails -> fallback to simple reflector
 
@@ -174,7 +172,7 @@ class TraceSandbox:
 
     def __init__(
         self,
-        trace: Optional[TraceContext],
+        trace: Optional[str] = None,
         llm_query_fn: Optional[Callable[[str], str]] = None,
         additional_globals: Optional[Dict[str, Any]] = None,
         *,
@@ -186,7 +184,8 @@ class TraceSandbox:
         """Initialize the sandbox with trace and optional LLM query function.
 
         Args:
-            trace: TraceContext for trace exploration (can be None)
+            trace: Trace string for exploration (can be None). Non-string
+                   values are coerced to str; None is left as-is.
             llm_query_fn: Function to call for sub-LLM queries
             additional_globals: Extra variables to inject into the namespace
             parallel_max_concurrency: Max concurrent workers for parallel_map
@@ -202,6 +201,10 @@ class TraceSandbox:
         self._parallel_max_retries = parallel_max_retries
         self._parallel_retry_delay = parallel_retry_delay
         self._parallel_timeout = parallel_timeout
+
+        # Sanitize trace: coerce to str if provided
+        if trace is not None and not isinstance(trace, str):
+            trace = str(trace)
 
         # Build the namespace
         self.namespace: Dict[str, Any] = {

@@ -30,7 +30,7 @@ class Reflector:
     classifying which skillbook skills were helpful, harmful, or neutral.
 
     This implementation supports **SIMPLE** mode only (single-pass
-    reflection). Recursive mode is handled by :mod:`ace.rr`.
+    reflection). Recursive mode is handled by :mod:`ace.steps.rr`.
 
     Args:
         model: Model identifier string. Supports any LiteLLM model

@@ -32,7 +32,7 @@ if TYPE_CHECKING:
     from .integrations import wrap_skillbook_context
     from .protocols import DeduplicationConfig
     from .providers import ACEModelConfig, ModelConfig
-    from .rr import RRConfig, RRStep
+    from .steps.rr import RRConfig, RRStep
     from .runners import (
         ACE,
         ACELiteLLM,
@@ -117,8 +117,8 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     "PersistStep": ("ace.steps", "PersistStep"),
     "learning_tail": ("ace.steps", "learning_tail"),
     # Recursive Reflector
-    "RRStep": ("ace.rr", "RRStep"),
-    "RRConfig": ("ace.rr", "RRConfig"),
+    "RRStep": ("ace.steps.rr", "RRStep"),
+    "RRConfig": ("ace.steps.rr", "RRConfig"),
 }
 
 

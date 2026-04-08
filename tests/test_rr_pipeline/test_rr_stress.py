@@ -3,18 +3,23 @@
 Tests sandbox behavior and the PydanticAI-based RRStep entry points.
 """
 
+import copy
 import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from ace.rr.config import RecursiveConfig
-from ace.rr.sandbox import TraceSandbox, create_readonly_sandbox
+from pydantic_ai.messages import ModelRequest, ModelResponse, TextPart, ToolReturnPart, UserPromptPart
+from pydantic_ai.usage import UsageLimits
+
+from ace.steps.rr.config import RecursiveConfig
+from ace.steps.rr.sandbox import TraceSandbox, create_readonly_sandbox
 
 from ace.core.context import ACEStepContext, SkillbookView
 from ace.core.outputs import AgentOutput, ReflectorOutput
 from ace.core.skillbook import Skillbook
-from ace.rr import RRConfig, RRStep
+from ace.steps.rr import RRConfig, RRStep
+from ace.steps.rr.tools import RRDeps
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -42,29 +47,37 @@ def _make_ctx(
     return ACEStepContext(trace=trace, skillbook=SkillbookView(Skillbook()))
 
 
-def _mock_run_result(
+def _mock_compaction_result(
     *,
     reasoning: str = "done",
     key_insight: str = "insight",
     correct_approach: str = "approach",
     extracted_learnings: list | None = None,
-) -> MagicMock:
-    """Create a mock PydanticAI RunResult."""
+    timed_out: bool = False,
+) -> tuple[ReflectorOutput, MagicMock]:
+    """Create a mock return value for _run_with_compaction."""
     output = ReflectorOutput(
         reasoning=reasoning,
         key_insight=key_insight,
         correct_approach=correct_approach,
         extracted_learnings=extracted_learnings or [],
+        raw={
+            "usage": {"input_tokens": 100, "output_tokens": 50, "total_tokens": 150, "requests": 3},
+            "rr_trace": {
+                "total_iterations": 2,
+                "subagent_calls": [],
+                "timed_out": timed_out,
+                "compactions": 0,
+                "depth": 0,
+            },
+        },
     )
-    result = MagicMock()
-    result.output = output
-    usage = MagicMock()
-    usage.request_tokens = 100
-    usage.response_tokens = 50
-    usage.total_tokens = 150
-    usage.requests = 3
-    result.usage.return_value = usage
-    return result
+    if timed_out:
+        output.raw["timeout"] = True
+    deps = MagicMock(spec=RRDeps)
+    deps.iteration = 2
+
+    return output, deps
 
 
 # =========================================================================
@@ -76,10 +89,10 @@ def _mock_run_result(
 class TestLoopLifecycle:
     def test_successful_reflection(self):
         """Happy path: PydanticAI agent produces valid ReflectorOutput."""
-        rr = RRStep("test-model", config=RRConfig(enable_subagent=False))
-        mock_result = _mock_run_result(key_insight="insight")
+        rr = RRStep("test-model", config=RRConfig())
+        output, deps = _mock_compaction_result(key_insight="insight")
 
-        with patch.object(rr._agent, "run_sync", return_value=mock_result):
+        with patch.object(rr, "_run_with_compaction", new_callable=AsyncMock, return_value=(output, deps)):
             result_ctx = rr(
                 _make_ctx(
                     question="What is 2+2?",
@@ -93,70 +106,73 @@ class TestLoopLifecycle:
         assert result.key_insight == "insight"
 
     def test_max_requests_timeout(self):
-        """UsageLimitExceeded produces timeout output."""
-        from pydantic_ai.exceptions import UsageLimitExceeded
-
+        """Budget exhaustion produces timeout output."""
         rr = RRStep(
             "test-model",
-            config=RRConfig(max_llm_calls=3, enable_subagent=False),
+            config=RRConfig(max_requests=3),
         )
 
-        with patch.object(
-            rr._agent,
-            "run_sync",
-            side_effect=UsageLimitExceeded("limit reached"),
-        ):
+        output, deps = _mock_compaction_result(
+            reasoning="Analysis reached budget limit.",
+            timed_out=True,
+        )
+
+        with patch.object(rr, "_run_with_compaction", new_callable=AsyncMock, return_value=(output, deps)):
             result_ctx = rr(_make_ctx())
 
         assert len(result_ctx.reflections) == 1
         assert isinstance(result_ctx.reflections[0], ReflectorOutput)
-        assert "usage limit" in result_ctx.reflections[0].reasoning.lower()
+        assert "budget limit" in result_ctx.reflections[0].reasoning.lower()
 
     def test_budget_field_in_config(self):
-        """max_llm_calls config is passed to UsageLimits."""
+        """max_tokens and max_requests config fields exist."""
         rr = RRStep(
             "test-model",
-            config=RRConfig(max_llm_calls=42, enable_subagent=False),
+            config=RRConfig(max_tokens=100_000, max_requests=42),
         )
-        assert rr.config.max_llm_calls == 42
+        assert rr.config.max_tokens == 100_000
+        assert rr.config.max_requests == 42
 
-    def test_subagent_request_budget_default(self):
-        """Deep-dive sub-agents get a less fragile default request budget."""
-        assert RecursiveConfig().subagent_max_requests == 15
+    def test_config_build_usage_limits(self):
+        """build_usage_limits() produces correct UsageLimits."""
+        cfg = RecursiveConfig(max_tokens=500_000, max_requests=50, context_window=128_000)
+        limits = cfg.build_usage_limits()
+        assert limits.total_tokens_limit == 500_000
+        assert limits.request_limit == 50
+        assert limits.input_tokens_limit == int(128_000 * 0.85)
 
-    def test_subagent_parallelism_default(self):
-        """Batch sub-agent fan-out should have an explicit configurable cap."""
-        assert RecursiveConfig().subagent_max_parallel == 10
+    def test_config_build_usage_limits_with_remaining(self):
+        """build_usage_limits() uses remaining_tokens when provided."""
+        cfg = RecursiveConfig(max_tokens=500_000, max_requests=50)
+        limits = cfg.build_usage_limits(remaining_tokens=100_000)
+        assert limits.total_tokens_limit == 100_000
+        assert limits.request_limit == 50
+
 
     def test_rr_trace_metadata_on_success(self):
         """Successful reflection populates rr_trace metadata."""
-        rr = RRStep("test-model", config=RRConfig(enable_subagent=False))
-        mock_result = _mock_run_result()
+        rr = RRStep("test-model", config=RRConfig())
+        output, deps = _mock_compaction_result()
 
-        with patch.object(rr._agent, "run_sync", return_value=mock_result):
+        with patch.object(rr, "_run_with_compaction", new_callable=AsyncMock, return_value=(output, deps)):
             result_ctx = rr(_make_ctx())
 
-        output = result_ctx.reflections[0]
-        assert "rr_trace" in output.raw
-        assert output.raw["rr_trace"]["timed_out"] is False
-        assert isinstance(output.raw["rr_trace"]["subagent_calls"], list)
+        result = result_ctx.reflections[0]
+        assert "rr_trace" in result.raw
+        assert result.raw["rr_trace"]["timed_out"] is False
+        assert isinstance(result.raw["rr_trace"]["subagent_calls"], list)
 
     def test_rr_trace_metadata_on_timeout(self):
         """Timeout reflection also has rr_trace metadata."""
-        from pydantic_ai.exceptions import UsageLimitExceeded
+        rr = RRStep("test-model", config=RRConfig())
+        output, deps = _mock_compaction_result(timed_out=True)
 
-        rr = RRStep("test-model", config=RRConfig(enable_subagent=False))
-
-        with patch.object(
-            rr._agent,
-            "run_sync",
-            side_effect=UsageLimitExceeded("limit"),
-        ):
+        with patch.object(rr, "_run_with_compaction", new_callable=AsyncMock, return_value=(output, deps)):
             result_ctx = rr(_make_ctx())
 
-        output = result_ctx.reflections[0]
-        assert "rr_trace" in output.raw
-        assert output.raw["rr_trace"]["timed_out"] is True
+        result = result_ctx.reflections[0]
+        assert "rr_trace" in result.raw
+        assert result.raw["rr_trace"]["timed_out"] is True
 
 
 # =========================================================================
@@ -285,8 +301,8 @@ print(preview_item(0)["payload_type"])
 class TestEntryPoints:
     def test_call_produces_reflection(self):
         """__call__() produces a ReflectorOutput on the context."""
-        rr = RRStep("test-model", config=RRConfig(enable_subagent=False))
-        mock_result = _mock_run_result(key_insight="insight")
+        rr = RRStep("test-model", config=RRConfig())
+        output, deps = _mock_compaction_result(key_insight="insight")
 
         traces = {
             "question": "q",
@@ -296,7 +312,7 @@ class TestEntryPoints:
         }
         ctx = ACEStepContext(trace=traces, skillbook=SkillbookView(Skillbook()))
 
-        with patch.object(rr._agent, "run_sync", return_value=mock_result):
+        with patch.object(rr, "_run_with_compaction", new_callable=AsyncMock, return_value=(output, deps)):
             result_ctx = rr(ctx)
 
         assert isinstance(result_ctx.reflections[0], ReflectorOutput)
@@ -304,15 +320,143 @@ class TestEntryPoints:
 
     def test_reflect_method_works(self):
         """reflect() works as ReflectorLike entry point."""
-        rr = RRStep("test-model", config=RRConfig(enable_subagent=False))
-        mock_result = _mock_run_result(key_insight="reflected")
+        rr = RRStep("test-model", config=RRConfig())
+        output, deps = _mock_compaction_result(key_insight="reflected")
 
-        with patch.object(rr._agent, "run_sync", return_value=mock_result):
-            output = rr.reflect(
+        with patch.object(rr, "_run_with_compaction", new_callable=AsyncMock, return_value=(output, deps)):
+            result = rr.reflect(
                 question="What is 2+2?",
                 agent_output=AgentOutput(reasoning="r", final_answer="4"),
                 ground_truth="4",
             )
 
-        assert isinstance(output, ReflectorOutput)
-        assert output.key_insight == "reflected"
+        assert isinstance(result, ReflectorOutput)
+        assert result.key_insight == "reflected"
+
+
+# =========================================================================
+# 4. New architecture tests
+# =========================================================================
+
+
+@pytest.mark.unit
+class TestRecurseToolRegistration:
+    def test_recurse_tool_registered_at_non_leaf_depth(self):
+        """Agent at depth 0 with max_depth=2 should have recurse tool."""
+        from ace.steps.rr.agent import create_rr_agent
+
+        agent = create_rr_agent("test-model", depth=0, max_depth=2)
+        tool_names = list(agent._function_toolset.tools.keys())
+        assert "recurse" in tool_names
+
+    def test_recurse_tool_not_registered_at_max_depth(self):
+        """Agent at max_depth should NOT have recurse tool."""
+        from ace.steps.rr.agent import create_rr_agent
+
+        agent = create_rr_agent("test-model", depth=2, max_depth=2)
+        tool_names = list(agent._function_toolset.tools.keys())
+        assert "recurse" not in tool_names
+
+    def test_recurse_tool_not_registered_at_depth_zero_max_zero(self):
+        """Agent at depth=0, max_depth=0 should NOT have recurse tool."""
+        from ace.steps.rr.agent import create_rr_agent
+
+        agent = create_rr_agent("test-model", depth=0, max_depth=0)
+        tool_names = list(agent._function_toolset.tools.keys())
+        assert "recurse" not in tool_names
+
+
+@pytest.mark.unit
+class TestMicrocompaction:
+    def test_microcompact_clears_old_tool_results(self):
+        """_microcompact should clear old tool results, keeping recent ones."""
+        rr = RRStep("test-model", config=RRConfig())
+
+        # Build a message list with 5 tool results
+        messages = []
+        for i in range(5):
+            messages.append(ModelRequest(parts=[
+                ToolReturnPart(
+                    tool_name="execute_code",
+                    content=f"result {i}",
+                    tool_call_id=f"call_{i}",
+                ),
+            ]))
+
+        compacted = rr._microcompact(messages, keep_recent=2)
+
+        # Should NOT be the same object (changes were made)
+        assert compacted is not messages
+
+        # First 3 should be cleared, last 2 kept
+        for i in range(3):
+            assert "[cleared" in compacted[i].parts[0].content
+        assert compacted[3].parts[0].content == "result 3"
+        assert compacted[4].parts[0].content == "result 4"
+
+    def test_microcompact_returns_same_when_nothing_to_clear(self):
+        """_microcompact returns identity when keep_recent >= total tool results."""
+        rr = RRStep("test-model", config=RRConfig())
+
+        messages = [
+            ModelRequest(parts=[
+                ToolReturnPart(tool_name="execute_code", content="result 0", tool_call_id="call_0"),
+            ]),
+        ]
+
+        result = rr._microcompact(messages, keep_recent=3)
+        assert result is messages  # identity = no change
+
+    def test_microcompact_ignores_non_tool_messages(self):
+        """_microcompact should not touch model response messages."""
+        rr = RRStep("test-model", config=RRConfig())
+
+        messages = [
+            ModelResponse(parts=[TextPart(content="thinking...")]),
+            ModelRequest(parts=[
+                ToolReturnPart(tool_name="execute_code", content="old result", tool_call_id="call_0"),
+            ]),
+            ModelResponse(parts=[TextPart(content="more thinking...")]),
+            ModelRequest(parts=[
+                ToolReturnPart(tool_name="execute_code", content="new result", tool_call_id="call_1"),
+            ]),
+        ]
+
+        compacted = rr._microcompact(messages, keep_recent=1)
+        assert compacted is not messages
+        # First tool result cleared, second kept
+        assert "[cleared" in compacted[1].parts[0].content
+        assert compacted[3].parts[0].content == "new result"
+        # Model responses untouched
+        assert compacted[0].parts[0].content == "thinking..."
+        assert compacted[2].parts[0].content == "more thinking..."
+
+
+@pytest.mark.unit
+class TestBudgetExhausted:
+    def test_is_budget_exhausted_tokens(self):
+        """_is_budget_exhausted detects total token limit."""
+        rr = RRStep("test-model", config=RRConfig())
+        limits = UsageLimits(total_tokens_limit=1000, request_limit=50)
+        usage = MagicMock()
+        usage.total_tokens = 1000
+        usage.requests = 5
+        assert rr._is_budget_exhausted(limits, usage) is True
+
+    def test_is_budget_exhausted_requests(self):
+        """_is_budget_exhausted detects request limit."""
+        rr = RRStep("test-model", config=RRConfig())
+        limits = UsageLimits(total_tokens_limit=100_000, request_limit=10)
+        usage = MagicMock()
+        usage.total_tokens = 500
+        usage.requests = 10
+        assert rr._is_budget_exhausted(limits, usage) is True
+
+    def test_is_budget_not_exhausted(self):
+        """_is_budget_exhausted returns False when under budget."""
+        rr = RRStep("test-model", config=RRConfig())
+        limits = UsageLimits(total_tokens_limit=100_000, request_limit=50)
+        usage = MagicMock()
+        usage.total_tokens = 500
+        usage.requests = 5
+        assert rr._is_budget_exhausted(limits, usage) is False

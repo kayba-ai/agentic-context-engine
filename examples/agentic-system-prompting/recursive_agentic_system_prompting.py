@@ -45,20 +45,20 @@ _handler = logging.StreamHandler()
 _handler.setFormatter(
     logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", datefmt="%H:%M:%S")
 )
-_logger = logging.getLogger("ace.rr")
+_logger = logging.getLogger("ace.steps.rr")
 _logger.setLevel(logging.DEBUG)
 _logger.addHandler(_handler)
 
 from pipeline import Pipeline
 
 from ace import TraceAnalyser, SkillManager, Skillbook
-from ace.rr import RRStep, RRConfig
+from ace.steps.rr import RRStep, RRConfig
 from ace.core.context import ACEStepContext
 from ace.deduplication import DeduplicationManager
 from ace.protocols.deduplication import DeduplicationConfig
 from ace.implementations.prompts import wrap_skillbook_for_external_agent
 from ace.steps import UpdateStep, ApplyStep, DeduplicateStep
-from ace.rr.prompts import REFLECTOR_RECURSIVE_PROMPT
+from ace.steps.rr.prompts import REFLECTOR_RECURSIVE_PROMPT
 
 
 # ---------------------------------------------------------------------------
@@ -184,7 +184,7 @@ def main():
         config=RRConfig(
             subagent_model="bedrock/eu.anthropic.claude-haiku-4-5-20251001-v1:0",
             max_iterations=60,
-            max_llm_calls=60,
+            max_requests=60,
         ),
         prompt_template=REFLECTOR_RECURSIVE_PROMPT,
     )
