@@ -109,6 +109,88 @@ def _get_subagent_parallel_cap(deps: "RRDeps") -> int:
     return max(1, deps.config.subagent_max_parallel)
 
 
+def _compact_text(value: Any, limit: int = 160) -> str:
+    """Render a short, single-line preview for sandbox summaries."""
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    text = " ".join(text.split())
+    if len(text) <= limit:
+        return text
+    return text[: limit - 3] + "..."
+
+
+def build_cluster_results_view(
+    cluster_results: dict[str, dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    """Build a compact sandbox-facing view of collected worker results."""
+    view: dict[str, dict[str, Any]] = {}
+
+    for name, result in cluster_results.items():
+        assignment = result.get("assignment", {})
+        worker_output = result.get("worker_output")
+        per_item = result.get("per_item_reflections") or ()
+        usage = result.get("usage") or {}
+
+        item_preview: list[dict[str, Any]] = []
+        for local_idx, reflection in enumerate(tuple(per_item)[:2]):
+            item_preview.append(
+                {
+                    "local_index": local_idx,
+                    "key_insight": _compact_text(
+                        getattr(reflection, "key_insight", ""), limit=120
+                    ),
+                    "correct_approach": _compact_text(
+                        getattr(reflection, "correct_approach", ""), limit=120
+                    ),
+                }
+            )
+
+        worker_summary = {}
+        if worker_output is not None:
+            worker_summary = {
+                "key_insight": _compact_text(
+                    getattr(worker_output, "key_insight", ""), limit=140
+                ),
+                "correct_approach": _compact_text(
+                    getattr(worker_output, "correct_approach", ""), limit=140
+                ),
+            }
+
+        usage_summary = {}
+        for key in ("requests", "request_tokens", "response_tokens", "total_tokens"):
+            if key in usage:
+                usage_summary[key] = usage[key]
+
+        view[name] = {
+            "status": result.get("status"),
+            "trace_indices": list(assignment.get("trace_indices", [])),
+            "goal": assignment.get("goal", ""),
+            "success_criteria": assignment.get("success_criteria", ""),
+            "issues": list(result.get("issues", [])),
+            "item_count": len(per_item),
+            "worker_summary": worker_summary,
+            "item_preview": item_preview,
+            "usage": usage_summary,
+        }
+
+    return view
+
+
+def validate_worker_assignment_size(
+    cfg: RecursiveConfig,
+    trace_indices: list[int],
+) -> None:
+    """Raise if an assignment is too large for a single worker session."""
+    worker_max_items = max(1, cfg.worker_max_items)
+    if len(trace_indices) > worker_max_items:
+        raise ModelRetry(
+            f"Assignment has {len(trace_indices)} traces, which exceeds the "
+            f"worker limit of {worker_max_items}. Split it into smaller, "
+            "semantically coherent groups before spawning."
+        )
+
+
 # ------------------------------------------------------------------
 # Dependency containers
 # ------------------------------------------------------------------
@@ -560,6 +642,8 @@ def create_orchestrator_agent(
                 "Duplicate indices in assignment. Each index must be unique."
             )
 
+        validate_worker_assignment_size(cfg, trace_indices)
+
         # Check for overlaps with active assignments
         active_indices: set[int] = set()
         for name, info in ctx.deps.pending_clusters.items():
@@ -745,8 +829,11 @@ def create_orchestrator_agent(
         # Clear pending after collection
         ctx.deps.pending_clusters.clear()
 
-        # Expose cluster_results in sandbox for inspection
-        ctx.deps.sandbox.inject("cluster_results", ctx.deps.cluster_results)
+        # Expose a compact cluster summary in sandbox for inspection.
+        ctx.deps.sandbox.inject(
+            "cluster_results",
+            build_cluster_results_view(ctx.deps.cluster_results),
+        )
 
         summary = "## Collected Results\n" + "\n".join(lines)
         return summary

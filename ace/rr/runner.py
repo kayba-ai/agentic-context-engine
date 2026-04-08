@@ -30,6 +30,7 @@ from ace.core.outputs import AgentOutput, ExtractedLearning, ReflectorOutput
 
 from .agent import (
     RRDeps,
+    build_cluster_results_view,
     create_orchestrator_agent,
     create_rr_agent,
     create_sub_agent,
@@ -450,19 +451,10 @@ class RRStep:
         """
         assert self._worker_agent is not None, "Worker agent not initialized"
 
-        # Compute worker budget from assignment size
-        item_count = len(trace_indices)
-        serialized_size = len(_json.dumps(sub_batch, default=str))
-
-        # Budget heuristic: base + per-item + size factor
-        base_budget = 10
-        per_item_budget = 3
-        size_factor = max(1, serialized_size // 50_000)
-        computed_budget = base_budget + (per_item_budget * item_count) + size_factor
-
-        # Cap at main agent budget
-        max_budget = self.config.max_llm_calls
-        worker_budget = min(computed_budget, max_budget)
+        worker_budget = self._compute_worker_budget(
+            traces=sub_batch,
+            item_count=len(trace_indices),
+        )
 
         # Worker sub-agent: use separate sub-agent if enabled
         worker_sub_agent = None
@@ -781,7 +773,10 @@ class RRStep:
             )
 
         deps.pending_clusters.clear()
-        deps.sandbox.inject("cluster_results", deps.cluster_results)
+        deps.sandbox.inject(
+            "cluster_results",
+            build_cluster_results_view(deps.cluster_results),
+        )
 
     def _split_batch_reflection(
         self,
@@ -970,16 +965,7 @@ class RRStep:
                 "Build your analysis from code-extracted evidence."
             )
 
-        # Compute worker budget
-        item_count = trace_count
-        serialized_size = len(_json.dumps(traces, default=str))
-        base_budget = 10
-        per_item_budget = 3
-        size_factor = max(1, serialized_size // 50_000)
-        worker_budget = min(
-            base_budget + (per_item_budget * item_count) + size_factor,
-            self.config.max_llm_calls,
-        )
+        worker_budget = self._compute_worker_budget(traces=traces, item_count=trace_count)
 
         return WORKER_PROMPT.format(
             cluster_name=assignment.get("cluster_name", "unknown"),
@@ -994,7 +980,18 @@ class RRStep:
             analysis_tools_section=analysis_tools,
             analysis_strategy=analysis_strategy,
             max_iterations=worker_budget,
+            max_worker_items=max(1, self.config.worker_max_items),
         )
+
+    def _compute_worker_budget(self, *, traces: Any, item_count: int) -> int:
+        """Compute a bounded worker-session budget from trace size."""
+        serialized_size = len(_json.dumps(traces, default=str))
+        base_budget = 6
+        per_item_budget = 1
+        size_factor = max(1, serialized_size // 75_000)
+        computed_budget = base_budget + item_count + size_factor
+        max_budget = max(1, self.config.worker_max_llm_calls)
+        return min(computed_budget, max_budget)
 
     # ------------------------------------------------------------------
     # Setup helpers

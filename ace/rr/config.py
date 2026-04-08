@@ -28,6 +28,8 @@ class RecursiveConfig:
         worker_collect_timeout: Seconds to wait when collecting worker results (default: 120.0)
         worker_model: Model to use for delegated worker RR sessions (default: None = same as main)
         worker_enable_subagent: Whether workers can use analyze/batch_analyze (default: False)
+        worker_max_llm_calls: Hard cap for each delegated worker RR session (default: 12)
+        worker_max_items: Max traces allowed in a single delegated worker assignment (default: 6)
         worker_subagent_max_parallel: Max concurrent sub-agents per worker (default: 2)
         local_parallel_max_concurrency: Max threads for parallel_map extraction (default: 8)
         local_parallel_timeout: Per-item timeout for parallel_map (default: 30.0)
@@ -54,6 +56,8 @@ class RecursiveConfig:
     worker_collect_timeout: float = 120.0
     worker_model: Optional[str] = None
     worker_enable_subagent: bool = False
+    worker_max_llm_calls: int = 12
+    worker_max_items: int = 6
     worker_subagent_max_parallel: int = 2
     local_parallel_max_concurrency: int = 8
     local_parallel_timeout: float | None = 30.0

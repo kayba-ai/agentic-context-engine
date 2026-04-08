@@ -93,3 +93,6 @@ Key design docs:
 | `ACELangChain` | LangChain | Wrap chains/agents with learning |
 | `ACEBrowserUse` | browser-use | Browser automation with learning |
 | `ACEClaudeCode` | Claude Code CLI | Coding tasks with learning |
+
+NEVER USE FALLBACKS OR IMPLEMENT THINGS I NEVER ASKED FOR. 
+IF IT'S STRAIGHFORWARD, IMPLEMENT IT STRAIGHFORWARD.

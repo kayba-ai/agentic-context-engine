@@ -15,7 +15,12 @@ from ace.core.context import ACEStepContext, SkillbookView
 from ace.core.outputs import ReflectorOutput
 from ace.core.skillbook import Skillbook
 from ace.rr import RRConfig, RRStep
-from ace.rr.agent import RRDeps, _get_subagent_parallel_cap
+from ace.rr.agent import (
+    RRDeps,
+    _get_subagent_parallel_cap,
+    build_cluster_results_view,
+    validate_worker_assignment_size,
+)
 from ace.rr.config import RecursiveConfig
 from ace.rr.sandbox import TraceSandbox, create_readonly_sandbox
 
@@ -93,6 +98,8 @@ class TestOrchestrationConfig:
         assert cfg.worker_collect_timeout == 120.0
         assert cfg.worker_model is None
         assert cfg.worker_enable_subagent is False
+        assert cfg.worker_max_llm_calls == 12
+        assert cfg.worker_max_items == 6
         assert cfg.worker_subagent_max_parallel == 2
         assert cfg.local_parallel_max_concurrency == 8
         assert cfg.local_parallel_timeout == 30.0
@@ -459,6 +466,15 @@ class TestSpawnValidation:
         trace_indices = [0, 1, 1, 2]
         assert len(set(trace_indices)) != len(trace_indices)
 
+    def test_spawn_rejects_assignments_larger_than_worker_limit(self):
+        from pydantic_ai import ModelRetry
+
+        with pytest.raises(ModelRetry, match="worker limit of 3"):
+            validate_worker_assignment_size(
+                RecursiveConfig(worker_max_items=3),
+                [0, 1, 2, 3],
+            )
+
 
 # ---------------------------------------------------------------------------
 # Orchestrator prompt
@@ -519,6 +535,7 @@ class TestWorkerPrompt:
         assert "test_cluster" in prompt
         assert "Find root causes" in prompt
         assert "Per-item learnings" in prompt
+        assert "Worker limit" in prompt
 
     def test_worker_prompt_omits_analysis_tools_by_default(self):
         """Worker without subagent should not mention analyze tools."""
@@ -562,38 +579,23 @@ class TestWorkerPrompt:
 @pytest.mark.unit
 class TestWorkerBudget:
     def test_small_assignment_gets_small_budget(self):
-        """Budget for a small worker should be well under the main agent cap."""
+        """Budget for a small worker should stay modest by default."""
         rr = _make_rr()
-        # 2 items, tiny serialized size
-        # base=10 + per_item=3*2 + size_factor≈1 = 17
-        import json
+        assert rr._compute_worker_budget(traces=_make_batch_trace(2), item_count=2) <= 12
 
-        sub_batch = _make_batch_trace(2)
-        serialized_size = len(json.dumps(sub_batch, default=str))
-        base_budget = 10
-        per_item_budget = 3
-        size_factor = max(1, serialized_size // 50_000)
-        expected = base_budget + (per_item_budget * 2) + size_factor
-        assert expected < rr.config.max_llm_calls
-
-    def test_budget_is_capped_at_main_agent_budget(self):
-        """Worker budget should never exceed the main agent's max_llm_calls."""
+    def test_budget_is_capped_at_worker_limit(self):
+        """Worker budget should never exceed the dedicated worker cap."""
         rr = RRStep(
             "test-model",
-            config=RRConfig(max_llm_calls=5, enable_subagent=False),
+            config=RRConfig(
+                max_llm_calls=80,
+                worker_max_llm_calls=9,
+                enable_subagent=False,
+            ),
         )
         rr._ensure_batch_agents()
-        # Even with many items, budget is capped
-        import json
 
-        sub_batch = _make_batch_trace(100)
-        serialized_size = len(json.dumps(sub_batch, default=str))
-        base_budget = 10
-        per_item_budget = 3
-        size_factor = max(1, serialized_size // 50_000)
-        computed = base_budget + (per_item_budget * 100) + size_factor
-        capped = min(computed, rr.config.max_llm_calls)
-        assert capped == 5
+        assert rr._compute_worker_budget(traces=_make_batch_trace(100), item_count=100) == 9
 
 
 # ---------------------------------------------------------------------------
@@ -706,6 +708,9 @@ class TestRuntimeWiring:
         assert deps.cluster_results["cluster_a"]["status"] == "failed"
         assert "still pending" in deps.cluster_results["cluster_a"]["issues"][0]
         assert "cluster_results" in deps.sandbox.namespace
+        sandbox_view = deps.sandbox.namespace["cluster_results"]
+        assert sandbox_view["cluster_a"]["status"] == "failed"
+        assert "worker_output" not in sandbox_view["cluster_a"]
 
     def test_worker_merge_preserves_orchestration_summary(self):
         rr = _make_rr()
@@ -757,6 +762,41 @@ class TestRuntimeWiring:
         assert (
             reflections[0].raw["orchestration_summary"]["raw"]["summary_meta"] is True
         )
+
+    def test_cluster_results_view_is_compact(self):
+        view = build_cluster_results_view(
+            {
+                "cluster_a": {
+                    "assignment": {
+                        "trace_indices": [0, 1],
+                        "goal": "Find failures",
+                        "success_criteria": "Compact learnings",
+                    },
+                    "status": "completed",
+                    "issues": [],
+                    "worker_output": ReflectorOutput(
+                        reasoning="r",
+                        key_insight="A compact worker summary",
+                        correct_approach="Do the right thing",
+                    ),
+                    "per_item_reflections": (
+                        ReflectorOutput(
+                            reasoning="r0",
+                            key_insight="k0",
+                            correct_approach="c0",
+                        ),
+                    ),
+                    "usage": {"requests": 3, "total_tokens": 120},
+                    "rr_trace": {},
+                }
+            }
+        )
+
+        assert view["cluster_a"]["trace_indices"] == [0, 1]
+        assert view["cluster_a"]["item_count"] == 1
+        assert view["cluster_a"]["usage"]["requests"] == 3
+        assert "worker_output" not in view["cluster_a"]
+        assert view["cluster_a"]["worker_summary"]["key_insight"]
 
 
 # ---------------------------------------------------------------------------

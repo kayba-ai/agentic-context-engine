@@ -159,7 +159,7 @@ Full data is always available in `execute_code`. The preview above is intentiona
 | `analyze(question, mode, context?)` | Sub-agent analysis with its own code execution. |
 | `batch_analyze(question, items, mode)` | Parallel sub-agent analysis. |
 | `spawn_analysis(cluster_name, trace_indices, goal, success_criteria?)` | **Delegate analysis** to a focused worker RR session for a subset of traces. |
-| `collect_results()` | **Collect** all pending worker results. Blocks until done or timeout. |
+| `collect_results()` | **Collect** all pending worker results. Blocks until done or timeout. After collection, `cluster_results` is a compact status view, not a raw worker dump. |
 | *Structured output* | Produce your final `ReflectorOutput` after validating coverage. |
 </sandbox>
 
@@ -174,10 +174,13 @@ Consider: trace count, total size, heterogeneity, and complexity.
    - Use the stable accessors (`get_item_messages`, `get_item_question`, `get_item_feedback`, `get_message_text`) instead of guessing nested keys.
 2. Use `spawn_analysis(cluster_name, trace_indices, goal, success_criteria)` to assign work.
    - Each assignment needs a clear `goal` and `success_criteria`.
+   - Prefer semantically coherent micro-clusters of 3-6 traces.
+   - Avoid broad contiguous index ranges unless they are already clearly homogeneous.
+   - Prefer 1-2 pilot workers, then collect and inspect before fanning out further.
    - Workers inherit registered helpers.
    - Workers cannot spawn further workers.
 3. Call `collect_results()` to retrieve completed work.
-4. Inspect `cluster_results` in `execute_code` — check coverage, quality, issues.
+4. Inspect `cluster_results` in `execute_code` — it is a compact status view with issues, usage, and short previews.
 5. Respawn narrower assignments for failed or weak results.
 6. Only finalize when every trace index is covered exactly once by a validated worker result.
 
@@ -219,6 +222,7 @@ WORKER_PROMPT = """\
 **Goal:** {goal}
 **Success criteria:** {success_criteria}
 **Assigned traces:** {trace_count} items (indices: {trace_indices})
+**Worker limit:** keep assignments at or below {max_worker_items} traces
 </assignment>
 
 <sandbox>
@@ -246,8 +250,10 @@ WORKER_PROMPT = """\
 ## How to Analyze
 1. Use execute_code to inspect the assigned traces and understand their structure.
    Use `batch_items`, `get_item_messages(...)`, `get_item_question(...)`, `get_item_feedback(...)`, and `get_message_text(...)` instead of guessing nested keys.
+   Keep setup code minimal: usually 1-2 execute_code calls is enough.
 2. {analysis_strategy}
 3. Produce your structured output with `raw["items"]` — one entry per assigned trace, in assignment order.
+   Keep each item's text concise and evidence-dense so the parent orchestrator can merge results without replaying long narratives.
 
 Each item in `raw["items"]` should have: reasoning, error_identification, root_cause_analysis, correct_approach, key_insight, extracted_learnings.
 

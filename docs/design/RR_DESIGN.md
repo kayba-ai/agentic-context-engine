@@ -177,6 +177,8 @@ config = RRConfig(
     orchestrator_max_llm_calls=50,   # Batch orchestrator request budget
     worker_model=None,               # Delegated worker model (None = same as main)
     worker_enable_subagent=False,    # Allow workers to call analyze/batch_analyze
+    worker_max_llm_calls=12,         # Hard cap per worker RR session
+    worker_max_items=6,              # Max traces in one worker assignment
     worker_subagent_max_parallel=2,  # Concurrent worker sub-agents
     local_parallel_max_concurrency=8,# Max threads for parallel_map extraction
     local_parallel_timeout=30.0,     # Per-item timeout for parallel_map
@@ -201,6 +203,8 @@ config = RRConfig(
 | `orchestrator_max_llm_calls` | `50` | Batch orchestrator request budget. Defaults independently from `max_llm_calls`, but callers often set it to the same value. |
 | `worker_model` | `None` | Model for delegated worker RR sessions. `None` reuses the main reflector model. |
 | `worker_enable_subagent` | `False` | Whether worker RR sessions expose functional `analyze`/`batch_analyze` tools. |
+| `worker_max_llm_calls` | `12` | Hard request cap for each delegated worker RR session. Keeps workers from turning into long mini-orchestrators. |
+| `worker_max_items` | `6` | Maximum traces allowed in a single delegated worker assignment. Larger assignments must be split before spawning. |
 | `worker_subagent_max_parallel` | `2` | Maximum concurrent sub-agents launched by a worker `batch_analyze()` call. |
 | `local_parallel_max_concurrency` | `8` | Maximum threads used by sandbox `parallel_map(...)` extraction helpers. |
 | `local_parallel_timeout` | `30.0` | Optional per-item timeout used by sandbox `parallel_map(...)`. |
@@ -574,9 +578,12 @@ For larger or more complex batches, the RR uses a manager/worker orchestration p
 - Workers inherit registered helpers from the orchestrator.
 - Delegated workers can run on a different `worker_model`.
 - Worker `analyze`/`batch_analyze` tools are controlled separately by `worker_enable_subagent`.
+- Worker sessions have their own hard budget via `worker_max_llm_calls`.
+- Worker assignments are capped by `worker_max_items` to encourage smaller, semantically coherent slices.
 - Workers cannot spawn further workers.
 - Final per-item results are validated for exact-once coverage before merging.
 - No silent fallbacks: missing coverage, invalid results, or failed workers cause the batch run to fail loudly.
+- After `collect_results()`, the sandbox-facing `cluster_results` variable is a compact summary view (status, issues, usage, short previews) rather than a raw worker-output dump.
 
 **Agents:**
 
