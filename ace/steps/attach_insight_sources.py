@@ -13,7 +13,7 @@ from ..core.insight_source import (
     coerce_trace_identity,
     infer_trace_identity,
 )
-from ..core.outputs import ExtractedLearning, ReflectorOutput
+from ..core.outputs import ReflectorOutput
 from ..core.skillbook import UpdateBatch, UpdateOperation
 
 
@@ -176,10 +176,10 @@ def _match_batch_indices_for_operation(
 def _resolve_operation_reflection(
     operation: UpdateOperation,
     reflections: Sequence[ReflectorOutput],
-) -> tuple[int | None, ReflectorOutput | None, ExtractedLearning | None]:
-    """Determine which reflection and learning an operation is associated with."""
+) -> tuple[int | None, ReflectorOutput | None]:
+    """Determine which reflection an operation is associated with."""
     if not reflections:
-        return None, None, None
+        return None, None
 
     explicit_indices = _valid_reflection_indices(operation, reflections)
     reflection_index = operation.reflection_index
@@ -191,26 +191,10 @@ def _resolve_operation_reflection(
     if reflection_index is None:
         if len(reflections) == 1:
             reflection_index = 0
-        elif operation.learning_index is not None:
-            local_candidates = [
-                index
-                for index, reflection in enumerate(reflections)
-                if 0 <= operation.learning_index < len(reflection.extracted_learnings)
-            ]
-            if len(local_candidates) == 1:
-                reflection_index = local_candidates[0]
 
     reflection = reflections[reflection_index] if reflection_index is not None else None
 
-    learning = None
-    if (
-        reflection is not None
-        and operation.learning_index is not None
-        and 0 <= operation.learning_index < len(reflection.extracted_learnings)
-    ):
-        learning = reflection.extracted_learnings[operation.learning_index]
-
-    return reflection_index, reflection, learning
+    return reflection_index, reflection
 
 
 # ---------------------------------------------------------------------------
@@ -284,7 +268,7 @@ def build_insight_source(
         if operation.insight_source is not None:
             continue
 
-        reflection_index, matched_reflection, learning = _resolve_operation_reflection(
+        reflection_index, matched_reflection = _resolve_operation_reflection(
             operation,
             reflections,
         )
@@ -316,7 +300,9 @@ def build_insight_source(
             getattr(matched_reflection, "error_identification", None),
             fallback_error,
         )
-        effective_learning = getattr(learning, "learning", None)
+        effective_learning = _first_non_empty(
+            getattr(matched_reflection, "key_insight", None),
+        )
 
         for batch_index, operation_trace in source_entries:
             identity = (

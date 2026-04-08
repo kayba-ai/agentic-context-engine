@@ -25,9 +25,7 @@ class ObservabilityStep:
 
         if ctx.reflections:
             metrics["key_insight"] = ctx.reflections[-1].key_insight
-            metrics["learnings_count"] = sum(
-                len(r.extracted_learnings) for r in ctx.reflections
-            )
+            metrics["reflections_count"] = len(ctx.reflections)
         if ctx.skill_manager_output:
             metrics["operations_count"] = len(ctx.skill_manager_output.operations)
         if ctx.trace:

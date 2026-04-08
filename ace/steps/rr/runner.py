@@ -29,7 +29,7 @@ from pydantic_ai.settings import ModelSettings
 from pydantic_ai.usage import UsageLimits
 
 from ace.core.context import ACEStepContext
-from ace.core.outputs import AgentOutput, ExtractedLearning, ReflectorOutput
+from ace.core.outputs import AgentOutput, ReflectorOutput
 
 from .agent import create_rr_agent
 from .config import RecursiveConfig
@@ -488,7 +488,6 @@ class RRStep:
                     "Direct batch analysis returned a non-dict entry in "
                     f"raw['items'] at index {i}."
                 )
-            learnings = tr.get("extracted_learnings", tr.get("learnings", []))
             reflections.append(
                 ReflectorOutput(
                     reasoning=tr.get("reasoning", reflection.reasoning),
@@ -498,15 +497,6 @@ class RRStep:
                         "correct_approach", reflection.correct_approach
                     ),
                     key_insight=tr.get("key_insight", reflection.key_insight),
-                    extracted_learnings=[
-                        ExtractedLearning(
-                            learning=l.get("learning", ""),
-                            atomicity_score=float(l.get("atomicity_score", 0.0)),
-                            evidence=l.get("evidence", ""),
-                        )
-                        for l in learnings
-                        if isinstance(l, dict)
-                    ],
                     raw={
                         **tr,
                         "item_id": item_id,
@@ -1021,12 +1011,6 @@ class RRStep:
             key_insight=(
                 "Complex traces may require more budget for thorough analysis"
             ),
-            extracted_learnings=[
-                ExtractedLearning(
-                    learning="Budget limit reached during recursive analysis",
-                    atomicity_score=0.5,
-                )
-            ],
             skill_tags=[],
             raw={
                 "timeout": True,

@@ -164,12 +164,6 @@ def run_rr_on_trace(task_id: str, trace: dict) -> None:
         print(f"\n  Root cause:\n    {r.root_cause_analysis}")
     if r.correct_approach:
         print(f"\n  Correct approach:\n    {r.correct_approach[:400]}")
-    print(f"\n  Learnings ({len(r.extracted_learnings)}):")
-    for l in r.extracted_learnings:
-        print(f"    [{l.atomicity_score:.1f}] {l.learning}")
-        if l.evidence:
-            print(f"         Evidence: {l.evidence[:150]}")
-
     # Print raw metadata
     raw = r.raw or {}
     usage = raw.get("usage", {})

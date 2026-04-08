@@ -386,24 +386,13 @@ CRITICAL: Return ONLY valid JSON:
 {{
   "reasoning": "<systematic analysis with numbered points>",
   "error_identification": "<specific error or 'none' if correct>",
-  "error_location": "<exact step where error occurred or 'N/A'>",
   "root_cause_analysis": "<underlying reason for error or success>",
   "correct_approach": "<detailed correct method with example>",
-  "extracted_learnings": [
-    {{
-      "learning": "<atomic insight>",
-      "atomicity_score": 0.95,
-      "evidence": "<specific execution detail>"
-    }}
-  ],
   "key_insight": "<most valuable reusable learning>",
-  "confidence_in_analysis": 0.95,
   "skill_tags": [
     {{
       "id": "<skill-id>",
-      "tag": "helpful|harmful|neutral",
-      "justification": "<specific evidence for tag>",
-      "impact_score": 0.8
+      "tag": "helpful|harmful|neutral"
     }}
   ]
 }}
@@ -412,25 +401,14 @@ CRITICAL: Return ONLY valid JSON:
 
 {{
   "reasoning": "1. Agent attempted 15x24 using decomposition. 2. Correctly identified skill_023. 3. ERROR at step 3: Calculated 15x20=310 instead of 300.",
-  "error_identification": "Arithmetic error in multiplication",
-  "error_location": "Step 3 of reasoning chain",
+  "error_identification": "Arithmetic error in multiplication at step 3 of reasoning chain",
   "root_cause_analysis": "Multiplication error: 15x2=30, so 15x20=300, not 310",
   "correct_approach": "15x24 = 15x20 + 15x4 = 300 + 60 = 360",
-  "extracted_learnings": [
-    {{
-      "learning": "Verify intermediate multiplication results",
-      "atomicity_score": 0.90,
-      "evidence": "Error at 15x20 calculation"
-    }}
-  ],
   "key_insight": "Double-check multiplications involving tens",
-  "confidence_in_analysis": 1.0,
   "skill_tags": [
     {{
       "id": "skill_023",
-      "tag": "neutral",
-      "justification": "Strategy correct, execution had arithmetic error",
-      "impact_score": 0.7
+      "tag": "neutral"
     }}
   ]
 }}
@@ -568,7 +546,6 @@ Return ONLY valid JSON:
       "metadata": {{"helpful": 1, "harmful": 0}},
       "reflection_index": "<int, 0-based index into reflections; required when multiple reflections are provided>",
       "reflection_indices": "<list[int], all contributing reflection indices when the operation synthesizes a pattern across multiple reflections>",
-      "learning_index": "<int, 0-based index into extracted_learnings; for ADD/UPDATE only>",
       "justification": "<why this improves skillbook>",
       "evidence": "<specific detail from reflection>"
     }}
@@ -578,8 +555,6 @@ Return ONLY valid JSON:
 Set `reflection_index` to the 0-based index of the reflection that produced the operation. When only one reflection is provided, you may omit it or set it to `0`.
 
 If an operation generalizes across multiple reflections, set `reflection_indices` to all contributing reflection indices. Keep `reflection_index` as the primary supporting reflection when there is one; otherwise omit it.
-
-For ADD/UPDATE operations, set `learning_index` to the 0-based index of the extracted_learning within that reflection. Omit for TAG/REMOVE.
 
 CRITICAL: Begin response with `{{` and end with `}}`
 </output_format>

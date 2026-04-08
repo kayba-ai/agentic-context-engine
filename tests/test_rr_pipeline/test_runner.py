@@ -45,14 +45,12 @@ def _mock_compaction_result(
     reasoning: str = "mock reasoning",
     key_insight: str = "mock insight",
     correct_approach: str = "mock approach",
-    extracted_learnings: list | None = None,
 ) -> tuple[ReflectorOutput, RRDeps]:
     """Create a mock return value for _run_with_compaction."""
     output = ReflectorOutput(
         reasoning=reasoning,
         key_insight=key_insight,
         correct_approach=correct_approach,
-        extracted_learnings=extracted_learnings or [],
         raw={
             "usage": {"input_tokens": 100, "output_tokens": 50, "total_tokens": 150, "requests": 3},
             "rr_trace": {"total_iterations": 2, "subagent_calls": [], "timed_out": False, "compactions": 0, "depth": 0},
@@ -228,14 +226,10 @@ class TestRRBatchReflection:
                     {
                         "reasoning": "task 0 analysis",
                         "key_insight": "t0 insight",
-                        "extracted_learnings": [],
                     },
                     {
                         "reasoning": "task 1 analysis",
                         "key_insight": "t1 insight",
-                        "extracted_learnings": [
-                            {"learning": "l1", "atomicity_score": 0.8, "evidence": "e1"}
-                        ],
                     },
                 ],
                 "usage": {"input_tokens": 200, "output_tokens": 100, "total_tokens": 300, "requests": 5},
@@ -260,7 +254,6 @@ class TestRRBatchReflection:
         assert len(result_ctx.reflections) == 2
         assert result_ctx.reflections[0].reasoning == "task 0 analysis"
         assert result_ctx.reflections[1].key_insight == "t1 insight"
-        assert len(result_ctx.reflections[1].extracted_learnings) == 1
         assert result_ctx.reflections[0].raw["item_id"] == "t0"
 
     def test_batch_missing_per_item_results_fails_loudly(self):
@@ -300,12 +293,10 @@ class TestRRBatchReflection:
                     {
                         "reasoning": "item 0",
                         "key_insight": "i0",
-                        "extracted_learnings": [],
                     },
                     {
                         "reasoning": "item 1",
                         "key_insight": "i1",
-                        "extracted_learnings": [],
                     },
                 ],
                 "usage": {"input_tokens": 200, "output_tokens": 100, "total_tokens": 300, "requests": 5},
@@ -340,12 +331,10 @@ class TestRRBatchReflection:
                     {
                         "reasoning": "task 0 analysis",
                         "key_insight": "t0 insight",
-                        "extracted_learnings": [],
                     },
                     {
                         "reasoning": "task 1 analysis",
                         "key_insight": "t1 insight",
-                        "extracted_learnings": [],
                     },
                 ],
                 "usage": {"input_tokens": 200, "output_tokens": 100, "total_tokens": 300, "requests": 5},

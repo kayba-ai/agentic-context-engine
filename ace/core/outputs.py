@@ -33,15 +33,19 @@ class ExtractedLearning(BaseModel):
     """A single learning extracted by the Reflector from task execution."""
 
     learning: str = Field(..., description="The extracted learning or insight")
-    atomicity_score: float = Field(
-        default=0.0, ge=0.0, le=1.0, description="How atomic/focused this learning is"
-    )
     evidence: str = Field(
-        default="", description="Evidence from execution supporting this learning"
+        default="",
+        description=(
+            "Specific traces/items where this pattern was observed. "
+            "Cite task IDs or item indices, e.g. 'task_2, task_16, task_29'."
+        ),
     )
     justification: str = Field(
         default="",
-        description="Why this learning was chosen: generalizable pattern, explicit preference, etc.",
+        description=(
+            "Why this is worth remembering: how many traces exhibited this pattern, "
+            "whether it's recurring or a one-off, and why it generalizes beyond these examples."
+        ),
     )
 
 
@@ -71,9 +75,6 @@ class ReflectorOutput(BaseModel):
     )
     key_insight: str = Field(
         ..., description="The main lesson learned from this iteration"
-    )
-    extracted_learnings: List[ExtractedLearning] = Field(
-        default_factory=list, description="Learnings extracted from task execution"
     )
     skill_tags: List[SkillTag] = Field(
         default_factory=list, description="Classifications of strategy effectiveness"

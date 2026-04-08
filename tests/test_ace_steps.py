@@ -13,7 +13,6 @@ from ace.core.context import ACEStepContext, SkillbookView
 from ace.core.insight_source import TRACE_IDENTITY_METADATA_KEY, InsightSource
 from ace.core.outputs import (
     AgentOutput,
-    ExtractedLearning,
     ReflectorOutput,
     SkillManagerOutput,
 )
@@ -273,12 +272,6 @@ class TestAttachInsightSourcesStep:
             correct_approach="c",
             key_insight="k",
             error_identification="Missed pagination signal",
-            extracted_learnings=[
-                ExtractedLearning(
-                    learning="Check for a next-page token before stopping.",
-                    evidence="The API response included next_page_token.",
-                )
-            ],
         )
         batch = UpdateBatch(
             reasoning="test",
@@ -288,7 +281,6 @@ class TestAttachInsightSourcesStep:
                     section="api",
                     content="Check for a next-page token before stopping.",
                     evidence="The API response included next_page_token.",
-                    learning_index=0,
                 )
             ],
         )
@@ -325,25 +317,13 @@ class TestAttachInsightSourcesStep:
             ReflectorOutput(
                 reasoning="r0",
                 correct_approach="c0",
-                key_insight="k0",
-                extracted_learnings=[
-                    ExtractedLearning(
-                        learning="Use the continuation token.",
-                        evidence="first batch evidence",
-                    )
-                ],
+                key_insight="Use the continuation token.",
                 raw={"item_id": "task-0"},
             ),
             ReflectorOutput(
                 reasoning="r1",
                 correct_approach="c1",
-                key_insight="k1",
-                extracted_learnings=[
-                    ExtractedLearning(
-                        learning="Verify exact constants.",
-                        evidence="second batch evidence",
-                    )
-                ],
+                key_insight="Verify exact constants.",
                 raw={"item_id": "task-1"},
             ),
         )
@@ -354,14 +334,12 @@ class TestAttachInsightSourcesStep:
                     type="ADD",
                     section="api",
                     content="Use the continuation token.",
-                    learning_index=0,
                     reflection_index=0,
                 ),
                 UpdateOperation(
                     type="ADD",
                     section="science",
                     content="Verify exact constants.",
-                    learning_index=0,
                     reflection_index=1,
                 ),
             ],
