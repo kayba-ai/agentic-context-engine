@@ -155,7 +155,7 @@ Concrete LLM-based implementations of the role protocols. Live in `ace/implement
 
 All three share the same constructor pattern: `__init__(self, model: str, *, prompt_template=..., max_retries=3)`. The `model` parameter is resolved via `resolve_model()` to a PydanticAI agent.
 
-`RRStep` is both a `StepProtocol[ACEStepContext]` (composable in any pipeline) and `ReflectorLike` (usable as a drop-in reflector). Internally it uses a PydanticAI agent with `execute_code`, `analyze`, and `batch_analyze` tools. See [RR_DESIGN.md](RR_DESIGN.md) for the full Recursive Reflector architecture.
+`RRStep` is both a `StepProtocol[ACEStepContext]` (composable in any pipeline) and `ReflectorLike` (usable as a drop-in reflector). It is a subclass of `RecursiveAgent` with `execute_code` and `recurse` tools, plus two-tier compaction and depth-based recursion. See [RR_DESIGN.md](RR_DESIGN.md) for the full Recursive Reflector architecture.
 
 ---
 
@@ -207,10 +207,10 @@ ACELiteLLM (standalone convenience wrapper — not an ACERunner subclass)
 ├── learn_from_traces() — delegates to lazy-init TraceAnalyser
 └── learn_from_feedback()— runs learning_tail from last ask()
 
-RRStep (PydanticAI agent — composable iterative step)
+RRStep (RecursiveAgent subclass — composable iterative step)
 ├── __call__()          — StepProtocol entry; usable in any runner's pipeline
 ├── reflect()           — ReflectorLike entry; drop-in reflector for runners
-└── _run_reflection()   — PydanticAI agent with execute_code, analyze, batch_analyze tools
+└── _run_reflection()   — PydanticAI agent with execute_code and recurse tools
 ```
 
 All runners compose a `Pipeline` rather than extending it.
@@ -553,7 +553,8 @@ ace/
 | `ace/steps/` | All pipeline steps + `learning_tail()` |
 | `ace/runners/` | `ACERunner`, `TraceAnalyser`, `ACE`, `BrowserUse`, `LangChain`, `ClaudeCode`, `ACELiteLLM` |
 | `ace/providers/` | `resolve_model`, `ACEModelConfig`, `validate_connection` |
-| `ace/rr/` | `RRStep` (PydanticAI agent), `RRConfig`, `TraceSandbox`, `TraceContext` |
+| `ace/steps/rr_step.py` | `RRStep` (RecursiveAgent subclass), `RRConfig`, `TraceSandbox` |
+| `ace/core/recursive_agent.py` | `RecursiveAgent`, `AgenticConfig`, `AgenticDeps`, compaction, recursion |
 | `ace/integrations/` | Execute steps, result types, ToTrace converters; MCP server |
 | `ace/deduplication/` | Dedup subsystem (detector, manager, operations) |
 | `ace/observability/` | Logfire configuration (`configure_logfire()`) |

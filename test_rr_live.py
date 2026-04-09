@@ -130,9 +130,7 @@ def run_rr_on_trace(task_id: str, trace: dict) -> None:
     rr = RRStep(
         MODEL,
         config=RRConfig(
-            max_iterations=10,
             max_requests=20,
-            enable_subagent=False,
             max_output_chars=10_000,
         ),
     )

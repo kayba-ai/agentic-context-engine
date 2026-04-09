@@ -1036,7 +1036,7 @@ ace.save("learned.json")
 
 # With Recursive Reflector
 from ace import RRStep, RRConfig
-rr = RRStep("gpt-4o-mini", config=RRConfig(max_iterations=10))
+rr = RRStep("gpt-4o-mini", config=RRConfig(max_requests=20))
 ace = ACELiteLLM("gpt-4o-mini", reflector=rr)
 ```
 

@@ -167,9 +167,7 @@ def main():
         MODEL,
         config=RRConfig(
             max_requests=20,
-            max_iterations=10,
             timeout=15.0,
-            enable_subagent=False,
         ),
     )
     sm = SkillManager(MODEL)

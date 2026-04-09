@@ -182,8 +182,6 @@ def main():
     rr = RRStep(
         args.model,
         config=RRConfig(
-            subagent_model="bedrock/eu.anthropic.claude-haiku-4-5-20251001-v1:0",
-            max_iterations=60,
             max_requests=60,
         ),
         prompt_template=REFLECTOR_RECURSIVE_PROMPT,
