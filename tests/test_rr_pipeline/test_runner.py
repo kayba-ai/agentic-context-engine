@@ -40,25 +40,30 @@ def _make_ctx(
     return ACEStepContext(trace=trace, skillbook=SkillbookView(Skillbook()))
 
 
+_RUN_SYNC = "ace.steps.rr.runner.run_agent_sync"
+
+
 def _mock_compaction_result(
     *,
     reasoning: str = "mock reasoning",
     key_insight: str = "mock insight",
     correct_approach: str = "mock approach",
-) -> tuple[ReflectorOutput, RRDeps]:
-    """Create a mock return value for _run_with_compaction."""
+) -> tuple[ReflectorOutput, dict]:
+    """Create a mock return value for run_agent_sync."""
     output = ReflectorOutput(
         reasoning=reasoning,
         key_insight=key_insight,
         correct_approach=correct_approach,
-        raw={
-            "usage": {"input_tokens": 100, "output_tokens": 50, "total_tokens": 150, "requests": 3},
-            "rr_trace": {"total_iterations": 2, "subagent_calls": [], "timed_out": False, "compactions": 0, "depth": 0},
-        },
+        raw={},
     )
-    deps = MagicMock(spec=RRDeps)
-    deps.iteration = 2
-    return output, deps
+    metadata = {
+        "usage": {"input_tokens": 100, "output_tokens": 50, "total_tokens": 150, "requests": 3},
+        "compactions": 0,
+        "depth": 0,
+        "iterations": 2,
+        "timed_out": False,
+    }
+    return output, metadata
 
 
 # ---------------------------------------------------------------------------
@@ -81,9 +86,9 @@ class TestRRStep:
         """RRStep.__call__ populates ctx.reflections."""
         rr = RRStep("test-model", config=RRConfig())
 
-        output, deps = _mock_compaction_result(key_insight="step test")
+        output, metadata = _mock_compaction_result(key_insight="step test")
 
-        with patch.object(rr, "_run_with_compaction", new_callable=AsyncMock, return_value=(output, deps)):
+        with patch(_RUN_SYNC, return_value=(output, metadata)):
             ctx = _make_ctx(
                 question="What is 2+2?",
                 answer="4",
@@ -100,9 +105,9 @@ class TestRRStep:
     def test_rr_trace_metadata_populated(self):
         """Successful reflection populates rr_trace in raw."""
         rr = RRStep("test-model", config=RRConfig())
-        output, deps = _mock_compaction_result()
+        output, metadata = _mock_compaction_result()
 
-        with patch.object(rr, "_run_with_compaction", new_callable=AsyncMock, return_value=(output, deps)):
+        with patch(_RUN_SYNC, return_value=(output, metadata)):
             result_ctx = rr(_make_ctx())
 
         result = result_ctx.reflections[0]
@@ -112,23 +117,11 @@ class TestRRStep:
 
     def test_timeout_produces_output(self):
         """Budget exhaustion produces a timeout ReflectorOutput."""
-        rr = RRStep(
-            "test-model",
-            config=RRConfig(),
-        )
+        from ace.core.recursive_agent import BudgetExhausted
 
-        timeout_output = ReflectorOutput(
-            reasoning="Analysis reached budget limit.",
-            error_identification="budget_exhausted",
-            key_insight="Session reached budget limit before completing",
-            correct_approach="Consider increasing budget or simplifying the analysis",
-            raw={"timeout": True, "rr_trace": {"total_iterations": 0, "subagent_calls": [], "timed_out": True, "compactions": 0, "depth": 0}},
-        )
-        deps = MagicMock(spec=RRDeps)
-        deps.iteration = 0
+        rr = RRStep("test-model", config=RRConfig())
 
-
-        with patch.object(rr, "_run_with_compaction", new_callable=AsyncMock, return_value=(timeout_output, deps)):
+        with patch(_RUN_SYNC, side_effect=BudgetExhausted(compaction_count=0)):
             result_ctx = rr(_make_ctx())
 
         assert len(result_ctx.reflections) == 1
@@ -139,19 +132,11 @@ class TestRRStep:
 
     def test_timeout_with_ground_truth_correct(self):
         """Timeout correctly detects correct answer."""
+        from ace.core.recursive_agent import BudgetExhausted
+
         rr = RRStep("test-model", config=RRConfig())
 
-        timeout_output = ReflectorOutput(
-            reasoning="budget limit",
-            key_insight="",
-            correct_approach="",
-            raw={"timeout": True, "rr_trace": {"total_iterations": 0, "subagent_calls": [], "timed_out": True, "compactions": 0, "depth": 0}},
-        )
-        deps = MagicMock(spec=RRDeps)
-        deps.iteration = 0
-
-
-        with patch.object(rr, "_run_with_compaction", new_callable=AsyncMock, return_value=(timeout_output, deps)):
+        with patch(_RUN_SYNC, side_effect=BudgetExhausted(compaction_count=0)):
             output = rr.reflect(
                 question="What is 2+2?",
                 agent_output=AgentOutput(reasoning="r", final_answer="4"),
@@ -165,15 +150,7 @@ class TestRRStep:
         """General exception produces a safe fallback output."""
         rr = RRStep("test-model", config=RRConfig())
 
-        error_output = ReflectorOutput(
-            reasoning="Recursive analysis failed: unexpected error",
-            correct_approach="",
-            key_insight="",
-            raw={"error": "unexpected error"},
-        )
-        deps = MagicMock(spec=RRDeps)
-
-        with patch.object(rr, "_run_with_compaction", new_callable=AsyncMock, return_value=(error_output, deps)):
+        with patch(_RUN_SYNC, side_effect=RuntimeError("unexpected error")):
             result_ctx = rr(_make_ctx())
 
         assert len(result_ctx.reflections) == 1
@@ -195,9 +172,9 @@ class TestRRStepProtocol:
     def test_reflect_method(self):
         """reflect() delegates to the PydanticAI agent."""
         rr = RRStep("test-model", config=RRConfig())
-        output, deps = _mock_compaction_result(key_insight="reflected")
+        output, metadata = _mock_compaction_result(key_insight="reflected")
 
-        with patch.object(rr, "_run_with_compaction", new_callable=AsyncMock, return_value=(output, deps)):
+        with patch(_RUN_SYNC, return_value=(output, metadata)):
             result = rr.reflect(
                 question="What is 2+2?",
                 agent_output=AgentOutput(reasoning="r", final_answer="4"),
@@ -236,9 +213,7 @@ class TestRRBatchReflection:
                 "rr_trace": {"total_iterations": 3, "subagent_calls": [], "timed_out": False, "compactions": 0, "depth": 0},
             },
         )
-        deps = MagicMock(spec=RRDeps)
-        deps.iteration = 3
-
+        metadata = {"usage": {}, "compactions": 0, "depth": 0, "iterations": 0, "timed_out": False}
 
         batch_trace = {
             "tasks": [
@@ -248,7 +223,7 @@ class TestRRBatchReflection:
         }
         ctx = ACEStepContext(trace=batch_trace, skillbook=SkillbookView(Skillbook()))
 
-        with patch.object(rr, "_run_with_compaction", new_callable=AsyncMock, return_value=(output, deps)):
+        with patch(_RUN_SYNC, return_value=(output, metadata)):
             result_ctx = rr(ctx)
 
         assert len(result_ctx.reflections) == 2
@@ -265,7 +240,7 @@ class TestRRBatchReflection:
             key_insight="single insight",
             correct_approach="approach",
         )
-        deps = MagicMock(spec=RRDeps)
+        metadata = {"usage": {}, "compactions": 0, "depth": 0, "iterations": 0, "timed_out": False}
 
         batch_trace = {
             "tasks": [
@@ -275,7 +250,7 @@ class TestRRBatchReflection:
         }
         ctx = ACEStepContext(trace=batch_trace, skillbook=SkillbookView(Skillbook()))
 
-        with patch.object(rr, "_run_with_compaction", new_callable=AsyncMock, return_value=(output, deps)):
+        with patch(_RUN_SYNC, return_value=(output, metadata)):
             # No raw["items"] → single reflection, not split
             result_ctx = rr(ctx)
             assert len(result_ctx.reflections) == 1
@@ -303,7 +278,7 @@ class TestRRBatchReflection:
                 "rr_trace": {"total_iterations": 3, "subagent_calls": [], "timed_out": False, "compactions": 0, "depth": 0},
             },
         )
-        deps = MagicMock(spec=RRDeps)
+        metadata = {"usage": {}, "compactions": 0, "depth": 0, "iterations": 0, "timed_out": False}
 
         batch_trace = [
             {"item_id": "i0", "messages": [{"role": "user", "content": "hello"}]},
@@ -311,7 +286,7 @@ class TestRRBatchReflection:
         ]
         ctx = ACEStepContext(trace=batch_trace, skillbook=SkillbookView(Skillbook()))
 
-        with patch.object(rr, "_run_with_compaction", new_callable=AsyncMock, return_value=(output, deps)):
+        with patch(_RUN_SYNC, return_value=(output, metadata)):
             result_ctx = rr(ctx)
 
         assert len(result_ctx.reflections) == 2
@@ -341,7 +316,7 @@ class TestRRBatchReflection:
                 "rr_trace": {"total_iterations": 3, "subagent_calls": [], "timed_out": False, "compactions": 0, "depth": 0},
             },
         )
-        deps = MagicMock(spec=RRDeps)
+        metadata = {"usage": {}, "compactions": 0, "depth": 0, "iterations": 0, "timed_out": False}
 
         combined_trace = {
             "question": "Analyze 2 agent execution traces",
@@ -368,7 +343,7 @@ class TestRRBatchReflection:
         }
         ctx = ACEStepContext(trace=combined_trace, skillbook=SkillbookView(Skillbook()))
 
-        with patch.object(rr, "_run_with_compaction", new_callable=AsyncMock, return_value=(output, deps)):
+        with patch(_RUN_SYNC, return_value=(output, metadata)):
             result_ctx = rr(ctx)
 
         assert len(result_ctx.reflections) == 2

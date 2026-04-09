@@ -47,35 +47,32 @@ def _make_ctx(
     return ACEStepContext(trace=trace, skillbook=SkillbookView(Skillbook()))
 
 
+_RUN_SYNC = "ace.steps.rr.runner.run_agent_sync"
+
+
 def _mock_compaction_result(
     *,
     reasoning: str = "done",
     key_insight: str = "insight",
     correct_approach: str = "approach",
     timed_out: bool = False,
-) -> tuple[ReflectorOutput, MagicMock]:
-    """Create a mock return value for _run_with_compaction."""
+) -> tuple[ReflectorOutput, dict]:
+    """Create a mock return value for run_agent_sync."""
     output = ReflectorOutput(
         reasoning=reasoning,
         key_insight=key_insight,
         correct_approach=correct_approach,
-        raw={
-            "usage": {"input_tokens": 100, "output_tokens": 50, "total_tokens": 150, "requests": 3},
-            "rr_trace": {
-                "total_iterations": 2,
-                "subagent_calls": [],
-                "timed_out": timed_out,
-                "compactions": 0,
-                "depth": 0,
-            },
-        },
+        raw={},
     )
-    if timed_out:
-        output.raw["timeout"] = True
-    deps = MagicMock(spec=RRDeps)
-    deps.iteration = 2
+    metadata = {
+        "usage": {"input_tokens": 100, "output_tokens": 50, "total_tokens": 150, "requests": 3},
+        "compactions": 0,
+        "depth": 0,
+        "iterations": 2,
+        "timed_out": timed_out,
+    }
 
-    return output, deps
+    return output, metadata
 
 
 # =========================================================================
@@ -88,9 +85,9 @@ class TestLoopLifecycle:
     def test_successful_reflection(self):
         """Happy path: PydanticAI agent produces valid ReflectorOutput."""
         rr = RRStep("test-model", config=RRConfig())
-        output, deps = _mock_compaction_result(key_insight="insight")
+        output, metadata = _mock_compaction_result(key_insight="insight")
 
-        with patch.object(rr, "_run_with_compaction", new_callable=AsyncMock, return_value=(output, deps)):
+        with patch(_RUN_SYNC, return_value=(output, metadata)):
             result_ctx = rr(
                 _make_ctx(
                     question="What is 2+2?",
@@ -110,12 +107,12 @@ class TestLoopLifecycle:
             config=RRConfig(max_requests=3),
         )
 
-        output, deps = _mock_compaction_result(
+        output, metadata = _mock_compaction_result(
             reasoning="Analysis reached budget limit.",
             timed_out=True,
         )
 
-        with patch.object(rr, "_run_with_compaction", new_callable=AsyncMock, return_value=(output, deps)):
+        with patch(_RUN_SYNC, return_value=(output, metadata)):
             result_ctx = rr(_make_ctx())
 
         assert len(result_ctx.reflections) == 1
@@ -149,9 +146,9 @@ class TestLoopLifecycle:
     def test_rr_trace_metadata_on_success(self):
         """Successful reflection populates rr_trace metadata."""
         rr = RRStep("test-model", config=RRConfig())
-        output, deps = _mock_compaction_result()
+        output, metadata = _mock_compaction_result()
 
-        with patch.object(rr, "_run_with_compaction", new_callable=AsyncMock, return_value=(output, deps)):
+        with patch(_RUN_SYNC, return_value=(output, metadata)):
             result_ctx = rr(_make_ctx())
 
         result = result_ctx.reflections[0]
@@ -160,11 +157,12 @@ class TestLoopLifecycle:
         assert isinstance(result.raw["rr_trace"]["subagent_calls"], list)
 
     def test_rr_trace_metadata_on_timeout(self):
-        """Timeout reflection also has rr_trace metadata."""
-        rr = RRStep("test-model", config=RRConfig())
-        output, deps = _mock_compaction_result(timed_out=True)
+        """Budget exhaustion produces rr_trace with timed_out=True."""
+        from ace.core.recursive_agent import BudgetExhausted
 
-        with patch.object(rr, "_run_with_compaction", new_callable=AsyncMock, return_value=(output, deps)):
+        rr = RRStep("test-model", config=RRConfig())
+
+        with patch(_RUN_SYNC, side_effect=BudgetExhausted(compaction_count=1)):
             result_ctx = rr(_make_ctx())
 
         result = result_ctx.reflections[0]
@@ -299,7 +297,7 @@ class TestEntryPoints:
     def test_call_produces_reflection(self):
         """__call__() produces a ReflectorOutput on the context."""
         rr = RRStep("test-model", config=RRConfig())
-        output, deps = _mock_compaction_result(key_insight="insight")
+        output, metadata = _mock_compaction_result(key_insight="insight")
 
         traces = {
             "question": "q",
@@ -309,7 +307,7 @@ class TestEntryPoints:
         }
         ctx = ACEStepContext(trace=traces, skillbook=SkillbookView(Skillbook()))
 
-        with patch.object(rr, "_run_with_compaction", new_callable=AsyncMock, return_value=(output, deps)):
+        with patch(_RUN_SYNC, return_value=(output, metadata)):
             result_ctx = rr(ctx)
 
         assert isinstance(result_ctx.reflections[0], ReflectorOutput)
@@ -318,9 +316,9 @@ class TestEntryPoints:
     def test_reflect_method_works(self):
         """reflect() works as ReflectorLike entry point."""
         rr = RRStep("test-model", config=RRConfig())
-        output, deps = _mock_compaction_result(key_insight="reflected")
+        output, metadata = _mock_compaction_result(key_insight="reflected")
 
-        with patch.object(rr, "_run_with_compaction", new_callable=AsyncMock, return_value=(output, deps)):
+        with patch(_RUN_SYNC, return_value=(output, metadata)):
             result = rr.reflect(
                 question="What is 2+2?",
                 agent_output=AgentOutput(reasoning="r", final_answer="4"),
@@ -380,7 +378,8 @@ class TestMicrocompaction:
                 ),
             ]))
 
-        compacted = rr._microcompact(messages, keep_recent=2)
+        from ace.core.recursive_agent import microcompact
+        compacted = microcompact(messages, keep_recent=2, tool_names=("execute_code",))
 
         # Should NOT be the same object (changes were made)
         assert compacted is not messages
@@ -401,7 +400,8 @@ class TestMicrocompaction:
             ]),
         ]
 
-        result = rr._microcompact(messages, keep_recent=3)
+        from ace.core.recursive_agent import microcompact
+        result = microcompact(messages, keep_recent=3, tool_names=("execute_code",))
         assert result is messages  # identity = no change
 
     def test_microcompact_ignores_non_tool_messages(self):
@@ -419,7 +419,8 @@ class TestMicrocompaction:
             ]),
         ]
 
-        compacted = rr._microcompact(messages, keep_recent=1)
+        from ace.core.recursive_agent import microcompact
+        compacted = microcompact(messages, keep_recent=1, tool_names=("execute_code",))
         assert compacted is not messages
         # First tool result cleared, second kept
         assert "[cleared" in compacted[1].parts[0].content
@@ -432,28 +433,28 @@ class TestMicrocompaction:
 @pytest.mark.unit
 class TestBudgetExhausted:
     def test_is_budget_exhausted_tokens(self):
-        """_is_budget_exhausted detects total token limit."""
-        rr = RRStep("test-model", config=RRConfig())
+        """is_budget_exhausted detects total token limit."""
+        from ace.core.recursive_agent import is_budget_exhausted
         limits = UsageLimits(total_tokens_limit=1000, request_limit=50)
         usage = MagicMock()
         usage.total_tokens = 1000
         usage.requests = 5
-        assert rr._is_budget_exhausted(limits, usage) is True
+        assert is_budget_exhausted(limits, usage) is True
 
     def test_is_budget_exhausted_requests(self):
-        """_is_budget_exhausted detects request limit."""
-        rr = RRStep("test-model", config=RRConfig())
+        """is_budget_exhausted detects request limit."""
+        from ace.core.recursive_agent import is_budget_exhausted
         limits = UsageLimits(total_tokens_limit=100_000, request_limit=10)
         usage = MagicMock()
         usage.total_tokens = 500
         usage.requests = 10
-        assert rr._is_budget_exhausted(limits, usage) is True
+        assert is_budget_exhausted(limits, usage) is True
 
     def test_is_budget_not_exhausted(self):
-        """_is_budget_exhausted returns False when under budget."""
-        rr = RRStep("test-model", config=RRConfig())
+        """is_budget_exhausted returns False when under budget."""
+        from ace.core.recursive_agent import is_budget_exhausted
         limits = UsageLimits(total_tokens_limit=100_000, request_limit=50)
         usage = MagicMock()
         usage.total_tokens = 500
         usage.requests = 5
-        assert rr._is_budget_exhausted(limits, usage) is False
+        assert is_budget_exhausted(limits, usage) is False

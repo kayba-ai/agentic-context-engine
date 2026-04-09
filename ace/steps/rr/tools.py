@@ -9,11 +9,12 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Awaitable, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 from pydantic_ai import ModelRetry, RunContext
 
 from ace.core.outputs import ReflectorOutput
+from ace.core.recursive_agent import AgenticDeps
 
 from .config import RecursiveConfig
 from .sandbox import TraceSandbox
@@ -30,21 +31,15 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class RRDeps:
-    """Dependencies injected into RR tool calls via ``RunContext``."""
+class RRDeps(AgenticDeps):
+    """Dependencies injected into RR tool calls via ``RunContext``.
 
-    sandbox: TraceSandbox
-    trace_data: dict[str, Any]
-    skillbook_text: str
-    config: RecursiveConfig
-    iteration: int = 0
+    Extends :class:`AgenticDeps` with RR-specific sandbox and trace fields.
+    """
 
-    # Recursion state
-    depth: int = 0
-    max_depth: int = 2
-    run_session_fn: Callable[..., Awaitable[tuple[Any, "RRDeps"]]] | None = None
-    # Updated by _run_with_compaction so recurse tool can compute child budget
-    parent_usage_tokens: int = 0
+    sandbox: TraceSandbox = field(default=None)  # type: ignore[assignment]
+    trace_data: dict[str, Any] = field(default_factory=dict)
+    skillbook_text: str = ""
 
 
 # ------------------------------------------------------------------

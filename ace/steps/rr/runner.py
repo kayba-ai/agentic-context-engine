@@ -15,21 +15,19 @@ Satisfies both ``StepProtocol`` (for Pipeline composition) and
 
 from __future__ import annotations
 
-import asyncio
-import concurrent.futures
-import copy
 import json as _json
 import logging
 from typing import Any, Optional
 
-from pydantic_ai import Agent as PydanticAgent
-from pydantic_ai.exceptions import UsageLimitExceeded
-from pydantic_ai.messages import ModelRequest, ModelResponse, TextPart, ToolReturnPart, UserPromptPart
 from pydantic_ai.settings import ModelSettings
-from pydantic_ai.usage import UsageLimits
 
 from ace.core.context import ACEStepContext
 from ace.core.outputs import AgentOutput, ReflectorOutput
+from ace.core.recursive_agent import (
+    BudgetExhausted,
+    run_agent_sync,
+    run_agent_with_compaction,
+)
 
 from .agent import create_rr_agent
 from .config import RecursiveConfig
@@ -193,7 +191,7 @@ class RRStep:
             config=self.config,
             depth=0,
             max_depth=self.config.max_depth,
-            run_session_fn=self._run_with_compaction,
+            run_session_fn=self._run_child_session,
         )
 
         initial_prompt = self._build_initial_prompt(traces, skillbook, trace_obj)
@@ -202,21 +200,53 @@ class RRStep:
         if mode == "online" and skillbook_text and skillbook_text != "(empty skillbook)":
             initial_prompt += "\n\n" + RR_SKILL_EVAL_SECTION
 
-        # Run async compaction loop from sync context
+        # Run agent with compaction (handles async/sync boundary)
         try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = None
-
-        if loop and loop.is_running():
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                output, deps = pool.submit(
-                    asyncio.run,
-                    self._run_with_compaction(deps=deps, prompt=initial_prompt, depth=0),
-                ).result()
-        else:
-            output, deps = asyncio.run(
-                self._run_with_compaction(deps=deps, prompt=initial_prompt, depth=0)
+            output, metadata = run_agent_sync(
+                self._agent,
+                deps=deps,
+                prompt=initial_prompt,
+                usage_limits=self.config.build_usage_limits(
+                    remaining_tokens=traces.get("_remaining_tokens")
+                    if isinstance(traces, dict)
+                    else None,
+                ),
+                config=self.config,
+                tool_names_to_compact=("execute_code", "analyze", "batch_analyze"),
+                compaction_summary_prompt=COMPACTION_SUMMARY_PROMPT,
+                compaction_continuation=(
+                    "Your conversation was compacted. "
+                    "All sandbox variables persist — use execute_code to re-inspect data. "
+                    "Do NOT repeat work already completed. Continue your analysis."
+                ),
+                microcompact_placeholder=(
+                    "[cleared — data still in sandbox variables, use execute_code to re-inspect]"
+                ),
+                on_compaction=self._on_compaction,
+            )
+            # Enrich output with RR-specific metadata
+            output.raw = {
+                **output.raw,
+                **metadata,
+                "rr_trace": {
+                    "total_iterations": deps.iteration,
+                    "subagent_calls": [],
+                    "timed_out": False,
+                    "compactions": metadata.get("compactions", 0),
+                    "depth": 0,
+                },
+            }
+        except BudgetExhausted as exc:
+            output = self._build_budget_exhausted_output(
+                deps, exc.compaction_count, depth=0
+            )
+        except Exception as e:
+            logger.error("RR agent failed: %s", e, exc_info=True)
+            output = ReflectorOutput(
+                reasoning=f"Recursive analysis failed: {e}",
+                correct_approach="",
+                key_insight="",
+                raw={"error": str(e)},
             )
 
         # Enrich timeout output with ground-truth comparison if available
@@ -228,214 +258,75 @@ class RRStep:
         return output
 
     # ------------------------------------------------------------------
-    # Async session with compaction
+    # Child session runner (called by recurse tool)
     # ------------------------------------------------------------------
 
-    async def _run_with_compaction(
+    async def _run_child_session(
         self,
         *,
         deps: RRDeps,
         prompt: str,
         depth: int = 0,
     ) -> tuple[ReflectorOutput, RRDeps]:
-        """Run an RR session with two-tier compaction.
+        """Run a child RR session with compaction (called by recurse tool)."""
+        child_agent = create_rr_agent(
+            self._model,
+            system_prompt=REFLECTOR_RECURSIVE_SYSTEM,
+            config=self.config,
+            model_settings=self._model_settings,
+            depth=depth,
+            max_depth=self.config.max_depth,
+        )
 
-        Uses agent.iter() for node-by-node iteration. Compaction triggers
-        when PydanticAI raises UsageLimitExceeded from request_tokens_limit
-        (context window 85% full).
-
-        Tier 1: Microcompaction — clear old tool results from message history.
-        Tier 2: Full summarization — LLM summarizes progress, history pruned.
-        """
-        # Build or reuse agent for this depth
-        if depth == 0:
-            agent = self._agent
-        else:
-            agent = create_rr_agent(
-                self._model,
-                system_prompt=REFLECTOR_RECURSIVE_SYSTEM,
+        remaining = deps.trace_data.get("_remaining_tokens")
+        try:
+            output, metadata = await run_agent_with_compaction(
+                child_agent,
+                deps=deps,
+                prompt=prompt,
+                usage_limits=self.config.build_usage_limits(remaining_tokens=remaining),
                 config=self.config,
-                model_settings=self._model_settings,
-                depth=depth,
-                max_depth=self.config.max_depth,
+                tool_names_to_compact=("execute_code", "analyze", "batch_analyze"),
+                compaction_summary_prompt=COMPACTION_SUMMARY_PROMPT,
+                compaction_continuation=(
+                    "Your conversation was compacted. "
+                    "All sandbox variables persist — use execute_code to re-inspect data. "
+                    "Do NOT repeat work already completed. Continue your analysis."
+                ),
+                microcompact_placeholder=(
+                    "[cleared — data still in sandbox variables, use execute_code to re-inspect]"
+                ),
+                on_compaction=self._on_compaction,
             )
-
-        usage_limits = self.config.build_usage_limits(
-            remaining_tokens=deps.trace_data.get("_remaining_tokens"),
-        )
-
-        message_history = None
-        compaction_count = 0
-        user_prompt = prompt
-        cumulative_usage = None
-        last_run: Any = None  # track last agent_run for post-exception access
-
-        while True:
-            try:
-                async with agent.iter(
-                    user_prompt,
-                    deps=deps,
-                    message_history=message_history,
-                    usage_limits=usage_limits,
-                    usage=cumulative_usage,
-                ) as agent_run:
-                    last_run = agent_run
-                    async for _node in agent_run:
-                        # Keep deps updated so recurse tool can compute child budget
-                        deps.parent_usage_tokens = agent_run.usage().total_tokens or 0
-
-                    # Agent finished successfully
-                    output = agent_run.result.output
-                    usage = agent_run.result.usage()
-
-                    output.raw = {
-                        **output.raw,
-                        "usage": {
-                            "input_tokens": usage.input_tokens,
-                            "output_tokens": usage.output_tokens,
-                            "total_tokens": usage.total_tokens,
-                            "requests": usage.requests,
-                        },
-                        "rr_trace": {
-                            "total_iterations": deps.iteration,
-                            "subagent_calls": [],
-                            "timed_out": False,
-                            "compactions": compaction_count,
-                            "depth": depth,
-                        },
-                    }
-                    return output, deps
-
-            except UsageLimitExceeded:
-                messages = last_run.all_messages()
-                cumulative_usage = last_run.usage()
-
-                # Distinguish: total budget exhausted vs context window hit
-                if self._is_budget_exhausted(usage_limits, cumulative_usage):
-                    output = self._build_budget_exhausted_output(
-                        deps, compaction_count, depth
-                    )
-                    return output, deps
-
-                # Context window hit — try microcompaction (tier 1)
-                compacted = self._microcompact(
-                    messages, self.config.microcompact_keep_recent
-                )
-
-                if compacted is messages:
-                    # Microcompact had nothing to clear — do full summarization (tier 2)
-                    compaction_count += 1
-                    if compaction_count > self.config.max_compactions:
-                        output = self._build_budget_exhausted_output(
-                            deps, compaction_count, depth
-                        )
-                        return output, deps
-                    compacted = await self._summarize_and_compact(
-                        agent, messages, deps, compaction_count
-                    )
-
-                message_history = compacted
-                user_prompt = "Continue your analysis."
-
-            except Exception as e:
-                logger.error("RR agent failed: %s", e, exc_info=True)
-                output = ReflectorOutput(
-                    reasoning=f"Recursive analysis failed: {e}",
-                    correct_approach="",
-                    key_insight="",
-                    raw={"error": str(e)},
-                )
-                return output, deps
+            output.raw = {
+                **output.raw,
+                **metadata,
+                "rr_trace": {
+                    "total_iterations": deps.iteration,
+                    "subagent_calls": [],
+                    "timed_out": False,
+                    "compactions": metadata.get("compactions", 0),
+                    "depth": depth,
+                },
+            }
+            return output, deps
+        except BudgetExhausted as exc:
+            return self._build_budget_exhausted_output(deps, exc.compaction_count, depth), deps
 
     # ------------------------------------------------------------------
-    # Compaction helpers
+    # Compaction callback
     # ------------------------------------------------------------------
 
-    def _is_budget_exhausted(self, limits: UsageLimits, usage: Any) -> bool:
-        """True if total budget is spent (not a context-window compaction trigger)."""
-        if limits.total_tokens_limit and usage.total_tokens >= limits.total_tokens_limit:
-            return True
-        if limits.request_limit and usage.requests >= limits.request_limit:
-            return True
-        return False
-
-    def _microcompact(self, messages: list, keep_recent: int) -> list:
-        """Tier 1: Clear old tool results from message history.
-
-        Walks the message list and replaces tool result content for
-        execute_code/analyze/batch_analyze with a placeholder.
-        Keeps the most recent `keep_recent` tool results intact.
-        Keeps all model messages (reasoning chain) untouched.
-
-        Returns the same list object if nothing was cleared (caller
-        uses identity check to know if microcompaction did anything).
-        """
-        # Collect all (message_idx, part_idx) for tool return parts
-        tool_result_positions = []
-        for msg_idx, msg in enumerate(messages):
-            if isinstance(msg, ModelRequest):
-                for part_idx, part in enumerate(msg.parts):
-                    if isinstance(part, ToolReturnPart) and part.tool_name in (
-                        "execute_code", "analyze", "batch_analyze"
-                    ):
-                        tool_result_positions.append((msg_idx, part_idx))
-
-        if len(tool_result_positions) <= keep_recent:
-            return messages  # nothing to clear — identity signals "no change"
-
-        # Clear all but the most recent keep_recent
-        to_clear = (
-            tool_result_positions[:-keep_recent]
-            if keep_recent > 0
-            else tool_result_positions
-        )
-
-        # Deep copy messages to avoid mutating PydanticAI internals
-        compacted = copy.deepcopy(messages)
-
-        for msg_idx, part_idx in to_clear:
-            part = compacted[msg_idx].parts[part_idx]
-            part.content = "[cleared — data still in sandbox variables, use execute_code to re-inspect]"
-
-        return compacted
-
-    async def _summarize_and_compact(
-        self,
-        agent: Any,
-        messages: list,
-        deps: RRDeps,
-        compaction_count: int,
-    ) -> list:
-        """Tier 2: Full summarization — ask model to summarize, prune history."""
-        # Save pre-compaction messages to sandbox history variable
-        history = deps.sandbox.namespace.get("history", [])
-        history.append({
-            "compaction_round": compaction_count,
-            "message_count": len(messages),
-        })
-        deps.sandbox.namespace["history"] = history
-
-        # Ask the same agent to summarize (counts against session budget).
-        # Use output_type=str override so we get text, not ReflectorOutput.
-        summary_result = await agent.run(
-            COMPACTION_SUMMARY_PROMPT,
-            message_history=messages,
-            deps=deps,
-            output_type=str,
-        )
-        summary = summary_result.output
-
-        # Build compacted history: summary as assistant message + continuation
-        compacted = [
-            ModelResponse(parts=[TextPart(content=f"[Compaction summary #{compaction_count}]\n{summary}")]),
-            ModelRequest(parts=[UserPromptPart(content=(
-                f"Your conversation was compacted ({compaction_count} time(s)). "
-                "All sandbox variables persist — use execute_code to re-inspect data. "
-                "Check the `history` variable for prior trajectory context. "
-                "Do NOT repeat work already completed. Continue your analysis."
-            ))]),
-        ]
-        return compacted
+    @staticmethod
+    def _on_compaction(deps: RRDeps, compaction_count: int, messages: list) -> None:
+        """Save compaction metadata to sandbox history variable."""
+        if hasattr(deps, "sandbox") and deps.sandbox is not None:
+            history = deps.sandbox.namespace.get("history", [])
+            history.append({
+                "compaction_round": compaction_count,
+                "message_count": len(messages),
+            })
+            deps.sandbox.namespace["history"] = history
 
     def _build_budget_exhausted_output(
         self, deps: RRDeps, compaction_count: int, depth: int
