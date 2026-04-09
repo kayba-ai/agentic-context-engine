@@ -12,14 +12,14 @@ import pytest
 from pydantic_ai.messages import ModelRequest, ModelResponse, TextPart, ToolReturnPart, UserPromptPart
 from pydantic_ai.usage import UsageLimits
 
-from ace.steps.rr.config import RecursiveConfig
+from ace.implementations.rr.config import RecursiveConfig
 from ace.core.sandbox import TraceSandbox, create_readonly_sandbox
 
 from ace.core.context import ACEStepContext, SkillbookView
 from ace.core.outputs import AgentOutput, ReflectorOutput
 from ace.core.skillbook import Skillbook
-from ace.steps.rr import RRConfig, RRStep
-from ace.steps.rr.tools import RRDeps
+from ace.steps.rr_step import RRConfig, RRStep
+from ace.implementations.rr.tools import RRDeps
 
 # ---------------------------------------------------------------------------
 # Helpers

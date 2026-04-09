@@ -28,15 +28,15 @@ from ace.core.recursive_agent import (
     RecursiveAgent,
 )
 
-from .config import RecursiveConfig
-from .prompts import (
+from ace.core.sandbox import TraceSandbox
+from ace.implementations.rr.config import RecursiveConfig
+from ace.implementations.rr.prompts import (
     COMPACTION_SUMMARY_PROMPT,
     REFLECTOR_RECURSIVE_PROMPT,
     REFLECTOR_RECURSIVE_SYSTEM,
     RR_SKILL_EVAL_SECTION,
 )
-from ace.core.sandbox import TraceSandbox
-from .tools import (
+from ace.implementations.rr.tools import (
     RRDeps,
     register_output_validator,
 )
@@ -52,7 +52,7 @@ def _preview(text: str | None, max_len: int = 150) -> str:
     return snippet.replace("{", "{{").replace("}", "}}")
 
 
-class RRStep:
+class RecursiveReflector:
     """Recursive Reflector as a pipeline step (PydanticAI agent).
 
     Satisfies **StepProtocol** (place directly in a Pipeline) and

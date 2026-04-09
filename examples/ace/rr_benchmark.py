@@ -27,7 +27,7 @@ load_dotenv(_root / ".env")
 
 from ace.core.skillbook import Skillbook
 from ace.implementations import SkillManager
-from ace.steps.rr import RRConfig, RRStep
+from ace.steps.rr_step import RRConfig, RRStep
 from ace.runners.trace_analyser import TraceAnalyser
 
 MODEL = os.getenv("ACE_MODEL", "bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0")

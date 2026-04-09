@@ -52,13 +52,13 @@ _logger.addHandler(_handler)
 from pipeline import Pipeline
 
 from ace import TraceAnalyser, SkillManager, Skillbook
-from ace.steps.rr import RRStep, RRConfig
+from ace.steps.rr_step import RRStep, RRConfig
 from ace.core.context import ACEStepContext
 from ace.deduplication import DeduplicationManager
 from ace.protocols.deduplication import DeduplicationConfig
 from ace.implementations.prompts import wrap_skillbook_for_external_agent
 from ace.steps import UpdateStep, ApplyStep, DeduplicateStep
-from ace.steps.rr.prompts import REFLECTOR_RECURSIVE_PROMPT
+from ace.implementations.rr.prompts import REFLECTOR_RECURSIVE_PROMPT
 
 
 # ---------------------------------------------------------------------------

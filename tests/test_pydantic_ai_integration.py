@@ -322,8 +322,8 @@ class TestRRStepIntegration:
     @pytest.mark.integration
     def test_rr_basic_reflection(self):
         """RRStep.reflect returns a valid ReflectorOutput with non-empty fields."""
-        from ace.steps.rr.runner import RRStep
-        from ace.steps.rr.config import RecursiveConfig
+        from ace.steps.rr_step import RRStep
+        from ace.implementations.rr.config import RecursiveConfig
 
         config = RecursiveConfig(
             max_requests=15,
@@ -364,8 +364,8 @@ class TestRRStepIntegration:
     @pytest.mark.integration
     def test_rr_with_skillbook(self):
         """RRStep.reflect with a populated skillbook references or tags skills."""
-        from ace.steps.rr.runner import RRStep
-        from ace.steps.rr.config import RecursiveConfig
+        from ace.steps.rr_step import RRStep
+        from ace.implementations.rr.config import RecursiveConfig
 
         config = RecursiveConfig(
             max_requests=25,
@@ -421,8 +421,8 @@ class TestRRStepIntegration:
     @pytest.mark.integration
     def test_rr_step_protocol(self):
         """RRStep used as a StepProtocol: __call__(ctx) populates reflections."""
-        from ace.steps.rr.runner import RRStep
-        from ace.steps.rr.config import RecursiveConfig
+        from ace.steps.rr_step import RRStep
+        from ace.implementations.rr.config import RecursiveConfig
         from ace.core.context import ACEStepContext, SkillbookView
 
         config = RecursiveConfig(
@@ -467,8 +467,8 @@ class TestRRStepIntegration:
     @pytest.mark.integration
     def test_rr_execute_code_tool_used(self):
         """Verify the agent uses execute_code (total_iterations > 0 in rr_trace)."""
-        from ace.steps.rr.runner import RRStep
-        from ace.steps.rr.config import RecursiveConfig
+        from ace.steps.rr_step import RRStep
+        from ace.implementations.rr.config import RecursiveConfig
 
         config = RecursiveConfig(
             max_requests=15,

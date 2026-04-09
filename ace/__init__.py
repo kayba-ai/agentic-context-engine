@@ -115,8 +115,8 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     "PersistStep": ("ace.steps", "PersistStep"),
     "learning_tail": ("ace.steps", "learning_tail"),
     # Recursive Reflector
-    "RRStep": ("ace.steps.rr", "RRStep"),
-    "RRConfig": ("ace.steps.rr", "RRConfig"),
+    "RRStep": ("ace.steps.rr_step", "RRStep"),
+    "RRConfig": ("ace.steps.rr_step", "RRConfig"),
 }
 
 

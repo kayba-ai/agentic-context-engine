@@ -25,7 +25,7 @@ _root = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_root))
 load_dotenv(_root / ".env")
 
-from ace.steps.rr import RRConfig, RRStep, TraceSandbox
+from ace.steps.rr_step import RRConfig, RRStep, TraceSandbox
 from ace.core.context import ACEStepContext, SkillbookView
 from ace.core.skillbook import Skillbook
 

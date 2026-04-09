@@ -6,13 +6,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from ace.steps.rr.config import RecursiveConfig
+from ace.implementations.rr.config import RecursiveConfig
 from ace.core.context import ACEStepContext, SkillbookView
 from ace.core.outputs import AgentOutput, ReflectorOutput
 from ace.core.skillbook import Skillbook
 
-from ace.steps.rr import RRStep, RRConfig
-from ace.steps.rr.tools import RRDeps
+from ace.steps.rr_step import RRStep, RRConfig
+from ace.implementations.rr.tools import RRDeps
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -370,7 +370,7 @@ class TestRRBatchReflection:
             ]
         }
 
-        sandbox = rr._create_sandbox(
+        sandbox = rr._impl._create_sandbox(
             trace_obj=None,
             traces=batch_trace,
             skillbook=SkillbookView(Skillbook()),
@@ -411,7 +411,7 @@ class TestRRBatchReflection:
             ]
         }
 
-        prompt = rr._build_initial_prompt(
+        prompt = rr._impl._build_initial_prompt(
             traces=batch_trace,
             skillbook=SkillbookView(Skillbook()),
             trace_obj=None,
@@ -451,7 +451,7 @@ class TestRRBatchReflection:
             ]
         }
 
-        sandbox = rr._create_sandbox(
+        sandbox = rr._impl._create_sandbox(
             trace_obj=None,
             traces=batch_trace,
             skillbook=SkillbookView(Skillbook()),
@@ -461,7 +461,7 @@ class TestRRBatchReflection:
         assert preview["message_count"] == 2
         assert "Hi! How can I help you today?" in preview["first_message_preview"]
 
-        prompt = rr._build_initial_prompt(
+        prompt = rr._impl._build_initial_prompt(
             traces=batch_trace,
             skillbook=SkillbookView(Skillbook()),
             trace_obj=None,
