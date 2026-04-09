@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.9.2] - 2026-03-31
 
 ### Added
-- **Insight source provenance** — `InsightSource` typed model captures the origin of each skillbook update (trace ID, sample question, epoch/step, reflection summary, integration metadata); `AttachInsightSourcesStep` automatically enriches `UpdateBatch` operations with provenance and is wired into the default learning tail
+- **Insight source provenance** — `InsightSource` typed model captures the origin of each skillbook update (trace ID, sample question, epoch/step, reflection summary, integration metadata); provenance is now populated by the SkillManager agent directly
 - **Claude SDK step** — `ClaudeSDKStep` integration for running Claude Code sub-agents from within ACE pipelines
 - **RR sub-agent code execution** — Recursive Reflector can now delegate to code-execution sub-agents at runtime
 - **RR raw trace batch helpers** — `build_raw_trace_batches` and related runtime utilities for feeding raw traces directly into the RR pipeline

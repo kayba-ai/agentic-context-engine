@@ -88,7 +88,7 @@ The `Skillbook` is mutable — steps add, update, and remove skills. Placing it 
 - **Runtime** — `AttributeError` if someone calls a write method anyway.
 - **Convention** — the underlying `_sb` is underscore-prefixed. Accessing it is a deliberate violation.
 
-Steps that only **read** the skillbook (AgentStep, ReflectStep, UpdateStep, AttachInsightSourcesStep) access `ctx.skillbook` — the view. Steps that **write** the skillbook (ApplyStep, DeduplicateStep, CheckpointStep) receive the real `Skillbook` via constructor injection and use `self.skillbook`.
+Steps that only **read** the skillbook (AgentStep, ReflectStep, UpdateStep) access `ctx.skillbook` — the view. Steps that **write** the skillbook (ApplyStep, DeduplicateStep, CheckpointStep) receive the real `Skillbook` via constructor injection and use `self.skillbook`.
 
 ### ACEStepContext — immutable step-to-step data
 
@@ -104,7 +104,7 @@ Key fields:
 | `trace` | `object \| None` | Raw execution record — any type, no enforced schema |
 | `agent_output` | `AgentOutput \| None` | Produced by `AgentStep` |
 | `reflections` | `tuple[ReflectorOutput, ...]` | Produced by `ReflectStep` / `RRStep` |
-| `skill_manager_output` | `UpdateBatch \| None` | Produced by `UpdateStep`, enriched by `AttachInsightSourcesStep` |
+| `skill_manager_output` | `UpdateBatch \| None` | Produced by `UpdateStep` |
 | `epoch`, `total_epochs` | `int` | Runner bookkeeping |
 | `step_index`, `total_steps` | `int` | Runner bookkeeping |
 | `global_sample_index` | `int` | Runner bookkeeping (used by interval steps) |
@@ -173,7 +173,6 @@ Reusable step implementations in `ace/steps/`. Each satisfies `StepProtocol[ACES
 | **EvaluateStep** | `sample`, `agent_output` | `trace` | None | 1 |
 | **ReflectStep** | `trace`, `skillbook` | `reflections` | None | 3; `async_boundary = True` |
 | **UpdateStep** | `reflections`, `skillbook` | `skill_manager_output` | None | 1 |
-| **AttachInsightSourcesStep** | `trace`, `reflections`, `skill_manager_output`, `metadata` | `skill_manager_output` | None | 1 |
 | **ApplyStep** | `skill_manager_output` | — | Applies update batch to skillbook | 1 |
 | **DeduplicateStep** | `global_sample_index` | — | Consolidates similar skills | 1 |
 | **CheckpointStep** | `global_sample_index` | — | Saves skillbook to disk | 1 |
@@ -195,8 +194,8 @@ Steps with empty `provides` are pure side-effect steps — they mutate shared st
 
 ```
 ACERunner (shared infrastructure: epoch loop, delegates to Pipeline.run())
-├── TraceAnalyser       — [Reflect → Update → AttachInsightSources → Apply]
-├── ACE                 — [Agent → Evaluate → Reflect → Update → AttachInsightSources → Apply]
+├── TraceAnalyser       — [Reflect → Update → Apply]
+├── ACE                 — [Agent → Evaluate → Reflect → Update → Apply]
 ├── BrowserUse          — [BrowserExecute → BrowserToTrace → learning_tail]
 ├── LangChain           — [LangChainExecute → LangChainToTrace → learning_tail]
 ├── ClaudeCode          — [ClaudeCodeExecute → ClaudeCodeToTrace → learning_tail]
@@ -247,7 +246,7 @@ Analyses pre-recorded traces without executing an agent. Runs the learning tail 
 **Pipeline:**
 
 ```
-[ReflectStep] → [UpdateStep] → [AttachInsightSourcesStep] → [ApplyStep]
+[ReflectStep] → [UpdateStep] → [ApplyStep]
 ```
 
 No AgentStep, no EvaluateStep. The trace already contains the agent's output and the evaluation feedback.
@@ -263,7 +262,7 @@ The full live adaptive pipeline. An agent executes, the reflector analyses, the 
 **Pipeline:**
 
 ```
-[AgentStep] → [EvaluateStep] → [ReflectStep] → [UpdateStep] → [AttachInsightSourcesStep] → [ApplyStep]
+[AgentStep] → [EvaluateStep] → [ReflectStep] → [UpdateStep] → [ApplyStep]
 ```
 
 A single class handles both single-pass (`epochs=1`) and multi-epoch batch training (`epochs > 1`). The `environment` is optional — when provided, `EvaluateStep` generates feedback. When omitted, the Reflector learns from ground-truth comparison or the agent's reasoning alone.
@@ -298,7 +297,7 @@ All runners provide a `from_roles` factory that takes pre-built role instances. 
 
 ### `learning_tail()` — reusable learning steps
 
-Every integration assembles the same `[Reflect → Update → AttachInsightSources → Apply]` suffix. `learning_tail()` returns this standard step list, with optional dedup and checkpoint steps. If the provided reflector already exposes `provides = {'reflections'}` (e.g. `RRStep`), it's inserted directly instead of being wrapped in `ReflectStep`.
+Every integration assembles the same `[Reflect → Update → Apply]` suffix. `learning_tail()` returns this standard step list, with optional dedup and checkpoint steps. If the provided reflector already exposes `provides = {'reflections'}` (e.g. `RRStep`), it's inserted directly instead of being wrapped in `ReflectStep`.
 
 ---
 
@@ -313,16 +312,16 @@ External frameworks integrate via composable pipeline steps in `ace/integrations
 ### Execute → Convert → Learn
 
 ```
-Standard ACE:      [Agent → Evaluate]                          → [Reflect → Update → AttachInsightSources → Apply]
+Standard ACE:      [Agent → Evaluate]                          → [Reflect → Update → Apply]
                     ╰── execute (built-in) ──╯                    ╰──────── learn (shared) ──────╯
                          provides: trace (dict) ─────────────────► requires: trace
 
-Browser-use:       [BrowserExecute] → [BrowserToTrace]         → [Reflect → Update → AttachInsightSources → Apply]
+Browser-use:       [BrowserExecute] → [BrowserToTrace]         → [Reflect → Update → Apply]
                     ╰── execute ────╯   ╰── convert ──╯           ╰──────── learn (shared) ──────╯
                     provides: trace      rewrites trace             requires: trace
                     (BrowserResult)      (BrowserResult → dict)
 
-TraceAnalyser:     [_build_context]                            → [Reflect → Update → AttachInsightSources → Apply]
+TraceAnalyser:     [_build_context]                            → [Reflect → Update → Apply]
                     ╰── sets ctx.trace (raw object) ───────╯      ╰──────── learn (shared) ──────╯
 ```
 
@@ -477,7 +476,7 @@ Both TraceAnalyser and ACE inherit async capabilities from the pipeline engine. 
 `ReflectStep.async_boundary = True` means everything before it (Agent, Evaluate) runs in the foreground, and everything from ReflectStep onwards runs in a background thread pool:
 
 ```
-sample 1:  [AgentStep] [EvaluateStep] ──fire──► [ReflectStep] [UpdateStep] [AttachInsightSourcesStep] [ApplyStep]
+sample 1:  [AgentStep] [EvaluateStep] ──fire──► [ReflectStep] [UpdateStep] [ApplyStep]
 sample 2:  [AgentStep] [EvaluateStep] ──fire──► ...
                                        ↑
                                  async_boundary
@@ -526,7 +525,7 @@ ace/
   steps/                    ← Pipeline steps (one file per class)
     __init__.py             ← learning_tail() helper
     agent.py, evaluate.py, reflect.py, update.py,
-    attach_insight_sources.py, apply.py, deduplicate.py, checkpoint.py,
+    apply.py, deduplicate.py, checkpoint.py,
     load_traces.py, persist.py, export_markdown.py, observability.py
   runners/                  ← Runner classes
     base.py                 ← ACERunner

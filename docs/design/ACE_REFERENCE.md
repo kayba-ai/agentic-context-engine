@@ -24,7 +24,7 @@ from ace import ACERunner
 # Core steps
 from ace import (
     AgentStep, EvaluateStep, ReflectStep, UpdateStep,
-    AttachInsightSourcesStep, ApplyStep,
+    ApplyStep,
     DeduplicateStep, CheckpointStep, LoadTracesStep, ExportSkillbookMarkdownStep,
     ObservabilityStep, PersistStep, learning_tail,
 )
@@ -278,34 +278,6 @@ class UpdateStep:
         return ctx.replace(skill_manager_output=output.update)
 ```
 
-### AttachInsightSourcesStep
-
-Enriches update operations with structured provenance before applying.
-
-```python
-class AttachInsightSourcesStep:
-    requires = frozenset({"trace", "reflections", "skill_manager_output", "metadata"})
-    provides = frozenset({"skill_manager_output"})
-
-    def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
-        operations = deepcopy(ctx.skill_manager_output.operations)
-        build_insight_source(
-            trace=ctx.trace,
-            reflections=ctx.reflections,
-            operations=operations,
-            metadata=ctx.metadata,
-            sample=ctx.sample,
-            epoch=ctx.epoch,
-            step=ctx.step_index,
-        )
-        return ctx.replace(
-            skill_manager_output=UpdateBatch(
-                reasoning=ctx.skill_manager_output.reasoning,
-                operations=operations,
-            )
-        )
-```
-
 ### ApplyStep
 
 Side-effect step — applies the enriched update batch to the real `Skillbook`.
@@ -457,7 +429,6 @@ def learning_tail(
     steps: list[StepProtocol[ACEStepContext]] = [
         ReflectStep(reflector),
         UpdateStep(skill_manager),
-        AttachInsightSourcesStep(),
         ApplyStep(skillbook),
     ]
     if dedup_manager:
@@ -588,7 +559,7 @@ class TraceAnalyser(ACERunner):
 
 ```python
 class ACE(ACERunner):
-    """Live adaptive pipeline: Agent → Evaluate → Reflect → Update → AttachInsightSources → Apply."""
+    """Live adaptive pipeline: Agent → Evaluate → Reflect → Update → Apply."""
 
     @classmethod
     def from_roles(cls, *, agent, reflector, skill_manager,
@@ -990,7 +961,7 @@ ace = ACE.from_roles(
     checkpoint_dir="./checkpoints",
     checkpoint_interval=10,
 )
-# Pipeline: Agent → Evaluate → Reflect → Update → AttachInsightSources → Apply → Deduplicate → Checkpoint
+# Pipeline: Agent → Evaluate → Reflect → Update → Apply → Deduplicate → Checkpoint
 results = ace.run(samples, epochs=3)
 ```
 

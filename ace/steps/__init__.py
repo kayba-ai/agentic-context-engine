@@ -16,7 +16,6 @@ from ..core.skillbook import Skillbook
 
 from .agent import AgentStep
 from .apply import ApplyStep
-from .attach_insight_sources import AttachInsightSourcesStep
 from .checkpoint import CheckpointStep
 from .deduplicate import DeduplicateStep
 from .evaluate import EvaluateStep
@@ -30,7 +29,6 @@ from .update import UpdateStep
 __all__ = [
     "AgentStep",
     "ApplyStep",
-    "AttachInsightSourcesStep",
     "CheckpointStep",
     "DeduplicateStep",
     "EvaluateStep",
@@ -74,13 +72,12 @@ def learning_tail(
     The returned list starts with either ``ReflectStep`` or the provided
     reflector itself when it already satisfies the step protocol and exposes
     ``provides = {'reflections'}``, followed by ``UpdateStep``,
-    ``AttachInsightSourcesStep``, and ``ApplyStep``. Optional
-    ``DeduplicateStep`` and ``CheckpointStep`` are appended when configured.
+and ``ApplyStep``. Optional ``DeduplicateStep`` and ``CheckpointStep``
+    are appended when configured.
     """
     steps: list[StepProtocol[ACEStepContext]] = [
         _reflect_step(reflector),
         UpdateStep(skill_manager),
-        AttachInsightSourcesStep(),
         ApplyStep(skillbook),
     ]
     if dedup_manager:
