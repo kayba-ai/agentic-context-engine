@@ -47,6 +47,7 @@ from pydantic_ai.usage import UsageLimits
 
 from pydantic_ai import ModelRetry, RunContext
 
+from .sandbox import TraceSandbox
 from ..providers.pydantic_ai import resolve_model
 
 logger = logging.getLogger(__name__)
@@ -78,13 +79,12 @@ def register_execute_code(agent: PydanticAgent) -> None:
             Captured stdout/stderr from execution.
         """
         ctx.deps.iteration += 1
-        sandbox = getattr(ctx.deps, "sandbox", None)
-        if sandbox is None:
+        if ctx.deps.sandbox is None:
             return "(no sandbox configured)"
 
-        cfg = ctx.deps.config
-        timeout = getattr(cfg, "timeout", 30.0)
-        max_output = getattr(cfg, "max_output_chars", 20_000)
+        sandbox = ctx.deps.sandbox
+        timeout = ctx.deps.config.timeout
+        max_output = ctx.deps.config.max_output_chars
 
         result = sandbox.execute(code, timeout=timeout)
 
@@ -145,24 +145,21 @@ def register_recurse(agent: PydanticAgent) -> None:
         if deps.run_session_fn is None:
             return "(recurse unavailable — no session runner configured)"
 
-        sandbox = getattr(deps, "sandbox", None)
-        if sandbox is None:
+        if deps.sandbox is None:
             return "(recurse unavailable — no sandbox on deps)"
 
-        # Import here to avoid circular imports
-        from .sandbox import TraceSandbox
+        sandbox = deps.sandbox
 
-        # Create child sandbox inheriting parent data
+        # Create child sandbox inheriting parent's injected data
         child_sandbox = TraceSandbox(trace=None)
-        # Copy all injected variables from parent
-        for key in ("traces", "skillbook"):
-            if key in sandbox.namespace:
-                child_sandbox.inject(key, sandbox.namespace[key])
+        for key, value in sandbox.namespace.items():
+            if not key.startswith("_") and not callable(value):
+                child_sandbox.inject(key, value)
 
         # Inherit registered helpers
         parent_registry = sandbox.namespace.get("helper_registry", {})
         if isinstance(parent_registry, dict):
-            timeout = getattr(deps.config, "timeout", 30.0)
+            timeout = deps.config.timeout
             for hname, meta in parent_registry.items():
                 if isinstance(meta, dict) and isinstance(meta.get("source"), str):
                     try:
@@ -179,8 +176,7 @@ def register_recurse(agent: PydanticAgent) -> None:
 
         # Run optional context_code
         if context_code.strip():
-            timeout = getattr(deps.config, "timeout", 30.0)
-            result = child_sandbox.execute(context_code, timeout=timeout)
+            result = child_sandbox.execute(context_code, timeout=deps.config.timeout)
             if result.exception:
                 raise ModelRetry(
                     f"context_code failed: {result.exception}\n"
@@ -252,6 +248,9 @@ class AgenticConfig:
     # Compaction
     max_compactions: int = 3
     microcompact_keep_recent: int = 3
+    # Sandbox execution
+    timeout: float = 60.0
+    max_output_chars: int = 50_000
 
     def build_usage_limits(self, remaining_tokens: int | None = None) -> UsageLimits:
         """Build PydanticAI UsageLimits from this config."""
@@ -270,10 +269,11 @@ class AgenticConfig:
 class AgenticDeps:
     """Base dependencies for agentic steps.
 
-    Subclass to add step-specific deps (sandbox, trace data, etc.).
+    Subclass to add step-specific deps (trace data, etc.).
     """
 
     config: AgenticConfig
+    sandbox: Any = None  # TraceSandbox or compatible
     depth: int = 0
     max_depth: int = 2
     iteration: int = 0
@@ -641,3 +641,45 @@ class RecursiveAgent:
             microcompact_placeholder=self._microcompact_placeholder,
             on_compaction=self._on_compaction,
         )
+
+    # ------------------------------------------------------------------
+    # Sandbox helpers
+    # ------------------------------------------------------------------
+
+    def create_sandbox(
+        self,
+        *,
+        trace: Any = None,
+        variables: dict[str, Any] | None = None,
+    ) -> TraceSandbox:
+        """Create a sandbox and inject variables.
+
+        Args:
+            trace: Optional trace object passed to TraceSandbox constructor.
+            variables: Dict of ``{name: value}`` to inject into the sandbox
+                namespace.
+
+        Returns:
+            A ready-to-use :class:`TraceSandbox`.
+        """
+        sandbox = TraceSandbox(trace=trace, llm_query_fn=None)
+        if variables:
+            for name, value in variables.items():
+                sandbox.inject(name, value)
+        return sandbox
+
+    @staticmethod
+    def on_compaction(deps: AgenticDeps, compaction_count: int, messages: list) -> None:
+        """Default compaction callback — save metadata to sandbox history.
+
+        Subclasses can override or pass a different callback via
+        ``on_compaction`` in ``__init__``.
+        """
+        sandbox = getattr(deps, "sandbox", None)
+        if sandbox is not None:
+            history = sandbox.namespace.get("history", [])
+            history.append({
+                "compaction_round": compaction_count,
+                "message_count": len(messages),
+            })
+            sandbox.namespace["history"] = history

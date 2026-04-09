@@ -14,7 +14,6 @@ from pydantic_ai import ModelRetry, RunContext
 
 from ace.core.outputs import ReflectorOutput
 from ace.core.recursive_agent import AgenticDeps
-from ace.core.sandbox import TraceSandbox
 
 if TYPE_CHECKING:
     from pydantic_ai import Agent as PydanticAgent
@@ -31,10 +30,10 @@ from .config import RecursiveConfig
 class RRDeps(AgenticDeps):
     """Dependencies injected into RR tool calls via ``RunContext``.
 
-    Extends :class:`AgenticDeps` with RR-specific sandbox and trace fields.
+    Extends :class:`AgenticDeps` with RR-specific trace and skillbook fields.
+    ``sandbox`` is inherited from :class:`AgenticDeps`.
     """
 
-    sandbox: TraceSandbox = field(default=None)  # type: ignore[assignment]
     trace_data: dict[str, Any] = field(default_factory=dict)
     skillbook_text: str = ""
 
