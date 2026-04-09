@@ -13,7 +13,7 @@ from pydantic_ai.messages import ModelRequest, ModelResponse, TextPart, ToolRetu
 from pydantic_ai.usage import UsageLimits
 
 from ace.steps.rr.config import RecursiveConfig
-from ace.steps.rr.sandbox import TraceSandbox, create_readonly_sandbox
+from ace.core.sandbox import TraceSandbox, create_readonly_sandbox
 
 from ace.core.context import ACEStepContext, SkillbookView
 from ace.core.outputs import AgentOutput, ReflectorOutput
@@ -47,7 +47,7 @@ def _make_ctx(
     return ACEStepContext(trace=trace, skillbook=SkillbookView(Skillbook()))
 
 
-_RUN_SYNC = "ace.steps.rr.runner.run_agent_sync"
+_RUN_SYNC = "ace.core.recursive_agent.run_agent_sync"
 
 
 def _mock_compaction_result(
@@ -338,25 +338,37 @@ class TestEntryPoints:
 class TestRecurseToolRegistration:
     def test_recurse_tool_registered_at_non_leaf_depth(self):
         """Agent at depth 0 with max_depth=2 should have recurse tool."""
-        from ace.steps.rr.agent import create_rr_agent
+        from ace.core.recursive_agent import AgenticConfig, RecursiveAgent
 
-        agent = create_rr_agent("test-model", depth=0, max_depth=2)
+        ra = RecursiveAgent(
+            "test-model", output_type=ReflectorOutput, system_prompt="test",
+            config=AgenticConfig(max_depth=2),
+        )
+        agent = ra._create_agent(depth=0)
         tool_names = list(agent._function_toolset.tools.keys())
         assert "recurse" in tool_names
 
     def test_recurse_tool_not_registered_at_max_depth(self):
         """Agent at max_depth should NOT have recurse tool."""
-        from ace.steps.rr.agent import create_rr_agent
+        from ace.core.recursive_agent import AgenticConfig, RecursiveAgent
 
-        agent = create_rr_agent("test-model", depth=2, max_depth=2)
+        ra = RecursiveAgent(
+            "test-model", output_type=ReflectorOutput, system_prompt="test",
+            config=AgenticConfig(max_depth=2),
+        )
+        agent = ra._create_agent(depth=2)
         tool_names = list(agent._function_toolset.tools.keys())
         assert "recurse" not in tool_names
 
     def test_recurse_tool_not_registered_at_depth_zero_max_zero(self):
         """Agent at depth=0, max_depth=0 should NOT have recurse tool."""
-        from ace.steps.rr.agent import create_rr_agent
+        from ace.core.recursive_agent import AgenticConfig, RecursiveAgent
 
-        agent = create_rr_agent("test-model", depth=0, max_depth=0)
+        ra = RecursiveAgent(
+            "test-model", output_type=ReflectorOutput, system_prompt="test",
+            config=AgenticConfig(max_depth=0),
+        )
+        agent = ra._create_agent(depth=0)
         tool_names = list(agent._function_toolset.tools.keys())
         assert "recurse" not in tool_names
 

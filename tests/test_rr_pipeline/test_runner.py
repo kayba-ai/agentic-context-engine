@@ -40,7 +40,7 @@ def _make_ctx(
     return ACEStepContext(trace=trace, skillbook=SkillbookView(Skillbook()))
 
 
-_RUN_SYNC = "ace.steps.rr.runner.run_agent_sync"
+_RUN_SYNC = "ace.core.recursive_agent.run_agent_sync"
 
 
 def _mock_compaction_result(

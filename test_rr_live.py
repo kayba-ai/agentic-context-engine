@@ -23,7 +23,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from ace.steps.rr import RRStep, RRConfig, TraceSandbox
-from ace.steps.rr.sandbox import ExecutionResult
+from ace.core.sandbox import ExecutionResult
 from ace.core.context import ACEStepContext, SkillbookView
 from ace.core.skillbook import Skillbook
 

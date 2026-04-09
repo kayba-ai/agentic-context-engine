@@ -25,11 +25,9 @@ from ace.core.context import ACEStepContext
 from ace.core.outputs import AgentOutput, ReflectorOutput
 from ace.core.recursive_agent import (
     BudgetExhausted,
-    run_agent_sync,
-    run_agent_with_compaction,
+    RecursiveAgent,
 )
 
-from .agent import create_rr_agent
 from .config import RecursiveConfig
 from .prompts import (
     COMPACTION_SUMMARY_PROMPT,
@@ -37,8 +35,11 @@ from .prompts import (
     REFLECTOR_RECURSIVE_SYSTEM,
     RR_SKILL_EVAL_SECTION,
 )
-from .sandbox import TraceSandbox
-from .tools import RRDeps
+from ace.core.sandbox import TraceSandbox
+from .tools import (
+    RRDeps,
+    register_output_validator,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -85,14 +86,26 @@ class RRStep:
         self._model = model
         self._model_settings = model_settings
 
-        # Build root agent (depth=0)
-        self._agent = create_rr_agent(
+        # Build the recursive agent with RR-specific tools
+        self._recursive_agent = RecursiveAgent(
             model,
+            output_type=ReflectorOutput,
             system_prompt=REFLECTOR_RECURSIVE_SYSTEM,
             config=self.config,
             model_settings=model_settings,
-            depth=0,
-            max_depth=self.config.max_depth,
+            tools=[register_output_validator],
+            tool_names_to_compact=("execute_code", "analyze", "batch_analyze"),
+            compaction_summary_prompt=COMPACTION_SUMMARY_PROMPT,
+            compaction_continuation=(
+                "Your conversation was compacted. "
+                "All sandbox variables persist — use execute_code to re-inspect data. "
+                "Do NOT repeat work already completed. Continue your analysis."
+            ),
+            microcompact_placeholder=(
+                "[cleared — data still in sandbox variables, "
+                "use execute_code to re-inspect]"
+            ),
+            on_compaction=self._on_compaction,
         )
 
 
@@ -191,7 +204,6 @@ class RRStep:
             config=self.config,
             depth=0,
             max_depth=self.config.max_depth,
-            run_session_fn=self._run_child_session,
         )
 
         initial_prompt = self._build_initial_prompt(traces, skillbook, trace_obj)
@@ -200,29 +212,17 @@ class RRStep:
         if mode == "online" and skillbook_text and skillbook_text != "(empty skillbook)":
             initial_prompt += "\n\n" + RR_SKILL_EVAL_SECTION
 
-        # Run agent with compaction (handles async/sync boundary)
+        # Run via RecursiveAgent
+        remaining = (
+            traces.get("_remaining_tokens")
+            if isinstance(traces, dict)
+            else None
+        )
         try:
-            output, metadata = run_agent_sync(
-                self._agent,
+            output, metadata = self._recursive_agent.run(
                 deps=deps,
                 prompt=initial_prompt,
-                usage_limits=self.config.build_usage_limits(
-                    remaining_tokens=traces.get("_remaining_tokens")
-                    if isinstance(traces, dict)
-                    else None,
-                ),
-                config=self.config,
-                tool_names_to_compact=("execute_code", "analyze", "batch_analyze"),
-                compaction_summary_prompt=COMPACTION_SUMMARY_PROMPT,
-                compaction_continuation=(
-                    "Your conversation was compacted. "
-                    "All sandbox variables persist — use execute_code to re-inspect data. "
-                    "Do NOT repeat work already completed. Continue your analysis."
-                ),
-                microcompact_placeholder=(
-                    "[cleared — data still in sandbox variables, use execute_code to re-inspect]"
-                ),
-                on_compaction=self._on_compaction,
+                remaining_tokens=remaining,
             )
             # Enrich output with RR-specific metadata
             output.raw = {
@@ -256,62 +256,6 @@ class RRStep:
             )
 
         return output
-
-    # ------------------------------------------------------------------
-    # Child session runner (called by recurse tool)
-    # ------------------------------------------------------------------
-
-    async def _run_child_session(
-        self,
-        *,
-        deps: RRDeps,
-        prompt: str,
-        depth: int = 0,
-    ) -> tuple[ReflectorOutput, RRDeps]:
-        """Run a child RR session with compaction (called by recurse tool)."""
-        child_agent = create_rr_agent(
-            self._model,
-            system_prompt=REFLECTOR_RECURSIVE_SYSTEM,
-            config=self.config,
-            model_settings=self._model_settings,
-            depth=depth,
-            max_depth=self.config.max_depth,
-        )
-
-        remaining = deps.trace_data.get("_remaining_tokens")
-        try:
-            output, metadata = await run_agent_with_compaction(
-                child_agent,
-                deps=deps,
-                prompt=prompt,
-                usage_limits=self.config.build_usage_limits(remaining_tokens=remaining),
-                config=self.config,
-                tool_names_to_compact=("execute_code", "analyze", "batch_analyze"),
-                compaction_summary_prompt=COMPACTION_SUMMARY_PROMPT,
-                compaction_continuation=(
-                    "Your conversation was compacted. "
-                    "All sandbox variables persist — use execute_code to re-inspect data. "
-                    "Do NOT repeat work already completed. Continue your analysis."
-                ),
-                microcompact_placeholder=(
-                    "[cleared — data still in sandbox variables, use execute_code to re-inspect]"
-                ),
-                on_compaction=self._on_compaction,
-            )
-            output.raw = {
-                **output.raw,
-                **metadata,
-                "rr_trace": {
-                    "total_iterations": deps.iteration,
-                    "subagent_calls": [],
-                    "timed_out": False,
-                    "compactions": metadata.get("compactions", 0),
-                    "depth": depth,
-                },
-            }
-            return output, deps
-        except BudgetExhausted as exc:
-            return self._build_budget_exhausted_output(deps, exc.compaction_count, depth), deps
 
     # ------------------------------------------------------------------
     # Compaction callback
