@@ -217,7 +217,7 @@ Pass it anywhere a `Reflector` is expected:
 from ace import ACELiteLLM
 from ace.rr import RRStep, RRConfig
 
-ace = ACELiteLLM.from_model("gpt-4o-mini", reflector=RRStep("gpt-4o-mini", config=RRConfig(max_llm_calls=10)))
+ace = ACELiteLLM.from_model("gpt-4o-mini", reflector=RRStep("gpt-4o-mini", config=RRConfig(max_requests=10)))
 ```
 
 ### As a pipeline step
@@ -229,7 +229,7 @@ from ace import Pipeline, learning_tail, SkillManager, Skillbook
 from ace.rr import RRStep, RRConfig
 
 skillbook = Skillbook()
-rr = RRStep("gpt-4o-mini", config=RRConfig(max_llm_calls=15))
+rr = RRStep("gpt-4o-mini", config=RRConfig(max_requests=15))
 
 pipe = Pipeline([
     MyExecuteStep(),
@@ -239,21 +239,18 @@ pipe = Pipeline([
 ])
 ```
 
-### With a separate sub-agent model
+### With recursion enabled
 
-Route sub-agent calls to a smaller/faster model:
+Allow the RR to decompose large batch inputs via recursive child sessions:
 
 ```python
 from ace.rr import RRStep, RRConfig
 
 rr = RRStep(
     "gpt-4o",
-    config=RRConfig(max_llm_calls=40, subagent_model="gpt-4o-mini"),
+    config=RRConfig(max_requests=40, max_depth=1),  # depth=1 allows one level of recursion
 )
 ```
-
-See [RR_DESIGN.md](../RR_DESIGN.md) for the full architecture, sandbox API,
-configuration reference, and trace schema.
 
 ## Available Steps
 

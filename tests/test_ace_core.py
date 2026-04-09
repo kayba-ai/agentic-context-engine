@@ -514,17 +514,18 @@ class TestUpdateOperationParsing:
         assert op.to_json()["reflection_index"] == 2
         assert op.to_json()["reflection_indices"] == [0, 2]
 
-    def test_from_json_tag_filters_metadata(self):
+    def test_from_json_tag_accepted(self):
+        """TAG operations are parsed for backwards compatibility."""
         op = UpdateOperation.from_json(
             {
                 "type": "TAG",
                 "section": "math",
                 "skill_id": "m-001",
-                "metadata": {"helpful": 1, "invalid_key": 5},
+                "metadata": {"helpful": 1},
             }
         )
-        assert "helpful" in op.metadata
-        assert "invalid_key" not in op.metadata
+        assert op.type == "TAG"
+        assert op.metadata == {"helpful": 1}
 
     def test_from_json_invalid_type(self):
         with pytest.raises(ValueError, match="Invalid operation type"):

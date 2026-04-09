@@ -31,7 +31,7 @@ ACE had three hand-rolled LLM client implementations (LiteLLMClient, InstructorC
 ### What we kept
 
 - **Pipeline engine** (`pipeline/`) — `requires`/`provides` contracts, `async_boundary`, per-step `max_workers`, `SampleResult` error isolation. No framework offers this combination.
-- **Skillbook & learning loop** — Reflect → Tag → Update → Apply → Deduplicate. This is core IP.
+- **Skillbook & learning loop** — Reflect → Update → Apply → Deduplicate. This is core IP.
 - **Step composition** — `learning_tail()`, pipeline-as-step nesting, `SkillbookView` read/write split.
 - **Domain-specific prompts** — tightly coupled to skillbook format and ACE's reflection strategy.
 - **All pipeline steps** — they depend on protocols, not implementations. Completely unchanged.
@@ -80,8 +80,8 @@ Having the runner own checkpoint logic (via `run()` parameters) was considered. 
 **Mutable Skillbook directly on the context:**
 Storing the real `Skillbook` as a field on `ACEStepContext` was the initial design. Rejected — `StepContext` is frozen, but `Skillbook` is mutable. Placing it on the context creates the illusion of immutability while allowing any step to mutate shared state through the reference. Instead, the context carries a `SkillbookView` (read-only projection). Write steps receive the real `Skillbook` via constructor injection.
 
-**Combined Reflect+Tag and Update+Apply steps:**
-Keeping ReflectStep as both reflection and tagging, and UpdateStep as both generation and application was considered. Rejected — each combination mixes a pure function (LLM call) with a side effect (skillbook mutation). Splitting means pure steps can be tested without a skillbook, side-effect steps can be tested without an LLM.
+**Separate TagStep (removed):**
+A separate TagStep for incrementing helpful/harmful counters on skills was planned but never implemented. Tagging is now the Reflector's responsibility — when running in online mode, the Reflector evaluates which cited skills helped or harmed and populates `skill_tags` on `ReflectorOutput`. The SkillManager receives these tags and can UPDATE or REMOVE skills accordingly. This avoids a redundant pipeline step and keeps tagging close to the analysis that produces it.
 
 **Instructor auto-wrapping in implementations:**
 The old `ace/roles.py` auto-wrapped LLM clients with Instructor if `complete_structured` was missing. Rejected — PydanticAI handles structured output natively via its `result_type` parameter.

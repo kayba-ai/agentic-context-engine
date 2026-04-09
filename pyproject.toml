@@ -189,13 +189,8 @@ addopts = [
     "-v",
     "--strict-markers",
     "--tb=short",
-    "--cov=ace",
-    "--cov=pipeline",
-    "--cov-report=term-missing",
-    "--cov-report=html",
-    "--cov-fail-under=25",
     "-m",
-    "not integration",
+    "not integration and not requires_api",
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",

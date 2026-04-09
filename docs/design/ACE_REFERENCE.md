@@ -588,7 +588,7 @@ class TraceAnalyser(ACERunner):
 
 ```python
 class ACE(ACERunner):
-    """Live adaptive pipeline: Agent → Evaluate → Reflect → Tag → Update → AttachInsightSources → Apply."""
+    """Live adaptive pipeline: Agent → Evaluate → Reflect → Update → AttachInsightSources → Apply."""
 
     @classmethod
     def from_roles(cls, *, agent, reflector, skill_manager,
@@ -724,7 +724,7 @@ reflection = reflector.reflect(
     ground_truth="4",
     feedback="Correct!",
 )
-# reflection.key_insight, reflection.skill_tags, reflection.extracted_learnings
+# reflection.key_insight, reflection.skill_tags
 ```
 
 ### SkillManager
@@ -990,7 +990,7 @@ ace = ACE.from_roles(
     checkpoint_dir="./checkpoints",
     checkpoint_interval=10,
 )
-# Pipeline: Agent → Evaluate → Reflect → Tag → Update → AttachInsightSources → Apply → Deduplicate → Checkpoint
+# Pipeline: Agent → Evaluate → Reflect → Update → AttachInsightSources → Apply → Deduplicate → Checkpoint
 results = ace.run(samples, epochs=3)
 ```
 

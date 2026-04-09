@@ -147,6 +147,53 @@ Now analyze the task.
 
 
 # ---------------------------------------------------------------------------
+# Online mode: skill evaluation
+# ---------------------------------------------------------------------------
+
+RR_SKILL_EVAL_SECTION = """\
+<skill_evaluation>
+## Skill Effectiveness Evaluation (Online Mode)
+
+The `skillbook` variable contains strategies the agent had available. The agent may have cited \
+skill IDs (e.g. `[general-00042]`) in its reasoning within the trace.
+
+**You must evaluate skill usage.** Use a single `execute_code` call to:
+1. Scan all trace text for skill ID citations (pattern: `[section-NNNNN]`)
+2. Verify each cited ID exists in the `skillbook` string
+3. For each verified skill, determine if it helped, harmed, or was neutral based on the outcome
+
+Example (run this as one code block):
+```python
+import re
+
+# Extract all cited skill IDs from trace text
+trace_text = json.dumps(traces, default=str)
+cited_ids = list(dict.fromkeys(re.findall(r'\\[([a-zA-Z_]+-\\d+)\\]', trace_text)))
+
+# Verify against skillbook and classify
+results = []
+for sid in cited_ids:
+    exists = sid in skillbook
+    results.append({{"id": sid, "exists": exists}})
+
+print(f"Cited skills: {{len(cited_ids)}}")
+for r in results:
+    print(f"  {{r['id']}}: exists={{r['exists']}}")
+```
+
+After running this, evaluate each skill's impact on the outcome and include them in your \
+`skill_tags` output field:
+- `"helpful"` — skill contributed to correct reasoning or answer
+- `"harmful"` — skill caused or contributed to an error
+- `"neutral"` — skill was cited but didn't materially affect the outcome
+
+If no skills were cited, leave `skill_tags` empty. For batch inputs, aggregate all cited \
+skills across all traces in the batch.
+</skill_evaluation>
+"""
+
+
+# ---------------------------------------------------------------------------
 # Compaction prompts
 # ---------------------------------------------------------------------------
 

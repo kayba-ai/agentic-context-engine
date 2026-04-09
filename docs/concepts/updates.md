@@ -8,7 +8,6 @@ The SkillManager communicates changes to the skillbook through **update operatio
 |------|-------------|----------------|
 | `ADD` | Create a new skill | `section`, `content` |
 | `UPDATE` | Modify an existing skill's content | `skill_id`, `content` |
-| `TAG` | Record a skill as helpful, harmful, or neutral | `skill_id`, `tag` |
 | `REMOVE` | Delete a skill from the skillbook | `skill_id` |
 
 ## Examples
@@ -37,20 +36,6 @@ Refines an existing strategy:
 }
 ```
 
-### TAG
-
-Records whether a strategy helped or hurt:
-
-```json
-{
-  "type": "TAG",
-  "skill_id": "math-00001",
-  "tag": "helpful"
-}
-```
-
-Tags are one of: `helpful`, `harmful`, `neutral`.
-
 ### REMOVE
 
 Prunes a strategy that is consistently harmful:
@@ -71,7 +56,7 @@ from ace import UpdateOperation, UpdateBatch
 
 batch = UpdateBatch(operations=[
     UpdateOperation(type="ADD", section="Debugging", content="Log inputs before errors"),
-    UpdateOperation(type="TAG", skill_id="debug-00001", tag="helpful"),
+    UpdateOperation(type="REMOVE", skill_id="debug-00003"),
 ])
 
 skillbook.apply_update(batch)
@@ -85,15 +70,28 @@ When an operation is synthesized from multiple reflections, it may instead use
 `reflection_indices` to list all contributing reflections. This lets downstream
 provenance attach multiple trace sources to one learned skill.
 
+## Skill Tagging
+
+Skill effectiveness is tracked by the **Reflector**, not the SkillManager. In online mode, the Reflector:
+
+1. Scans the agent's reasoning for skill ID citations (e.g. `[general-00042]`)
+2. Verifies each cited skill exists in the skillbook
+3. Classifies each as `helpful`, `harmful`, or `neutral`
+4. Populates `skill_tags` on `ReflectorOutput`
+
+The SkillManager receives these tags and uses them to inform its operations — e.g., consistently harmful skills may be UPDATEd or REMOVEd.
+
+In offline mode (batch analysis of historical traces), skill tagging is skipped since traces may not contain skill citations.
+
 ## How Updates Flow
 
 ```
-Agent cites skill_ids --> Reflector tags them --> SkillManager emits ADD/UPDATE/REMOVE
+Agent cites skill_ids --> Reflector evaluates them (online) --> SkillManager emits ADD/UPDATE/REMOVE
 ```
 
 1. The **Agent** cites skill IDs it used in its reasoning
-2. The **Reflector** classifies each cited skill as helpful/harmful/neutral (TAG operations)
-3. The **SkillManager** may also ADD new strategies or UPDATE/REMOVE existing ones based on the reflection
+2. The **Reflector** classifies each cited skill as helpful/harmful/neutral (`skill_tags`)
+3. The **SkillManager** uses the reflection analysis and skill tags to ADD new strategies, UPDATE existing ones, or REMOVE harmful ones
 
 ## What to Read Next
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Iterator, Protocol, runtime_checkable
+from typing import Any, Iterator, Literal, Protocol, runtime_checkable
 
 from pipeline import StepContext
 
@@ -110,6 +110,9 @@ class ACEStepContext(StepContext):
     enforced schema. The Reflector receives the raw trace and is
     responsible for making sense of it.
     """
+
+    # -- Mode --
+    mode: Literal["online", "offline"] = "online"
 
     # -- Domain fields --
     skillbook: SkillbookView | None = None

@@ -19,7 +19,7 @@ flowchart TD
     A["OpenClaw session ends"] --> B["Transcript saved to<br><code>~/.openclaw/agents/main/sessions/*.jsonl</code>"]
     B --> C["<b>ace-learn</b><br>session start or on-demand"]
     C --> D["LoadTracesStep → OpenClawToTraceStep"]
-    D --> E["<b>TraceAnalyser</b><br>Reflect → Tag → Update → Apply"]
+    D --> E["<b>TraceAnalyser</b><br>Reflect → Update → Apply"]
     E --> F["<code>ace_skillbook.json</code><br>machine-readable"]
     E --> G["<code>ace_skillbook.md</code><br>human-readable"]
     G --> H["AGENTS.md tells agent<br>to read skillbook"]
@@ -30,7 +30,7 @@ flowchart TD
 2. `ace-learn` runs at the start of the next session (or on-demand)
 3. **LoadTracesStep** reads JSONL files into raw event lists
 4. **OpenClawToTraceStep** converts events into structured traces
-5. **TraceAnalyser** runs the learning pipeline (Reflect → Tag → Update → Apply)
+5. **TraceAnalyser** runs the learning pipeline (Reflect → Update → Apply)
 6. Updated skillbook is written to the workspace volume
 7. The agent reads `ace_skillbook.md` into its context and applies relevant strategies
 
