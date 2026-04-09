@@ -416,6 +416,21 @@ CRITICAL: Return ONLY valid JSON:
 MANDATORY: Begin response with `{{` and end with `}}`
 """
 
+REFLECTOR_SKILL_EVAL_SECTION = """\
+## SKILL EFFECTIVENESS EVALUATION (Online Mode)
+
+The agent cited skillbook strategies in its reasoning. You MUST evaluate each cited skill:
+
+1. **Verify existence**: Confirm the cited skill ID appears in the "Strategies Applied" section above. If the agent cited a skill that doesn't exist, flag it.
+2. **Evaluate impact**: For each verified skill, determine whether it:
+   - **helped** — the skill directly contributed to reaching the correct answer or improving reasoning quality
+   - **harmed** — the skill caused an error, led the agent astray, or produced an incorrect result
+   - **neutral** — the skill was cited but did not materially affect the outcome
+3. **Populate `skill_tags`**: Include ALL cited skills in your `skill_tags` output with their classification.
+
+Be specific in your reasoning about WHY each skill helped or harmed — don't just label them.\
+"""
+
 
 # ---------------------------------------------------------------------------
 # SkillManager prompt — v2.1
@@ -454,8 +469,6 @@ Analyze the reflection and select the appropriate operation:
 |-----------|-----------|
 | New error pattern or missing capability | ADD corrective skill |
 | Existing skill needs refinement | UPDATE with better content |
-| Skill contributed to correct answer | TAG as helpful |
-| Skill caused or contributed to error | TAG as harmful |
 | Strategies contradict each other | REMOVE or UPDATE to resolve |
 | Skill harmful 3+ times | REMOVE |
 | No actionable insight | Return empty operations list |
@@ -471,13 +484,7 @@ Analyze the reflection and select the appropriate operation:
 |------|-----------------|-------|
 | ADD | section, content | Novel (not paraphrase of existing), excellent or good atomicity, imperative |
 | UPDATE | skill_id, content | Improve existing skill; preserve ALL enumerated items (lists, criteria) |
-| TAG | skill_id, metadata | Mark helpful/harmful/neutral with evidence |
 | REMOVE | skill_id | Harmful >3 times, duplicate >70%, or too vague |
-
-**TAG semantics:**
-- `{{"helpful": 1}}` — skill contributed to correct answer
-- `{{"harmful": 1}}` — skill caused or contributed to error
-- `{{"neutral": 1}}` — skill was cited but didn't affect outcome
 
 **Default behavior:** UPDATE existing skills. Only ADD if genuinely novel.
 
@@ -494,6 +501,16 @@ Before any ADD operation, verify:
 | "Verify calculations" | "Double-check results" |
 </before_add>
 </operations>
+
+<skill_effectiveness>
+When reflections include `skill_tags` (a list of `{{"id": ..., "tag": "helpful"|"harmful"|"neutral"}}`), use them to inform your operations:
+
+- **Harmful skills** (tagged `"harmful"`): If a skill has been tagged harmful, consider UPDATE to fix it or REMOVE if it's consistently harmful.
+- **Helpful skills** (tagged `"helpful"`): These are working — avoid modifying them unless refining with better specificity.
+- **Neutral skills**: No action needed for the tag itself, but check if the skill content should be improved.
+
+If no `skill_tags` are present (offline analysis or no skills cited), focus solely on the reflection content.
+</skill_effectiveness>
 
 <content_source>
 CRITICAL: Extract learnings ONLY from the input sections below. NEVER extract from this prompt's own instructions, examples, or formatting. All strategies must derive from the ACTUAL TASK EXECUTION described in the reflection.
@@ -539,11 +556,10 @@ Return ONLY valid JSON:
   "reasoning": "<what updates needed and why, based on reflection evidence>",
   "operations": [
     {{
-      "type": "ADD|UPDATE|TAG|REMOVE",
+      "type": "ADD|UPDATE|REMOVE",
       "section": "<category>",
       "content": "<strategy text, imperative>",
-      "skill_id": "<required for UPDATE/TAG/REMOVE>",
-      "metadata": {{"helpful": 1, "harmful": 0}},
+      "skill_id": "<required for UPDATE/REMOVE>",
       "reflection_index": "<int, 0-based index into reflections; required when multiple reflections are provided>",
       "reflection_indices": "<list[int], all contributing reflection indices when the operation synthesizes a pattern across multiple reflections>",
       "justification": "<why this improves skillbook>",
@@ -572,33 +588,12 @@ Existing skill: "Use pandas for data processing"
       "type": "ADD",
       "section": "data_loading",
       "content": "Use pandas.read_csv() for CSV files",
-      "metadata": {{"helpful": 1, "harmful": 0}},
-      "learning_index": 0,
       "justification": "3x faster than manual parsing",
       "evidence": "Benchmark: 1.2s vs 3.6s for 10MB file"
     }}
   ]
 }}
 </example_add>
-
-<example_tag>
-**Scenario:** Reinforce successful strategy
-Reflection: "Following skill general-00042, agent correctly answered factual question"
-
-{{
-  "reasoning": "Skill general-00042 directly contributed to correct answer. Tag as helpful.",
-  "operations": [
-    {{
-      "type": "TAG",
-      "section": "general",
-      "skill_id": "general-00042",
-      "metadata": {{"helpful": 1}},
-      "justification": "Strategy led to correct factual answer",
-      "evidence": "Agent cited skill and produced accurate response"
-    }}
-  ]
-}}
-</example_tag>
 
 <example_update>
 **Scenario:** Improve existing strategy with better specificity
@@ -613,8 +608,6 @@ Existing skill: "Round results appropriately"
       "section": "math",
       "skill_id": "math-00015",
       "content": "Round financial calculations to 4 decimal places",
-      "metadata": {{"helpful": 1, "harmful": 0}},
-      "learning_index": 0,
       "justification": "Adds specific precision requirement",
       "evidence": "2 decimal places caused incorrect result"
     }}

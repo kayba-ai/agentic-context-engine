@@ -70,6 +70,7 @@ class ReflectStep:
                 skillbook=ctx.skillbook,
                 ground_truth=trace.get("ground_truth"),
                 feedback=trace.get("feedback"),
+                mode=ctx.mode,
             )
         else:
             # Raw trace from TraceAnalyser or integration — pass as-is
@@ -79,6 +80,7 @@ class ReflectStep:
                 agent_output=AgentOutput(reasoning="", final_answer=""),
                 skillbook=ctx.skillbook,
                 trace=trace,
+                mode=ctx.mode,
             )
 
         return ctx.replace(reflections=(reflection,))

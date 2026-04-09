@@ -1,6 +1,13 @@
 # Recursive Reflector (RR) Design
 
-Design document for the Recursive Reflector module (`ace/rr/`). The RR is a PydanticAI-powered trace analyser that uses tool calls to generate Python code, execute it in a sandbox, delegate analysis to sub-agents, and produce structured reflections from agent execution traces.
+> **⚠️ PARTIALLY OUTDATED:** This document predates the recursion+compaction refactor. The orchestrator/worker pattern described in sections below has been replaced with depth-based recursion (`recurse` tool) and two-tier context compaction (microcompaction + full summarization). The `RR_ORCHESTRATION.md` companion doc has been removed. Key changes:
+> - `max_llm_calls` → `max_tokens` + `max_requests` (wired to PydanticAI `UsageLimits`)
+> - Orchestrator/worker agents → single agent with `recurse` tool for depth-based decomposition
+> - `extracted_learnings` removed from `ReflectorOutput` (SkillManager's responsibility)
+> - Online/offline mode: `ACEStepContext.mode` controls whether skill evaluation is included
+> - See code in `ace/steps/rr/` for current implementation.
+
+Design document for the Recursive Reflector module (`ace/steps/rr/`). The RR is a PydanticAI-powered trace analyser that uses tool calls to generate Python code, execute it in a sandbox, delegate analysis to sub-agents, and produce structured reflections from agent execution traces.
 
 ---
 

@@ -37,6 +37,7 @@ from .prompts import (
     COMPACTION_SUMMARY_PROMPT,
     REFLECTOR_RECURSIVE_PROMPT,
     REFLECTOR_RECURSIVE_SYSTEM,
+    RR_SKILL_EVAL_SECTION,
 )
 from .sandbox import TraceSandbox
 from .tools import RRDeps
@@ -111,6 +112,7 @@ class RRStep:
             feedback=trace.get("feedback") if isinstance(trace, dict) else None,
             skillbook=ctx.skillbook,
             trace=trace if not isinstance(trace, dict) else None,
+            mode=ctx.mode,
         )
         # If the agent produced raw["items"], split into per-item outputs
         if isinstance(reflection.raw.get("items"), list):
@@ -157,6 +159,7 @@ class RRStep:
         skillbook: Any = None,
         ground_truth: Optional[str] = None,
         feedback: Optional[str] = None,
+        mode: str = "online",
         **kwargs: Any,
     ) -> ReflectorOutput:
         """Run the PydanticAI agent and return analysis."""
@@ -194,6 +197,10 @@ class RRStep:
         )
 
         initial_prompt = self._build_initial_prompt(traces, skillbook, trace_obj)
+
+        # In online mode with a non-empty skillbook, append skill evaluation
+        if mode == "online" and skillbook_text and skillbook_text != "(empty skillbook)":
+            initial_prompt += "\n\n" + RR_SKILL_EVAL_SECTION
 
         # Run async compaction loop from sync context
         try:

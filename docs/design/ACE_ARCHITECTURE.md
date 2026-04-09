@@ -23,7 +23,7 @@ The LLM interaction layer uses PydanticAI exclusively. Three legacy hand-rolled 
 | Kept (core IP) | Replaced (commodity plumbing) |
 |---|---|
 | Pipeline engine (`requires`/`provides`, `async_boundary`, `max_workers`) | LLM client abstraction (3 implementations → PydanticAI agents) |
-| Skillbook & learning loop (Reflect → Tag → Update → Apply) | Structured output parsing + retries (→ PydanticAI native validation) |
+| Skillbook & learning loop (Reflect → Update → Apply) | Structured output parsing + retries (→ PydanticAI native validation) |
 | Step composition (`learning_tail`, pipeline nesting) | RR iteration loop, code extraction, budget tracking (~2,500 lines → PydanticAI agent + tools) |
 | Domain-specific prompts | Sub-agent call management (CallBudget → `UsageLimits`) |
 
@@ -79,7 +79,7 @@ Steps access `ctx.sample.question` uniformly. A `Protocol` makes this duck typin
 
 ### SkillbookView — read-only projection
 
-The `Skillbook` is mutable — steps add, tag, and remove skills. Placing it directly on a `frozen=True` context would allow mutation through the reference, breaking the immutability guarantee.
+The `Skillbook` is mutable — steps add, update, and remove skills. Placing it directly on a `frozen=True` context would allow mutation through the reference, breaking the immutability guarantee.
 
 `SkillbookView` wraps a `Skillbook` and exposes only read methods (`as_prompt()`, `get_skill()`, `skills()`, `stats()`). Write methods don't exist on the class — calling them raises `AttributeError` at runtime and a type error at check time.
 
@@ -98,6 +98,7 @@ Key fields:
 
 | Field | Type | Source |
 |---|---|---|
+| `mode` | `Literal["online", "offline"]` | `"online"` (default) — controls skill evaluation in Reflector |
 | `sample` | `ACESample \| None` | Set by runner's `_build_context()` |
 | `skillbook` | `SkillbookView \| None` | Read-only projection of the real Skillbook |
 | `trace` | `object \| None` | Raw execution record — any type, no enforced schema |
@@ -194,8 +195,8 @@ Steps with empty `provides` are pure side-effect steps — they mutate shared st
 
 ```
 ACERunner (shared infrastructure: epoch loop, delegates to Pipeline.run())
-├── TraceAnalyser       — [Reflect → Tag → Update → AttachInsightSources → Apply]
-├── ACE                 — [Agent → Evaluate → Reflect → Tag → Update → AttachInsightSources → Apply]
+├── TraceAnalyser       — [Reflect → Update → AttachInsightSources → Apply]
+├── ACE                 — [Agent → Evaluate → Reflect → Update → AttachInsightSources → Apply]
 ├── BrowserUse          — [BrowserExecute → BrowserToTrace → learning_tail]
 ├── LangChain           — [LangChainExecute → LangChainToTrace → learning_tail]
 ├── ClaudeCode          — [ClaudeCodeExecute → ClaudeCodeToTrace → learning_tail]
@@ -297,7 +298,7 @@ All runners provide a `from_roles` factory that takes pre-built role instances. 
 
 ### `learning_tail()` — reusable learning steps
 
-Every integration assembles the same `[Reflect → Tag → Update → AttachInsightSources → Apply]` suffix. `learning_tail()` returns this standard step list, with optional dedup and checkpoint steps. If the provided reflector already exposes `provides = {'reflections'}` (e.g. `RRStep`), it's inserted directly instead of being wrapped in `ReflectStep`.
+Every integration assembles the same `[Reflect → Update → AttachInsightSources → Apply]` suffix. `learning_tail()` returns this standard step list, with optional dedup and checkpoint steps. If the provided reflector already exposes `provides = {'reflections'}` (e.g. `RRStep`), it's inserted directly instead of being wrapped in `ReflectStep`.
 
 ---
 
@@ -312,16 +313,16 @@ External frameworks integrate via composable pipeline steps in `ace/integrations
 ### Execute → Convert → Learn
 
 ```
-Standard ACE:      [Agent → Evaluate]                          → [Reflect → Tag → Update → AttachInsightSources → Apply]
+Standard ACE:      [Agent → Evaluate]                          → [Reflect → Update → AttachInsightSources → Apply]
                     ╰── execute (built-in) ──╯                    ╰──────── learn (shared) ──────╯
                          provides: trace (dict) ─────────────────► requires: trace
 
-Browser-use:       [BrowserExecute] → [BrowserToTrace]         → [Reflect → Tag → Update → AttachInsightSources → Apply]
+Browser-use:       [BrowserExecute] → [BrowserToTrace]         → [Reflect → Update → AttachInsightSources → Apply]
                     ╰── execute ────╯   ╰── convert ──╯           ╰──────── learn (shared) ──────╯
                     provides: trace      rewrites trace             requires: trace
                     (BrowserResult)      (BrowserResult → dict)
 
-TraceAnalyser:     [_build_context]                            → [Reflect → Tag → Update → AttachInsightSources → Apply]
+TraceAnalyser:     [_build_context]                            → [Reflect → Update → AttachInsightSources → Apply]
                     ╰── sets ctx.trace (raw object) ───────╯      ╰──────── learn (shared) ──────╯
 ```
 
@@ -524,7 +525,7 @@ ace/
     agent.py, reflector.py, skill_manager.py, helpers.py, prompts.py
   steps/                    ← Pipeline steps (one file per class)
     __init__.py             ← learning_tail() helper
-    agent.py, evaluate.py, reflect.py, tag.py, update.py,
+    agent.py, evaluate.py, reflect.py, update.py,
     attach_insight_sources.py, apply.py, deduplicate.py, checkpoint.py,
     load_traces.py, persist.py, export_markdown.py, observability.py
   runners/                  ← Runner classes
