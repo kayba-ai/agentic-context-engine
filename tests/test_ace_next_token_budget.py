@@ -180,13 +180,21 @@ class TestNoTokenBudgetInPrompt:
 
 
 def _extract_stats_from_prompt(prompt: str) -> str:
-    """Extract the JSON stats string from the rendered v3 prompt.
+    """Extract the JSON stats string from the rendered prompt.
 
-    The v3 prompt renders stats on a line like:
-        Stats: {"sections": ..., "skills": ...}
+    Supports both v2.1 format (``### Skillbook Statistics\\n{stats}``)
+    and v3 format (``Stats: {stats}``).
     """
-    for line in prompt.splitlines():
+    lines = prompt.splitlines()
+    for i, line in enumerate(lines):
         stripped = line.strip()
+        # v3 format: "Stats: {...}"
         if stripped.startswith("Stats:"):
             return stripped[len("Stats:") :].strip()
-    raise ValueError("Could not find 'Stats:' line in prompt")
+        # v2.1 format: heading followed by JSON on next non-blank line
+        if stripped == "### Skillbook Statistics":
+            for subsequent in lines[i + 1 :]:
+                subsequent = subsequent.strip()
+                if subsequent and subsequent.startswith("{"):
+                    return subsequent
+    raise ValueError("Could not find stats in prompt")

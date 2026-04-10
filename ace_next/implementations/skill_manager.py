@@ -50,10 +50,12 @@ class SkillManager:
         prompt_template: str = SKILL_MANAGER_PROMPT,
         *,
         max_retries: int = 3,
+        token_budget: int | None = None,
     ) -> None:
         self.llm = llm
         self.prompt_template = prompt_template
         self.max_retries = max_retries
+        self.token_budget = token_budget
 
     def update_skills(
         self,
@@ -90,11 +92,22 @@ class SkillManager:
             ],
         }
 
+        skillbook_prompt = skillbook.as_prompt() or "(empty skillbook)"
+
+        stats = skillbook.stats()
+        if self.token_budget is not None:
+            token_estimate = len(skillbook_prompt) // 4
+            stats["token_estimate"] = token_estimate
+            stats["token_budget"] = self.token_budget
+            stats["over_budget"] = token_estimate > self.token_budget
+
         prompt = self.prompt_template.format(
             progress=progress,
-            stats=json.dumps(skillbook.stats()),
-            reflection=json.dumps(reflection_data, ensure_ascii=False, indent=2),
-            skillbook=skillbook.as_prompt() or "(empty skillbook)",
+            stats=json.dumps(stats),
+            reflection=json.dumps(
+                reflection_data, ensure_ascii=False, indent=2
+            ),
+            skillbook=skillbook_prompt,
             question_context=question_context,
         )
 
