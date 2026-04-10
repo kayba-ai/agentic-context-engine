@@ -72,6 +72,10 @@ venv.bak/
 *.png
 !benchmarks/tasks/tau_bench/*.png
 !examples/browser-use/**/*.png
+
+# Nested CAR-bench upstream clone and generated wiki extracts
+benchmarks/car-bench/car-bench/
+benchmarks/car-bench/prepared_wikis/
 ACE_IMPROVEMENTS.md
 ACE_ROADMAP.md
 DEMO_TODO.md
