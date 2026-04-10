@@ -72,6 +72,7 @@ venv.bak/
 *.png
 !benchmarks/tasks/tau_bench/*.png
 !examples/browser-use/**/*.png
+!results/study_figures/*.png
 
 # Nested CAR-bench upstream clone and generated wiki extracts
 benchmarks/car-bench/car-bench/
