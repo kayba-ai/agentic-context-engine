@@ -2540,6 +2540,18 @@ def fig14_budget_saturation_combined():
     # Track bottom-left axis per row for ylabel placement
     row_left_ax = {}
 
+    # Legend handles (reused per panel)
+    _legend_handles = [
+        Line2D(
+            [0], [0], marker="o", color="#6b7280",
+            linewidth=1.5, markersize=6, label="TAU (25 traces)",
+        ),
+        Line2D(
+            [0], [0], marker="^", color="#6b7280",
+            linewidth=0, markersize=9, label="CAR (129 traces)",
+        ),
+    ]
+
     for row_idx, (tau_exp, car_exp, model_name) in enumerate(
         [
             (tau_haiku, car_haiku, "Haiku 4.5"),
@@ -2584,6 +2596,7 @@ def fig14_budget_saturation_combined():
                             fontsize=9,
                             color="#6b7280",
                         )
+                    ax.legend(handles=_legend_handles, fontsize=7, loc="upper left")
                     ax.grid(True, alpha=0.3)
                     if col_idx == 0:
                         row_left_ax[row_idx] = ax
@@ -2646,6 +2659,7 @@ def fig14_budget_saturation_combined():
 
                 ax_top.grid(True, alpha=0.3)
                 ax_bot.grid(True, alpha=0.3)
+                ax_bot.legend(handles=_legend_handles, fontsize=7, loc="upper left")
 
                 # ∞ annotations
                 if tm:
@@ -2689,41 +2703,14 @@ def fig14_budget_saturation_combined():
                         fontsize=9,
                         color="#6b7280",
                     )
+                ax.legend(handles=_legend_handles, fontsize=7, loc="upper left")
                 ax.grid(True, alpha=0.3)
 
-    # Legend
-    legend_elements = [
-        Line2D(
-            [0],
-            [0],
-            marker="o",
-            color="#6b7280",
-            linewidth=1.5,
-            markersize=6,
-            label="TAU-bench (25 traces)",
-        ),
-        Line2D(
-            [0],
-            [0],
-            marker="^",
-            color="#6b7280",
-            linewidth=0,
-            markersize=9,
-            label="CAR-bench (129 traces)",
-        ),
-    ]
-    fig.legend(
-        handles=legend_elements,
-        loc="upper center",
-        ncol=2,
-        fontsize=10,
-        bbox_to_anchor=(0.5, 1.02),
-    )
     fig.suptitle(
         "Budget Saturation: TAU-bench vs CAR-bench",
         fontsize=14,
         fontweight="bold",
-        y=1.06,
+        y=1.02,
     )
     fig.tight_layout()
     out = OUT_DIR / "budget_saturation_combined.png"
@@ -3359,8 +3346,8 @@ def fig0_summary_panel():
     Panel B: Dimension effect sizes (training composition dominates)
     Panel C: Best downstream results across benchmarks (grouped bar)
     """
-    fig, (ax_a, ax_b, ax_c) = plt.subplots(
-        1, 3, figsize=(20, 6.5), gridspec_kw={"width_ratios": [1, 1, 1.1]}
+    fig, (ax_a, ax_c, ax_b) = plt.subplots(
+        1, 3, figsize=(20, 6.5), gridspec_kw={"width_ratios": [1, 1.1, 1]}
     )
 
     # ── Panel A: Fluff rate — Opus retention by budget ──────────────────
@@ -3452,7 +3439,7 @@ def fig0_summary_panel():
     ax_b.set_yticks(np.arange(len(dimensions)))
     ax_b.set_yticklabels(dimensions, fontsize=10)
     ax_b.set_xlabel("Mean |Effect Size| (pp, pass⁴)")
-    ax_b.set_title("B. Training Data Composition\n    Dominates All Other Dimensions", fontweight="bold")
+    ax_b.set_title("C. Training Data Composition\n    Dominates All Other Dimensions", fontweight="bold")
     ax_b.set_xlim(0, 20)
     ax_b.invert_yaxis()
 
@@ -3509,11 +3496,365 @@ def fig0_summary_panel():
     ax_c.set_xticks(x_c)
     ax_c.set_xticklabels(benchmarks, fontsize=9.5)
     ax_c.set_ylabel("pass⁴ (%)")
-    ax_c.set_title("C. Downstream Impact: Best Config vs Baseline", fontweight="bold")
+    ax_c.set_title("B. Downstream Impact: Best Config vs Baseline", fontweight="bold")
     ax_c.set_ylim(0, 75)
 
     fig.tight_layout(w_pad=3)
     out = OUT_DIR / "summary_panel.png"
+    fig.savefig(out, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    print(f"Saved: {out}")
+
+
+# ── RR Study Figures ───────────────────────────────────────────────────────
+
+RR_EVAL_DIR = RESULTS / "rr_car_bench_eval"
+CAR_EVAL_DIR_MIXED = RESULTS / "car_bench_eval"
+
+# Colors for RR study
+C_RR = "#2563eb"  # blue — RR configs
+C_TASKSEP = "#059669"  # green — task-separated
+C_MIXED = "#e85d04"  # orange — mixed training
+
+
+def _load_eval_json(eval_dir, config, task_type):
+    """Load raw eval JSON from a config/task_type_test/ directory."""
+    import glob as _glob
+
+    pattern = str(eval_dir / config / f"{task_type}_test" / "**" / "*.json")
+    files = _glob.glob(pattern, recursive=True)
+    if not files:
+        # Try without _test suffix
+        pattern = str(eval_dir / config / task_type / "**" / "*.json")
+        files = _glob.glob(pattern, recursive=True)
+    if not files:
+        return []
+    all_data = []
+    for f in files:
+        all_data.extend(json.loads(Path(f).read_text()))
+    return all_data
+
+
+def _compute_pass_k(data, k):
+    """Fraction of tasks where all first k trials succeed."""
+    from collections import defaultdict
+
+    tasks = defaultdict(list)
+    for entry in data:
+        tasks[entry["task_id"]].append(entry["reward"])
+    n_pass = sum(
+        1
+        for rs in tasks.values()
+        if len(rs) >= k and all(r > 0 for r in rs[:k])
+    )
+    return n_pass / len(tasks) if tasks else 0
+
+
+def fig20_rr_pass4_comparison():
+    """Grouped bar chart: pass^4 across RR, mixed, and task-separated methods.
+
+    Two groups (Base | Hallucination), one bar per config.
+    Baseline shown as dashed horizontal line.
+    """
+    # Config definitions: (label, base_source, halluc_source)
+    # base_source = (eval_dir, config_name, task_type)
+    # halluc_source = (eval_dir, config_name, task_type)
+    configs = [
+        {
+            "label": "RR opus-median",
+            "base": (RR_EVAL_DIR, "rr-opus-median", "base"),
+            "halluc": (RR_EVAL_DIR, "rr-opus-median", "hallucination"),
+            "color": C_RR,
+            "hatch": "",
+        },
+        {
+            "label": "RR run 5",
+            "base": (RR_EVAL_DIR, "rr-run5", "base"),
+            "halluc": (RR_EVAL_DIR, "rr-run5", "hallucination"),
+            "color": C_RR,
+            "hatch": "//",
+        },
+        {
+            "label": "RR run 1",
+            "base": (RR_EVAL_DIR, "rr-merged", "base"),
+            "halluc": (RR_EVAL_DIR, "rr-merged", "hallucination"),
+            "color": C_RR,
+            "hatch": "\\\\",
+        },
+        {
+            "label": "Task-sep best",
+            "base": (CAR_BASE_ONLY_DIR, "sonnet-500-base50-median", "base"),
+            "halluc": (
+                CAR_HALLUC_ONLY_DIR,
+                "sonnet-500-halluc48-consensus",
+                "hallucination",
+            ),
+            "color": C_TASKSEP,
+            "hatch": "",
+        },
+        {
+            "label": "Task-sep opus-median",
+            "base": (
+                CAR_BASE_ONLY_DIR,
+                "sonnet-500-base50-opus-median",
+                "base",
+            ),
+            "halluc": (
+                CAR_HALLUC_ONLY_DIR,
+                "sonnet-500-halluc48-opus-median",
+                "hallucination",
+            ),
+            "color": C_TASKSEP,
+            "hatch": "//",
+        },
+        {
+            "label": "Mixed opus-median",
+            "base": (CAR_EVAL_DIR_MIXED, "sonnet-nobudget-opus-median", "base"),
+            "halluc": (
+                CAR_EVAL_DIR_MIXED,
+                "sonnet-nobudget-opus-median",
+                "hallucination",
+            ),
+            "color": C_MIXED,
+            "hatch": "",
+        },
+        {
+            "label": "Mixed consensus",
+            "base": (CAR_EVAL_DIR_MIXED, "sonnet-500-consensus", "base"),
+            "halluc": (
+                CAR_EVAL_DIR_MIXED,
+                "sonnet-500-consensus",
+                "hallucination",
+            ),
+            "color": C_MIXED,
+            "hatch": "//",
+        },
+    ]
+
+    # Compute pass^4 for each config
+    base_vals = []
+    halluc_vals = []
+    for cfg in configs:
+        d = _load_eval_json(*cfg["base"])
+        base_vals.append(_compute_pass_k(d, 4) * 100)
+        d = _load_eval_json(*cfg["halluc"])
+        halluc_vals.append(_compute_pass_k(d, 4) * 100)
+
+    # Baseline
+    bl_base_data = _load_eval_json(RR_EVAL_DIR, "baseline", "base")
+    bl_halluc_data = _load_eval_json(RR_EVAL_DIR, "baseline", "hallucination")
+    bl_base = _compute_pass_k(bl_base_data, 4) * 100
+    bl_halluc = _compute_pass_k(bl_halluc_data, 4) * 100
+
+    # Plot
+    fig, ax = plt.subplots(figsize=(14, 6))
+
+    n = len(configs)
+    bar_w = 0.11
+    group_positions = np.array([0, 1.2])  # Base, Halluc groups
+
+    for i, cfg in enumerate(configs):
+        offset = (i - n / 2 + 0.5) * bar_w
+        vals = [base_vals[i], halluc_vals[i]]
+        bars = ax.bar(
+            group_positions + offset,
+            vals,
+            bar_w * 0.9,
+            label=cfg["label"],
+            color=cfg["color"],
+            hatch=cfg["hatch"],
+            edgecolor="white" if not cfg["hatch"] else cfg["color"],
+            alpha=0.85,
+            linewidth=0.5,
+        )
+        # Value labels on bars
+        for bar, val in zip(bars, vals):
+            ax.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height() + 0.8,
+                f"{val:.0f}",
+                ha="center",
+                va="bottom",
+                fontsize=7.5,
+                fontweight="bold",
+            )
+
+    # Baseline reference lines
+    base_span = (
+        group_positions[0] - n / 2 * bar_w - 0.02,
+        group_positions[0] + n / 2 * bar_w + 0.02,
+    )
+    halluc_span = (
+        group_positions[1] - n / 2 * bar_w - 0.02,
+        group_positions[1] + n / 2 * bar_w + 0.02,
+    )
+    ax.hlines(
+        bl_base, *base_span, colors=C_BASELINE, linestyles="--", linewidth=2,
+        label=f"Baseline ({bl_base:.0f}% / {bl_halluc:.0f}%)", zorder=5,
+    )
+    ax.hlines(
+        bl_halluc, *halluc_span, colors=C_BASELINE, linestyles="--",
+        linewidth=2, zorder=5,
+    )
+
+    ax.set_xticks(group_positions)
+    ax.set_xticklabels(["Base Tasks", "Hallucination Tasks"], fontsize=12)
+    ax.set_ylabel("pass^4 (%)")
+    ax.set_title(
+        "pass^4 Accuracy: RR vs Task-Separated vs Mixed Training",
+        fontweight="bold",
+    )
+    ax.set_ylim(0, 75)
+    ax.legend(fontsize=8.5, loc="upper right", ncol=2)
+
+    fig.tight_layout()
+    out = OUT_DIR / "rr_pass4_comparison.png"
+    fig.savefig(out, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    print(f"Saved: {out}")
+
+
+def fig21_rr_passk_stability():
+    """Line chart: pass^k decay curves (k=1..4), two panels (Base | Halluc).
+
+    Shows consistency/stability differences across methods.
+    """
+    configs = [
+        {
+            "label": "Baseline",
+            "base": (RR_EVAL_DIR, "baseline", "base"),
+            "halluc": (RR_EVAL_DIR, "baseline", "hallucination"),
+            "color": C_BASELINE,
+            "ls": "--",
+            "lw": 2.5,
+            "marker": "s",
+        },
+        {
+            "label": "RR opus-median",
+            "base": (RR_EVAL_DIR, "rr-opus-median", "base"),
+            "halluc": (RR_EVAL_DIR, "rr-opus-median", "hallucination"),
+            "color": C_RR,
+            "ls": "-",
+            "lw": 2.5,
+            "marker": "o",
+        },
+        {
+            "label": "RR run 5",
+            "base": (RR_EVAL_DIR, "rr-run5", "base"),
+            "halluc": (RR_EVAL_DIR, "rr-run5", "hallucination"),
+            "color": C_RR,
+            "ls": "--",
+            "lw": 1.5,
+            "marker": "^",
+        },
+        {
+            "label": "RR run 1",
+            "base": (RR_EVAL_DIR, "rr-merged", "base"),
+            "halluc": (RR_EVAL_DIR, "rr-merged", "hallucination"),
+            "color": C_RR,
+            "ls": ":",
+            "lw": 1.5,
+            "marker": "v",
+        },
+        {
+            "label": "Task-sep best",
+            "base": (CAR_BASE_ONLY_DIR, "sonnet-500-base50-median", "base"),
+            "halluc": (
+                CAR_HALLUC_ONLY_DIR,
+                "sonnet-500-halluc48-consensus",
+                "hallucination",
+            ),
+            "color": C_TASKSEP,
+            "ls": "-",
+            "lw": 2.5,
+            "marker": "D",
+        },
+        {
+            "label": "Task-sep opus-median",
+            "base": (
+                CAR_BASE_ONLY_DIR,
+                "sonnet-500-base50-opus-median",
+                "base",
+            ),
+            "halluc": (
+                CAR_HALLUC_ONLY_DIR,
+                "sonnet-500-halluc48-opus-median",
+                "hallucination",
+            ),
+            "color": C_TASKSEP,
+            "ls": "--",
+            "lw": 1.5,
+            "marker": "P",
+        },
+        {
+            "label": "Mixed opus-median",
+            "base": (CAR_EVAL_DIR_MIXED, "sonnet-nobudget-opus-median", "base"),
+            "halluc": (
+                CAR_EVAL_DIR_MIXED,
+                "sonnet-nobudget-opus-median",
+                "hallucination",
+            ),
+            "color": C_MIXED,
+            "ls": "-",
+            "lw": 2.5,
+            "marker": "X",
+        },
+        {
+            "label": "Mixed consensus",
+            "base": (CAR_EVAL_DIR_MIXED, "sonnet-500-consensus", "base"),
+            "halluc": (
+                CAR_EVAL_DIR_MIXED,
+                "sonnet-500-consensus",
+                "hallucination",
+            ),
+            "color": C_MIXED,
+            "ls": "--",
+            "lw": 1.5,
+            "marker": "h",
+        },
+    ]
+
+    ks = [1, 2, 3, 4]
+
+    fig, (ax_base, ax_halluc) = plt.subplots(1, 2, figsize=(14, 6), sharey=True)
+
+    for cfg in configs:
+        # Base panel
+        data = _load_eval_json(*cfg["base"])
+        base_curve = [_compute_pass_k(data, k) * 100 for k in ks]
+        ax_base.plot(
+            ks, base_curve,
+            color=cfg["color"], linestyle=cfg["ls"], linewidth=cfg["lw"],
+            marker=cfg["marker"], markersize=7, label=cfg["label"],
+            alpha=0.9,
+        )
+
+        # Halluc panel
+        data = _load_eval_json(*cfg["halluc"])
+        halluc_curve = [_compute_pass_k(data, k) * 100 for k in ks]
+        ax_halluc.plot(
+            ks, halluc_curve,
+            color=cfg["color"], linestyle=cfg["ls"], linewidth=cfg["lw"],
+            marker=cfg["marker"], markersize=7, label=cfg["label"],
+            alpha=0.9,
+        )
+
+    for ax, title in [(ax_base, "Base Tasks"), (ax_halluc, "Hallucination Tasks")]:
+        ax.set_xticks(ks)
+        ax.set_xticklabels(["pass^1", "pass^2", "pass^3", "pass^4"])
+        ax.set_xlabel("Metric Strictness")
+        ax.set_title(title, fontweight="bold")
+        ax.set_ylim(0, 75)
+
+    ax_base.set_ylabel("Accuracy (%)")
+    ax_halluc.legend(fontsize=8, loc="lower left")
+
+    fig.suptitle(
+        "pass^k Stability: RR vs Task-Separated vs Mixed Training",
+        fontweight="bold", fontsize=14, y=1.02,
+    )
+    fig.tight_layout()
+    out = OUT_DIR / "rr_passk_stability.png"
     fig.savefig(out, dpi=150, bbox_inches="tight")
     plt.close(fig)
     print(f"Saved: {out}")
@@ -3542,4 +3883,6 @@ if __name__ == "__main__":
     fig17_compression_distribution_combined()
     fig18_conciseness_combined()
     fig19_dimension_effects()
+    fig20_rr_pass4_comparison()
+    fig21_rr_passk_stability()
     print(f"\nAll figures saved to {OUT_DIR}")
