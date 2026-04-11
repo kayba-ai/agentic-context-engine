@@ -1,0 +1,55 @@
+{
+  "name": "@kayba_ai/tracing",
+  "version": "0.9.5",
+  "description": "Kayba tracing SDK — instrument your AI agents and send traces to Kayba",
+  "license": "MIT",
+  "author": "Kayba.ai <hello@kayba.ai>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Kayba-ai/agentic-context-engine",
+    "directory": "sdk/typescript"
+  },
+  "homepage": "https://kayba.ai",
+  "keywords": [
+    "kayba",
+    "tracing",
+    "mlflow",
+    "observability",
+    "ai",
+    "agents"
+  ],
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "mlflow-tracing": "^0.1.0"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
