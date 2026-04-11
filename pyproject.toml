@@ -68,6 +68,9 @@ browser-use = [
 logfire = [
     "logfire[pydantic-ai]>=3.0.0",
 ]
+tracing = [
+    "mlflow>=3.1.0",
+]
 bedrock = [
     "boto3>=1.42.50",
 ]
@@ -97,6 +100,7 @@ all = [
     "transformers>=4.30.0",
     "torch>=2.0.0",
     "accelerate>=0.20.0",
+    "mlflow>=3.1.0",
     "click>=8.1.0",
     "requests>=2.31.0",
 ]

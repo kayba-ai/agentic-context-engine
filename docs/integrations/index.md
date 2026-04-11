@@ -17,6 +17,7 @@ pipeline steps you can drop into a custom `Pipeline`.
 | [MCP Server](mcp.md) | MCP (stdio) | Tool calls | Micro |
 | [MCP Client Setup](mcp-client-setup.md) | Claude Code, Cursor, Windsurf | — | Setup Guide |
 | [Opik](opik.md) | Opik observability | — | Monitoring |
+| [Tracing](tracing.md) | Kayba tracing SDK | `@trace` / `start_span` | Cloud |
 | [Hosted API](hosted-api.md) | Kayba hosted API | Trace files | Cloud |
 
 ## The Pattern
@@ -80,5 +81,6 @@ All runners share these capabilities:
 - **Want to monitor costs and traces?** Add [Opik](opik.md)
 - **Learning from OpenClaw session transcripts?** Use [OpenClaw](openclaw.md)
 - **Exposing ACE as an MCP tool provider?** Use the [MCP Server](mcp.md) and the [MCP Client Setup](mcp-client-setup.md) guide
+- **Want to send traces to Kayba from your code?** Use [Tracing](tracing.md)
 - **Want to use the hosted API instead of running locally?** Use the [Hosted API](hosted-api.md) CLI
 - **Using a different framework?** See the [Integration Guide](../guides/integration.md) to build a custom runner
