@@ -14,7 +14,7 @@ from contextlib import contextmanager
 from typing import Any, Callable, Generator, TypeVar, overload
 
 _TRACING_INSTALL_HINT = (
-    "Tracing requires the 'tracing' extra: pip install ace-framework[tracing]"
+    "Tracing requires mlflow: pip install kayba-tracing"
 )
 
 try:
@@ -109,7 +109,6 @@ def get_folder() -> str | None:
 # ---------------------------------------------------------------------------
 # Wrapped MLflow tracing primitives that inject the folder tag
 # ---------------------------------------------------------------------------
-
 
 
 def _inject_folder_tag() -> None:
