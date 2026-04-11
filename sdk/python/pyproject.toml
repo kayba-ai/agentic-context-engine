@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kayba-tracing"
-version = "0.9.5"
+version = "0.9.6"
 description = "Kayba tracing SDK — instrument your AI agents and send traces to Kayba"
 readme = "README.md"
 requires-python = ">=3.10"

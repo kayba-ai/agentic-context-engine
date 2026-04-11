@@ -1,6 +1,6 @@
 {
   "name": "@kayba_ai/tracing",
-  "version": "0.9.5",
+  "version": "0.9.6",
   "description": "Kayba tracing SDK — instrument your AI agents and send traces to Kayba",
   "license": "MIT",
   "author": "Kayba.ai <hello@kayba.ai>",
