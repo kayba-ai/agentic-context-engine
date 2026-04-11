@@ -79,9 +79,7 @@ def configure(
             "environment variable."
         )
 
-    resolved_url = (
-        base_url or os.environ.get("KAYBA_API_URL") or DEFAULT_BASE_URL
-    )
+    resolved_url = base_url or os.environ.get("KAYBA_API_URL") or DEFAULT_BASE_URL
     # Strip trailing slash, then append the MLflow-compatible mount path.
     tracking_uri = resolved_url.rstrip("/") + "/api/mlflow"
 
@@ -111,6 +109,8 @@ def get_folder() -> str | None:
 # ---------------------------------------------------------------------------
 # Wrapped MLflow tracing primitives that inject the folder tag
 # ---------------------------------------------------------------------------
+
+
 
 def _inject_folder_tag() -> None:
     """Inject ``kayba.folder`` tag into the active trace if a folder is set."""
@@ -144,6 +144,7 @@ def trace(
     Works identically to ``mlflow.trace`` but automatically tags
     the trace with the configured Kayba folder.
     """
+
     def decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
         # Wrap the original function so the folder tag is injected
         # *inside* the trace context (before MLflow closes it).

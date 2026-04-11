@@ -306,8 +306,16 @@ class TestRRBatchReflection:
             correct_approach="approach",
             raw={
                 "items": [
-                    {"reasoning": "item 0", "key_insight": "i0", "extracted_learnings": []},
-                    {"reasoning": "item 1", "key_insight": "i1", "extracted_learnings": []},
+                    {
+                        "reasoning": "item 0",
+                        "key_insight": "i0",
+                        "extracted_learnings": [],
+                    },
+                    {
+                        "reasoning": "item 1",
+                        "key_insight": "i1",
+                        "extracted_learnings": [],
+                    },
                 ]
             },
         )
@@ -427,9 +435,7 @@ class TestRRBatchReflection:
         assert sandbox.namespace["item_ids"] == ["t0", "t1"]
         assert sandbox.namespace["item_id_to_index"] == {"t0": 0, "t1": 1}
         assert "survey_items" in sandbox.namespace
-        assert sandbox.namespace["survey_items"][0].startswith(
-            "Inspect batch_items[0]"
-        )
+        assert sandbox.namespace["survey_items"][0].startswith("Inspect batch_items[0]")
         assert sandbox.namespace["item_preview_by_id"]["t0"]["question_preview"]
         assert callable(sandbox.namespace["register_helper"])
         assert callable(sandbox.namespace["run_helper"])
@@ -484,8 +490,14 @@ class TestRRBatchReflection:
                     "trace": {
                         "question": "Please cancel my reservation.",
                         "messages": [
-                            {"role": "assistant", "content": "Hi! How can I help you today?"},
-                            {"role": "user", "content": "Please cancel my reservation."},
+                            {
+                                "role": "assistant",
+                                "content": "Hi! How can I help you today?",
+                            },
+                            {
+                                "role": "user",
+                                "content": "Please cancel my reservation.",
+                            },
                         ],
                         "reasoning": "Ask for identifiers and confirm refund policy.",
                         "answer": "I can help with that.",

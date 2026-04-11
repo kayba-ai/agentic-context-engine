@@ -136,9 +136,7 @@ class ACERunner:
                 )
                 for idx, item in enumerate(items, start=1)
             ]
-            epoch_results = self.pipeline.run(
-                contexts, cancel_token=cancel_token
-            )
+            epoch_results = self.pipeline.run(contexts, cancel_token=cancel_token)
             results.extend(epoch_results)
 
         if wait:

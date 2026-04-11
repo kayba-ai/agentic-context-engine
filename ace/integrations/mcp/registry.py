@@ -10,6 +10,7 @@ from ace.integrations.mcp.errors import SessionNotFoundError
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class Session:
     session_id: str
@@ -18,13 +19,16 @@ class Session:
     last_accessed: float = field(default_factory=time.time)
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
+
 class SessionRegistry:
     def __init__(self, config: MCPServerConfig):
         self.config = config
         self._sessions: Dict[str, Session] = {}
         self._registry_lock = asyncio.Lock()
 
-    async def get_or_create(self, session_id: str, model: str | None = None, **runner_kwargs: Any) -> Session:
+    async def get_or_create(
+        self, session_id: str, model: str | None = None, **runner_kwargs: Any
+    ) -> Session:
         """Get an existing session or create a new one, sweeping expired sessions first."""
         async with self._registry_lock:
             expired = self._collect_expired()
@@ -78,7 +82,8 @@ class SessionRegistry:
         ttl = self.config.session_ttl_seconds
 
         expired_ids = [
-            sid for sid, session in self._sessions.items()
+            sid
+            for sid, session in self._sessions.items()
             if now - session.last_accessed > ttl
         ]
         return [self._sessions.pop(sid) for sid in expired_ids]

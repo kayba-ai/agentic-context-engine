@@ -53,9 +53,7 @@ class TestConfigure:
             )
 
     def test_configure_reads_api_key_from_env(self) -> None:
-        with patch.dict(
-            os.environ, {"KAYBA_API_KEY": "kb-env-key"}, clear=False
-        ):
+        with patch.dict(os.environ, {"KAYBA_API_KEY": "kb-env-key"}, clear=False):
             from ace.tracing._wrapper import configure
 
             with patch("ace.tracing._wrapper.mlflow"):
@@ -251,9 +249,7 @@ class TestTraceDecorator:
 
             result = my_func()
             assert result == "ok"
-            mock_mlflow.trace.assert_called_once_with(
-                name="custom", span_type="LLM"
-            )
+            mock_mlflow.trace.assert_called_once_with(name="custom", span_type="LLM")
             # No folder set, so no tag injection
             mock_mlflow.update_current_trace.assert_not_called()
 

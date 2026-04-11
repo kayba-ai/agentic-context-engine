@@ -22,7 +22,6 @@ from ace.integrations.mcp.models import AskRequest, LearnSampleRequest
 from ace.integrations.mcp.registry import SessionRegistry
 from ace.integrations.mcp.server import _MCP_INSTALL_HINT as SERVER_INSTALL_HINT
 
-
 _CLIENT_PATTERN = re.compile(
     r"(vs\s*code|vscode|visual\s*studio\s*code|cursor|windsurf)",
     re.IGNORECASE,

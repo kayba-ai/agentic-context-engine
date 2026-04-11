@@ -16,7 +16,6 @@ from ..core.insight_source import (
 from ..core.outputs import ExtractedLearning, ReflectorOutput
 from ..core.skillbook import UpdateBatch, UpdateOperation
 
-
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
@@ -76,11 +75,15 @@ def _get_batch_items(trace: Any) -> list[Any] | None:
             return items
     # Combined-steps batch format
     steps = trace.get("steps")
-    if isinstance(steps, list) and steps and all(
-        isinstance(step, Mapping)
-        and step.get("role") == "conversation"
-        and isinstance(step.get("content"), Mapping)
-        for step in steps
+    if (
+        isinstance(steps, list)
+        and steps
+        and all(
+            isinstance(step, Mapping)
+            and step.get("role") == "conversation"
+            and isinstance(step.get("content"), Mapping)
+            for step in steps
+        )
     ):
         return steps
     return None
@@ -158,11 +161,18 @@ def _match_batch_indices_for_operation(
     reflection_item_id = _get_reflection_item_id(matched_reflection)
     if reflection_item_id is not None:
         for idx, item in enumerate(batch_items):
-            if _get_batch_item_id(item, idx) == reflection_item_id and idx not in selected:
+            if (
+                _get_batch_item_id(item, idx) == reflection_item_id
+                and idx not in selected
+            ):
                 selected.append(idx)
 
     # 3. Positional fallback from reflection_index
-    if not selected and reflection_index is not None and 0 <= reflection_index < len(batch_items):
+    if (
+        not selected
+        and reflection_index is not None
+        and 0 <= reflection_index < len(batch_items)
+    ):
         selected.append(reflection_index)
 
     return selected

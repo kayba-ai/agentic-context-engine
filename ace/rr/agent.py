@@ -86,7 +86,9 @@ def _format_registered_helpers(sandbox: TraceSandbox) -> str:
     for name, meta in registry.items():
         if not isinstance(meta, dict):
             continue
-        description = str(meta.get("description", "")).strip() or "No description provided."
+        description = (
+            str(meta.get("description", "")).strip() or "No description provided."
+        )
         lines.append(f"- `{name}`: {description}")
     lines.append(
         "Use `print(list_helpers())` for the full catalog, call helpers directly in code, or use `run_helper(name, ...)`."

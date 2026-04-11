@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.4] - 2026-04-11
+
+### Added
+- **Kayba tracing SDK** — `ace.tracing` module wraps MLflow tracing with Kayba-native configuration, folder organization, and input sanitization (`pip install ace-framework[tracing]`)
+
 ## [0.9.3] - 2026-04-01
 
 ### Added
@@ -332,6 +337,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Type hints and modern Python practices
 - MIT licensed for open source use
 
+[0.9.4]: https://github.com/Kayba-ai/agentic-context-engine/compare/v0.9.3...v0.9.4
 [0.9.3]: https://github.com/Kayba-ai/agentic-context-engine/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/Kayba-ai/agentic-context-engine/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/Kayba-ai/agentic-context-engine/compare/v0.9.0...v0.9.1

@@ -1,9 +1,10 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
 
+
 class MCPServerConfig(BaseSettings):
     """Configuration for the ACE MCP Server."""
-    
+
     default_model: str = Field(default="gpt-4o-mini")
     safe_mode: bool = Field(default=False)
     max_samples_per_call: int = Field(default=25)

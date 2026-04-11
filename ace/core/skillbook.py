@@ -29,7 +29,9 @@ from .insight_source import (
 # Constants
 # ---------------------------------------------------------------------------
 
-VALID_SKILL_TAGS: FrozenSet[str] = frozenset({"helpful", "harmful", "neutral"})  # deprecated
+VALID_SKILL_TAGS: FrozenSet[str] = frozenset(
+    {"helpful", "harmful", "neutral"}
+)  # deprecated
 
 # ---------------------------------------------------------------------------
 # Update operations
@@ -399,9 +401,7 @@ class Skillbook:
                 del skill_dict["embedding"]
             # Use InsightSource.to_dict() for clean sparse serialization
             # instead of the recursive asdict() which dumps empty/null fields.
-            skill_dict["sources"] = [
-                source.to_dict() for source in skill.sources
-            ]
+            skill_dict["sources"] = [source.to_dict() for source in skill.sources]
             skills_serialized[skill_id] = skill_dict
         return {
             "skills": skills_serialized,
@@ -588,9 +588,7 @@ class Skillbook:
                     source_systems[src.source_system] = (
                         source_systems.get(src.source_system, 0) + 1
                     )
-                    trace_uids[src.trace_uid] = (
-                        trace_uids.get(src.trace_uid, 0) + 1
-                    )
+                    trace_uids[src.trace_uid] = trace_uids.get(src.trace_uid, 0) + 1
                     sq = src.sample_question or ""
                     if sq:
                         sample_questions[sq] = sample_questions.get(sq, 0) + 1

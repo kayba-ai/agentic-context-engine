@@ -11,7 +11,7 @@ from ace.integrations.mcp.handlers import MCPHandlers
 from ace.integrations.mcp.registry import SessionRegistry
 
 _MCP_INSTALL_HINT = (
-    'ACE MCP support is optional. Install it with '
+    "ACE MCP support is optional. Install it with "
     '`pip install "ace-framework[mcp]"` or `uv add "ace-framework[mcp]"`.'
 )
 
@@ -79,6 +79,7 @@ async def run_server() -> None:
 def main() -> None:
     """CLI Entrypoint for ace-mcp."""
     asyncio.run(run_server())
+
 
 if __name__ == "__main__":
     main()

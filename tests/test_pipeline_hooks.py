@@ -17,7 +17,6 @@ from pipeline import (
     cancel_token_var,
 )
 
-
 # ------------------------------------------------------------------
 # Helpers
 # ------------------------------------------------------------------
@@ -107,8 +106,14 @@ class TestPipelineHooks:
         pipe = Pipeline([PassthroughStep()], hooks=[hook1, hook2])
         pipe.run([StepContext(sample=1)])
 
-        assert hook1.events == [("before", "PassthroughStep"), ("after", "PassthroughStep")]
-        assert hook2.events == [("before", "PassthroughStep"), ("after", "PassthroughStep")]
+        assert hook1.events == [
+            ("before", "PassthroughStep"),
+            ("after", "PassthroughStep"),
+        ]
+        assert hook2.events == [
+            ("before", "PassthroughStep"),
+            ("after", "PassthroughStep"),
+        ]
 
     def test_broken_hook_does_not_kill_pipeline(self):
         broken = BrokenHook()

@@ -206,8 +206,7 @@ def demo_sandbox():
 
     # Show the trace structure
     print("  Running: trace exploration code")
-    result = sandbox.execute(
-        """
+    result = sandbox.execute("""
 print(trace.summary())
 print()
 
@@ -222,21 +221,18 @@ print(f"Tool calls: {len(tool_calls)}")
 for t in tool_calls:
     print(f"  {t.action}: input={t.thought[:60]}")
     print(f"    output={t.observation[:80]}")
-"""
-    )
+""")
     print(f"  Output:\n{result.stdout}")
 
     # Show FINAL mechanism
     print("  Running: FINAL() call")
-    sandbox.execute(
-        """
+    sandbox.execute("""
 FINAL({
     "reasoning": "Agent booked AA ($520) instead of BA ($450) despite it exceeding the $500 budget",
     "key_insight": "Always validate constraints before executing actions",
     "error_identification": "Booked over-budget flight when a cheaper option was available",
 })
-"""
-    )
+""")
     print(f"  FINAL called: {sandbox.final_called}")
     print(f"  Final value keys: {list(sandbox.final_value.keys())}")
     print(f"  Key insight: {sandbox.final_value['key_insight']}")

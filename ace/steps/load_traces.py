@@ -45,9 +45,7 @@ class LoadTracesStep:
             try:
                 events.append(json.loads(line))
             except json.JSONDecodeError:
-                logger.debug(
-                    "Skipping unparseable line %d in %s", line_num, path.name
-                )
+                logger.debug("Skipping unparseable line %d in %s", line_num, path.name)
                 continue
 
         return ctx.replace(trace=events)

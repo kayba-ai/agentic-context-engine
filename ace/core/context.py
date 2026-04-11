@@ -10,7 +10,6 @@ from pipeline import StepContext
 from .outputs import AgentOutput, ReflectorOutput
 from .skillbook import Skill, Skillbook, UpdateBatch
 
-
 # ---------------------------------------------------------------------------
 # ACESample — structural protocol for step access
 # ---------------------------------------------------------------------------
