@@ -16,7 +16,7 @@ runner.save("coding_expert.json")
 ## Installation
 
 ```bash
-uv add ace-framework[claude-code]
+uv add 'ace-framework[claude-code]'
 ```
 
 ## Prerequisites
@@ -60,10 +60,15 @@ runner.get_strategies()                     # View learned strategies
 
 ## How It Works
 
-1. **INJECT** — Skillbook strategies are written to `CLAUDE.md` at the project root
+1. **INJECT** — Skillbook strategies are appended to the task prompt passed to Claude Code for that run
 2. **EXECUTE** — Claude Code CLI runs the task in the project directory
-3. **Extract trace** — ACE reads the Claude Code execution transcript
+3. **Extract trace** — ACE parses Claude Code's `--output-format=stream-json` transcript into a learning trace
 4. **LEARN** — Reflector analyzes the trace, SkillManager updates the skillbook
+
+The stock `ClaudeCode` runner does **not** wire `PersistStep`, so it does not
+update `CLAUDE.md` automatically. Persist learned strategies with
+`runner.save(...)`, or compose a custom pipeline that adds `PersistStep` if you
+want file-based prompt injection outside the runner.
 
 ## Pipeline Skill
 

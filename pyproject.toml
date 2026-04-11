@@ -39,6 +39,7 @@ classifiers = [
 ]
 
 dependencies = [
+    "click>=8.1.0",
     "litellm>=1.83.0",
     "pydantic>=2.0.0",
     "pydantic-ai-slim[litellm]>=0.0.36",
@@ -97,11 +98,9 @@ all = [
     "transformers>=4.30.0",
     "torch>=2.0.0",
     "accelerate>=0.20.0",
-    "click>=8.1.0",
     "requests>=2.31.0",
 ]
 cloud = [
-    "click>=8.1.0",
     "requests>=2.31.0",
     "questionary>=2.0.0",
 ]

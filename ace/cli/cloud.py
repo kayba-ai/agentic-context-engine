@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.resources
 import json
+import re
 import sys
 import time
 from datetime import datetime, timezone
@@ -26,6 +27,17 @@ _base_url_option = click.option(
     help="API base URL (default: https://use.kayba.ai/api).",
 )
 
+MAX_TRACE_CHARS = 350_000
+PROMPT_BLOCK_START = "<!-- KAYBA:PROMPT:START -->"
+PROMPT_BLOCK_END = "<!-- KAYBA:PROMPT:END -->"
+PROMPT_INSTALL_TARGETS = {
+    "universal": ("AGENTS.md", "most coding agents"),
+    "codex": ("AGENTS.md", "Codex"),
+    "windsurf": ("AGENTS.md", "Windsurf"),
+    "claude-code": ("CLAUDE.md", "Claude Code"),
+    "cursor": (".cursorrules", "Cursor"),
+}
+
 
 def _client(api_key: Optional[str], base_url: Optional[str]) -> KaybaClient:
     """Build a KaybaClient, surfacing auth errors as click failures."""
@@ -38,7 +50,10 @@ def _client(api_key: Optional[str], base_url: Optional[str]) -> KaybaClient:
 def _detect_file_type(filename: str) -> str:
     """Infer fileType from extension."""
     ext = Path(filename).suffix.lower()
-    return {"md": "md", "json": "json"}.get(ext.lstrip("."), "txt")
+    return {"md": "md", "markdown": "md", "json": "json", "jsonl": "json", "toon": "json"}.get(
+        ext.lstrip("."),
+        "txt",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -64,29 +79,12 @@ def upload(paths, file_type, api_key, base_url):
     Directories are walked recursively.
     """
     client = _client(api_key, base_url)
-    traces = []
-
-    items = list(paths) if paths else ["-"]
-
-    for item in items:
-        if item == "-":
-            content = sys.stdin.read()
-            ft = file_type or "txt"
-            traces.append({"filename": "stdin.txt", "content": content, "fileType": ft})
-            continue
-
-        p = Path(item)
-        if p.is_dir():
-            for child in sorted(p.rglob("*")):
-                if child.is_file():
-                    _add_file(traces, child, file_type)
-        elif p.is_file():
-            _add_file(traces, p, file_type)
-        else:
-            click.echo(f"Warning: skipping {item} (not found)", err=True)
+    traces = _collect_upload_traces(paths, file_type)
 
     if not traces:
         raise click.ClickException("No traces to upload.")
+
+    _warn_large_trace_batch(traces)
 
     try:
         result = client.upload_traces(traces)
@@ -101,10 +99,64 @@ def upload(paths, file_type, api_key, base_url):
 
 def _add_file(traces: list, path: Path, forced_type: Optional[str]):
     content = path.read_text(encoding="utf-8", errors="replace")
-    if len(content) > 350_000:
-        click.echo(f"Warning: {path.name} is {len(content)} chars (>350k)", err=True)
+    if len(content) > MAX_TRACE_CHARS:
+        click.echo(
+            f"Skipping {path.name}: {len(content)} chars exceeds the Kayba API "
+            f"limit of {MAX_TRACE_CHARS}. Split or trim the trace and re-upload.",
+            err=True,
+        )
+        return False
     ft = forced_type or _detect_file_type(path.name)
     traces.append({"filename": path.name, "content": content, "fileType": ft})
+    return True
+
+
+def _collect_upload_traces(
+    paths: tuple[str, ...],
+    forced_type: Optional[str],
+) -> list[dict[str, str]]:
+    """Collect uploadable traces from files, directories, or stdin."""
+    traces: list[dict[str, str]] = []
+    items = list(paths) if paths else ["-"]
+
+    for item in items:
+        if item == "-":
+            content = sys.stdin.read()
+            if len(content) > MAX_TRACE_CHARS:
+                click.echo(
+                    f"Skipping stdin.txt: {len(content)} chars exceeds the Kayba API "
+                    f"limit of {MAX_TRACE_CHARS}. Split or trim the trace and re-upload.",
+                    err=True,
+                )
+                continue
+            ft = forced_type or "txt"
+            traces.append({"filename": "stdin.txt", "content": content, "fileType": ft})
+            continue
+
+        p = Path(item)
+        if p.is_dir():
+            for child in sorted(p.rglob("*")):
+                if child.is_file():
+                    _add_file(traces, child, forced_type)
+        elif p.is_file():
+            _add_file(traces, p, forced_type)
+        else:
+            click.echo(f"Warning: skipping {item} (not found)", err=True)
+
+    return traces
+
+
+def _warn_large_trace_batch(traces: list[dict[str, str]]) -> None:
+    """Warn once when a batch contains very large trace files."""
+    oversized = sum(1 for trace in traces if len(trace["content"]) > MAX_TRACE_CHARS)
+    if oversized:
+        click.echo(
+            "Warning: "
+            f"{oversized} trace(s) exceed {MAX_TRACE_CHARS} chars; the CLI will chunk uploads "
+            "into smaller requests, but very large individual files may still be "
+            "rejected.",
+            err=True,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -137,7 +189,7 @@ def traces_list(as_json, api_key, base_url):
         return
 
     if not items:
-        click.echo("No traces found.")
+        click.echo(_no_traces_message())
         return
 
     # Table header
@@ -235,29 +287,12 @@ def traces_upload(paths, file_type, api_key, base_url):
     Directories are walked recursively.
     """
     client = _client(api_key, base_url)
-    trace_list = []
-
-    items = list(paths) if paths else ["-"]
-
-    for item in items:
-        if item == "-":
-            content = sys.stdin.read()
-            ft = file_type or "txt"
-            trace_list.append({"filename": "stdin.txt", "content": content, "fileType": ft})
-            continue
-
-        p = Path(item)
-        if p.is_dir():
-            for child in sorted(p.rglob("*")):
-                if child.is_file():
-                    _add_file(trace_list, child, file_type)
-        elif p.is_file():
-            _add_file(trace_list, p, file_type)
-        else:
-            click.echo(f"Warning: skipping {item} (not found)", err=True)
+    trace_list = _collect_upload_traces(paths, file_type)
 
     if not trace_list:
         raise click.ClickException("No traces to upload.")
+
+    _warn_large_trace_batch(trace_list)
 
     try:
         result = client.upload_traces(trace_list)
@@ -321,9 +356,7 @@ def run(
     available = result.get("traces", [])
 
     if not available:
-        raise click.ClickException(
-            "No traces found. Upload some first: kayba traces upload <path>"
-        )
+        raise click.ClickException(_no_traces_message())
 
     if select_all:
         selected_ids = [t["id"] for t in available]
@@ -610,6 +643,56 @@ def prompts_pull(prompt_id, output_path, pretty, api_key, base_url):
         click.echo(output)
 
 
+@prompts.command("install")
+@click.option("--id", "prompt_id", default=None, help="Prompt ID (default: latest).")
+@click.option(
+    "-i",
+    "--input",
+    "input_path",
+    type=click.Path(exists=True, dir_okay=False),
+    default=None,
+    help="Read prompt text from a local file instead of the API.",
+)
+@click.option(
+    "--target",
+    type=click.Choice(sorted(PROMPT_INSTALL_TARGETS)),
+    default="universal",
+    show_default=True,
+    help="Agent to install the prompt for.",
+)
+@click.option(
+    "--file",
+    "target_path",
+    type=click.Path(dir_okay=False),
+    default=None,
+    help="Override the destination file path.",
+)
+@_api_key_option
+@_base_url_option
+def prompts_install(input_path, prompt_id, target, target_path, api_key, base_url):
+    """Install a generated prompt into an agent instruction file."""
+    if input_path and prompt_id:
+        raise click.ClickException("Use either --input or --id, not both.")
+
+    if input_path:
+        prompt_ref = input_path
+        text = Path(input_path).read_text(encoding="utf-8")
+    else:
+        client = _client(api_key, base_url)
+        prompt_ref, text = _fetch_prompt_text(client, prompt_id)
+
+    if not text.strip():
+        raise click.ClickException("Prompt content is empty.")
+
+    default_filename, target_label = PROMPT_INSTALL_TARGETS[target]
+    destination = Path(target_path) if target_path else Path(default_filename)
+    _upsert_prompt_block(destination, _build_prompt_block(text))
+    click.echo(f"Installed Kayba prompt ({prompt_ref}) into {destination}")
+    click.echo(
+        f"Target: {target_label}. Start a new agent session so it reloads the file."
+    )
+
+
 # ---------------------------------------------------------------------------
 # status
 # ---------------------------------------------------------------------------
@@ -787,6 +870,7 @@ def _upload_batches(
             click.echo(f"  Skipping empty batch '{name}'.", err=True)
             continue
         try:
+            _warn_large_trace_batch(batch_traces)
             result = client.upload_traces(batch_traces)
             count = result.get("count", len(batch_traces))
             click.echo(f"  Uploaded batch '{name}': {count} trace(s).")
@@ -1233,6 +1317,70 @@ def _interactive_trace_select(traces: list[dict]) -> list[str]:
     if selected is None:  # Ctrl-C
         return []
     return selected
+
+
+def _no_traces_message() -> str:
+    """Explain why a new hosted account often has no traces yet."""
+    return (
+        "No traces found in your Kayba account.\n"
+        "Kayba does not auto-import local agent transcripts yet.\n"
+        "If you're using Claude Code, upload its local .jsonl files first, for example:\n"
+        "  kayba traces upload ~/.claude/projects/<project>/*.jsonl\n"
+        "Docs: https://kayba.ai/docs/integrations/hosted-api/#where-do-traces-come-from"
+    )
+
+
+def _fetch_prompt_text(client: KaybaClient, prompt_id: Optional[str]) -> tuple[str, str]:
+    """Load a prompt body from the API."""
+    if prompt_id:
+        result = client.get_prompt(prompt_id)
+        prompt_ref = prompt_id
+    else:
+        listing = client.list_prompts()
+        items = listing if isinstance(listing, list) else listing.get("prompts", [])
+        if not items:
+            raise click.ClickException(
+                "No prompts available. Generate one first with `kayba prompts generate`."
+            )
+        first = items[0]
+        prompt_ref = str(first.get("id", first.get("promptId", "latest")))
+        result = client.get_prompt(prompt_ref)
+
+    text = result.get("content", {}).get("text", "")
+    if not text.strip():
+        raise click.ClickException(f"Prompt {prompt_ref} is empty.")
+    return prompt_ref, text
+
+
+def _build_prompt_block(prompt_text: str) -> str:
+    """Wrap prompt text in a managed block so repeated installs replace cleanly."""
+    body = prompt_text.strip()
+    return (
+        f"{PROMPT_BLOCK_START}\n"
+        "## Kayba Prompt\n"
+        "_Managed by `kayba prompts install`. Re-run the command to update this block._\n\n"
+        f"{body}\n"
+        f"{PROMPT_BLOCK_END}\n"
+    )
+
+
+def _upsert_prompt_block(path: Path, block: str) -> None:
+    """Replace an existing managed prompt block or append a new one."""
+    existing = path.read_text(encoding="utf-8") if path.exists() else ""
+    pattern = re.compile(
+        rf"{re.escape(PROMPT_BLOCK_START)}.*?{re.escape(PROMPT_BLOCK_END)}\n?",
+        re.DOTALL,
+    )
+
+    if pattern.search(existing):
+        updated = pattern.sub(block, existing, count=1)
+    elif existing.strip():
+        updated = existing.rstrip() + "\n\n" + block
+    else:
+        updated = block
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(updated, encoding="utf-8")
 
 
 def _format_size(size_bytes: int) -> str:
