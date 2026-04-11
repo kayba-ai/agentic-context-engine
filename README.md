@@ -72,7 +72,7 @@ print(agent.get_strategies())
 
 No fine-tuning, no training data, no vector database.
 
-[-> Quick Start Guide](https://kayba-ai.github.io/agentic-context-engine/latest/getting-started/quick-start/) | [-> Setup Guide](https://kayba-ai.github.io/agentic-context-engine/latest/getting-started/setup/)
+[-> Quick Start Guide](https://kayba-ai.github.io/agentic-context-engine/latest/getting-started/quick-start/) | [-> Setup Guide](https://kayba-ai.github.io/agentic-context-engine/latest/getting-started/setup/) | [-> Hosted API: Where Do Traces Come From?](https://kayba-ai.github.io/agentic-context-engine/latest/integrations/hosted-api/#where-do-traces-come-from)
 
 ---
 
@@ -117,11 +117,11 @@ All roles are backed by [PydanticAI](https://ai.pydantic.dev/) agents with struc
 | **Claude Code** | `ClaudeCode` | Claude Code CLI tasks with learning |
 
 ```bash
-uv add ace-framework[browser-use]    # Browser automation
-uv add ace-framework[langchain]      # LangChain
-uv add ace-framework[logfire]        # Observability (auto-instruments PydanticAI)
-uv add ace-framework[mcp]            # MCP server for IDE integration
-uv add ace-framework[deduplication]  # Embedding-based skill deduplication
+uv add 'ace-framework[browser-use]'    # Browser automation
+uv add 'ace-framework[langchain]'      # LangChain
+uv add 'ace-framework[logfire]'        # Observability (auto-instruments PydanticAI)
+uv add 'ace-framework[mcp]'            # MCP server for IDE integration
+uv add 'ace-framework[deduplication]'  # Embedding-based skill deduplication
 ```
 
 Have existing agent logs? Extract strategies from them directly:
@@ -202,6 +202,7 @@ The pipeline engine ([`pipeline/`](pipeline/)) is framework-agnostic with `requi
 - [Full Documentation](https://kayba-ai.github.io/agentic-context-engine/latest/) — Guides, API reference, examples
 - [Quick Start](https://kayba-ai.github.io/agentic-context-engine/latest/getting-started/quick-start/) — 5-minute setup
 - [Setup Guide](https://kayba-ai.github.io/agentic-context-engine/latest/getting-started/setup/) — Configuration and providers
+- [Hosted API Guide](https://kayba-ai.github.io/agentic-context-engine/latest/integrations/hosted-api/) — Hosted CLI, trace upload, prompt install
 - [Architecture](docs/design/ACE_ARCHITECTURE.md) — Core concepts and system design
 - [Code Reference](docs/design/ACE_REFERENCE.md) — Implementations, API, usage examples
 - [Design Decisions](docs/design/ACE_DECISIONS.md) — Rejected alternatives and rationale

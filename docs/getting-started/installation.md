@@ -11,15 +11,15 @@
 === "With extras"
 
     ```bash
-    uv add ace-framework[all]            # All optional features
-    uv add ace-framework[instructor]     # Structured outputs (Instructor)
-    uv add ace-framework[langchain]      # LangChain integration
-    uv add ace-framework[browser-use]    # Browser automation
-    uv add ace-framework[claude-code]    # Claude Code CLI integration
-    uv add ace-framework[claude-sdk]     # Anthropic SDK integration steps
-    uv add ace-framework[observability]  # Opik monitoring + cost tracking
-    uv add ace-framework[deduplication]  # Skill deduplication (embeddings)
-    uv add ace-framework[transformers]   # Local model support
+    uv add 'ace-framework[all]'            # All optional features
+    uv add 'ace-framework[instructor]'     # Structured outputs (Instructor)
+    uv add 'ace-framework[langchain]'      # LangChain integration
+    uv add 'ace-framework[browser-use]'    # Browser automation
+    uv add 'ace-framework[claude-code]'    # Claude Code CLI integration
+    uv add 'ace-framework[claude-sdk]'     # Anthropic SDK integration steps
+    uv add 'ace-framework[observability]'  # Opik monitoring + cost tracking
+    uv add 'ace-framework[deduplication]'  # Skill deduplication (embeddings)
+    uv add 'ace-framework[transformers]'   # Local model support
     ```
 
 ## For Contributors
@@ -88,7 +88,13 @@ print(agent.ask("Hello!"))
 
 ## Set Up Coding Agent Skills (Optional)
 
-If you use Claude Code, install the Kayba pipeline skill:
+If you want the hosted `kayba` CLI or `kayba setup`, install the cloud extra first:
+
+```bash
+uv add 'ace-framework[cloud]'
+```
+
+Then, if you use Claude Code, install the Kayba pipeline skill:
 
 ```bash
 kayba setup

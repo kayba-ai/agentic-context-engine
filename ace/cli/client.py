@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import os
+import re
 from typing import Any, Dict, List, Optional
-
-import requests
 
 
 class KaybaAPIError(Exception):
@@ -19,6 +19,39 @@ class KaybaAPIError(Exception):
 
 
 DEFAULT_BASE_URL = "https://use.kayba.ai/api"
+MAX_TRACE_UPLOAD_BODY_BYTES = 900_000
+
+
+def _chunk_trace_uploads(
+    traces: List[Dict[str, Any]],
+) -> List[List[Dict[str, Any]]]:
+    """Split uploads into request-sized batches under the body size cap."""
+    batches: List[List[Dict[str, Any]]] = []
+    current: List[Dict[str, Any]] = []
+    current_size = len('{"traces":[]}')
+
+    for trace in traces:
+        trace_size = len(
+            json.dumps(trace, ensure_ascii=False, separators=(",", ":")).encode(
+                "utf-8"
+            )
+        )
+        separator_size = 1 if current else 0
+        candidate_size = current_size + separator_size + trace_size
+
+        if current and candidate_size > MAX_TRACE_UPLOAD_BODY_BYTES:
+            batches.append(current)
+            current = [trace]
+            current_size = len('{"traces":[]}') + trace_size
+            continue
+
+        current.append(trace)
+        current_size = candidate_size
+
+    if current:
+        batches.append(current)
+
+    return batches
 
 
 class KaybaClient:
@@ -35,6 +68,16 @@ class KaybaClient:
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
     ):
+        try:
+            import requests
+        except ImportError as exc:
+            raise KaybaAPIError(
+                "DEPENDENCY_MISSING",
+                "The hosted Kayba CLI requires the cloud extra. Install with "
+                "`uv add \"ace-framework[cloud]\"` or "
+                "`pip install 'ace-framework[cloud]'`.",
+            ) from exc
+
         self.api_key = api_key or os.environ.get("KAYBA_API_KEY", "")
         if not self.api_key:
             raise KaybaAPIError(
@@ -44,8 +87,18 @@ class KaybaClient:
         self.base_url = (
             base_url or os.environ.get("KAYBA_API_URL") or DEFAULT_BASE_URL
         ).rstrip("/")
-        self.session = requests.Session()
+        self.session: Any = requests.Session()
         self.session.headers["Authorization"] = f"Bearer {self.api_key}"
+
+    @staticmethod
+    def _summarize_http_body(body: str, limit: int = 240) -> str:
+        """Collapse whitespace so raw HTML and proxy errors stay readable."""
+        snippet = re.sub(r"\s+", " ", body or "").strip()
+        if not snippet:
+            return "Unexpected non-JSON error from the Kayba API."
+        if len(snippet) <= limit:
+            return snippet
+        return snippet[: limit - 3] + "..."
 
     def _request(
         self,
@@ -69,15 +122,36 @@ class KaybaClient:
                         message=err,
                         status_code=resp.status_code,
                     )
+                message = err.get("message", resp.text)
+                if (
+                    resp.status_code == 413
+                    or "maximum content size" in message.lower()
+                    or "too large" in message.lower()
+                ):
+                    raise KaybaAPIError(
+                        code="PAYLOAD_TOO_LARGE",
+                        message=message,
+                        status_code=resp.status_code,
+                    )
                 raise KaybaAPIError(
                     code=err.get("code", "UNKNOWN"),
-                    message=err.get("message", resp.text),
+                    message=message,
                     status_code=resp.status_code,
                 )
             except (ValueError, KeyError, AttributeError):
+                message = self._summarize_http_body(resp.text)
+                if resp.status_code == 413:
+                    message = (
+                        "Upload rejected because the request body is too large. "
+                        "Try smaller traces or upload fewer files at once."
+                    )
+                elif resp.status_code in (401, 403):
+                    message = "Authentication failed; check KAYBA_API_KEY"
+                else:
+                    message = f"HTTP {resp.status_code} from Kayba API: {message}"
                 raise KaybaAPIError(
                     code="HTTP_ERROR",
-                    message=resp.text,
+                    message=message,
                     status_code=resp.status_code,
                 )
 
@@ -93,7 +167,20 @@ class KaybaClient:
         Args:
             traces: List of dicts with keys: filename, content, fileType.
         """
-        return self._request("POST", "/traces", json={"traces": traces})
+        batches = _chunk_trace_uploads(traces)
+        if len(batches) == 1:
+            return self._request("POST", "/traces", json={"traces": traces})
+
+        combined: Dict[str, Any] = {"count": 0, "traces": []}
+        for batch in batches:
+            result = self._request("POST", "/traces", json={"traces": batch})
+            uploaded = result.get("traces", [])
+            combined["count"] += result.get("count", len(uploaded) or len(batch))
+            combined["traces"].extend(uploaded)
+            for key, value in result.items():
+                if key not in {"count", "traces"} and key not in combined:
+                    combined[key] = value
+        return combined
 
     def list_traces(self) -> Dict[str, Any]:
         """List all traces (metadata only, no content)."""

@@ -34,6 +34,8 @@ kayba prompts list                       List prompt versions
 
 kayba prompts pull                       Download a prompt
   --id ID  -o FILE  --pretty
+kayba prompts install                   Install a generated prompt into an agent file
+  --target TARGET  --file PATH  --id ID  --input FILE
 
 kayba status <job-id>                    Check job status
   --wait  --interval N
@@ -55,6 +57,7 @@ kayba traces upload traces/
 kayba run --all --wait
 kayba insights triage --accept-all
 kayba prompts generate -o prompt.md
+kayba prompts install --target claude-code
 ```
 
 ### Programmatic workflow (for agents)

@@ -9,8 +9,10 @@ The Kayba hosted API lets you upload traces, generate insights, and pull optimis
 3. Install the `cloud` extra:
 
 ```bash
-uv tool install ace-framework[cloud] --python 3.12
+uv tool install 'ace-framework[cloud]' --python 3.12
 ```
+
+Quote the extra in `zsh`/`bash` so `[cloud]` is not treated as a shell glob.
 
 Or if you installed from source:
 
@@ -29,6 +31,30 @@ kayba traces list
 
 The default API endpoint is `https://use.kayba.ai/api`. Override it with `KAYBA_API_URL` or `--base-url`.
 
+## Where do traces come from?
+
+Kayba does **not** auto-ingest local transcripts from Claude Code, Codex, Cursor,
+or other coding agents. The hosted API and web UI only show traces that you
+explicitly upload.
+
+- **Claude Code:** session transcripts are typically written under
+  `~/.claude/projects/<slug>/*.jsonl`
+- **Codex:** local session logs are discoverable under
+  `~/.codex/sessions/YYYY/MM/DD/*.jsonl`
+- **Cursor:** no auto-ingest; locate or export the transcript files from your
+  setup first, then upload them manually
+
+Copy-pasteable examples:
+
+```bash
+kayba traces upload ~/.claude/projects/<slug>/
+kayba traces upload ~/.codex/sessions/2026/04/10/
+```
+
+You can point `kayba traces upload` at a single file, a glob-expanded file list,
+or a directory. Directories are walked recursively, so uploading the project or
+day folder is usually the simplest option.
+
 ## CLI Reference
 
 ### Trace management
@@ -45,6 +71,7 @@ kayba traces show TRACE_ID --json
 
 # Upload traces
 kayba traces upload trace.md
+kayba traces upload session.jsonl  # common for Claude Code / OpenClaw
 kayba traces upload traces/       # directory (recursive)
 kayba traces upload --type json traces/  # force file type
 cat trace.md | kayba upload -     # pipe from stdin (top-level alias)
@@ -54,7 +81,10 @@ kayba traces delete ID1 ID2
 kayba traces delete ID1 --force   # skip confirmation
 ```
 
-Files larger than 350k characters trigger a warning. Supported types: `md`, `json`, `txt` (auto-detected from extension).
+Files larger than 350k characters are rejected by the API. The CLI skips them
+locally and tells you to split or trim the trace first. Supported types are
+auto-detected from the extension: `.md`/`.markdown` → `md`,
+`.json`/`.jsonl` → `json`, everything else → `txt`.
 
 ### Run the pipeline
 
@@ -149,7 +179,17 @@ kayba prompts pull --id PROMPT_ID -o skillbook-prompt.md
 
 # Pretty-print full JSON
 kayba prompts pull --pretty
+
+# Install the latest prompt into Claude Code's instruction file
+kayba prompts install --target claude-code
+
+# Install a local prompt export into AGENTS.md
+kayba prompts install --input prompt.md --target universal
 ```
+
+To install the generated prompt into `CLAUDE.md`, `AGENTS.md`, or
+`.cursorrules` without duplicating prior runs, see
+[Using your generated prompt](#using-your-generated-prompt).
 
 ### Integrations
 
@@ -265,6 +305,9 @@ kayba insights triage --accept-all
 
 # 4. Generate a prompt
 kayba prompts generate -o prompt.md
+
+# 5. Install it into your agent
+kayba prompts install --target claude-code
 ```
 
 ### Programmatic (agent or script)
@@ -285,6 +328,9 @@ kayba status $JOB_ID --wait
 # 5. Accept all insights and generate prompt
 kayba insights triage --accept-all
 kayba prompts generate -o prompt.md
+
+# 6. Install the latest prompt into your agent
+kayba prompts install --target codex
 ```
 
 ## Python client
@@ -371,6 +417,10 @@ kayba setup --append-to .cursorrules   # Cursor only
 
 To skip skill installation (e.g. for non-Claude-Code agents), pass `--no-skills`.
 
+This setup step is separate from prompt installation. Once you have accepted
+insights and generated a prompt, use `kayba prompts install` to update
+`AGENTS.md`, `CLAUDE.md`, or `.cursorrules` with the generated prompt content.
+
 ## Environment variables
 
 | Variable | Description |
@@ -378,3 +428,26 @@ To skip skill installation (e.g. for non-Claude-Code agents), pass `--no-skills`
 | `KAYBA_API_KEY` | API key (required) |
 | `KAYBA_API_URL` | Base URL (default: `https://use.kayba.ai/api`) |
 | `ANTHROPIC_API_KEY` | Passed to server for LLM calls via `--anthropic-key` |
+
+## Using your generated prompt
+
+`kayba prompts generate -o prompt.md` writes a Markdown prompt block built from
+your accepted insights. It does **not** update `CLAUDE.md`, `AGENTS.md`, or
+`.cursorrules` automatically; you choose where to apply it.
+
+Use the built-in installer to update the right file without duplicating old
+blocks:
+
+```bash
+# Install the latest prompt from Kayba into Claude Code
+kayba prompts install --target claude-code
+
+# Install the latest prompt into a universal agent file
+kayba prompts install --target universal
+
+# Install a local export into Cursor
+kayba prompts install --input prompt.md --target cursor
+```
+
+The installer manages a dedicated Kayba block, so re-running it replaces the
+previous prompt instead of appending duplicates.
