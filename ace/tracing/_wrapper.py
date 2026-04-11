@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import functools
 import os
+import re
 from contextlib import contextmanager
 from typing import Any, Callable, Generator, TypeVar, overload
 
@@ -26,6 +27,23 @@ DEFAULT_BASE_URL = "https://use.kayba.ai"
 
 # Module-level state set by configure() / set_folder().
 _folder: str | None = None
+
+_MAX_FOLDER_LENGTH = 256
+_SAFE_FOLDER_RE = re.compile(r"[^a-zA-Z0-9 _\-/.]")
+
+
+def _sanitize_folder(name: str) -> str:
+    """Sanitize a folder name to prevent injection attacks.
+
+    Strips control characters, HTML tags, and characters outside an
+    allowlist.  Truncates to ``_MAX_FOLDER_LENGTH``.
+    """
+    # Strip HTML tags.
+    clean = re.sub(r"<[^>]*>", "", name)
+    # Remove anything outside the safe set.
+    clean = _SAFE_FOLDER_RE.sub("", clean)
+    return clean.strip()[:_MAX_FOLDER_LENGTH]
+
 
 _P = TypeVar("_P")
 _R = TypeVar("_R")
@@ -47,7 +65,8 @@ def configure(
         api_key: Kayba API key. Falls back to ``KAYBA_API_KEY`` env var.
         base_url: Kayba API base URL. Falls back to ``KAYBA_API_URL`` env
                   var, then to ``https://use.kayba.ai``.
-        experiment: Optional experiment name. Defaults to ``"Default"``.
+        experiment: Alias for ``folder``. If both are provided, ``folder``
+                    takes precedence.
         folder: Optional folder name. Traces will be filed into this
                 folder in the Kayba dashboard.
     """
@@ -70,10 +89,8 @@ def configure(
     os.environ["MLFLOW_TRACKING_TOKEN"] = resolved_key
     mlflow.set_tracking_uri(tracking_uri)
 
-    if experiment:
-        mlflow.set_experiment(experiment)
-
-    _folder = folder
+    resolved_folder = folder or experiment
+    _folder = _sanitize_folder(resolved_folder) or None if resolved_folder else None
 
 
 def set_folder(folder: str | None) -> None:
@@ -83,7 +100,7 @@ def set_folder(folder: str | None) -> None:
         folder: Folder name, or ``None`` to clear (traces go to Unfiled).
     """
     global _folder
-    _folder = folder
+    _folder = _sanitize_folder(folder) or None if folder else None
 
 
 def get_folder() -> str | None:
