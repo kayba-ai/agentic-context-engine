@@ -200,7 +200,7 @@ jobs:
       name: npm
       url: https://www.npmjs.com/package/@kayba_ai/tracing
     permissions:
-      id-token: write
+      contents: read
     steps:
     - uses: actions/checkout@v4
 
@@ -219,5 +219,7 @@ jobs:
       working-directory: sdk/typescript
 
     - name: Publish to npm
-      run: npm publish --provenance --access public
+      run: npm publish --access public
       working-directory: sdk/typescript
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
