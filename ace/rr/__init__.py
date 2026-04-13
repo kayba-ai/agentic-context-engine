@@ -10,6 +10,7 @@ Public API::
 
 from .agent import RRDeps, create_rr_agent, create_sub_agent
 from .config import RecursiveConfig as RRConfig
+from .metered_model import MeteredModel
 from .runner import RRStep
 from .sandbox import ExecutionResult, ExecutionTimeoutError, TraceSandbox
 from .trace_context import TraceContext, TraceStep
@@ -21,6 +22,8 @@ __all__ = [
     # Agent factories
     "create_rr_agent",
     "create_sub_agent",
+    # Metering
+    "MeteredModel",
     # Sandbox
     "ExecutionResult",
     "ExecutionTimeoutError",

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-04-13
+
+### Added
+- **Usage metering hook** — `RecursiveConfig.usage_callback: (RequestUsage, model_id) -> None` fires once per pydantic-ai model request (orchestrator turns, sub-agent runs, tool-call follow-ups). Implemented via `ace.rr.MeteredModel`, a `pydantic_ai.models.wrapper.WrapperModel` subclass, so metering lives at the framework's own model boundary — no per-call-site plumbing. Callback exceptions are caught and logged so metering never crashes the pipeline.
+- **Pre-built model instance support** — `RRStep`, `create_rr_agent`, `create_sub_agent`, and `RecursiveConfig.subagent_model` now accept either a model-id string or a pre-built `pydantic_ai.models.Model` instance. Enables callers that need a custom provider (e.g. cross-account Bedrock with STS-assumed credentials) to inject a fully-configured model rather than resolving from a string.
+- **Sub-agent `model_settings`** — `create_sub_agent` now threads an explicit `ModelSettings` parameter into its `PydanticAgent` constructor.
+
+### Notes
+- Back-compat: existing `RRStep(model="...")` callers continue to work unchanged. The widened type signature is additive.
+
 ## [0.9.4] - 2026-04-11
 
 ### Added

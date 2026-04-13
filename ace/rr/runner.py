@@ -16,17 +16,36 @@ import logging
 from typing import Any, Optional
 
 from pydantic_ai.exceptions import UsageLimitExceeded
+from pydantic_ai.models import Model as PydanticModel
 from pydantic_ai.settings import ModelSettings
 from pydantic_ai.usage import UsageLimits
 
 from ace.core.context import ACEStepContext
 from ace.core.outputs import AgentOutput, ExtractedLearning, ReflectorOutput
+from ace.providers.pydantic_ai import resolve_model
 
 from .agent import RRDeps, create_rr_agent, create_sub_agent
 from .config import RecursiveConfig
+from .metered_model import MeteredModel
 from .prompts import REFLECTOR_RECURSIVE_PROMPT, REFLECTOR_RECURSIVE_SYSTEM
 from .sandbox import TraceSandbox
 from .trace_context import TraceContext
+
+
+def _meter(
+    model: str | PydanticModel,
+    config: RecursiveConfig,
+) -> str | PydanticModel:
+    """Wrap ``model`` in ``MeteredModel`` when a usage callback is configured.
+
+    ``resolve_model`` is applied to strings first so ACE's provider-prefix
+    rewriting still runs; ``MeteredModel`` (via its ``WrapperModel`` base)
+    then accepts either a resolved string or a pre-built ``Model`` instance.
+    """
+    if config.usage_callback is None:
+        return model
+    resolved = model if isinstance(model, PydanticModel) else resolve_model(model)
+    return MeteredModel(resolved, config.usage_callback)
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +81,7 @@ class RRStep:
 
     def __init__(
         self,
-        model: str,
+        model: str | PydanticModel,
         config: Optional[RecursiveConfig] = None,
         prompt_template: str = REFLECTOR_RECURSIVE_PROMPT,
         model_settings: ModelSettings | None = None,
@@ -71,18 +90,20 @@ class RRStep:
         self.prompt_template = prompt_template
         self._model = model
 
-        # Build PydanticAI agents
+        # Build PydanticAI agents. When a ``usage_callback`` is configured,
+        # both the main agent and the sub-agent run through a ``MeteredModel``
+        # wrapper so every LLM request is metered from a single place —
+        # no per-call-site plumbing needed.
         self._agent = create_rr_agent(
-            model,
+            _meter(model, self.config),
             system_prompt=REFLECTOR_RECURSIVE_SYSTEM,
             config=self.config,
             model_settings=model_settings,
         )
 
-        # Sub-agent for analyze/batch_analyze tools
         subagent_model = self.config.subagent_model or model
         self._sub_agent = (
-            create_sub_agent(subagent_model, config=self.config)
+            create_sub_agent(_meter(subagent_model, self.config), config=self.config)
             if self.config.enable_subagent
             else None
         )

@@ -24,6 +24,7 @@ from typing import Any, Optional
 
 from pydantic_ai import Agent as PydanticAgent, ModelRetry, RunContext
 from pydantic_ai.exceptions import UsageLimitExceeded
+from pydantic_ai.models import Model as PydanticModel
 from pydantic_ai.settings import ModelSettings
 from pydantic_ai.usage import UsageLimits
 
@@ -32,6 +33,13 @@ from ace.providers.pydantic_ai import resolve_model
 
 from .config import RecursiveConfig
 from .sandbox import TraceSandbox, create_readonly_sandbox
+
+
+def _resolve_model_ref(model: str | PydanticModel) -> str | PydanticModel:
+    """Pass through ``Model`` instances, route strings through ``resolve_model``."""
+    if isinstance(model, PydanticModel):
+        return model
+    return resolve_model(model)
 
 # --- Sub-agent prompt protocols ---
 
@@ -129,7 +137,7 @@ class RRDeps:
 
 
 def create_rr_agent(
-    model: str,
+    model: str | PydanticModel,
     *,
     system_prompt: str = "",
     config: RecursiveConfig | None = None,
@@ -138,7 +146,10 @@ def create_rr_agent(
     """Create the PydanticAI agent for recursive reflection.
 
     Args:
-        model: LiteLLM or PydanticAI model string.
+        model: LiteLLM/PydanticAI model string or a pre-built pydantic-ai
+            ``Model`` instance. Strings are routed through ``resolve_model``;
+            instances are forwarded unchanged (for callers that need a custom
+            provider, e.g. cross-account Bedrock).
         system_prompt: System prompt for the reflector.
         config: RR configuration (timeouts, limits).
         model_settings: PydanticAI model settings.
@@ -147,7 +158,7 @@ def create_rr_agent(
         Configured PydanticAI agent with tools.
     """
     cfg = config or RecursiveConfig()
-    resolved = resolve_model(model)
+    resolved = _resolve_model_ref(model)
 
     agent: PydanticAgent[RRDeps, ReflectorOutput] = PydanticAgent(
         resolved,
@@ -412,7 +423,7 @@ def create_rr_agent(
 
 
 def create_sub_agent(
-    model: str,
+    model: str | PydanticModel,
     *,
     config: RecursiveConfig | None = None,
     model_settings: ModelSettings | None = None,
@@ -424,15 +435,18 @@ def create_sub_agent(
     agent doesn't need to serialize data into tool parameters.
 
     Args:
-        model: LiteLLM or PydanticAI model string.
+        model: LiteLLM/PydanticAI model string or a pre-built pydantic-ai
+            ``Model`` instance (forwarded unchanged to ``PydanticAgent``).
         config: RR configuration for sub-agent settings.
-        model_settings: Override model settings.
+        model_settings: Override model settings. When ``None``, a default
+            ``ModelSettings`` is built from ``config.subagent_temperature``
+            and ``config.subagent_max_tokens``.
 
     Returns:
         PydanticAI agent with execute_code tool, producing text output.
     """
     cfg = config or RecursiveConfig()
-    resolved = resolve_model(model)
+    resolved = _resolve_model_ref(model)
 
     settings = model_settings or ModelSettings(
         temperature=cfg.subagent_temperature,
