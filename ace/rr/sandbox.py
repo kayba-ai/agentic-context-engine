@@ -349,9 +349,7 @@ class TraceSandbox:
         exec(source, self.namespace, self.namespace)
         helper = self.namespace.get(name)
         if not callable(helper):
-            raise ValueError(
-                f"Helper source must define a callable named {name!r}"
-            )
+            raise ValueError(f"Helper source must define a callable named {name!r}")
 
         registry = self.namespace.setdefault("helper_registry", {})
         registry[name] = {
@@ -632,11 +630,27 @@ def create_readonly_sandbox(parent: TraceSandbox) -> TraceSandbox:
 
     # Keys already set up by TraceSandbox.__init__ — skip them
     infrastructure = {
-        "__builtins__", "FINAL", "FINAL_VAR", "SHOW_VARS",
-        "parallel_map", "llm_query", "safe_getattr", "trace",
-        "register_helper", "list_helpers", "run_helper", "get_batch_item",
-        "json", "re", "math", "collections",
-        "datetime", "timedelta", "date", "time", "timezone",
+        "__builtins__",
+        "FINAL",
+        "FINAL_VAR",
+        "SHOW_VARS",
+        "parallel_map",
+        "llm_query",
+        "safe_getattr",
+        "trace",
+        "register_helper",
+        "list_helpers",
+        "run_helper",
+        "get_batch_item",
+        "json",
+        "re",
+        "math",
+        "collections",
+        "datetime",
+        "timedelta",
+        "date",
+        "time",
+        "timezone",
     }
 
     for key, value in parent.namespace.items():

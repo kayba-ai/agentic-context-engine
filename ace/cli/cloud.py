@@ -193,7 +193,9 @@ def traces_list(as_json, api_key, base_url):
         return
 
     # Table header
-    click.echo(f"  {'ID':<36}  {'Filename':<40}  {'Type':<6}  {'Size':>8}  {'Uploaded'}")
+    click.echo(
+        f"  {'ID':<36}  {'Filename':<40}  {'Type':<6}  {'Size':>8}  {'Uploaded'}"
+    )
     click.echo(f"  {'-' * 36}  {'-' * 40}  {'-' * 6}  {'-' * 8}  {'-' * 10}")
     for t in items:
         tid = t.get("id", "?")
@@ -337,8 +339,16 @@ def traces_upload(paths, file_type, api_key, base_url):
 @_api_key_option
 @_base_url_option
 def run(
-    trace_ids, select_all, model, epochs, reflector_mode, anthropic_key, wait, as_json,
-    api_key, base_url,
+    trace_ids,
+    select_all,
+    model,
+    epochs,
+    reflector_mode,
+    anthropic_key,
+    wait,
+    as_json,
+    api_key,
+    base_url,
 ):
     """Run the analysis pipeline on selected traces.
 

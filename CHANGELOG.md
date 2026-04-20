@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-04-13
+
+### Added
+- **Usage metering hook** — `RecursiveConfig.usage_callback: (RequestUsage, model_id) -> None` fires once per pydantic-ai model request (orchestrator turns, sub-agent runs, tool-call follow-ups). Implemented via `ace.rr.MeteredModel`, a `pydantic_ai.models.wrapper.WrapperModel` subclass, so metering lives at the framework's own model boundary — no per-call-site plumbing. Callback exceptions are caught and logged so metering never crashes the pipeline.
+- **Pre-built model instance support** — `RRStep`, `create_rr_agent`, `create_sub_agent`, and `RecursiveConfig.subagent_model` now accept either a model-id string or a pre-built `pydantic_ai.models.Model` instance. Enables callers that need a custom provider (e.g. cross-account Bedrock with STS-assumed credentials) to inject a fully-configured model rather than resolving from a string.
+- **Sub-agent `model_settings`** — `create_sub_agent` now threads an explicit `ModelSettings` parameter into its `PydanticAgent` constructor.
+
+### Notes
+- Back-compat: existing `RRStep(model="...")` callers continue to work unchanged. The widened type signature is additive.
+
+## [0.9.4] - 2026-04-11
+
+### Added
+- **Kayba tracing SDK** — `ace.tracing` module wraps MLflow tracing with Kayba-native configuration, folder organization, and input sanitization (`pip install ace-framework[tracing]`)
+
 ## [0.9.3] - 2026-04-01
 
 ### Added
@@ -332,6 +347,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Type hints and modern Python practices
 - MIT licensed for open source use
 
+[0.9.4]: https://github.com/Kayba-ai/agentic-context-engine/compare/v0.9.3...v0.9.4
 [0.9.3]: https://github.com/Kayba-ai/agentic-context-engine/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/Kayba-ai/agentic-context-engine/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/Kayba-ai/agentic-context-engine/compare/v0.9.0...v0.9.1

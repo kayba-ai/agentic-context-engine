@@ -57,8 +57,7 @@ def generate_similarity_report(
             )
         )
 
-    parts.append(
-        """
+    parts.append("""
 ## Consolidation Operations Format
 
 Include consolidation operations in your response under a `consolidation_operations` key.
@@ -101,8 +100,7 @@ Each operation should have a `type` field and relevant fields for that type:
 - UPDATE to add context tags like "[Batch Jobs]" or "[User-Facing API]" to differentiate
 - DELETE only when one is clearly redundant with no unique value
 
-"""
-    )
+""")
 
     return "".join(parts)
 

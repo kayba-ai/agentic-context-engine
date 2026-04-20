@@ -67,7 +67,9 @@ class SimilarityDetector:
             )
             return response.data[0]["embedding"]
         except Exception as e:
-            logger.warning("Failed to compute embedding via LiteLLM (%s): %s", type(e).__name__, e)
+            logger.warning(
+                "Failed to compute embedding via LiteLLM (%s): %s", type(e).__name__, e
+            )
             return None
 
     def _embed_batch_litellm(self, texts: List[str]) -> List[Optional[List[float]]]:
@@ -80,7 +82,11 @@ class SimilarityDetector:
             response = litellm.embedding(model=self.config.embedding_model, input=texts)
             return [item["embedding"] for item in response.data]
         except Exception as e:
-            logger.warning("Failed to compute batch embeddings via LiteLLM (%s): %s", type(e).__name__, e)
+            logger.warning(
+                "Failed to compute batch embeddings via LiteLLM (%s): %s",
+                type(e).__name__,
+                e,
+            )
             return [None] * len(texts)
 
     # ------------------------------------------------------------------
@@ -98,7 +104,8 @@ class SimilarityDetector:
         except Exception as e:
             logger.warning(
                 "Failed to compute embedding via sentence-transformers (%s): %s",
-                type(e).__name__, e,
+                type(e).__name__,
+                e,
             )
             return None
 
@@ -113,7 +120,8 @@ class SimilarityDetector:
         except Exception as e:
             logger.warning(
                 "Failed to compute batch embeddings via sentence-transformers (%s): %s",
-                type(e).__name__, e,
+                type(e).__name__,
+                e,
             )
             return [None] * len(texts)
 

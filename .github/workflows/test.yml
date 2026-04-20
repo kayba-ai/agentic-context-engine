@@ -27,7 +27,7 @@ jobs:
       uses: astral-sh/setup-uv@v7
 
     - name: Install dependencies
-      run: uv sync --extra mcp
+      run: uv sync --extra mcp --extra tracing
 
     - name: Run tests with coverage
       run: |

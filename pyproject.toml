@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ace-framework"
-version = "0.9.3"
+version = "0.10.0"
 description = "Build self-improving AI agents that learn from experience"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -69,6 +69,9 @@ browser-use = [
 logfire = [
     "logfire[pydantic-ai]>=3.0.0",
 ]
+tracing = [
+    "kayba-tracing>=0.9.4",
+]
 bedrock = [
     "boto3>=1.42.50",
 ]
@@ -98,6 +101,7 @@ all = [
     "transformers>=4.30.0",
     "torch>=2.0.0",
     "accelerate>=0.20.0",
+    "kayba-tracing>=0.9.4",
     "requests>=2.31.0",
 ]
 cloud = [
@@ -203,3 +207,4 @@ markers = [
 
 [tool.uv.sources]
 tau2 = { git = "https://github.com/sierra-research/tau2-bench.git", branch = "dev/tau3" }
+kayba-tracing = { path = "sdk/python", editable = true }

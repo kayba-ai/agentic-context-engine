@@ -119,7 +119,7 @@ def _to_toml(config: ACEModelConfig) -> str:
         for key, value in d.items():
             if key == "extra_params":
                 # Inline table for extra_params
-                inner = ", ".join(f'{k} = {_toml_value(v)}' for k, v in value.items())
+                inner = ", ".join(f"{k} = {_toml_value(v)}" for k, v in value.items())
                 lines.append(f"extra_params = {{ {inner} }}")
             else:
                 lines.append(f"{key} = {_toml_value(value)}")

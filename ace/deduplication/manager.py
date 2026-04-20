@@ -134,7 +134,11 @@ class DeduplicationManager:
                         )
                     )
             except Exception as e:
-                logger.warning("Failed to parse consolidation operation (%s): %s", type(e).__name__, e)
+                logger.warning(
+                    "Failed to parse consolidation operation (%s): %s",
+                    type(e).__name__,
+                    e,
+                )
 
         logger.info("Parsed %d consolidation operations", len(operations))
         return operations

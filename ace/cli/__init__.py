@@ -2,7 +2,18 @@
 
 import click
 
-from ace.cli.cloud import upload, traces, run, insights, prompts, status, materialize, batch, setup, integrations
+from ace.cli.cloud import (
+    upload,
+    traces,
+    run,
+    insights,
+    prompts,
+    status,
+    materialize,
+    batch,
+    setup,
+    integrations,
+)
 
 
 @click.group()

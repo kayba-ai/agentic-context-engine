@@ -33,7 +33,6 @@ from ..providers.registry import (
     validate_connection,
 )
 
-
 # ---------------------------------------------------------------------------
 # Terminal helpers
 # ---------------------------------------------------------------------------
@@ -396,10 +395,10 @@ def main() -> None:
     )
 
     # ace models
-    models_parser = subparsers.add_parser(
-        "models", help="Search available models"
+    models_parser = subparsers.add_parser("models", help="Search available models")
+    models_parser.add_argument(
+        "query", nargs="*", default=[], help="Search query (multiple terms = match all)"
     )
-    models_parser.add_argument("query", nargs="*", default=[], help="Search query (multiple terms = match all)")
     models_parser.add_argument("--provider", default=None, help="Filter by provider")
     models_parser.add_argument(
         "--limit", type=int, default=20, help="Max results (default: 20)"
@@ -462,7 +461,9 @@ def _cmd_models(query: str, provider: str | None, limit: int) -> None:
         in_cost = f"${m.input_cost_per_m:.2f}" if m.input_cost_per_m else "-"
         out_cost = f"${m.output_cost_per_m:.2f}" if m.output_cost_per_m else "-"
         key_status = f"{GREEN}\u2713{RESET}" if m.key_found else f"{RED}\u2717{RESET}"
-        print(f"{m.model:<45} {m.provider:<15} {in_cost:<10} {out_cost:<11} {key_status}")
+        print(
+            f"{m.model:<45} {m.provider:<15} {in_cost:<10} {out_cost:<11} {key_status}"
+        )
 
     if total > limit:
         print()

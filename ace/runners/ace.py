@@ -185,13 +185,15 @@ class ACE(ACERunner):
         """
         return ACEStepContext(
             sample=sample,
-            metadata=MappingProxyType({
-                TRACE_IDENTITY_METADATA_KEY: infer_trace_identity(
-                    sample=sample,
-                    metadata=sample.metadata,
-                    default_source_system="sample",
-                ).to_dict()
-            }),
+            metadata=MappingProxyType(
+                {
+                    TRACE_IDENTITY_METADATA_KEY: infer_trace_identity(
+                        sample=sample,
+                        metadata=sample.metadata,
+                        default_source_system="sample",
+                    ).to_dict()
+                }
+            ),
             skillbook=SkillbookView(self.skillbook),
             epoch=epoch,
             total_epochs=total_epochs,

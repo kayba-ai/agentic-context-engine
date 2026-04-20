@@ -1,7 +1,10 @@
 """Configuration for recursive reflector."""
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Callable, Optional, Union
+
+from pydantic_ai.models import Model as PydanticModel
+from pydantic_ai.usage import RequestUsage
 
 
 @dataclass
@@ -16,12 +19,19 @@ class RecursiveConfig:
         max_context_chars: Maximum total characters in message history before trimming (default: 50000)
         max_output_chars: Maximum characters per code execution output before truncation (default: 20000)
         enable_subagent: Whether to enable the ask_llm() sub-agent function (default: True)
-        subagent_model: Model to use for sub-agent (None = same as main reflector)
+        subagent_model: Model for the sub-agent. Either a model-id string (resolved
+            via ``resolve_model``) or a pre-built pydantic-ai ``Model`` instance for
+            callers that need a custom provider (e.g. cross-account Bedrock).
+            ``None`` = same as main reflector.
         subagent_max_tokens: Max tokens for sub-agent responses (default: 8192)
         subagent_temperature: Temperature for sub-agent responses (default: 0.3)
         subagent_system_prompt: Custom system prompt for sub-agent (None = default)
         subagent_max_requests: Max requests per sub-agent run (default: 15)
         enable_fallback_synthesis: Whether to attempt LLM synthesis on timeout (default: True)
+        usage_callback: Optional ``(usage, model_id) -> None`` hook fired after each
+            pydantic-ai session — the orchestrator session plus every sub-agent tool
+            invocation. Exceptions raised inside the callback are caught and logged
+            so they never crash the pipeline.
     """
 
     max_iterations: int = 20
@@ -32,9 +42,10 @@ class RecursiveConfig:
     max_output_chars: int = 20_000
     # Sub-agent configuration
     enable_subagent: bool = True
-    subagent_model: Optional[str] = None
+    subagent_model: Optional[Union[str, PydanticModel]] = None
     subagent_max_tokens: int = 8192
     subagent_temperature: float = 0.3
     subagent_system_prompt: Optional[str] = None
     subagent_max_requests: int = 15
     enable_fallback_synthesis: bool = True
+    usage_callback: Optional[Callable[[RequestUsage, str], None]] = None

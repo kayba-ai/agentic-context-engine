@@ -32,7 +32,6 @@ from ace.implementations import Agent, Reflector, SkillManager
 from ace.runners.litellm import ACELiteLLM
 from ace.core.environments import Sample, SimpleEnvironment
 
-
 MODEL = "bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0"
 
 
@@ -51,9 +50,9 @@ class TestAgentRole:
         assert isinstance(output, AgentOutput)
         assert len(output.reasoning) > 0, "reasoning should be non-empty"
         assert len(output.final_answer) > 0, "final_answer should be non-empty"
-        assert "paris" in output.final_answer.lower(), (
-            f"Expected 'Paris' in answer, got: {output.final_answer}"
-        )
+        assert (
+            "paris" in output.final_answer.lower()
+        ), f"Expected 'Paris' in answer, got: {output.final_answer}"
         assert isinstance(output.skill_ids, list)
         assert "usage" in output.raw, f"raw should contain usage, got: {output.raw}"
         assert output.raw["usage"]["prompt_tokens"] > 0
@@ -78,9 +77,9 @@ class TestAgentRole:
 
         assert isinstance(output, AgentOutput)
         assert len(output.final_answer) > 0
-        assert "391" in output.final_answer, (
-            f"Expected '391' in answer, got: {output.final_answer}"
-        )
+        assert (
+            "391" in output.final_answer
+        ), f"Expected '391' in answer, got: {output.final_answer}"
         print(f"\n  Agent answer: {output.final_answer}")
         print(f"  Reasoning excerpt: {output.reasoning[:300]}...")
         print(f"  Cited skills: {output.skill_ids}")
@@ -88,7 +87,11 @@ class TestAgentRole:
     def test_with_reflection(self):
         agent = Agent(MODEL)
         sb = Skillbook()
-        sb.add_skill("physics", "Always include the unit when stating temperatures", skill_id="phys-001")
+        sb.add_skill(
+            "physics",
+            "Always include the unit when stating temperatures",
+            skill_id="phys-001",
+        )
 
         output = agent.generate(
             question="What temperature does water boil at in Fahrenheit? Reply with just the number and unit.",
@@ -101,9 +104,9 @@ class TestAgentRole:
         assert len(output.final_answer) > 0
         # The reflection explicitly states 212°F — verify the model uses it
         full_text = f"{output.final_answer} {output.reasoning}"
-        assert "212" in full_text, (
-            f"Expected '212' somewhere in output, got answer: {output.final_answer}"
-        )
+        assert (
+            "212" in full_text
+        ), f"Expected '212' somewhere in output, got answer: {output.final_answer}"
         print(f"\n  Agent answer with reflection: {output.final_answer}")
 
 
@@ -252,10 +255,7 @@ class TestSkillManagerRole:
         assert isinstance(output, SkillManagerOutput)
         print(f"\n  Operations: {len(output.update.operations)}")
         for op in output.update.operations:
-            print(
-                f"    {op.type} {op.skill_id or ''}: "
-                f"{op.content or op.metadata}"
-            )
+            print(f"    {op.type} {op.skill_id or ''}: " f"{op.content or op.metadata}")
 
 
 class TestACELiteLLMIntegration:
@@ -342,9 +342,9 @@ class TestRetryAndConsistency:
             assert len(output.final_answer) > 0, f"Empty answer for '{q}'"
             assert isinstance(output.raw, dict), f"raw not dict for '{q}'"
             assert "usage" in output.raw, f"No usage in raw for '{q}'"
-            assert expected.lower() in output.final_answer.lower(), (
-                f"Expected '{expected}' in answer for '{q}', got: {output.final_answer}"
-            )
+            assert (
+                expected.lower() in output.final_answer.lower()
+            ), f"Expected '{expected}' in answer for '{q}', got: {output.final_answer}"
             print(f"\n  Q: {q} -> A: {output.final_answer}")
 
 
@@ -382,7 +382,9 @@ class TestRRStepIntegration:
             feedback="Incorrect. The capital of Australia is Canberra, not Sydney.",
         )
 
-        assert isinstance(output, ReflectorOutput), f"Expected ReflectorOutput, got {type(output)}"
+        assert isinstance(
+            output, ReflectorOutput
+        ), f"Expected ReflectorOutput, got {type(output)}"
         assert len(output.reasoning) > 0, "reasoning should be non-empty"
         assert len(output.key_insight) > 0, "key_insight should be non-empty"
         assert isinstance(output.raw, dict), "raw should be a dict"
@@ -438,7 +440,9 @@ class TestRRStepIntegration:
         # skill_tags or by mentioning the skill in its reasoning/key_insight.
         # The RR should produce a meaningful analysis — it may or may not
         # reference the specific skill ID depending on the model.
-        full_text = f"{output.reasoning} {output.key_insight} {output.extracted_learnings}"
+        full_text = (
+            f"{output.reasoning} {output.key_insight} {output.extracted_learnings}"
+        )
         has_analysis = (
             "capital" in full_text.lower()
             or "largest" in full_text.lower()

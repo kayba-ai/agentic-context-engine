@@ -15,6 +15,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 def _litellm():
     """Return the litellm module, importing it on first call."""
     global _litellm_mod
@@ -89,7 +90,9 @@ def get_provider(model: str) -> str:
     try:
         _, provider, _, _ = ll.get_llm_provider(model)
     except Exception as e:
-        logger.debug("Could not detect provider for %r (%s): %s", model, type(e).__name__, e)
+        logger.debug(
+            "Could not detect provider for %r (%s): %s", model, type(e).__name__, e
+        )
         provider = "unknown"
 
     return provider
@@ -105,7 +108,9 @@ def get_missing_keys(model: str) -> list[str]:
         result = ll.validate_environment(model=model)
         return result.get("missing_keys", [])
     except Exception as e:
-        logger.debug("Could not validate environment for %r (%s): %s", model, type(e).__name__, e)
+        logger.debug(
+            "Could not validate environment for %r (%s): %s", model, type(e).__name__, e
+        )
         return []
 
 
@@ -165,9 +170,7 @@ def validate_connection(model: str, api_key: str | None = None) -> ValidationRes
             latency_ms=elapsed_ms,
         )
     except ll.AuthenticationError:
-        return ValidationResult(
-            success=False, model=model, error="Invalid API key."
-        )
+        return ValidationResult(success=False, model=model, error="Invalid API key.")
     except ll.NotFoundError:
         return ValidationResult(
             success=False,
@@ -199,7 +202,11 @@ PROVIDER_KEY_ENV: dict[str, str | list[str]] = {
     "deepseek": "DEEPSEEK_API_KEY",
     "groq": "GROQ_API_KEY",
     "bedrock": ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_REGION_NAME"],
-    "bedrock_converse": ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_REGION_NAME"],
+    "bedrock_converse": [
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+        "AWS_REGION_NAME",
+    ],
     "vertex_ai": "GOOGLE_APPLICATION_CREDENTIALS",
     "cohere": "COHERE_API_KEY",
     "mistral": "MISTRAL_API_KEY",

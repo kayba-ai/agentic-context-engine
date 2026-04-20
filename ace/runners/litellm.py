@@ -82,9 +82,7 @@ class ACELiteLLM:
             self._skillbook = Skillbook()
 
         # Build roles (use provided or create PydanticAI-backed defaults)
-        self.agent: AgentLike = agent or Agent(
-            model, model_settings=model_settings
-        )
+        self.agent: AgentLike = agent or Agent(model, model_settings=model_settings)
         self.reflector: ReflectorLike = reflector or Reflector(
             model, model_settings=model_settings
         )

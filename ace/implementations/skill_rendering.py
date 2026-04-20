@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 # XML rendering
 # ------------------------------------------------------------------
 
+
 def render_skills_xml(skills: list[Skill]) -> str:
     """Render a list of skills as XML ``<strategy>`` elements.
 
@@ -59,6 +60,7 @@ def render_skills_xml(skills: list[Skill]) -> str:
 # ------------------------------------------------------------------
 # Per-task retrieval
 # ------------------------------------------------------------------
+
 
 def retrieve_top_k(
     skillbook: Skillbook,

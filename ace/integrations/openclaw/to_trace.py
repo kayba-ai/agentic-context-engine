@@ -84,9 +84,7 @@ def _events_to_trace(events: list[dict[str, Any]]) -> dict[str, Any]:
             for block in content_blocks:
                 btype = block.get("type")
                 if btype == "thinking":
-                    reasoning_parts.append(
-                        f"[thinking] {block.get('thinking', '')}"
-                    )
+                    reasoning_parts.append(f"[thinking] {block.get('thinking', '')}")
                 elif btype == "text":
                     text = block.get("text", "")
                     assistant_texts.append(text)

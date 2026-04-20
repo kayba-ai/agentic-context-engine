@@ -104,9 +104,7 @@ class SkillManager:
                 "root_cause_analysis": r.root_cause_analysis,
                 "correct_approach": r.correct_approach,
                 "key_insight": r.key_insight,
-                "extracted_learnings": [
-                    l.model_dump() for l in r.extracted_learnings
-                ],
+                "extracted_learnings": [l.model_dump() for l in r.extracted_learnings],
             }
             for r in reflections
         ]
