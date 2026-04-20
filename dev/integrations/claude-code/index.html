@@ -2067,7 +2067,7 @@
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">runner</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;coding_expert.json&quot;</span><span class="p">)</span>
 </code></pre></div>
 <h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>uv<span class="w"> </span>add<span class="w"> </span>ace-framework<span class="o">[</span>claude-code<span class="o">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>uv<span class="w"> </span>add<span class="w"> </span><span class="s1">&#39;ace-framework[claude-code]&#39;</span>
 </code></pre></div>
 <h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
 <ul>
@@ -2187,11 +2187,15 @@
 </code></pre></div>
 <h2 id="how-it-works">How It Works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h2>
 <ol>
-<li><strong>INJECT</strong> — Skillbook strategies are written to <code>CLAUDE.md</code> at the project root</li>
+<li><strong>INJECT</strong> — Skillbook strategies are appended to the task prompt passed to Claude Code for that run</li>
 <li><strong>EXECUTE</strong> — Claude Code CLI runs the task in the project directory</li>
-<li><strong>Extract trace</strong> — ACE reads the Claude Code execution transcript</li>
+<li><strong>Extract trace</strong> — ACE parses Claude Code's <code>--output-format=stream-json</code> transcript into a learning trace</li>
 <li><strong>LEARN</strong> — Reflector analyzes the trace, SkillManager updates the skillbook</li>
 </ol>
+<p>The stock <code>ClaudeCode</code> runner does <strong>not</strong> wire <code>PersistStep</code>, so it does not
+update <code>CLAUDE.md</code> automatically. Persist learned strategies with
+<code>runner.save(...)</code>, or compose a custom pipeline that adds <code>PersistStep</code> if you
+want file-based prompt injection outside the runner.</p>
 <h2 id="pipeline-skill">Pipeline Skill<a class="headerlink" href="#pipeline-skill" title="Permanent link">&para;</a></h2>
 <p>The <strong>kayba-pipeline</strong> skill gives Claude Code a 7-stage evaluation and improvement pipeline that can be triggered directly from the chat. Install it with:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>kayba<span class="w"> </span>setup
