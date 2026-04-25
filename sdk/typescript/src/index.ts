@@ -42,6 +42,8 @@ const HTML_TAG_RE = /<[^>]*>/g;
 // ── Module state ───────────────────────────────────────────────────────
 
 let _folder: string | null = null;
+let _sessionId: string | null = null;
+let _userId: string | null = null;
 let _configured = false;
 
 // ── Types ──────────────────────────────────────────────────────────────
@@ -95,13 +97,25 @@ function resolveFolder(
   return sanitized || null;
 }
 
-function injectFolderTag(): void {
-  if (_folder !== null) {
-    try {
-      updateCurrentTrace({ tags: { "kayba.folder": _folder } });
-    } catch {
-      // Silently ignore if no active trace context.
-    }
+function injectKaybaContext(): void {
+  const tags: Record<string, string> = {};
+  const metadata: Record<string, string> = {};
+
+  if (_folder !== null) tags["kayba.folder"] = _folder;
+  if (_sessionId !== null) metadata["mlflow.trace.session"] = _sessionId;
+  if (_userId !== null) metadata["mlflow.trace.user"] = _userId;
+
+  const hasTags = Object.keys(tags).length > 0;
+  const hasMetadata = Object.keys(metadata).length > 0;
+  if (!hasTags && !hasMetadata) return;
+
+  try {
+    const update: { tags?: Record<string, string>; metadata?: Record<string, string> } = {};
+    if (hasTags) update.tags = tags;
+    if (hasMetadata) update.metadata = metadata;
+    updateCurrentTrace(update);
+  } catch {
+    // Silently ignore if no active trace context.
   }
 }
 
@@ -160,6 +174,55 @@ export function getFolder(): string | null {
 }
 
 /**
+ * Set the session id auto-injected as `mlflow.trace.session` metadata on
+ * every subsequent trace. Use this to group multiple traces (e.g. each
+ * tool call producing its own trace) into a single agent run / conversation.
+ *
+ * @param sessionId - Session id, or `null` to clear.
+ */
+export function setSession(sessionId: string | null): void {
+  _sessionId = sessionId && sessionId.length > 0 ? sessionId : null;
+}
+
+/** Return the currently configured session id, or `null`. */
+export function getSession(): string | null {
+  return _sessionId;
+}
+
+/**
+ * Set the user id auto-injected as `mlflow.trace.user` metadata on every
+ * subsequent trace.
+ *
+ * @param userId - User id, or `null` to clear.
+ */
+export function setUser(userId: string | null): void {
+  _userId = userId && userId.length > 0 ? userId : null;
+}
+
+/** Return the currently configured user id, or `null`. */
+export function getUser(): string | null {
+  return _userId;
+}
+
+/**
+ * Attach tags and/or metadata to the currently active trace. Use this for
+ * per-call values like a tool call id. Folder, session, and user are
+ * auto-injected — call this only for additional fields.
+ *
+ * Silently no-ops when called outside an active trace context.
+ */
+export function updateTrace(update: {
+  tags?: Record<string, string>;
+  metadata?: Record<string, string>;
+}): void {
+  try {
+    updateCurrentTrace(update);
+  } catch {
+    // Silently ignore if no active trace context.
+  }
+}
+
+/**
  * Wrap a function with tracing. The returned function generates a span
  * each time it is called, with automatic folder tagging.
  *
@@ -181,12 +244,12 @@ export function trace<T extends (...args: any[]) => any>(
     // Handle async functions: inject tag after the promise resolves.
     if (result instanceof Promise) {
       return result.then((value: unknown) => {
-        injectFolderTag();
+        injectKaybaContext();
         return value;
       }) as ReturnType<T>;
     }
 
-    injectFolderTag();
+    injectKaybaContext();
     return result;
   };
 
@@ -222,7 +285,7 @@ export function startSpan(options: StartSpanOptions) {
   // Wrap .end() to inject the folder tag before closing.
   const originalEnd = span.end.bind(span);
   span.end = (endOptions?: Parameters<typeof span.end>[0]) => {
-    injectFolderTag();
+    injectKaybaContext();
     return originalEnd(endOptions);
   };
 
@@ -247,6 +310,11 @@ const kayba = {
   startSpan,
   setFolder,
   getFolder,
+  setSession,
+  getSession,
+  setUser,
+  getUser,
+  updateTrace,
   isConfigured,
   SpanType,
 };
