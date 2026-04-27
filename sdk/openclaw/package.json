@@ -1,0 +1,50 @@
+{
+  "name": "@kayba_ai/openclaw-tracing",
+  "version": "0.1.1",
+  "description": "OpenClaw plugin that captures full agent turns (user message + LLM call + tool calls + reply) and emits them as Kayba traces. Pairs with @kayba_ai/tracing.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "files": [
+    "dist/",
+    "openclaw.plugin.json",
+    "README.md"
+  ],
+  "openclaw": {
+    "extensions": [
+      "./dist/index.js"
+    ]
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "kayba",
+    "openclaw",
+    "tracing",
+    "mlflow",
+    "ace",
+    "agent",
+    "observability"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@kayba_ai/tracing": "^0.10.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0",
+    "typescript": "^5.4.0"
+  },
+  "peerDependencies": {
+    "mlflow-tracing": "^0.1.3",
+    "openclaw": ">=2026.4.0"
+  },
+  "peerDependenciesMeta": {
+    "openclaw": {
+      "optional": true
+    }
+  }
+}

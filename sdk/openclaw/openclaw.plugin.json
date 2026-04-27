@@ -1,0 +1,45 @@
+{
+  "id": "kayba-tracing",
+  "name": "Kayba Tracing",
+  "description": "Captures every OpenClaw agent turn (user message, full LLM prompt + response with thinking, tool calls, final reply) and ships it as a structured Kayba trace. Powers /traces/v2 dashboards and ACE skill extraction.",
+  "enabledByDefault": true,
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["apiKey"],
+    "properties": {
+      "apiKey": {
+        "type": "string",
+        "description": "Kayba API key (kayba_ak_...). Get one at https://use.kayba.ai/settings/api-keys."
+      },
+      "baseUrl": {
+        "type": "string",
+        "description": "Kayba ingest base URL. Defaults to https://use.kayba.ai. Override for self-hosted deployments.",
+        "default": "https://use.kayba.ai"
+      },
+      "folder": {
+        "type": "string",
+        "description": "Folder name in the Kayba dashboard. Traces from this gateway will be grouped under it. Defaults to the openclaw agent id (e.g. 'main').",
+        "maxLength": 256
+      },
+      "captureSystemPrompt": {
+        "type": "boolean",
+        "description": "Whether to capture the system prompt. Captured once per session (first turn) regardless — disabling skips it entirely.",
+        "default": true
+      },
+      "captureHistory": {
+        "type": "string",
+        "enum": ["delta", "full", "none"],
+        "description": "How much of the LLM input historyMessages to include on each llm.call span. 'delta' (default) ships only messages added since the prior turn for this session — keeps traces small while letting the full conversation be reconstructed by joining traces ordered by time within sessionId. 'full' ships the entire history every turn (large). 'none' drops it.",
+        "default": "delta"
+      },
+      "maxAttributeBytes": {
+        "type": "integer",
+        "description": "Truncate any single span attribute value above this size (in bytes). Prevents blowing past kayba's per-attribute limits with huge prompts.",
+        "default": 65536,
+        "minimum": 1024,
+        "maximum": 1048576
+      }
+    }
+  }
+}
