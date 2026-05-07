@@ -2259,7 +2259,7 @@ For the pipeline engine, see <a href="../PIPELINE_DESIGN/">PIPELINE_DESIGN.md</a
 <td>LLM client abstraction (3 implementations → PydanticAI agents)</td>
 </tr>
 <tr>
-<td>Skillbook &amp; learning loop (Reflect → Tag → Update → Apply)</td>
+<td>Skillbook &amp; learning loop (Reflect → Update → Apply)</td>
 <td>Structured output parsing + retries (→ PydanticAI native validation)</td>
 </tr>
 <tr>
@@ -2361,13 +2361,13 @@ For the pipeline engine, see <a href="../PIPELINE_DESIGN/">PIPELINE_DESIGN.md</a
 <h3 id="acesample-protocol-for-step-access">ACESample — protocol for step access<a class="headerlink" href="#acesample-protocol-for-step-access" title="Permanent link">&para;</a></h3>
 <p>Steps access <code>ctx.sample.question</code> uniformly. A <code>Protocol</code> makes this duck typing explicit and type-safe. <code>Sample</code> satisfies it structurally — no inheritance required.</p>
 <h3 id="skillbookview-read-only-projection">SkillbookView — read-only projection<a class="headerlink" href="#skillbookview-read-only-projection" title="Permanent link">&para;</a></h3>
-<p>The <code>Skillbook</code> is mutable — steps add, tag, and remove skills. Placing it directly on a <code>frozen=True</code> context would allow mutation through the reference, breaking the immutability guarantee.</p>
+<p>The <code>Skillbook</code> is mutable — steps add, update, and remove skills. Placing it directly on a <code>frozen=True</code> context would allow mutation through the reference, breaking the immutability guarantee.</p>
 <p><code>SkillbookView</code> wraps a <code>Skillbook</code> and exposes only read methods (<code>as_prompt()</code>, <code>get_skill()</code>, <code>skills()</code>, <code>stats()</code>). Write methods don't exist on the class — calling them raises <code>AttributeError</code> at runtime and a type error at check time.</p>
 <p><strong>Enforcement:</strong>
 - <strong>Type checker</strong> — mypy/pyright flags <code>ctx.skillbook.add_skill(...)</code> because <code>SkillbookView</code> has no such method.
 - <strong>Runtime</strong> — <code>AttributeError</code> if someone calls a write method anyway.
 - <strong>Convention</strong> — the underlying <code>_sb</code> is underscore-prefixed. Accessing it is a deliberate violation.</p>
-<p>Steps that only <strong>read</strong> the skillbook (AgentStep, ReflectStep, UpdateStep, AttachInsightSourcesStep) access <code>ctx.skillbook</code> — the view. Steps that <strong>write</strong> the skillbook (ApplyStep, DeduplicateStep, CheckpointStep) receive the real <code>Skillbook</code> via constructor injection and use <code>self.skillbook</code>.</p>
+<p>Steps that only <strong>read</strong> the skillbook (ReflectStep) access <code>ctx.skillbook</code> — the view. Steps that <strong>write</strong> the skillbook (AgentStep, UpdateStep, DeduplicateStep, CheckpointStep) receive the real <code>Skillbook</code> via constructor injection and use <code>self.skillbook</code>. <code>AgentStep</code> bumps <code>used_count</code>; <code>UpdateStep</code> invokes the agentic SkillManager whose tools apply ADD / UPDATE / REMOVE / TAG directly.</p>
 <h3 id="acestepcontext-immutable-step-to-step-data">ACEStepContext — immutable step-to-step data<a class="headerlink" href="#acestepcontext-immutable-step-to-step-data" title="Permanent link">&para;</a></h3>
 <p>Subclass of the pipeline engine's <code>StepContext</code>. Carries all step-to-step data for the ACE pipeline. The pipeline engine only knows about <code>sample</code> and <code>metadata</code>; all ACE-specific fields live here.</p>
 <p>Key fields:</p>
@@ -2380,6 +2380,11 @@ For the pipeline engine, see <a href="../PIPELINE_DESIGN/">PIPELINE_DESIGN.md</a
 </tr>
 </thead>
 <tbody>
+<tr>
+<td><code>mode</code></td>
+<td><code>Literal["online", "offline"]</code></td>
+<td><code>"online"</code> (default) — reserved for downstream steps</td>
+</tr>
 <tr>
 <td><code>sample</code></td>
 <td><code>ACESample \| None</code></td>
@@ -2408,7 +2413,12 @@ For the pipeline engine, see <a href="../PIPELINE_DESIGN/">PIPELINE_DESIGN.md</a
 <tr>
 <td><code>skill_manager_output</code></td>
 <td><code>UpdateBatch \| None</code></td>
-<td>Produced by <code>UpdateStep</code>, enriched by <code>AttachInsightSourcesStep</code></td>
+<td>Produced by <code>UpdateStep</code> (audit log of mutations the SM already applied)</td>
+</tr>
+<tr>
+<td><code>injected_skill_ids</code></td>
+<td><code>tuple[str, ...]</code></td>
+<td>Produced by <code>AgentStep</code> — skill IDs rendered into the agent prompt; downstream attribution scope</td>
 </tr>
 <tr>
 <td><code>epoch</code>, <code>total_epochs</code></td>
@@ -2547,7 +2557,7 @@ For the pipeline engine, see <a href="../PIPELINE_DESIGN/">PIPELINE_DESIGN.md</a
 </tbody>
 </table>
 <p>All three share the same constructor pattern: <code>__init__(self, model: str, *, prompt_template=..., max_retries=3)</code>. The <code>model</code> parameter is resolved via <code>resolve_model()</code> to a PydanticAI agent.</p>
-<p><code>RRStep</code> is both a <code>StepProtocol[ACEStepContext]</code> (composable in any pipeline) and <code>ReflectorLike</code> (usable as a drop-in reflector). Internally it uses a PydanticAI agent with <code>execute_code</code>, <code>analyze</code>, and <code>batch_analyze</code> tools. See <a href="../RR_DESIGN/">RR_DESIGN.md</a> for the full Recursive Reflector architecture.</p>
+<p><code>RRStep</code> is both a <code>StepProtocol[ACEStepContext]</code> (composable in any pipeline) and <code>ReflectorLike</code> (usable as a drop-in reflector). It is a subclass of <code>RecursiveAgent</code> with <code>execute_code</code> and <code>recurse</code> tools, plus two-tier compaction and depth-based recursion. See <a href="../RR_DESIGN/">RR_DESIGN.md</a> for the full Recursive Reflector architecture.</p>
 <hr />
 <h2 id="steps">Steps<a class="headerlink" href="#steps" title="Permanent link">&para;</a></h2>
 <p>Reusable step implementations in <code>ace/steps/</code>. Each satisfies <code>StepProtocol[ACEStepContext]</code>. Each step does exactly one thing.</p>
@@ -2589,21 +2599,7 @@ For the pipeline engine, see <a href="../PIPELINE_DESIGN/">PIPELINE_DESIGN.md</a
 <td><strong>UpdateStep</strong></td>
 <td><code>reflections</code>, <code>skillbook</code></td>
 <td><code>skill_manager_output</code></td>
-<td>None</td>
-<td>1</td>
-</tr>
-<tr>
-<td><strong>AttachInsightSourcesStep</strong></td>
-<td><code>trace</code>, <code>reflections</code>, <code>skill_manager_output</code>, <code>metadata</code></td>
-<td><code>skill_manager_output</code></td>
-<td>None</td>
-<td>1</td>
-</tr>
-<tr>
-<td><strong>ApplyStep</strong></td>
-<td><code>skill_manager_output</code></td>
-<td>—</td>
-<td>Applies update batch to skillbook</td>
+<td>Agentic SkillManager mutates skillbook directly via ADD / UPDATE / REMOVE / TAG tools; output is an audit log</td>
 <td>1</td>
 </tr>
 <tr>
@@ -2650,8 +2646,8 @@ For the pipeline engine, see <a href="../PIPELINE_DESIGN/">PIPELINE_DESIGN.md</a
 <h2 id="runners">Runners<a class="headerlink" href="#runners" title="Permanent link">&para;</a></h2>
 <h3 id="class-hierarchy">Class hierarchy<a class="headerlink" href="#class-hierarchy" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>ACERunner (shared infrastructure: epoch loop, delegates to Pipeline.run())
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>├── TraceAnalyser       — [Reflect → Tag → Update → AttachInsightSources → Apply]
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>├── ACE                 — [Agent → Evaluate → Reflect → Tag → Update → AttachInsightSources → Apply]
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>├── TraceAnalyser       — [Reflect → Update → Apply]
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>├── ACE                 — [Agent → Evaluate → Reflect → Update → Apply]
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>├── BrowserUse          — [BrowserExecute → BrowserToTrace → learning_tail]
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>├── LangChain           — [LangChainExecute → LangChainToTrace → learning_tail]
 <a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>├── ClaudeCode          — [ClaudeCodeExecute → ClaudeCodeToTrace → learning_tail]
@@ -2663,10 +2659,10 @@ For the pipeline engine, see <a href="../PIPELINE_DESIGN/">PIPELINE_DESIGN.md</a
 <a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>├── learn_from_traces() — delegates to lazy-init TraceAnalyser
 <a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>└── learn_from_feedback()— runs learning_tail from last ask()
 <a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>RRStep (PydanticAI agent — composable iterative step)
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>RRStep (RecursiveAgent subclass — composable iterative step)
 <a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>├── __call__()          — StepProtocol entry; usable in any runner&#39;s pipeline
 <a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>├── reflect()           — ReflectorLike entry; drop-in reflector for runners
-<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>└── _run_reflection()   — PydanticAI agent with execute_code, analyze, batch_analyze tools
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>└── _run_reflection()   — PydanticAI agent with execute_code and recurse tools
 </code></pre></div>
 <p>All runners compose a <code>Pipeline</code> rather than extending it.</p>
 <h3 id="acerunner-shared-base">ACERunner — shared base<a class="headerlink" href="#acerunner-shared-base" title="Permanent link">&para;</a></h3>
@@ -2717,7 +2713,7 @@ For the pipeline engine, see <a href="../PIPELINE_DESIGN/">PIPELINE_DESIGN.md</a
 <p>Analyses pre-recorded traces without executing an agent. Runs the learning tail only. Accepts raw trace objects of any type.</p>
 <p><strong>When to use:</strong> You have execution logs from an external system and want to build or refine a skillbook from historical data. Multi-epoch mode re-processes all traces with the evolving skillbook.</p>
 <p><strong>Pipeline:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>[ReflectStep] → [UpdateStep] → [AttachInsightSourcesStep] → [ApplyStep]
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>[ReflectStep] → [UpdateStep]   (SkillManager mutates the skillbook directly)
 </code></pre></div>
 <p>No AgentStep, no EvaluateStep. The trace already contains the agent's output and the evaluation feedback.</p>
 <p><strong>Multi-epoch semantics:</strong> Each epoch re-processes all traces with the current skillbook. Early epochs extract obvious patterns; later epochs refine and consolidate.</p>
@@ -2725,7 +2721,7 @@ For the pipeline engine, see <a href="../PIPELINE_DESIGN/">PIPELINE_DESIGN.md</a
 <p>The full live adaptive pipeline. An agent executes, the reflector analyses, the skill manager updates. Optionally evaluates against a <code>TaskEnvironment</code> for feedback-driven learning.</p>
 <p><strong>When to use:</strong> Building a new agent, or running closed-loop learning where the agent improves in real time.</p>
 <p><strong>Pipeline:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>[AgentStep] → [EvaluateStep] → [ReflectStep] → [UpdateStep] → [AttachInsightSourcesStep] → [ApplyStep]
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>[AgentStep] → [EvaluateStep] → [ReflectStep] → [UpdateStep]   (SkillManager mutates the skillbook directly)
 </code></pre></div>
 <p>A single class handles both single-pass (<code>epochs=1</code>) and multi-epoch batch training (<code>epochs &gt; 1</code>). The <code>environment</code> is optional — when provided, <code>EvaluateStep</code> generates feedback. When omitted, the Reflector learns from ground-truth comparison or the agent's reasoning alone.</p>
 <h3 id="acelitellm-standalone-convenience-wrapper">ACELiteLLM — standalone convenience wrapper<a class="headerlink" href="#acelitellm-standalone-convenience-wrapper" title="Permanent link">&para;</a></h3>
@@ -2802,7 +2798,7 @@ For the pipeline engine, see <a href="../PIPELINE_DESIGN/">PIPELINE_DESIGN.md</a
 </tbody>
 </table>
 <h3 id="learning_tail-reusable-learning-steps"><code>learning_tail()</code> — reusable learning steps<a class="headerlink" href="#learning_tail-reusable-learning-steps" title="Permanent link">&para;</a></h3>
-<p>Every integration assembles the same <code>[Reflect → Tag → Update → AttachInsightSources → Apply]</code> suffix. <code>learning_tail()</code> returns this standard step list, with optional dedup and checkpoint steps. If the provided reflector already exposes <code>provides = {'reflections'}</code> (e.g. <code>RRStep</code>), it's inserted directly instead of being wrapped in <code>ReflectStep</code>.</p>
+<p>Every integration assembles the same <code>[Reflect → Update → Apply]</code> suffix. <code>learning_tail()</code> returns this standard step list, with optional dedup and checkpoint steps. If the provided reflector already exposes <code>provides = {'reflections'}</code> (e.g. <code>RRStep</code>), it's inserted directly instead of being wrapped in <code>ReflectStep</code>.</p>
 <hr />
 <h2 id="integration-pattern">Integration Pattern<a class="headerlink" href="#integration-pattern" title="Permanent link">&para;</a></h2>
 <p>External frameworks integrate via composable pipeline steps in <code>ace/integrations/</code>. Each integration provides:</p>
@@ -2812,16 +2808,16 @@ For the pipeline engine, see <a href="../PIPELINE_DESIGN/">PIPELINE_DESIGN.md</a
 <li><strong>ToTrace step</strong> — converts the integration-specific result into the standardised trace dict</li>
 </ol>
 <h3 id="execute-convert-learn">Execute → Convert → Learn<a class="headerlink" href="#execute-convert-learn" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>Standard ACE:      [Agent → Evaluate]                          → [Reflect → Tag → Update → AttachInsightSources → Apply]
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>Standard ACE:      [Agent → Evaluate]                          → [Reflect → Update → Apply]
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>                    ╰── execute (built-in) ──╯                    ╰──────── learn (shared) ──────╯
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>                         provides: trace (dict) ─────────────────► requires: trace
 <a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>Browser-use:       [BrowserExecute] → [BrowserToTrace]         → [Reflect → Tag → Update → AttachInsightSources → Apply]
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>Browser-use:       [BrowserExecute] → [BrowserToTrace]         → [Reflect → Update → Apply]
 <a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>                    ╰── execute ────╯   ╰── convert ──╯           ╰──────── learn (shared) ──────╯
 <a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>                    provides: trace      rewrites trace             requires: trace
 <a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>                    (BrowserResult)      (BrowserResult → dict)
 <a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>
-<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>TraceAnalyser:     [_build_context]                            → [Reflect → Tag → Update → AttachInsightSources → Apply]
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>TraceAnalyser:     [_build_context]                            → [Reflect → Update → Apply]
 <a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>                    ╰── sets ctx.trace (raw object) ───────╯      ╰──────── learn (shared) ──────╯
 </code></pre></div>
 <p>The standardised trace dict keys match what <code>ReflectStep</code> expects: <code>question</code>, <code>reasoning</code>, <code>answer</code>, <code>skill_ids</code>, <code>feedback</code>, <code>ground_truth</code>.</p>
@@ -3079,7 +3075,7 @@ For the pipeline engine, see <a href="../PIPELINE_DESIGN/">PIPELINE_DESIGN.md</a
 <p>Both TraceAnalyser and ACE inherit async capabilities from the pipeline engine. No custom async machinery is needed.</p>
 <h3 id="reflectstep-as-async-boundary">ReflectStep as async boundary<a class="headerlink" href="#reflectstep-as-async-boundary" title="Permanent link">&para;</a></h3>
 <p><code>ReflectStep.async_boundary = True</code> means everything before it (Agent, Evaluate) runs in the foreground, and everything from ReflectStep onwards runs in a background thread pool:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>sample 1:  [AgentStep] [EvaluateStep] ──fire──► [ReflectStep] [UpdateStep] [AttachInsightSourcesStep] [ApplyStep]
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>sample 1:  [AgentStep] [EvaluateStep] ──fire──► [ReflectStep] [UpdateStep]
 <a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>sample 2:  [AgentStep] [EvaluateStep] ──fire──► ...
 <a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>                                       ↑
 <a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>                                 async_boundary
@@ -3102,12 +3098,7 @@ For the pipeline engine, see <a href="../PIPELINE_DESIGN/">PIPELINE_DESIGN.md</a
 <tr>
 <td><code>UpdateStep.max_workers = 1</code></td>
 <td>Step class attribute</td>
-<td>Serialises skill manager LLM calls</td>
-</tr>
-<tr>
-<td><code>ApplyStep.max_workers = 1</code></td>
-<td>Step class attribute</td>
-<td>Serialises skillbook writes</td>
+<td>Serialises skill manager LLM calls AND skillbook writes (SM tools mutate in place)</td>
 </tr>
 <tr>
 <td><code>wait_for_background(timeout)</code></td>
@@ -3142,8 +3133,8 @@ For the pipeline engine, see <a href="../PIPELINE_DESIGN/">PIPELINE_DESIGN.md</a
 <a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>    agent.py, reflector.py, skill_manager.py, helpers.py, prompts.py
 <a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a>  steps/                    ← Pipeline steps (one file per class)
 <a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a>    __init__.py             ← learning_tail() helper
-<a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a>    agent.py, evaluate.py, reflect.py, tag.py, update.py,
-<a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a>    attach_insight_sources.py, apply.py, deduplicate.py, checkpoint.py,
+<a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a>    agent.py, evaluate.py, reflect.py, update.py,
+<a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a>    apply.py, deduplicate.py, checkpoint.py,
 <a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a>    load_traces.py, persist.py, export_markdown.py, observability.py
 <a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a>  runners/                  ← Runner classes
 <a id="__codelineno-9-19" name="__codelineno-9-19" href="#__codelineno-9-19"></a>    base.py                 ← ACERunner
@@ -3194,8 +3185,16 @@ For the pipeline engine, see <a href="../PIPELINE_DESIGN/">PIPELINE_DESIGN.md</a
 <td><code>resolve_model</code>, <code>ACEModelConfig</code>, <code>validate_connection</code></td>
 </tr>
 <tr>
-<td><code>ace/rr/</code></td>
-<td><code>RRStep</code> (PydanticAI agent), <code>RRConfig</code>, <code>TraceSandbox</code>, <code>TraceContext</code></td>
+<td><code>ace/steps/rr_step.py</code></td>
+<td><code>RRStep</code> (RecursiveAgent subclass), <code>RRConfig</code>, <code>TraceSandbox</code></td>
+</tr>
+<tr>
+<td><code>ace/core/recursive_agent.py</code></td>
+<td><code>RecursiveAgent</code>, <code>AgenticConfig</code>, <code>AgenticDeps</code>, compaction, recursion, <code>usage_callback</code> hook</td>
+</tr>
+<tr>
+<td><code>ace/core/metered_model.py</code></td>
+<td><code>MeteredModel</code> — pydantic-ai <code>WrapperModel</code> that fires the <code>usage_callback</code> once per request</td>
 </tr>
 <tr>
 <td><code>ace/integrations/</code></td>

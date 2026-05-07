@@ -1844,10 +1844,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#with-a-separate-sub-agent-model" class="md-nav__link">
+  <a href="#with-recursion-enabled" class="md-nav__link">
     <span class="md-ellipsis">
       
-        With a separate sub-agent model
+        With recursion enabled
       
     </span>
   </a>
@@ -1926,10 +1926,11 @@ steps — or writing custom ones.</p>
 <h2 id="anatomy-of-an-ace-pipeline">Anatomy of an ACE Pipeline<a class="headerlink" href="#anatomy-of-an-ace-pipeline" title="Permanent link">&para;</a></h2>
 <p>Every ACE pipeline is a sequence of steps, each with a <code>requires</code>/<code>provides</code>
 contract that declares what context fields it reads and writes:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>AgentStep ─────&gt; EvaluateStep ─────&gt; ReflectStep ─────&gt; UpdateStep ─────&gt; ApplyStep
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  provides:        provides:           provides:          provides:         (mutates
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>  agent_output     trace                reflections       skill_manager     skillbook)
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>                                                                        _output
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>AgentStep ─────&gt; EvaluateStep ─────&gt; ReflectStep ─────&gt; UpdateStep
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  provides:        provides:           provides:          provides:
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>  agent_output     trace                reflections        skill_manager_output
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>                                                          (also mutates skillbook
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>                                                           via the SM&#39;s tools)
 </code></pre></div>
 <p>The pipeline validates these contracts at construction time — if a step requires
 a field that no earlier step provides, you'll get an error immediately.</p>
@@ -1951,7 +1952,7 @@ a field that no earlier step provides, you'll get an error immediately.</p>
 <a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="n">skillbook</span> <span class="o">=</span> <span class="n">Skillbook</span><span class="p">()</span>
 <a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>
 <a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="n">pipe</span> <span class="o">=</span> <span class="n">Pipeline</span><span class="p">([</span>
-<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>    <span class="n">AgentStep</span><span class="p">(</span><span class="n">Agent</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">)),</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>    <span class="n">AgentStep</span><span class="p">(</span><span class="n">Agent</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">),</span> <span class="n">skillbook</span><span class="p">),</span>
 <a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>    <span class="n">EvaluateStep</span><span class="p">(</span><span class="n">SimpleEnvironment</span><span class="p">()),</span>
 <a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>    <span class="o">*</span><span class="n">learning_tail</span><span class="p">(</span><span class="n">Reflector</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">),</span> <span class="n">SkillManager</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">),</span> <span class="n">skillbook</span><span class="p">),</span>
 <a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="p">])</span>
@@ -1967,7 +1968,7 @@ a field that no earlier step provides, you'll get an error immediately.</p>
 <a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="n">dedup_manager</span><span class="o">=</span><span class="n">my_dedup_manager</span><span class="p">,</span>      <span class="c1"># optional</span>
 <a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="n">checkpoint_dir</span><span class="o">=</span><span class="s2">&quot;/tmp/checkpoints&quot;</span><span class="p">,</span>    <span class="c1"># optional</span>
 <a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="p">)</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="c1"># Returns: [ReflectStep, UpdateStep, ApplyStep,</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="c1"># Returns: [ReflectStep, UpdateStep,</span>
 <a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="c1">#           DeduplicateStep, CheckpointStep]</span>
 </code></pre></div>
 <p>Use it when building custom integrations that provide their own execute step but
@@ -2060,7 +2061,7 @@ concurrently:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pipeline</span><span class="p">,</span> <span class="n">Branch</span><span class="p">,</span> <span class="n">MergeStrategy</span>
 <a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
 <a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="n">pipe</span> <span class="o">=</span> <span class="n">Pipeline</span><span class="p">([</span>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="n">AgentStep</span><span class="p">(</span><span class="n">agent</span><span class="p">),</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="n">AgentStep</span><span class="p">(</span><span class="n">agent</span><span class="p">,</span> <span class="n">skillbook</span><span class="p">),</span>
 <a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>    <span class="n">Branch</span><span class="p">(</span>
 <a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>        <span class="p">[</span><span class="n">EvaluateStep</span><span class="p">(</span><span class="n">env_a</span><span class="p">),</span> <span class="n">EvaluateStep</span><span class="p">(</span><span class="n">env_b</span><span class="p">)],</span>
 <a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>        <span class="n">merge</span><span class="o">=</span><span class="n">MergeStrategy</span><span class="o">.</span><span class="n">LAST</span><span class="p">,</span>
@@ -2078,7 +2079,7 @@ in two ways:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace</span><span class="w"> </span><span class="kn">import</span> <span class="n">ACELiteLLM</span>
 <a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace.rr</span><span class="w"> </span><span class="kn">import</span> <span class="n">RRStep</span><span class="p">,</span> <span class="n">RRConfig</span>
 <a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="n">ace</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">,</span> <span class="n">reflector</span><span class="o">=</span><span class="n">RRStep</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">RRConfig</span><span class="p">(</span><span class="n">max_llm_calls</span><span class="o">=</span><span class="mi">10</span><span class="p">)))</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="n">ace</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">,</span> <span class="n">reflector</span><span class="o">=</span><span class="n">RRStep</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">RRConfig</span><span class="p">(</span><span class="n">max_requests</span><span class="o">=</span><span class="mi">10</span><span class="p">)))</span>
 </code></pre></div>
 <h3 id="as-a-pipeline-step">As a pipeline step<a class="headerlink" href="#as-a-pipeline-step" title="Permanent link">&para;</a></h3>
 <p>Place it directly in a pipeline (it provides <code>reflections</code>):</p>
@@ -2086,7 +2087,7 @@ in two ways:</p>
 <a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace.rr</span><span class="w"> </span><span class="kn">import</span> <span class="n">RRStep</span><span class="p">,</span> <span class="n">RRConfig</span>
 <a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
 <a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="n">skillbook</span> <span class="o">=</span> <span class="n">Skillbook</span><span class="p">()</span>
-<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="n">rr</span> <span class="o">=</span> <span class="n">RRStep</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">RRConfig</span><span class="p">(</span><span class="n">max_llm_calls</span><span class="o">=</span><span class="mi">15</span><span class="p">))</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="n">rr</span> <span class="o">=</span> <span class="n">RRStep</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">RRConfig</span><span class="p">(</span><span class="n">max_requests</span><span class="o">=</span><span class="mi">15</span><span class="p">))</span>
 <a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>
 <a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="n">pipe</span> <span class="o">=</span> <span class="n">Pipeline</span><span class="p">([</span>
 <a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>    <span class="n">MyExecuteStep</span><span class="p">(),</span>
@@ -2095,17 +2096,15 @@ in two ways:</p>
 <a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>    <span class="o">*</span><span class="n">learning_tail</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">SkillManager</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">),</span> <span class="n">skillbook</span><span class="p">)[</span><span class="mi">1</span><span class="p">:],</span>  <span class="c1"># skip ReflectStep</span>
 <a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="p">])</span>
 </code></pre></div>
-<h3 id="with-a-separate-sub-agent-model">With a separate sub-agent model<a class="headerlink" href="#with-a-separate-sub-agent-model" title="Permanent link">&para;</a></h3>
-<p>Route sub-agent calls to a smaller/faster model:</p>
+<h3 id="with-recursion-enabled">With recursion enabled<a class="headerlink" href="#with-recursion-enabled" title="Permanent link">&para;</a></h3>
+<p>Allow the RR to decompose large batch inputs via recursive child sessions:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace.rr</span><span class="w"> </span><span class="kn">import</span> <span class="n">RRStep</span><span class="p">,</span> <span class="n">RRConfig</span>
 <a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>
 <a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="n">rr</span> <span class="o">=</span> <span class="n">RRStep</span><span class="p">(</span>
 <a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>    <span class="s2">&quot;gpt-4o&quot;</span><span class="p">,</span>
-<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>    <span class="n">config</span><span class="o">=</span><span class="n">RRConfig</span><span class="p">(</span><span class="n">max_llm_calls</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span> <span class="n">subagent_model</span><span class="o">=</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">),</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>    <span class="n">config</span><span class="o">=</span><span class="n">RRConfig</span><span class="p">(</span><span class="n">max_requests</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span> <span class="n">max_depth</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>  <span class="c1"># depth=1 allows one level of recursion</span>
 <a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="p">)</span>
 </code></pre></div>
-<p>See <a href="../RR_DESIGN.md">RR_DESIGN.md</a> for the full architecture, sandbox API,
-configuration reference, and trace schema.</p>
 <h2 id="available-steps">Available Steps<a class="headerlink" href="#available-steps" title="Permanent link">&para;</a></h2>
 <p>All steps are importable from <code>ace</code>:</p>
 <table>
@@ -2130,11 +2129,7 @@ configuration reference, and trace schema.</p>
 </tr>
 <tr>
 <td><code>UpdateStep</code></td>
-<td>Run SkillManager to generate updates</td>
-</tr>
-<tr>
-<td><code>ApplyStep</code></td>
-<td>Apply updates to skillbook</td>
+<td>Run the agentic SkillManager; its tools mutate the skillbook directly</td>
 </tr>
 <tr>
 <td><code>DeduplicateStep</code></td>

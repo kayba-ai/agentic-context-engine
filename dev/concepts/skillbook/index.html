@@ -753,10 +753,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#toon-format" class="md-nav__link">
+  <a href="#prompt-format" class="md-nav__link">
     <span class="md-ellipsis">
       
-        TOON Format
+        Prompt Format
       
     </span>
   </a>
@@ -1860,10 +1860,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#toon-format" class="md-nav__link">
+  <a href="#prompt-format" class="md-nav__link">
     <span class="md-ellipsis">
       
-        TOON Format
+        Prompt Format
       
     </span>
   </a>
@@ -1957,9 +1957,9 @@
 
 
 <h1 id="the-skillbook">The Skillbook<a class="headerlink" href="#the-skillbook" title="Permanent link">&para;</a></h1>
-<p>The <strong>Skillbook</strong> is ACE's knowledge store — a structured collection of strategies that the agent has learned from experience. Each strategy is called a <strong>skill</strong>.</p>
+<p>The <strong>Skillbook</strong> is ACE's knowledge store — a structured collection of learned issues and insights. Each entry is called a <strong>skill</strong>.</p>
 <h2 id="what-is-a-skill">What Is a Skill?<a class="headerlink" href="#what-is-a-skill" title="Permanent link">&para;</a></h2>
-<p>A skill is a single strategy entry with:</p>
+<p>A skill is a single learned entry with:</p>
 <table>
 <thead>
 <tr>
@@ -1970,107 +1970,124 @@
 <tbody>
 <tr>
 <td><code>id</code></td>
-<td>Unique identifier (e.g., <code>math-00001</code>)</td>
+<td>Unique identifier (e.g., <code>context-00001</code>)</td>
 </tr>
 <tr>
 <td><code>section</code></td>
-<td>Category grouping (e.g., <code>"Math Strategies"</code>)</td>
+<td>Pipeline-facing split: <code>context</code> or <code>harness</code></td>
 </tr>
 <tr>
-<td><code>content</code></td>
-<td>The strategy text</td>
+<td><code>keywords</code></td>
+<td>Structured topic labels (domain, subsystem, API, behavior)</td>
 </tr>
 <tr>
-<td><code>helpful</code></td>
-<td>Times this skill contributed to a correct answer</td>
+<td><code>issue</code></td>
+<td>The problem this skill captures</td>
 </tr>
 <tr>
-<td><code>harmful</code></td>
-<td>Times this skill led to an incorrect answer</td>
+<td><code>insight</code></td>
+<td>The recommended action; required for <code>context</code>, optional for <code>harness</code></td>
 </tr>
 <tr>
-<td><code>neutral</code></td>
-<td>Times cited but had no clear effect</td>
+<td><code>active</code></td>
+<td>Whether the skill participates in normal active views</td>
 </tr>
 <tr>
-<td><code>sources</code></td>
+<td><code>helpful_count</code> / <code>harmful_count</code> / <code>neutral_count</code></td>
+<td>Effectiveness counters</td>
+</tr>
+<tr>
+<td><code>occurrences</code></td>
 <td>Provenance records linking the skill back to supporting traces</td>
 </tr>
 </tbody>
 </table>
 <p>Example skill:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">{</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;math-00001&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="nt">&quot;section&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Math Strategies&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">&quot;content&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Break complex problems into smaller steps before computing&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nt">&quot;helpful&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span><span class="nt">&quot;harmful&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">  </span><span class="nt">&quot;neutral&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="p">}</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;context-00001&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="nt">&quot;section&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;context&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">&quot;keywords&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;math&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;decomposition&quot;</span><span class="p">],</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nt">&quot;issue&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Complex arithmetic questions are easier to solve when the work is decomposed into smaller verified steps.&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span><span class="nt">&quot;insight&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Break the problem into smaller steps before computing.&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">  </span><span class="nt">&quot;active&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">  </span><span class="nt">&quot;helpful_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">  </span><span class="nt">&quot;harmful_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">  </span><span class="nt">&quot;neutral_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="p">}</span>
 </code></pre></div>
 <h2 id="skill-lifecycle">Skill Lifecycle<a class="headerlink" href="#skill-lifecycle" title="Permanent link">&para;</a></h2>
 <p>Skills go through four stages:</p>
 <ol>
 <li><strong>Created</strong> — the SkillManager adds a new skill after a reflection</li>
 <li><strong>Tagged</strong> — each time the Agent cites a skill, the Reflector tags it as helpful, harmful, or neutral</li>
-<li><strong>Updated</strong> — the SkillManager may refine a skill's content based on new learnings</li>
-<li><strong>Removed</strong> — skills that are consistently harmful get pruned</li>
+<li><strong>Updated</strong> — the SkillManager may refine a skill's issue, insight, or keywords based on new learnings</li>
+<li><strong>Removed</strong> — skills are soft-removed by setting <code>active=False</code></li>
 </ol>
 <p>These correspond to four <a href="../updates/">update operations</a>: <code>ADD</code>, <code>TAG</code>, <code>UPDATE</code>, <code>REMOVE</code>.</p>
-<h2 id="toon-format">TOON Format<a class="headerlink" href="#toon-format" title="Permanent link">&para;</a></h2>
-<p>When the skillbook is included in LLM prompts, it uses <strong>TOON</strong> (Token-Oriented Object Notation) — a compact format that saves 16-62% tokens compared to JSON:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">skillbook</span><span class="o">.</span><span class="n">as_prompt</span><span class="p">()</span>  <span class="c1"># TOON format for LLM consumption</span>
+<h2 id="prompt-format">Prompt Format<a class="headerlink" href="#prompt-format" title="Permanent link">&para;</a></h2>
+<p>When the skillbook is rendered as text, it is grouped by section and shows keywords plus issue/insight:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">skillbook</span><span class="o">.</span><span class="n">as_prompt</span><span class="p">()</span>  <span class="c1"># Markdown format for LLM consumption</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>skills[3]{id    section content helpful harmful neutral}:
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>  math-00001    Math Strategies Break complex problems into smaller steps   5   0   1
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>  math-00002    Math Strategies Verify answers by working backwards 3   1   0
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>  logic-00001   Logic   Check edge cases before concluding  2   0   0
-</code></pre></div>
-<p>For human debugging, use the string representation:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nb">str</span><span class="p">(</span><span class="n">skillbook</span><span class="p">)</span>  <span class="c1"># Markdown format for readability</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>## context
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>- [context-00001]
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>  Keywords: math, decomposition
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>  Issue: Complex arithmetic questions are easier to solve when the work is decomposed into smaller verified steps.
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>  Insight: Break the problem into smaller steps before computing.
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>## harness
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>- [harness-00001]
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>  Keywords: retries, rate_limit
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>  Issue: The runtime can stall for long periods when provider 429 retries fan out.
 </code></pre></div>
 <h2 id="sections">Sections<a class="headerlink" href="#sections" title="Permanent link">&para;</a></h2>
-<p>Skills are organized into sections. Sections emerge naturally from the SkillManager's categorization during learning:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace</span><span class="w"> </span><span class="kn">import</span> <span class="n">Skillbook</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">skillbook</span> <span class="o">=</span> <span class="n">Skillbook</span><span class="p">()</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="c1"># Add skills to specific sections</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="n">skillbook</span><span class="o">.</span><span class="n">add_skill</span><span class="p">(</span>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="n">section</span><span class="o">=</span><span class="s2">&quot;Math Strategies&quot;</span><span class="p">,</span>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="n">content</span><span class="o">=</span><span class="s2">&quot;Break complex problems into smaller steps&quot;</span><span class="p">,</span>
-<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>    <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;helpful&quot;</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span> <span class="s2">&quot;harmful&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;neutral&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>
-<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="p">)</span>
+<p>Skills are organized into exactly two sections:</p>
+<ul>
+<li><code>context</code>: learnings the agent should apply while solving the task</li>
+<li><code>harness</code>: environment or runtime learnings that affect the pipeline itself</li>
+</ul>
+<p>Fine-grained categorization lives in <code>keywords</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace</span><span class="w"> </span><span class="kn">import</span> <span class="n">Skillbook</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">skillbook</span> <span class="o">=</span> <span class="n">Skillbook</span><span class="p">()</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="c1"># Add a context skill with explicit keywords and an action insight</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">skillbook</span><span class="o">.</span><span class="n">add_skill</span><span class="p">(</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="n">section</span><span class="o">=</span><span class="s2">&quot;context&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="n">issue</span><span class="o">=</span><span class="s2">&quot;Complex arithmetic questions are easier to solve when the work is decomposed into smaller verified steps.&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>    <span class="n">keywords</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;math&quot;</span><span class="p">,</span> <span class="s2">&quot;decomposition&quot;</span><span class="p">],</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>    <span class="n">insight</span><span class="o">=</span><span class="s2">&quot;Break complex problems into smaller steps before computing.&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="p">)</span>
 </code></pre></div>
 <h2 id="persistence">Persistence<a class="headerlink" href="#persistence" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Save</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">skillbook</span><span class="o">.</span><span class="n">save_to_file</span><span class="p">(</span><span class="s2">&quot;strategies.json&quot;</span><span class="p">)</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># Load</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="n">skillbook</span> <span class="o">=</span> <span class="n">Skillbook</span><span class="o">.</span><span class="n">load_from_file</span><span class="p">(</span><span class="s2">&quot;strategies.json&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Save</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">skillbook</span><span class="o">.</span><span class="n">save_to_file</span><span class="p">(</span><span class="s2">&quot;strategies.json&quot;</span><span class="p">)</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="c1"># Writes `strategies.json` plus `strategies.embeddings.npz`</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="c1"># Load</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="n">skillbook</span> <span class="o">=</span> <span class="n">Skillbook</span><span class="o">.</span><span class="n">load_from_file</span><span class="p">(</span><span class="s2">&quot;strategies.json&quot;</span><span class="p">)</span>
 </code></pre></div>
 <h2 id="statistics">Statistics<a class="headerlink" href="#statistics" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">stats</span> <span class="o">=</span> <span class="n">skillbook</span><span class="o">.</span><span class="n">stats</span><span class="p">()</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="c1"># {&quot;sections&quot;: 3, &quot;skills&quot;: 15, &quot;tags&quot;: {&quot;helpful&quot;: 45, &quot;harmful&quot;: 5, &quot;neutral&quot;: 10}}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">stats</span> <span class="o">=</span> <span class="n">skillbook</span><span class="o">.</span><span class="n">stats</span><span class="p">()</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="c1"># {&quot;sections&quot;: 2, &quot;skills&quot;: 15, &quot;active_skills&quot;: 14, &quot;by_section&quot;: {&quot;context&quot;: 11, &quot;harness&quot;: 3}}</span>
 </code></pre></div>
 <h2 id="deduplication">Deduplication<a class="headerlink" href="#deduplication" title="Permanent link">&para;</a></h2>
 <p>As the skillbook grows, similar skills can accumulate. The <code>DeduplicationManager</code> detects and consolidates them using embedding similarity:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace</span><span class="w"> </span><span class="kn">import</span> <span class="n">DeduplicationConfig</span><span class="p">,</span> <span class="n">DeduplicationManager</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">config</span> <span class="o">=</span> <span class="n">DeduplicationConfig</span><span class="p">(</span>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="n">enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="n">embedding_model</span><span class="o">=</span><span class="s2">&quot;text-embedding-3-small&quot;</span><span class="p">,</span>
-<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="n">similarity_threshold</span><span class="o">=</span><span class="mf">0.85</span><span class="p">,</span>
-<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    <span class="n">within_section_only</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="p">)</span>
-<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="n">dedup</span> <span class="o">=</span> <span class="n">DeduplicationManager</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace</span><span class="w"> </span><span class="kn">import</span> <span class="n">DeduplicationConfig</span><span class="p">,</span> <span class="n">DeduplicationManager</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">config</span> <span class="o">=</span> <span class="n">DeduplicationConfig</span><span class="p">(</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="n">enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="n">embedding_model</span><span class="o">=</span><span class="s2">&quot;text-embedding-3-small&quot;</span><span class="p">,</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="n">similarity_threshold</span><span class="o">=</span><span class="mf">0.85</span><span class="p">,</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    <span class="n">within_section_only</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="p">)</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="n">dedup</span> <span class="o">=</span> <span class="n">DeduplicationManager</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
 </code></pre></div>
 <p>When used with a runner, deduplication runs automatically at a configurable interval:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">runner</span> <span class="o">=</span> <span class="n">ACE</span><span class="o">.</span><span class="n">from_roles</span><span class="p">(</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    <span class="o">...</span><span class="p">,</span>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="n">dedup_manager</span><span class="o">=</span><span class="n">dedup</span><span class="p">,</span>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="n">dedup_interval</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>  <span class="c1"># Every 10 samples</span>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">runner</span> <span class="o">=</span> <span class="n">ACE</span><span class="o">.</span><span class="n">from_roles</span><span class="p">(</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="o">...</span><span class="p">,</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="n">dedup_manager</span><span class="o">=</span><span class="n">dedup</span><span class="p">,</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="n">dedup_interval</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>  <span class="c1"># Every 10 samples</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="p">)</span>
 </code></pre></div>
 <h2 id="insight-source-tracing">Insight Source Tracing<a class="headerlink" href="#insight-source-tracing" title="Permanent link">&para;</a></h2>
 <p>Each skill tracks where it came from using structured provenance records.
@@ -2086,25 +2103,25 @@ structured enough, <code>trace_refs</code> can include <code>json_path</code>, <
 <code>message_indices</code>, and <code>span_ids</code>; otherwise ACE falls back to excerpt-only
 references.</p>
 <p>Typical source record:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="p">{</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">&quot;trace_uid&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;kayba-hosted:conv-123&quot;</span><span class="p">,</span>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span><span class="nt">&quot;source_system&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;kayba-hosted&quot;</span><span class="p">,</span>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">  </span><span class="nt">&quot;trace_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;conv-123&quot;</span><span class="p">,</span>
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">  </span><span class="nt">&quot;display_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;checkout-failure.md&quot;</span><span class="p">,</span>
-<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">  </span><span class="nt">&quot;epoch&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">  </span><span class="nt">&quot;step&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
-<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">  </span><span class="nt">&quot;learning_text&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Check for a next-page token before stopping&quot;</span><span class="p">,</span>
-<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">  </span><span class="nt">&quot;trace_refs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">    </span><span class="p">{</span>
-<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="w">      </span><span class="nt">&quot;text_excerpt&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;The API response included next_page_token.&quot;</span><span class="p">,</span>
-<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="w">      </span><span class="nt">&quot;excerpt_location&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;operation.evidence&quot;</span>
-<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a><span class="w">  </span><span class="p">]</span>
-<a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="p">{</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="nt">&quot;trace_uid&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;kayba-hosted:conv-123&quot;</span><span class="p">,</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">  </span><span class="nt">&quot;source_system&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;kayba-hosted&quot;</span><span class="p">,</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">  </span><span class="nt">&quot;trace_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;conv-123&quot;</span><span class="p">,</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">  </span><span class="nt">&quot;display_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;checkout-failure.md&quot;</span><span class="p">,</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">  </span><span class="nt">&quot;epoch&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">  </span><span class="nt">&quot;step&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">  </span><span class="nt">&quot;learning_text&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Check for a next-page token before stopping&quot;</span><span class="p">,</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">  </span><span class="nt">&quot;trace_refs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">      </span><span class="nt">&quot;text_excerpt&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;The API response included next_page_token.&quot;</span><span class="p">,</span>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="w">      </span><span class="nt">&quot;excerpt_location&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;operation.evidence&quot;</span>
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="w">  </span><span class="p">]</span>
+<a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a><span class="p">}</span>
 </code></pre></div>
 <p>Query provenance with:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">sources</span> <span class="o">=</span> <span class="n">skillbook</span><span class="o">.</span><span class="n">source_map</span><span class="p">()</span>     <span class="c1"># skill_id -&gt; source info</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="n">summary</span> <span class="o">=</span> <span class="n">skillbook</span><span class="o">.</span><span class="n">source_summary</span><span class="p">()</span> <span class="c1"># Aggregated statistics</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">sources</span> <span class="o">=</span> <span class="n">skillbook</span><span class="o">.</span><span class="n">source_map</span><span class="p">()</span>     <span class="c1"># skill_id -&gt; source info</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">summary</span> <span class="o">=</span> <span class="n">skillbook</span><span class="o">.</span><span class="n">source_summary</span><span class="p">()</span> <span class="c1"># Aggregated statistics</span>
 </code></pre></div>
 <h2 id="what-to-read-next">What to Read Next<a class="headerlink" href="#what-to-read-next" title="Permanent link">&para;</a></h2>
 <ul>

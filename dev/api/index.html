@@ -2721,14 +2721,9 @@ the trace.</p>
 <td>Main lesson learned</td>
 </tr>
 <tr>
-<td><code>extracted_learnings</code></td>
-<td><code>list[ExtractedLearning]</code></td>
-<td>Learnings with evidence and justification</td>
-</tr>
-<tr>
 <td><code>skill_tags</code></td>
 <td><code>list[SkillTag]</code></td>
-<td><code>(skill_id, tag)</code> pairs</td>
+<td><code>(skill_id, tag)</code> pairs — populated in online mode when agent cited skills</td>
 </tr>
 <tr>
 <td><code>raw</code></td>
@@ -2747,9 +2742,9 @@ the trace.</p>
 <a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>    <span class="n">skillbook</span><span class="o">=</span><span class="n">skillbook</span><span class="p">,</span>
 <a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>    <span class="n">question_context</span><span class="o">=</span><span class="s2">&quot;Math problems&quot;</span><span class="p">,</span>
 <a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>    <span class="n">progress</span><span class="o">=</span><span class="s2">&quot;3/5 correct&quot;</span><span class="p">,</span>
-<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="p">)</span>
-<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="c1"># Apply the updates</span>
-<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="n">skillbook</span><span class="o">.</span><span class="n">apply_update</span><span class="p">(</span><span class="n">sm_output</span><span class="o">.</span><span class="n">update</span><span class="p">)</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>    <span class="n">source</span><span class="o">=</span><span class="n">source</span><span class="p">,</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="p">)</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="c1"># skillbook has already been mutated in place</span>
 </code></pre></div>
 <p>Returns a <code>SkillManagerOutput</code> with an <code>.update</code> field (<code>UpdateBatch</code>) and <code>.raw</code> field.</p>
 <p>See <a href="../concepts/roles/">Roles</a> for full details.</p>
@@ -2768,8 +2763,8 @@ the trace.</p>
 </thead>
 <tbody>
 <tr>
-<td><code>add_skill(section, content, metadata=None)</code></td>
-<td>Add a strategy</td>
+<td><code>add_skill(section, issue=None, keywords=None, insight=None, content=None)</code></td>
+<td>Add a skill</td>
 </tr>
 <tr>
 <td><code>apply_update(update_batch)</code></td>
@@ -2777,19 +2772,19 @@ the trace.</p>
 </tr>
 <tr>
 <td><code>as_prompt()</code></td>
-<td>TOON format for LLM consumption</td>
+<td>Markdown format for LLM consumption</td>
 </tr>
 <tr>
 <td><code>save_to_file(path)</code></td>
-<td>Save to JSON</td>
+<td>Save JSON plus embeddings sidecar</td>
 </tr>
 <tr>
 <td><code>Skillbook.load_from_file(path)</code></td>
-<td>Load from JSON</td>
+<td>Load JSON plus embeddings sidecar if present</td>
 </tr>
 <tr>
 <td><code>stats()</code></td>
-<td>Section count, skill count, tag totals</td>
+<td>Section count, skill count, active skill totals</td>
 </tr>
 <tr>
 <td><code>skills()</code></td>
@@ -2823,12 +2818,14 @@ the trace.</p>
 <a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>
 <a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="n">op</span> <span class="o">=</span> <span class="n">UpdateOperation</span><span class="p">(</span>
 <a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>    <span class="nb">type</span><span class="o">=</span><span class="s2">&quot;ADD&quot;</span><span class="p">,</span>
-<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>    <span class="n">section</span><span class="o">=</span><span class="s2">&quot;Math&quot;</span><span class="p">,</span>
-<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>    <span class="n">content</span><span class="o">=</span><span class="s2">&quot;Break problems into smaller steps&quot;</span><span class="p">,</span>
-<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>    <span class="n">reflection_index</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
-<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>    <span class="n">reflection_indices</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
-<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>    <span class="n">skill_id</span><span class="o">=</span><span class="s2">&quot;math-00001&quot;</span><span class="p">,</span>
-<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="p">)</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>    <span class="n">section</span><span class="o">=</span><span class="s2">&quot;context&quot;</span><span class="p">,</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>    <span class="n">keywords</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;math&quot;</span><span class="p">,</span> <span class="s2">&quot;decomposition&quot;</span><span class="p">],</span>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>    <span class="n">issue</span><span class="o">=</span><span class="s2">&quot;Complex arithmetic questions are easier to solve when the work is decomposed into smaller verified steps.&quot;</span><span class="p">,</span>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>    <span class="n">insight</span><span class="o">=</span><span class="s2">&quot;Break problems into smaller steps before computing.&quot;</span><span class="p">,</span>
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>    <span class="n">reflection_index</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>    <span class="n">reflection_indices</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>    <span class="n">skill_id</span><span class="o">=</span><span class="s2">&quot;math-00001&quot;</span><span class="p">,</span>
+<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a><span class="p">)</span>
 </code></pre></div>
 <p>Operations: <code>ADD</code>, <code>UPDATE</code>, <code>TAG</code>, <code>REMOVE</code>. See <a href="../concepts/updates/">Update Operations</a>.</p>
 <h3 id="deduplicationconfig">DeduplicationConfig<a class="headerlink" href="#deduplicationconfig" title="Permanent link">&para;</a></h3>
@@ -2895,7 +2892,7 @@ the trace.</p>
 <a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>
 <a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="n">rr</span> <span class="o">=</span> <span class="n">RRStep</span><span class="p">(</span>
 <a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>    <span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">,</span>                          <span class="c1"># Model string</span>
-<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>    <span class="n">config</span><span class="o">=</span><span class="n">RRConfig</span><span class="p">(</span><span class="n">max_llm_calls</span><span class="o">=</span><span class="mi">10</span><span class="p">),</span>      <span class="c1"># Configuration</span>
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>    <span class="n">config</span><span class="o">=</span><span class="n">RRConfig</span><span class="p">(</span><span class="n">max_requests</span><span class="o">=</span><span class="mi">20</span><span class="p">),</span>       <span class="c1"># Configuration</span>
 <a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="p">)</span>
 <a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a>
 <a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a><span class="c1"># As drop-in reflector</span>
@@ -2915,24 +2912,24 @@ the trace.</p>
 </thead>
 <tbody>
 <tr>
-<td><code>max_iterations</code></td>
-<td><code>20</code></td>
-<td>Max REPL loop iterations</td>
-</tr>
-<tr>
 <td><code>timeout</code></td>
 <td><code>30.0</code></td>
 <td>Per-execution timeout in seconds (Unix only)</td>
 </tr>
 <tr>
-<td><code>max_llm_calls</code></td>
-<td><code>30</code></td>
-<td>Shared budget across main + sub-agent calls</td>
+<td><code>max_tokens</code></td>
+<td><code>500_000</code></td>
+<td>Total token budget (input + output) per agent run</td>
 </tr>
 <tr>
-<td><code>max_context_chars</code></td>
-<td><code>50_000</code></td>
-<td>Message history trim threshold</td>
+<td><code>max_requests</code></td>
+<td><code>50</code></td>
+<td>Safety cap on LLM requests per agent run</td>
+</tr>
+<tr>
+<td><code>context_window</code></td>
+<td><code>128_000</code></td>
+<td>Model context window; compaction triggers at 85%</td>
 </tr>
 <tr>
 <td><code>max_output_chars</code></td>
@@ -2940,39 +2937,29 @@ the trace.</p>
 <td>Per-execution output truncation limit</td>
 </tr>
 <tr>
-<td><code>enable_subagent</code></td>
-<td><code>True</code></td>
-<td>Enable <code>ask_llm()</code> in sandbox</td>
+<td><code>max_depth</code></td>
+<td><code>2</code></td>
+<td>Maximum recursion depth (0=root, max_depth=leaf)</td>
 </tr>
 <tr>
-<td><code>subagent_model</code></td>
-<td><code>None</code></td>
-<td>Sub-agent model (None = same as main)</td>
+<td><code>child_budget_fraction</code></td>
+<td><code>0.5</code></td>
+<td>Fraction of remaining token budget for child sessions</td>
 </tr>
 <tr>
-<td><code>subagent_max_tokens</code></td>
-<td><code>8192</code></td>
-<td>Max tokens for sub-agent responses</td>
+<td><code>max_compactions</code></td>
+<td><code>3</code></td>
+<td>Safety cap on full summarization rounds</td>
 </tr>
 <tr>
-<td><code>subagent_temperature</code></td>
-<td><code>0.3</code></td>
-<td>Sub-agent temperature</td>
-</tr>
-<tr>
-<td><code>subagent_system_prompt</code></td>
-<td><code>None</code></td>
-<td>Custom sub-agent system prompt</td>
-</tr>
-<tr>
-<td><code>enable_fallback_synthesis</code></td>
-<td><code>True</code></td>
-<td>Attempt LLM synthesis on timeout</td>
+<td><code>microcompact_keep_recent</code></td>
+<td><code>3</code></td>
+<td>Recent tool results to preserve during microcompaction</td>
 </tr>
 </tbody>
 </table>
 <h3 id="sandbox-functions">Sandbox Functions<a class="headerlink" href="#sandbox-functions" title="Permanent link">&para;</a></h3>
-<p>Available inside sandbox code generated by the LLM:</p>
+<p>Available inside <code>execute_code</code> tool calls:</p>
 <table>
 <thead>
 <tr>
@@ -2994,12 +2981,28 @@ the trace.</p>
 <td>Print available variables (debugging)</td>
 </tr>
 <tr>
-<td><code>ask_llm(question, context="", mode="analysis")</code></td>
-<td>Query sub-agent LLM</td>
+<td><code>register_helper(name, source, desc)</code></td>
+<td>Register a reusable helper function</td>
 </tr>
 <tr>
-<td><code>llm_query(prompt)</code></td>
-<td>Alias for <code>ask_llm(prompt, "")</code></td>
+<td><code>list_helpers()</code></td>
+<td>List registered helper names/descriptions</td>
+</tr>
+<tr>
+<td><code>run_helper(name, *args, **kwargs)</code></td>
+<td>Invoke a registered helper</td>
+</tr>
+<tr>
+<td><code>get_item_messages(item)</code></td>
+<td>Return message list for a batch item</td>
+</tr>
+<tr>
+<td><code>get_item_question(item)</code></td>
+<td>Return question string for a batch item</td>
+</tr>
+<tr>
+<td><code>get_message_text(msg)</code></td>
+<td>Safely render message content as text</td>
 </tr>
 </tbody>
 </table>

@@ -898,6 +898,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#skill-tagging" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Skill Tagging
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#how-updates-flow" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1927,6 +1938,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#skill-tagging" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Skill Tagging
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#how-updates-flow" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1983,21 +2005,21 @@
 <tr>
 <td><code>ADD</code></td>
 <td>Create a new skill</td>
-<td><code>section</code>, <code>content</code></td>
+<td><code>section</code>, <code>issue</code>, <code>keywords</code> (<code>insight</code> required for <code>context</code>)</td>
 </tr>
 <tr>
 <td><code>UPDATE</code></td>
-<td>Modify an existing skill's content</td>
-<td><code>skill_id</code>, <code>content</code></td>
+<td>Modify an existing skill</td>
+<td><code>skill_id</code>, <code>issue</code></td>
 </tr>
 <tr>
 <td><code>TAG</code></td>
-<td>Record a skill as helpful, harmful, or neutral</td>
-<td><code>skill_id</code>, <code>tag</code></td>
+<td>Record whether a skill helped, harmed, or was neutral</td>
+<td><code>skill_id</code>, <code>metadata.delta</code></td>
 </tr>
 <tr>
 <td><code>REMOVE</code></td>
-<td>Delete a skill from the skillbook</td>
+<td>Soft-remove a skill from the active skillbook</td>
 <td><code>skill_id</code></td>
 </tr>
 </tbody>
@@ -2007,44 +2029,57 @@
 <p>Adds a new strategy learned from experience:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">{</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ADD&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="nt">&quot;section&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Math Strategies&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">&quot;content&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Break complex problems into smaller steps before computing&quot;</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">}</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="nt">&quot;section&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;context&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">&quot;keywords&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;math&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;decomposition&quot;</span><span class="p">],</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nt">&quot;issue&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Complex arithmetic questions are easier to solve when the work is decomposed into smaller verified steps.&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span><span class="nt">&quot;insight&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Break complex problems into smaller steps before computing.&quot;</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">}</span>
 </code></pre></div>
 <h3 id="update">UPDATE<a class="headerlink" href="#update" title="Permanent link">&para;</a></h3>
 <p>Refines an existing strategy:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;UPDATE&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nt">&quot;skill_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;math-00001&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">&quot;content&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Break complex problems into smaller steps. Verify each step before proceeding.&quot;</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="p">}</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nt">&quot;skill_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;context-00001&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">&quot;section&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;context&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nt">&quot;keywords&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;math&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;verification&quot;</span><span class="p">],</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="nt">&quot;issue&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Complex arithmetic questions are easier to solve when the work is decomposed into smaller verified steps.&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="nt">&quot;insight&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Break complex problems into smaller steps and verify each step before proceeding.&quot;</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="p">}</span>
 </code></pre></div>
 <h3 id="tag">TAG<a class="headerlink" href="#tag" title="Permanent link">&para;</a></h3>
-<p>Records whether a strategy helped or hurt:</p>
+<p>Records whether a skill helped, harmed, or had no clear effect:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">{</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;TAG&quot;</span><span class="p">,</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">&quot;skill_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;math-00001&quot;</span><span class="p">,</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">&quot;tag&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;helpful&quot;</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="p">}</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">&quot;section&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;context&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">&quot;skill_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;context-00001&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span><span class="nt">&quot;metadata&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;delta&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">}</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="p">}</span>
 </code></pre></div>
-<p>Tags are one of: <code>helpful</code>, <code>harmful</code>, <code>neutral</code>.</p>
 <h3 id="remove">REMOVE<a class="headerlink" href="#remove" title="Permanent link">&para;</a></h3>
 <p>Prunes a strategy that is consistently harmful:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;REMOVE&quot;</span><span class="p">,</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nt">&quot;skill_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;math-00003&quot;</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="p">}</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nt">&quot;section&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;context&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">&quot;skill_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;context-00003&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span><span class="nt">&quot;reason&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;The guidance is stale and now causes wrong tool choices.&quot;</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="p">}</span>
 </code></pre></div>
 <h2 id="update-batches">Update Batches<a class="headerlink" href="#update-batches" title="Permanent link">&para;</a></h2>
 <p>The SkillManager emits operations as an <code>UpdateBatch</code> — one or more operations applied atomically:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace</span><span class="w"> </span><span class="kn">import</span> <span class="n">UpdateOperation</span><span class="p">,</span> <span class="n">UpdateBatch</span>
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">batch</span> <span class="o">=</span> <span class="n">UpdateBatch</span><span class="p">(</span><span class="n">operations</span><span class="o">=</span><span class="p">[</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">UpdateOperation</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">&quot;ADD&quot;</span><span class="p">,</span> <span class="n">section</span><span class="o">=</span><span class="s2">&quot;Debugging&quot;</span><span class="p">,</span> <span class="n">content</span><span class="o">=</span><span class="s2">&quot;Log inputs before errors&quot;</span><span class="p">),</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">UpdateOperation</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">&quot;TAG&quot;</span><span class="p">,</span> <span class="n">skill_id</span><span class="o">=</span><span class="s2">&quot;debug-00001&quot;</span><span class="p">,</span> <span class="n">tag</span><span class="o">=</span><span class="s2">&quot;helpful&quot;</span><span class="p">),</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="p">])</span>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="n">skillbook</span><span class="o">.</span><span class="n">apply_update</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">UpdateOperation</span><span class="p">(</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>        <span class="nb">type</span><span class="o">=</span><span class="s2">&quot;ADD&quot;</span><span class="p">,</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>        <span class="n">section</span><span class="o">=</span><span class="s2">&quot;context&quot;</span><span class="p">,</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>        <span class="n">keywords</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;debugging&quot;</span><span class="p">,</span> <span class="s2">&quot;logging&quot;</span><span class="p">],</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>        <span class="n">issue</span><span class="o">=</span><span class="s2">&quot;Input shape mismatches are hard to diagnose without request-level visibility.&quot;</span><span class="p">,</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>        <span class="n">insight</span><span class="o">=</span><span class="s2">&quot;Log the incoming payload before the failing transformation.&quot;</span><span class="p">,</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>    <span class="p">),</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>    <span class="n">UpdateOperation</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">&quot;REMOVE&quot;</span><span class="p">,</span> <span class="n">section</span><span class="o">=</span><span class="s2">&quot;context&quot;</span><span class="p">,</span> <span class="n">skill_id</span><span class="o">=</span><span class="s2">&quot;context-00003&quot;</span><span class="p">),</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="p">])</span>
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="n">skillbook</span><span class="o">.</span><span class="n">apply_update</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
 </code></pre></div>
 <p>In batch reflection mode, <code>ADD</code> and <code>UPDATE</code> operations may also include
 <code>reflection_index</code> to indicate which reflection in the input tuple primarily
@@ -2052,13 +2087,22 @@ produced the operation.</p>
 <p>When an operation is synthesized from multiple reflections, it may instead use
 <code>reflection_indices</code> to list all contributing reflections. This lets downstream
 provenance attach multiple trace sources to one learned skill.</p>
+<h2 id="skill-tagging">Skill Tagging<a class="headerlink" href="#skill-tagging" title="Permanent link">&para;</a></h2>
+<p>Skill effectiveness is recorded through <code>TAG</code> operations. The SkillManager decides
+whether each injected skill helped, harmed, or had no material effect, and encodes
+that as <code>metadata.delta</code>:</p>
+<ul>
+<li><code>1</code> → increment <code>helpful_count</code></li>
+<li><code>-1</code> → increment <code>harmful_count</code></li>
+<li><code>0</code> → increment <code>neutral_count</code></li>
+</ul>
 <h2 id="how-updates-flow">How Updates Flow<a class="headerlink" href="#how-updates-flow" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>Agent cites skill_ids --&gt; Reflector tags them --&gt; SkillManager emits ADD/UPDATE/REMOVE
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>Agent cites or injects skill_ids --&gt; Reflector analyzes outcome --&gt; SkillManager emits ADD/UPDATE/TAG/REMOVE
 </code></pre></div>
 <ol>
 <li>The <strong>Agent</strong> cites skill IDs it used in its reasoning</li>
-<li>The <strong>Reflector</strong> classifies each cited skill as helpful/harmful/neutral (TAG operations)</li>
-<li>The <strong>SkillManager</strong> may also ADD new strategies or UPDATE/REMOVE existing ones based on the reflection</li>
+<li>The <strong>Reflector</strong> produces the analysis that the SkillManager learns from</li>
+<li>The <strong>SkillManager</strong> uses that analysis to ADD, UPDATE, TAG, or REMOVE skills</li>
 </ol>
 <h2 id="what-to-read-next">What to Read Next<a class="headerlink" href="#what-to-read-next" title="Permanent link">&para;</a></h2>
 <ul>

@@ -2424,7 +2424,7 @@
     A["OpenClaw session ends"] --&gt; B["Transcript saved to&lt;br&gt;&lt;code&gt;~/.openclaw/agents/main/sessions/*.jsonl&lt;/code&gt;"]
     B --&gt; C["&lt;b&gt;ace-learn&lt;/b&gt;&lt;br&gt;session start or on-demand"]
     C --&gt; D["LoadTracesStep → OpenClawToTraceStep"]
-    D --&gt; E["&lt;b&gt;TraceAnalyser&lt;/b&gt;&lt;br&gt;Reflect → Tag → Update → Apply"]
+    D --&gt; E["&lt;b&gt;TraceAnalyser&lt;/b&gt;&lt;br&gt;Reflect → Update → Apply"]
     E --&gt; F["&lt;code&gt;ace_skillbook.json&lt;/code&gt;&lt;br&gt;machine-readable"]
     E --&gt; G["&lt;code&gt;ace_skillbook.md&lt;/code&gt;&lt;br&gt;human-readable"]
     G --&gt; H["AGENTS.md tells agent&lt;br&gt;to read skillbook"]
@@ -2434,7 +2434,7 @@
 <li><code>ace-learn</code> runs at the start of the next session (or on-demand)</li>
 <li><strong>LoadTracesStep</strong> reads JSONL files into raw event lists</li>
 <li><strong>OpenClawToTraceStep</strong> converts events into structured traces</li>
-<li><strong>TraceAnalyser</strong> runs the learning pipeline (Reflect → Tag → Update → Apply)</li>
+<li><strong>TraceAnalyser</strong> runs the learning pipeline (Reflect → Update → Apply)</li>
 <li>Updated skillbook is written to the workspace volume</li>
 <li>The agent reads <code>ace_skillbook.md</code> into its context and applies relevant strategies</li>
 </ol>
