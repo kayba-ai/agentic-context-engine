@@ -139,7 +139,7 @@ agent = ACELiteLLM.from_model("gemini-pro")
 
 # MiniMax
 agent = ACELiteLLM.from_model(
-    "openai/MiniMax-M2.7",
+    "openai/MiniMax-M3",
     base_url="https://api.minimax.io/v1",
     api_key=os.environ["MINIMAX_API_KEY"],
 )
@@ -157,10 +157,9 @@ agent = ACELiteLLM.from_model("gpt-4o-mini", base_url="https://your-endpoint.com
 
 | Model | Description |
 |-------|-------------|
-| `MiniMax-M2.7` | Latest flagship model with enhanced reasoning and coding |
+| `MiniMax-M3` | Latest flagship model with 512K context window, up to 128K output, and image input support (default) |
+| `MiniMax-M2.7` | Previous-generation flagship model with enhanced reasoning and coding |
 | `MiniMax-M2.7-highspeed` | High-speed version of M2.7 for low-latency scenarios |
-| `MiniMax-M2.5` | Peak performance with 204K context window |
-| `MiniMax-M2.5-highspeed` | Same performance, faster and more agile |
 
 ```bash
 export MINIMAX_API_KEY="your-minimax-api-key"
@@ -171,7 +170,7 @@ from ace_next import ACELiteLLM
 
 # Using MiniMax as the agent model
 agent = ACELiteLLM.from_model(
-    "openai/MiniMax-M2.7",
+    "openai/MiniMax-M3",
     base_url="https://api.minimax.io/v1",
 )
 

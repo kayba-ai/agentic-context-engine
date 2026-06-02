@@ -572,8 +572,7 @@ class LiteLLMClient:
             "mistral-7b",
             "mixtral-8x7b",
             # MiniMax (via OpenAI-compatible endpoint)
+            "openai/MiniMax-M3",
             "openai/MiniMax-M2.7",
             "openai/MiniMax-M2.7-highspeed",
-            "openai/MiniMax-M2.5",
-            "openai/MiniMax-M2.5-highspeed",
         ]
