@@ -103,7 +103,7 @@ Key fields:
 | `skillbook` | `SkillbookView \| None` | Read-only projection of the real Skillbook |
 | `trace` | `object \| None` | Raw execution record — any type, no enforced schema |
 | `agent_output` | `AgentOutput \| None` | Produced by `AgentStep` |
-| `reflections` | `tuple[ReflectorOutput, ...]` | Produced by `ReflectStep` / `RRStep` |
+| `reflections` | `tuple[ReflectorOutput, ...]` | Produced by `ReflectStep` / `ReflectionEnsembleStep` / `RRStep` |
 | `skill_manager_output` | `UpdateBatch \| None` | Produced by `UpdateStep` (audit log of mutations the SM already applied) |
 | `injected_skill_ids` | `tuple[str, ...]` | Produced by `AgentStep` — skill IDs rendered into the agent prompt; downstream attribution scope |
 | `epoch`, `total_epochs` | `int` | Runner bookkeeping |
@@ -112,7 +112,7 @@ Key fields:
 
 The `trace` field holds the raw execution record from any external system — a browser-use `AgentHistoryList`, a LangChain result dict, a Claude Code transcript, or any arbitrary Python object. The Reflector receives the raw trace and is responsible for making sense of it.
 
-The `reflections` field is a tuple. In single-trace mode, it's a 1-tuple. In batch mode, it holds one `ReflectorOutput` per trace. Downstream steps iterate uniformly — no special-casing.
+The `reflections` field is a tuple. In single-reflection mode, it's a 1-tuple. In ensemble mode, it holds multiple independent `ReflectorOutput` objects for the same trace. Downstream steps iterate uniformly — no special-casing.
 
 ### Context vs constructor injection
 
@@ -173,6 +173,7 @@ Reusable step implementations in `ace/steps/`. Each satisfies `StepProtocol[ACES
 | **AgentStep** | `sample`, `skillbook` | `agent_output` | None | 1 |
 | **EvaluateStep** | `sample`, `agent_output` | `trace` | None | 1 |
 | **ReflectStep** | `trace`, `skillbook` | `reflections` | None | 3; `async_boundary = True` |
+| **ReflectionEnsembleStep** | `trace`, `skillbook` | `reflections` | None | 1; internally fans out to `ReflectStep` workers |
 | **UpdateStep** | `reflections`, `skillbook` | `skill_manager_output` | Agentic SkillManager mutates skillbook directly via ADD / UPDATE / REMOVE / TAG tools; output is an audit log | 1 |
 | **DeduplicateStep** | `global_sample_index` | — | Consolidates similar skills | 1 |
 | **CheckpointStep** | `global_sample_index` | — | Saves skillbook to disk | 1 |

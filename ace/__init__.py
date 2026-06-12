@@ -53,6 +53,7 @@ if TYPE_CHECKING:
         ObservabilityStep,
         PersistStep,
         ReflectStep,
+        ReflectionEnsembleStep,
         UpdateStep,
         learning_tail,
     )
@@ -105,6 +106,7 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     "AgentStep": ("ace.steps", "AgentStep"),
     "EvaluateStep": ("ace.steps", "EvaluateStep"),
     "ReflectStep": ("ace.steps", "ReflectStep"),
+    "ReflectionEnsembleStep": ("ace.steps", "ReflectionEnsembleStep"),
     "UpdateStep": ("ace.steps", "UpdateStep"),
     "DeduplicateStep": ("ace.steps", "DeduplicateStep"),
     "CheckpointStep": ("ace.steps", "CheckpointStep"),
@@ -175,6 +177,7 @@ __all__ = [
     "AgentStep",
     "EvaluateStep",
     "ReflectStep",
+    "ReflectionEnsembleStep",
     "UpdateStep",
     "DeduplicateStep",
     "CheckpointStep",

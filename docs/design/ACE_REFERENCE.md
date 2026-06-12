@@ -23,7 +23,7 @@ from ace import ACERunner
 
 # Core steps
 from ace import (
-    AgentStep, EvaluateStep, ReflectStep, UpdateStep,
+    AgentStep, EvaluateStep, ReflectStep, ReflectionEnsembleStep, UpdateStep,
     DeduplicateStep, CheckpointStep, LoadTracesStep, ExportSkillbookMarkdownStep,
     ObservabilityStep, PersistStep, learning_tail,
 )
@@ -259,6 +259,35 @@ class ReflectStep:
         return ctx.replace(reflections=(reflection,))
 ```
 
+### ReflectionEnsembleStep
+
+Runs the same trace through a reflector multiple times and places all
+resulting `ReflectorOutput` objects on `ctx.reflections`. This is a
+map-reduce step: it expands one context into `ensemble_size` sub-contexts,
+runs the normal reflection step through the pipeline engine, waits for those
+reflections, and merges the outputs back onto the original context.
+
+```python
+class ReflectionEnsembleStep:
+    requires = frozenset({"trace", "skillbook"})
+    provides = frozenset({"reflections"})
+
+    async_boundary = True
+    max_workers = 1
+
+    def __init__(
+        self,
+        reflector: ReflectorLike | StepProtocol[ACEStepContext],
+        *,
+        ensemble_size: int = 2,
+        workers: int | None = None,
+    ) -> None: ...
+
+    def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
+        ...
+        return ctx.replace(reflections=(reflection_1, reflection_2, ...))
+```
+
 ### UpdateStep
 
 Runs the agentic `SkillManager`. The SM's tools mutate the real `Skillbook`
@@ -417,10 +446,20 @@ def learning_tail(
     dedup_interval: int = 10,
     checkpoint_dir: str | Path | None = None,
     checkpoint_interval: int = 10,
+    reflection_ensemble_size: int = 1,
+    reflection_ensemble_workers: int | None = None,
 ) -> list[StepProtocol[ACEStepContext]]:
     """Return the standard ACE learning steps."""
     steps: list[StepProtocol[ACEStepContext]] = [
-        ReflectStep(reflector),
+        (
+            ReflectStep(reflector)
+            if reflection_ensemble_size == 1
+            else ReflectionEnsembleStep(
+                reflector,
+                ensemble_size=reflection_ensemble_size,
+                workers=reflection_ensemble_workers,
+            )
+        ),
         UpdateStep(skill_manager, skillbook),
     ]
     if dedup_manager:
