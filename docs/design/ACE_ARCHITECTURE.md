@@ -173,7 +173,7 @@ Reusable step implementations in `ace/steps/`. Each satisfies `StepProtocol[ACES
 | **AgentStep** | `sample`, `skillbook` | `agent_output` | None | 1 |
 | **EvaluateStep** | `sample`, `agent_output` | `trace` | None | 1 |
 | **ReflectStep** | `trace`, `skillbook` | `reflections` | None | 3; `async_boundary = True` |
-| **ReflectionEnsembleStep** | `trace`, `skillbook` | `reflections` | None | 1; internally fans out to `ReflectStep` workers |
+| **ReflectionEnsembleStep** | `trace`, `skillbook` | `reflections` | None | 1; map-reduce fan-out to repeated `ReflectStep` workers |
 | **UpdateStep** | `reflections`, `skillbook` | `skill_manager_output` | Agentic SkillManager mutates skillbook directly via ADD / UPDATE / REMOVE / TAG tools; output is an audit log | 1 |
 | **DeduplicateStep** | `global_sample_index` | — | Consolidates similar skills | 1 |
 | **CheckpointStep** | `global_sample_index` | — | Saves skillbook to disk | 1 |
@@ -299,6 +299,8 @@ All runners provide a `from_roles` factory that takes pre-built role instances. 
 ### `learning_tail()` — reusable learning steps
 
 Every integration assembles the same `[Reflect → Update → Apply]` suffix. `learning_tail()` returns this standard step list, with optional dedup and checkpoint steps. If the provided reflector already exposes `provides = {'reflections'}` (e.g. `RRStep`), it's inserted directly instead of being wrapped in `ReflectStep`.
+
+When `reflection_ensemble_size > 1`, the tail uses `ReflectionEnsembleStep`: a specialized map-reduce step that runs repeated reflections over the same trace and concatenates them into one `ctx.reflections` tuple for a single `UpdateStep`. This complements the generic pipeline `Branch` primitive rather than replacing it; `Branch` is for peer child pipelines with general context merge strategies, while reflection ensembles need repeated writes to the same learning field to be collected, not conflict-resolved.
 
 ---
 

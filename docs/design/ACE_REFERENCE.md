@@ -267,6 +267,12 @@ map-reduce step: it expands one context into `ensemble_size` sub-contexts,
 runs the normal reflection step through the pipeline engine, waits for those
 reflections, and merges the outputs back onto the original context.
 
+This is deliberately separate from generic `Branch`. `Branch` runs peer child
+pipelines and merges their returned contexts with a general merge strategy;
+`ReflectionEnsembleStep` repeats the same reflection step and concatenates the
+resulting `reflections` tuples so one downstream `UpdateStep` can reason over
+the full ensemble.
+
 ```python
 class ReflectionEnsembleStep:
     requires = frozenset({"trace", "skillbook"})
@@ -468,6 +474,12 @@ def learning_tail(
         steps.append(CheckpointStep(checkpoint_dir, skillbook, interval=checkpoint_interval))
     return steps
 ```
+
+`reflection_ensemble_size` is the high-level API for repeated reflection over
+the same trace. Use generic `Branch` when branches perform different pipeline
+work or write disjoint fields; use `ReflectionEnsembleStep` / this helper when
+the goal is N independent reflector opinions followed by one SkillManager
+update.
 
 ### TraceAnalyser `from_roles`
 

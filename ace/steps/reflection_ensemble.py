@@ -21,6 +21,11 @@ class ReflectionEnsembleStep:
     reflection step through the pipeline engine, and the resulting
     ``ReflectorOutput`` objects are flattened back onto the original
     context as ``ctx.reflections``.
+
+    This intentionally sits above the generic ``Branch`` primitive. Branch is
+    for peer child pipelines whose contexts can be merged by a general merge
+    strategy; reflection ensembles need N repeated writes to ``reflections`` to
+    be concatenated and then consumed by one ``UpdateStep``.
     """
 
     requires = frozenset({"trace", "skillbook"})
