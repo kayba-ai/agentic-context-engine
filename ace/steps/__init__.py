@@ -23,6 +23,7 @@ from .load_traces import LoadTracesStep
 from .observability import ObservabilityStep
 from .persist import PersistStep
 from .reflect import ReflectStep
+from .reflection_ensemble import ReflectionEnsembleStep
 from .update import UpdateStep
 
 __all__ = [
@@ -35,12 +36,25 @@ __all__ = [
     "ObservabilityStep",
     "PersistStep",
     "ReflectStep",
+    "ReflectionEnsembleStep",
     "UpdateStep",
     "learning_tail",
 ]
 
 
-def _reflect_step(reflector: ReflectorLike) -> StepProtocol[ACEStepContext]:
+def _reflect_step(
+    reflector: ReflectorLike,
+    *,
+    reflection_ensemble_size: int = 1,
+    reflection_ensemble_workers: int | None = None,
+) -> StepProtocol[ACEStepContext]:
+    if reflection_ensemble_size != 1:
+        return ReflectionEnsembleStep(
+            reflector,
+            ensemble_size=reflection_ensemble_size,
+            workers=reflection_ensemble_workers,
+        )
+
     provides = getattr(reflector, "provides", ())
     if callable(reflector) and "reflections" in provides:
         return reflector  # type: ignore[return-value]
@@ -56,6 +70,8 @@ def learning_tail(
     dedup_interval: int = 10,
     checkpoint_dir: str | Path | None = None,
     checkpoint_interval: int = 10,
+    reflection_ensemble_size: int = 1,
+    reflection_ensemble_workers: int | None = None,
 ) -> list[StepProtocol[ACEStepContext]]:
     """Return the standard ACE learning steps.
 
@@ -71,11 +87,17 @@ def learning_tail(
     reflector itself when it already satisfies the step protocol and exposes
     ``provides = {'reflections'}``, followed by ``UpdateStep``. The agentic
     SkillManager mutates the skillbook directly through its tools, so no
-    ``ApplyStep`` follows. Optional ``DeduplicateStep`` and ``CheckpointStep``
-    are appended when configured.
+    ``ApplyStep`` follows. Set ``reflection_ensemble_size > 1`` to run the
+    same reflector multiple times on each trace and pass all resulting
+    reflections to one ``UpdateStep``. Optional ``DeduplicateStep`` and
+    ``CheckpointStep`` are appended when configured.
     """
     steps: list[StepProtocol[ACEStepContext]] = [
-        _reflect_step(reflector),
+        _reflect_step(
+            reflector,
+            reflection_ensemble_size=reflection_ensemble_size,
+            reflection_ensemble_workers=reflection_ensemble_workers,
+        ),
         UpdateStep(skill_manager, skillbook),
     ]
     if dedup_manager:

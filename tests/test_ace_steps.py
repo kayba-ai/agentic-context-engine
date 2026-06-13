@@ -9,6 +9,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from pipeline import Pipeline
+
 from ace.core.context import ACEStepContext, SkillbookView
 from ace.core.outputs import (
     AgentOutput,
@@ -18,6 +20,7 @@ from ace.core.outputs import (
 from ace.core.skillbook import Skillbook, UpdateBatch, UpdateOperation
 from ace.steps import learning_tail
 from ace.steps.reflect import ReflectStep
+from ace.steps.reflection_ensemble import ReflectionEnsembleStep
 from ace.steps.update import UpdateStep
 
 # ------------------------------------------------------------------ #
@@ -84,6 +87,19 @@ class MockSkillManager:
             }
         )
         return self.output
+
+
+class SequencedReflector(MockReflector):
+    """Mock reflector that returns a distinct reflection per call."""
+
+    def reflect(self, **kwargs: Any) -> ReflectorOutput:
+        call_number = len(self.calls) + 1
+        self.output = ReflectorOutput(
+            reasoning=f"reasoning {call_number}",
+            correct_approach="test approach",
+            key_insight=f"test insight {call_number}",
+        )
+        return super().reflect(**kwargs)
 
 
 # ------------------------------------------------------------------ #
@@ -171,6 +187,76 @@ class TestReflectStep:
         assert "reflections" in step.provides
         assert step.async_boundary is True
         assert step.max_workers == 3
+
+
+# ------------------------------------------------------------------ #
+# ReflectionEnsembleStep
+# ------------------------------------------------------------------ #
+
+
+class TestReflectionEnsembleStep:
+    def test_runs_same_trace_multiple_times(self):
+        reflector = SequencedReflector()
+        step = ReflectionEnsembleStep(reflector, ensemble_size=2, workers=2)
+        trace = {
+            "question": "What is 2+2?",
+            "answer": "4",
+            "reasoning": "simple math",
+            "ground_truth": "4",
+            "feedback": "Correct!",
+        }
+        sb = Skillbook()
+        ctx = ACEStepContext(trace=trace, skillbook=SkillbookView(sb))
+
+        result = step(ctx)
+
+        assert len(reflector.calls) == 2
+        assert len(result.reflections) == 2
+        assert [r.key_insight for r in result.reflections] == [
+            "test insight 1",
+            "test insight 2",
+        ]
+        assert {call["question"] for call in reflector.calls} == {"What is 2+2?"}
+        assert result.metadata["reflection_ensemble_size"] == 2
+        assert result.metadata["reflection_ensemble_completed"] == 2
+
+    def test_rejects_invalid_ensemble_size(self):
+        with pytest.raises(ValueError, match="ensemble_size must be >= 1"):
+            ReflectionEnsembleStep(MockReflector(), ensemble_size=0)
+
+    def test_learning_tail_passes_ensemble_to_one_update(self):
+        reflector = SequencedReflector()
+        sm = MockSkillManager()
+        sb = Skillbook()
+        steps = learning_tail(
+            reflector,
+            sm,
+            sb,
+            reflection_ensemble_size=2,
+            reflection_ensemble_workers=2,
+        )
+        assert isinstance(steps[0], ReflectionEnsembleStep)
+
+        trace = {
+            "question": "What is 2+2?",
+            "answer": "4",
+            "reasoning": "simple math",
+            "ground_truth": "4",
+            "feedback": "Correct!",
+        }
+        ctx = ACEStepContext(trace=trace, skillbook=SkillbookView(sb))
+        pipe = Pipeline(steps)
+
+        results = pipe.run([ctx])
+        pipe.wait_for_background()
+
+        assert results[0].error is None
+        assert len(reflector.calls) == 2
+        assert len(sm.calls) == 1
+        assert [r.key_insight for r in sm.calls[0]["reflections"]] == [
+            "test insight 1",
+            "test insight 2",
+        ]
 
 
 # ------------------------------------------------------------------ #
