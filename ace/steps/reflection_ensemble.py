@@ -26,6 +26,10 @@ class ReflectionEnsembleStep:
     for peer child pipelines whose contexts can be merged by a general merge
     strategy; reflection ensembles need N repeated writes to ``reflections`` to
     be concatenated and then consumed by one ``UpdateStep``.
+
+    It is also distinct from runner ``epochs``. Epochs replay samples or traces
+    as later passes after the skillbook has changed; an ensemble repeats only
+    reflection on the current trace before a single SkillManager update.
     """
 
     requires = frozenset({"trace", "skillbook"})

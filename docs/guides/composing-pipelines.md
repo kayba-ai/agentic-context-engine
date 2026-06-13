@@ -205,13 +205,16 @@ pipe = Pipeline([
 See the [Pipeline Engine docs](../pipeline/branching.md) for full branching
 and merge strategy details.
 
-!!! note "Reflection ensembles vs Branch"
+!!! note "Reflection ensembles vs Branch and epochs"
     Use `Branch` for parallel child pipelines that do different work or write
     disjoint fields. For N independent reflections over the same trace followed
     by one SkillManager update, use `learning_tail(...,
     reflection_ensemble_size=N)` instead. It is a specialized map-reduce step
     that collects repeated `reflections` outputs rather than asking a generic
-    branch merge strategy to resolve them.
+    branch merge strategy to resolve them. This is also different from
+    `epochs`, which replay samples or traces as later passes after the
+    skillbook has changed; ensemble reflection happens before the current
+    SkillManager update.
 
 ## Using RRStep (Recursive Reflector)
 

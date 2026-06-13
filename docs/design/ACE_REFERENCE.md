@@ -273,6 +273,11 @@ pipelines and merges their returned contexts with a general merge strategy;
 resulting `reflections` tuples so one downstream `UpdateStep` can reason over
 the full ensemble.
 
+It is also not the same as `epochs`. Epochs replay samples or traces as later
+passes after earlier updates have changed the skillbook. A reflection ensemble
+does not advance the runner loop; it repeats reflection on the current trace
+before one SkillManager update.
+
 ```python
 class ReflectionEnsembleStep:
     requires = frozenset({"trace", "skillbook"})
@@ -479,7 +484,8 @@ def learning_tail(
 the same trace. Use generic `Branch` when branches perform different pipeline
 work or write disjoint fields; use `ReflectionEnsembleStep` / this helper when
 the goal is N independent reflector opinions followed by one SkillManager
-update.
+update. Use runner `epochs` when you want additional passes over samples or
+traces after the skillbook has evolved.
 
 ### TraceAnalyser `from_roles`
 

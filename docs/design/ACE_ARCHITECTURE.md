@@ -300,7 +300,7 @@ All runners provide a `from_roles` factory that takes pre-built role instances. 
 
 Every integration assembles the same `[Reflect → Update → Apply]` suffix. `learning_tail()` returns this standard step list, with optional dedup and checkpoint steps. If the provided reflector already exposes `provides = {'reflections'}` (e.g. `RRStep`), it's inserted directly instead of being wrapped in `ReflectStep`.
 
-When `reflection_ensemble_size > 1`, the tail uses `ReflectionEnsembleStep`: a specialized map-reduce step that runs repeated reflections over the same trace and concatenates them into one `ctx.reflections` tuple for a single `UpdateStep`. This complements the generic pipeline `Branch` primitive rather than replacing it; `Branch` is for peer child pipelines with general context merge strategies, while reflection ensembles need repeated writes to the same learning field to be collected, not conflict-resolved.
+When `reflection_ensemble_size > 1`, the tail uses `ReflectionEnsembleStep`: a specialized map-reduce step that runs repeated reflections over the same trace and concatenates them into one `ctx.reflections` tuple for a single `UpdateStep`. This complements the generic pipeline `Branch` primitive rather than replacing it; `Branch` is for peer child pipelines with general context merge strategies, while reflection ensembles need repeated writes to the same learning field to be collected, not conflict-resolved. It is also distinct from runner `epochs`: epochs replay samples or traces as later passes after the skillbook has changed, while an ensemble repeats only the reflection step on the current trace before one SkillManager update.
 
 ---
 
