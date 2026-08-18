@@ -136,9 +136,21 @@ agent = ACELiteLLM.from_model("gemini-pro")
 # Local (Ollama)
 agent = ACELiteLLM.from_model("ollama/llama2")
 
-# Custom endpoint
-agent = ACELiteLLM.from_model("gpt-4o-mini", base_url="https://your-endpoint.com")
+# Custom endpoint (self-hosted, proxy, or any OpenAI-compatible API)
+agent = ACELiteLLM.from_model(
+    "openai/my-custom-model",
+    base_url="https://your-endpoint.com/v1",
+    api_key="your-key",  # or set OPENAI_API_KEY
+)
 ```
+
+`base_url` and `api_key` are forwarded straight to LiteLLM, so any provider or
+self-hosted server LiteLLM can reach — a local vLLM/TGI server, a corporate
+LLM gateway, an OpenAI-compatible proxy — works the same way. Prefix the model
+with the provider LiteLLM should use to talk to that endpoint (e.g. `openai/`
+for an OpenAI-compatible API); see the
+[LiteLLM providers docs](https://docs.litellm.ai/docs/providers) for the full
+list of prefixes.
 
 ## Opik Observability
 

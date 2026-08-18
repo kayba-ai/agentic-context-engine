@@ -163,6 +163,88 @@ runner = ACERunner(pipeline=Pipeline(steps), skillbook=skillbook)
 
 See [Pipeline Engine: Building Custom Steps](../pipeline/custom-steps.md) for the Step protocol.
 
+### Example: Wrapping Another CLI Coding Agent
+
+If your coding agent runs as a CLI tool (e.g. [kilocode](https://github.com/Kilo-Org/kilocode), aider, or an internal tool) rather than Claude Code, follow the same shape as `ClaudeCodeExecuteStep` (`ace/integrations/claude_code.py`): an execute step that shells out to the CLI and writes the result to `ctx.trace`, plus a to-trace step that converts it to the standardised trace dict.
+
+```python
+import subprocess
+from dataclasses import dataclass
+from ace.core.context import ACEStepContext
+from ace.implementations.prompts import wrap_skillbook_for_external_agent
+
+
+@dataclass
+class MyCliResult:
+    task: str
+    success: bool
+    output: str = ""
+    error: str | None = None
+
+
+class MyCliExecuteStep:
+    """INJECT skillbook context and EXECUTE via your CLI agent."""
+
+    requires = frozenset({"sample", "skillbook"})
+    provides = frozenset({"trace"})
+
+    def __init__(self, working_dir: str, timeout: int = 600) -> None:
+        self.working_dir = working_dir
+        self.timeout = timeout
+
+    def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
+        task = ctx.sample
+        context = wrap_skillbook_for_external_agent(ctx.skillbook)
+        prompt = f"{task}\n\n{context}" if context else task
+
+        result = subprocess.run(
+            ["kilocode", "run", "--prompt", prompt],  # replace with your CLI's actual invocation
+            cwd=self.working_dir,
+            capture_output=True,
+            text=True,
+            timeout=self.timeout,
+        )
+        return ctx.replace(
+            trace=MyCliResult(
+                task=task,
+                success=result.returncode == 0,
+                output=result.stdout,
+                error=result.stderr[:500] if result.returncode != 0 else None,
+            )
+        )
+
+
+class MyCliToTrace:
+    requires = frozenset({"trace"})
+    provides = frozenset({"trace"})
+
+    def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
+        r: MyCliResult = ctx.trace
+        return ctx.replace(
+            trace={
+                "question": r.task,
+                "reasoning": r.output,
+                "answer": r.output,
+                "skill_ids": [],
+                "feedback": "succeeded" if r.success else f"failed: {r.error}",
+                "ground_truth": None,
+            }
+        )
+```
+
+Compose it like any other custom integration:
+
+```python
+steps = [
+    MyCliExecuteStep(working_dir="./my_project"),
+    MyCliToTrace(),
+    *learning_tail(Reflector("gpt-4o-mini"), SkillManager("gpt-4o-mini"), skillbook),
+]
+runner = ACERunner(pipeline=Pipeline(steps), skillbook=skillbook)
+```
+
+The CLI invocation and output parsing are specific to your tool — check its docs for the equivalent of `--print`/`--output-format` flags.
+
 ## What to Read Next
 
 - [LiteLLM Integration](../integrations/litellm.md) — simplest self-improving agent
