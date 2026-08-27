@@ -54,6 +54,7 @@ Use when wrapping external agents where you don't have labeled answers.
 
 ```python
 from ace import BrowserUse
+from browser_use import ChatOpenAI
 
 # The browser-use agent produces a rich trace of actions
 runner = BrowserUse.from_model(
