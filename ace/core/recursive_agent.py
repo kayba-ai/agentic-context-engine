@@ -233,6 +233,17 @@ def register_recurse(agent: PydanticAgent[AgenticDeps, Any]) -> None:
             }
         )
 
+        # Mutable state in dependency dataclasses must not be shared by
+        # sibling sessions.  In particular, SkillManager dependencies carry
+        # a Skillbook (which owns a thread lock) and an audit list.  Clone the
+        # serializable Skillbook representation instead of deepcopying it so
+        # the lock is recreated for the child.
+        skillbook = getattr(deps, "skillbook", None)
+        if skillbook is not None and hasattr(skillbook, "dumps"):
+            child_deps.skillbook = skillbook.__class__.loads(skillbook.dumps())
+        if hasattr(child_deps, "operations"):
+            child_deps.operations = []
+
         try:
             output, _ = await deps.run_session_fn(
                 deps=child_deps,
