@@ -982,7 +982,7 @@ results = ace.run(samples, epochs=3)
 
 ```python
 from ace import BrowserUse, Reflector, SkillManager
-from langchain_openai import ChatOpenAI
+from browser_use import ChatOpenAI
 
 browser_llm = ChatOpenAI(model="gpt-4o")
 

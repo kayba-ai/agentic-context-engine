@@ -12,7 +12,7 @@ uv add ace-framework[browser-use]
 
 ```python
 from ace import BrowserUse
-from langchain_openai import ChatOpenAI
+from browser_use import ChatOpenAI
 
 runner = BrowserUse.from_model(
     browser_llm=ChatOpenAI(model="gpt-4o"),
@@ -84,7 +84,7 @@ results = runner.run([
 
 ```python
 from ace import BrowserUse
-from langchain_openai import ChatOpenAI
+from browser_use import ChatOpenAI
 
 runner = BrowserUse.from_model(
     browser_llm=ChatOpenAI(model="gpt-4o"),

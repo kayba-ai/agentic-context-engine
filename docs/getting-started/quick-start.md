@@ -59,7 +59,7 @@ agent = ACELiteLLM.from_model("gpt-4o-mini")
 
     ```python
     from ace import BrowserUse
-    from langchain_openai import ChatOpenAI
+    from browser_use import ChatOpenAI
 
     runner = BrowserUse.from_model(
         browser_llm=ChatOpenAI(model="gpt-4o"),

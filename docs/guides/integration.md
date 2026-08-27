@@ -25,7 +25,7 @@ ACE provides runners for popular frameworks. Each uses `from_model()` for quick 
 
     ```python
     from ace import BrowserUse
-    from langchain_openai import ChatOpenAI
+    from browser_use import ChatOpenAI
 
     runner = BrowserUse.from_model(
         browser_llm=ChatOpenAI(model="gpt-4o"),

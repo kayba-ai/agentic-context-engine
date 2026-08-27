@@ -39,6 +39,8 @@ class BrowserUse(ACERunner):
 
     Example::
 
+        from browser_use import ChatOpenAI
+
         runner = BrowserUse.from_model(
             browser_llm=ChatOpenAI(model="gpt-4o"),
             ace_model="gpt-4o-mini",
