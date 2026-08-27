@@ -19,13 +19,13 @@
       
       
       <link rel="icon" href="../../assets/Kayba_logo_rounded.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
 <title>ACE Documentation</title>
 
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -2158,8 +2158,8 @@
 <h2 id="step">Step<a class="headerlink" href="#step" title="Permanent link">&para;</a></h2>
 <p>A <code>Step</code> is the smallest unit of work. It receives a <code>StepContext</code>, does one focused thing, and returns the context.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyStep</span><span class="p">:</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">requires</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;agent_output&quot;</span><span class="p">}</span>   <span class="c1"># fields it reads</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">provides</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;reflections&quot;</span><span class="p">}</span>    <span class="c1"># fields it writes</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">requires</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"agent_output"</span><span class="p">}</span>   <span class="c1"># fields it reads</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">provides</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"reflections"</span><span class="p">}</span>    <span class="c1"># fields it writes</span>
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">StepContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StepContext</span><span class="p">:</span>
 <a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>        <span class="o">...</span>
@@ -2173,7 +2173,7 @@
 <p>For static type checking, the framework exposes a generic <code>typing.Protocol</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Protocol</span><span class="p">,</span> <span class="n">TypeVar</span><span class="p">,</span> <span class="n">runtime_checkable</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">Ctx</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;Ctx&quot;</span><span class="p">,</span> <span class="n">bound</span><span class="o">=</span><span class="n">StepContext</span><span class="p">)</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">Ctx</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">"Ctx"</span><span class="p">,</span> <span class="n">bound</span><span class="o">=</span><span class="n">StepContext</span><span class="p">)</span>
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
 <a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="nd">@runtime_checkable</span>
 <a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="k">class</span><span class="w"> </span><span class="nc">StepProtocol</span><span class="p">(</span><span class="n">Protocol</span><span class="p">[</span><span class="n">Ctx</span><span class="p">]):</span>
@@ -2197,9 +2197,9 @@
 <a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>        <span class="c1"># Ensures mutation is a hard runtime error even if caller passes a plain dict</span>
 <a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span> <span class="n">MappingProxyType</span><span class="p">):</span>
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>            <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;metadata&quot;</span><span class="p">,</span> <span class="n">MappingProxyType</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">))</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>            <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"metadata"</span><span class="p">,</span> <span class="n">MappingProxyType</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">))</span>
 <a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>
-<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">replace</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">changes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;StepContext&quot;</span><span class="p">:</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">replace</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">changes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"StepContext"</span><span class="p">:</span>
 <a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>        <span class="k">return</span> <span class="n">dataclasses</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">changes</span><span class="p">)</span>
 </code></pre></div>
 <p>The engine never reads anything beyond <code>sample</code> and <code>metadata</code>. All domain-specific fields are added by subclassing.</p>
@@ -2227,7 +2227,7 @@
 <p>Data that is specific to a single integration or step goes in <code>metadata</code> to prevent field accumulation on the subclass. For example, <code>metadata["browser_history"]</code> for browser-use or <code>metadata["transcript_path"]</code> for Claude Code.</p>
 <h4 id="immutable-update-patterns">Immutable update patterns<a class="headerlink" href="#immutable-update-patterns" title="Permanent link">&para;</a></h4>
 <p>Updating metadata follows the same immutable pattern as any other field:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">return</span> <span class="n">ctx</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="n">MappingProxyType</span><span class="p">({</span><span class="o">**</span><span class="n">ctx</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span> <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">value</span><span class="p">}))</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">return</span> <span class="n">ctx</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="n">MappingProxyType</span><span class="p">({</span><span class="o">**</span><span class="n">ctx</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span> <span class="s2">"key"</span><span class="p">:</span> <span class="n">value</span><span class="p">}))</span>
 </code></pre></div>
 <p>Steps follow this pattern:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">StepContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StepContext</span><span class="p">:</span>
@@ -2260,7 +2260,7 @@
 <h3 id="inner-pipeline-as-a-fan-out-step">Inner pipeline as a fan-out step<a class="headerlink" href="#inner-pipeline-as-a-fan-out-step" title="Permanent link">&para;</a></h3>
 <p>A <code>Pipeline</code>-as-<code>Step</code> receives one context and must return one context — but nothing prevents it from internally expanding to multiple sub-inputs. This is the <strong>map-reduce step</strong> pattern:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">MultiSearchStep</span><span class="p">:</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Generates N queries from one context, runs them in parallel, merges.&quot;&quot;&quot;</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">    </span><span class="sd">"""Generates N queries from one context, runs them in parallel, merges."""</span>
 <a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">StepContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StepContext</span><span class="p">:</span>
 <a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>        <span class="n">queries</span> <span class="o">=</span> <span class="n">generate_queries</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">sample</span><span class="p">)</span>                          <span class="c1"># 1 → N</span>
 <a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>        <span class="n">sub_ctxs</span> <span class="o">=</span> <span class="p">[</span><span class="n">StepContext</span><span class="p">(</span><span class="n">sample</span><span class="o">=</span><span class="n">q</span><span class="p">)</span> <span class="k">for</span> <span class="n">q</span> <span class="ow">in</span> <span class="n">queries</span><span class="p">]</span>
@@ -2628,16 +2628,16 @@ Controlled by <code>max_workers</code> on the step. Each step class has a single
 </ul>
 <h3 id="example-progress-streaming-for-a-web-app">Example: progress streaming for a web app<a class="headerlink" href="#example-progress-streaming-for-a-web-app" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">ProgressHook</span><span class="p">:</span>
-<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Pushes step events to an async queue for SSE streaming.&quot;&quot;&quot;</span>
+<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a><span class="w">    </span><span class="sd">"""Pushes step events to an async queue for SSE streaming."""</span>
 <a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a>
 <a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">queue</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">Queue</span><span class="p">):</span>
 <a id="__codelineno-28-5" name="__codelineno-28-5" href="#__codelineno-28-5"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_queue</span> <span class="o">=</span> <span class="n">queue</span>
 <a id="__codelineno-28-6" name="__codelineno-28-6" href="#__codelineno-28-6"></a>
 <a id="__codelineno-28-7" name="__codelineno-28-7" href="#__codelineno-28-7"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">before_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">step_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">StepContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-28-8" name="__codelineno-28-8" href="#__codelineno-28-8"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_queue</span><span class="o">.</span><span class="n">put_nowait</span><span class="p">({</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;step_started&quot;</span><span class="p">,</span> <span class="s2">&quot;step&quot;</span><span class="p">:</span> <span class="n">step_name</span><span class="p">})</span>
+<a id="__codelineno-28-8" name="__codelineno-28-8" href="#__codelineno-28-8"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_queue</span><span class="o">.</span><span class="n">put_nowait</span><span class="p">({</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"step_started"</span><span class="p">,</span> <span class="s2">"step"</span><span class="p">:</span> <span class="n">step_name</span><span class="p">})</span>
 <a id="__codelineno-28-9" name="__codelineno-28-9" href="#__codelineno-28-9"></a>
 <a id="__codelineno-28-10" name="__codelineno-28-10" href="#__codelineno-28-10"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">after_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">step_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">StepContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-28-11" name="__codelineno-28-11" href="#__codelineno-28-11"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_queue</span><span class="o">.</span><span class="n">put_nowait</span><span class="p">({</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;step_done&quot;</span><span class="p">,</span> <span class="s2">&quot;step&quot;</span><span class="p">:</span> <span class="n">step_name</span><span class="p">})</span>
+<a id="__codelineno-28-11" name="__codelineno-28-11" href="#__codelineno-28-11"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_queue</span><span class="o">.</span><span class="n">put_nowait</span><span class="p">({</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"step_done"</span><span class="p">,</span> <span class="s2">"step"</span><span class="p">:</span> <span class="n">step_name</span><span class="p">})</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="c1"># Web endpoint wiring (not part of pipeline/)</span>
 <a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a><span class="n">queue</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">Queue</span><span class="p">()</span>
@@ -2651,13 +2651,13 @@ Controlled by <code>max_workers</code> on the step. Each step class has a single
 <p><code>cancel_token</code> lets a caller stop a running pipeline between steps. The motivating use case is a web app where the user clicks "Stop" and the server needs to halt processing without waiting for the remaining steps or samples to complete.</p>
 <h3 id="cancellationtoken">CancellationToken<a class="headerlink" href="#cancellationtoken" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">CancellationToken</span><span class="p">:</span>
-<a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Thread-safe cancellation signal.&quot;&quot;&quot;</span>
+<a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a><span class="w">    </span><span class="sd">"""Thread-safe cancellation signal."""</span>
 <a id="__codelineno-30-3" name="__codelineno-30-3" href="#__codelineno-30-3"></a>
 <a id="__codelineno-30-4" name="__codelineno-30-4" href="#__codelineno-30-4"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <a id="__codelineno-30-5" name="__codelineno-30-5" href="#__codelineno-30-5"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_cancelled</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Event</span><span class="p">()</span>
 <a id="__codelineno-30-6" name="__codelineno-30-6" href="#__codelineno-30-6"></a>
 <a id="__codelineno-30-7" name="__codelineno-30-7" href="#__codelineno-30-7"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">cancel</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-30-8" name="__codelineno-30-8" href="#__codelineno-30-8"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Signal cancellation. Thread-safe, idempotent.&quot;&quot;&quot;</span>
+<a id="__codelineno-30-8" name="__codelineno-30-8" href="#__codelineno-30-8"></a><span class="w">        </span><span class="sd">"""Signal cancellation. Thread-safe, idempotent."""</span>
 <a id="__codelineno-30-9" name="__codelineno-30-9" href="#__codelineno-30-9"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_cancelled</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
 <a id="__codelineno-30-10" name="__codelineno-30-10" href="#__codelineno-30-10"></a>
 <a id="__codelineno-30-11" name="__codelineno-30-11" href="#__codelineno-30-11"></a>    <span class="nd">@property</span>
@@ -2688,7 +2688,7 @@ Controlled by <code>max_workers</code> on the step. Each step class has a single
 <div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">contextvars</span><span class="w"> </span><span class="kn">import</span> <span class="n">ContextVar</span>
 <a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a>
 <a id="__codelineno-33-3" name="__codelineno-33-3" href="#__codelineno-33-3"></a><span class="n">cancel_token_var</span><span class="p">:</span> <span class="n">ContextVar</span><span class="p">[</span><span class="n">CancellationToken</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="n">ContextVar</span><span class="p">(</span>
-<a id="__codelineno-33-4" name="__codelineno-33-4" href="#__codelineno-33-4"></a>    <span class="s2">&quot;cancel_token_var&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span>
+<a id="__codelineno-33-4" name="__codelineno-33-4" href="#__codelineno-33-4"></a>    <span class="s2">"cancel_token_var"</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span>
 <a id="__codelineno-33-5" name="__codelineno-33-5" href="#__codelineno-33-5"></a><span class="p">)</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a><span class="c1"># Inside Pipeline.run_async()</span>
@@ -2702,7 +2702,7 @@ Controlled by <code>max_workers</code> on the step. Each step class has a single
 <div class="highlight"><pre><span></span><code><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a><span class="c1"># Inside LLM client code or any code inside a step — no parameter changes</span>
 <a id="__codelineno-35-2" name="__codelineno-35-2" href="#__codelineno-35-2"></a><span class="n">token</span> <span class="o">=</span> <span class="n">cancel_token_var</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
 <a id="__codelineno-35-3" name="__codelineno-35-3" href="#__codelineno-35-3"></a><span class="k">if</span> <span class="n">token</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">token</span><span class="o">.</span><span class="n">is_cancelled</span><span class="p">:</span>
-<a id="__codelineno-35-4" name="__codelineno-35-4" href="#__codelineno-35-4"></a>    <span class="k">raise</span> <span class="n">PipelineCancelled</span><span class="p">(</span><span class="s2">&quot;Cancelled during LLM call&quot;</span><span class="p">)</span>
+<a id="__codelineno-35-4" name="__codelineno-35-4" href="#__codelineno-35-4"></a>    <span class="k">raise</span> <span class="n">PipelineCancelled</span><span class="p">(</span><span class="s2">"Cancelled during LLM call"</span><span class="p">)</span>
 </code></pre></div>
 <p><code>asyncio.to_thread()</code> (used by the pipeline for sync steps) automatically copies context variables to the worker thread, so the token is visible in sync steps too.</p>
 <p><strong>Why a contextvar and not a parameter:</strong>  The call chain from pipeline to LLM client crosses four layers (pipeline → step → role → client).  Threading a parameter through every layer would require changing every method signature in between — steps and roles that have no business knowing about cancellation.  A contextvar is the standard Python mechanism for request-scoped data that crosses layers without explicit plumbing.</p>
@@ -2714,12 +2714,12 @@ Controlled by <code>max_workers</code> on the step. Each step class has a single
 </ul>
 <h3 id="pipelinecancelled">PipelineCancelled<a class="headerlink" href="#pipelinecancelled" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">PipelineCancelled</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
-<a id="__codelineno-36-2" name="__codelineno-36-2" href="#__codelineno-36-2"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Raised (internally) when a cancel_token is triggered between steps.</span>
+<a id="__codelineno-36-2" name="__codelineno-36-2" href="#__codelineno-36-2"></a><span class="w">    </span><span class="sd">"""Raised (internally) when a cancel_token is triggered between steps.</span>
 <a id="__codelineno-36-3" name="__codelineno-36-3" href="#__codelineno-36-3"></a>
 <a id="__codelineno-36-4" name="__codelineno-36-4" href="#__codelineno-36-4"></a><span class="sd">    Surfaces in ``SampleResult.error`` — never propagated to the caller</span>
 <a id="__codelineno-36-5" name="__codelineno-36-5" href="#__codelineno-36-5"></a><span class="sd">    of ``run()`` / ``run_async()``.  Callers check for this type to</span>
 <a id="__codelineno-36-6" name="__codelineno-36-6" href="#__codelineno-36-6"></a><span class="sd">    distinguish cancellation from step failures.</span>
-<a id="__codelineno-36-7" name="__codelineno-36-7" href="#__codelineno-36-7"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-36-7" name="__codelineno-36-7" href="#__codelineno-36-7"></a><span class="sd">    """</span>
 </code></pre></div>
 <p><code>PipelineCancelled</code> follows the same error-handling pattern as step exceptions: it is caught per-sample and recorded in <code>SampleResult</code>, not propagated. The runner continues to the next sample (which will also be cancelled if the token is still set). This means <code>run()</code> always returns a complete list of <code>SampleResult</code> — some successful, some failed, some cancelled.</p>
 <h3 id="example-web-app-cancel-endpoint">Example: web app cancel endpoint<a class="headerlink" href="#example-web-app-cancel-endpoint" title="Permanent link">&para;</a></h3>
@@ -2729,10 +2729,10 @@ Controlled by <code>max_workers</code> on the step. Each step class has a single
 <a id="__codelineno-37-4" name="__codelineno-37-4" href="#__codelineno-37-4"></a><span class="n">task</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">create_task</span><span class="p">(</span><span class="n">pipe</span><span class="o">.</span><span class="n">run_async</span><span class="p">(</span><span class="n">contexts</span><span class="p">,</span> <span class="n">cancel_token</span><span class="o">=</span><span class="n">token</span><span class="p">))</span>
 <a id="__codelineno-37-5" name="__codelineno-37-5" href="#__codelineno-37-5"></a>
 <a id="__codelineno-37-6" name="__codelineno-37-6" href="#__codelineno-37-6"></a><span class="c1"># Cancel endpoint</span>
-<a id="__codelineno-37-7" name="__codelineno-37-7" href="#__codelineno-37-7"></a><span class="nd">@app</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">&quot;/runs/</span><span class="si">{run_id}</span><span class="s2">/cancel&quot;</span><span class="p">)</span>
+<a id="__codelineno-37-7" name="__codelineno-37-7" href="#__codelineno-37-7"></a><span class="nd">@app</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">"/runs/</span><span class="si">{run_id}</span><span class="s2">/cancel"</span><span class="p">)</span>
 <a id="__codelineno-37-8" name="__codelineno-37-8" href="#__codelineno-37-8"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">cancel_run</span><span class="p">(</span><span class="n">run_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
 <a id="__codelineno-37-9" name="__codelineno-37-9" href="#__codelineno-37-9"></a>    <span class="n">active_runs</span><span class="p">[</span><span class="n">run_id</span><span class="p">]</span><span class="o">.</span><span class="n">cancel</span><span class="p">()</span>
-<a id="__codelineno-37-10" name="__codelineno-37-10" href="#__codelineno-37-10"></a>    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="s2">&quot;cancelling&quot;</span><span class="p">}</span>
+<a id="__codelineno-37-10" name="__codelineno-37-10" href="#__codelineno-37-10"></a>    <span class="k">return</span> <span class="p">{</span><span class="s2">"status"</span><span class="p">:</span> <span class="s2">"cancelling"</span><span class="p">}</span>
 </code></pre></div>
 <hr />
 <h2 id="summary-table">Summary Table<a class="headerlink" href="#summary-table" title="Permanent link">&para;</a></h2>
@@ -2878,7 +2878,7 @@ Three alternatives to the observation-only <code>PipelineHook</code> + separate 
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.highlight", "search.share", "content.code.copy", "content.tabs.link"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>

@@ -23,13 +23,13 @@
       
       
       <link rel="icon" href="../../assets/Kayba_logo_rounded.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
 <title>ACE Documentation</title>
 
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -2095,13 +2095,13 @@
 <h2 id="quick-start">Quick Start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace</span><span class="w"> </span><span class="kn">import</span> <span class="n">ACELiteLLM</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span><span class="s2">"gpt-4o-mini"</span><span class="p">)</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="c1"># Ask questions — learns patterns across them</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">answer</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">ask</span><span class="p">(</span><span class="s2">&quot;If all cats are animals, is Felix (a cat) an animal?&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">answer</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">ask</span><span class="p">(</span><span class="s2">"If all cats are animals, is Felix (a cat) an animal?"</span><span class="p">)</span>
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="c1"># Save and reload</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">agent</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;learned.json&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">agent</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">"learned.json"</span><span class="p">)</span>
 </code></pre></div>
 <h2 id="parameters">Parameters<a class="headerlink" href="#parameters" title="Permanent link">&para;</a></h2>
 <h3 id="from_model">from_model()<a class="headerlink" href="#from_model" title="Permanent link">&para;</a></h3>
@@ -2192,29 +2192,29 @@
 <h2 id="methods">Methods<a class="headerlink" href="#methods" title="Permanent link">&para;</a></h2>
 <h3 id="ask">ask()<a class="headerlink" href="#ask" title="Permanent link">&para;</a></h3>
 <p>Direct agent call using the current skillbook:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">answer</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">ask</span><span class="p">(</span><span class="s2">&quot;Your question&quot;</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="s2">&quot;Optional context&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">answer</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">ask</span><span class="p">(</span><span class="s2">"Your question"</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="s2">"Optional context"</span><span class="p">)</span>
 </code></pre></div>
 <h3 id="learn">learn()<a class="headerlink" href="#learn" title="Permanent link">&para;</a></h3>
 <p>Run the full ACE learning pipeline over samples:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sample</span><span class="p">,</span> <span class="n">SimpleEnvironment</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">samples</span> <span class="o">=</span> <span class="p">[</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">Sample</span><span class="p">(</span><span class="n">question</span><span class="o">=</span><span class="s2">&quot;What is 2+2?&quot;</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">ground_truth</span><span class="o">=</span><span class="s2">&quot;4&quot;</span><span class="p">),</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">Sample</span><span class="p">(</span><span class="n">question</span><span class="o">=</span><span class="s2">"What is 2+2?"</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="s2">""</span><span class="p">,</span> <span class="n">ground_truth</span><span class="o">=</span><span class="s2">"4"</span><span class="p">),</span>
 <a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="p">]</span>
 <a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">results</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">learn</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="n">environment</span><span class="o">=</span><span class="n">SimpleEnvironment</span><span class="p">(),</span> <span class="n">epochs</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
 </code></pre></div>
 <h3 id="learn_from_feedback">learn_from_feedback()<a class="headerlink" href="#learn_from_feedback" title="Permanent link">&para;</a></h3>
 <p>Learn from the last <code>ask()</code> interaction:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">agent</span><span class="o">.</span><span class="n">ask</span><span class="p">(</span><span class="s2">&quot;What is the capital of France?&quot;</span><span class="p">)</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">agent</span><span class="o">.</span><span class="n">learn_from_feedback</span><span class="p">(</span><span class="n">feedback</span><span class="o">=</span><span class="s2">&quot;Correct!&quot;</span><span class="p">,</span> <span class="n">ground_truth</span><span class="o">=</span><span class="s2">&quot;Paris&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">agent</span><span class="o">.</span><span class="n">ask</span><span class="p">(</span><span class="s2">"What is the capital of France?"</span><span class="p">)</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">agent</span><span class="o">.</span><span class="n">learn_from_feedback</span><span class="p">(</span><span class="n">feedback</span><span class="o">=</span><span class="s2">"Correct!"</span><span class="p">,</span> <span class="n">ground_truth</span><span class="o">=</span><span class="s2">"Paris"</span><span class="p">)</span>
 </code></pre></div>
 <h3 id="learn_from_traces">learn_from_traces()<a class="headerlink" href="#learn_from_traces" title="Permanent link">&para;</a></h3>
 <p>Learn from pre-recorded execution traces:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">results</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">learn_from_traces</span><span class="p">(</span><span class="n">traces</span><span class="p">,</span> <span class="n">epochs</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 </code></pre></div>
 <h3 id="lifecycle">Lifecycle<a class="headerlink" href="#lifecycle" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">agent</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;path.json&quot;</span><span class="p">)</span>               <span class="c1"># Save skillbook</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">agent</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;path.json&quot;</span><span class="p">)</span>               <span class="c1"># Load skillbook</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">agent</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">"path.json"</span><span class="p">)</span>               <span class="c1"># Save skillbook</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">agent</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"path.json"</span><span class="p">)</span>               <span class="c1"># Load skillbook</span>
 <a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">agent</span><span class="o">.</span><span class="n">enable_learning</span><span class="p">()</span>               <span class="c1"># Turn on learning</span>
 <a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">agent</span><span class="o">.</span><span class="n">disable_learning</span><span class="p">()</span>              <span class="c1"># Turn off learning</span>
 <a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="n">agent</span><span class="o">.</span><span class="n">wait_for_background</span><span class="p">()</span>           <span class="c1"># Wait for async learning</span>
@@ -2227,9 +2227,9 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace</span><span class="w"> </span><span class="kn">import</span> <span class="n">ACELiteLLM</span><span class="p">,</span> <span class="n">Agent</span><span class="p">,</span> <span class="n">Reflector</span><span class="p">,</span> <span class="n">SkillManager</span>
 <a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
 <a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">ace</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="p">(</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="n">agent</span><span class="o">=</span><span class="n">Agent</span><span class="p">(</span><span class="s2">&quot;gpt-4o&quot;</span><span class="p">),</span>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="n">reflector</span><span class="o">=</span><span class="n">Reflector</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">),</span>
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="n">skill_manager</span><span class="o">=</span><span class="n">SkillManager</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">),</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="n">agent</span><span class="o">=</span><span class="n">Agent</span><span class="p">(</span><span class="s2">"gpt-4o"</span><span class="p">),</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="n">reflector</span><span class="o">=</span><span class="n">Reflector</span><span class="p">(</span><span class="s2">"gpt-4o-mini"</span><span class="p">),</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="n">skill_manager</span><span class="o">=</span><span class="n">SkillManager</span><span class="p">(</span><span class="s2">"gpt-4o-mini"</span><span class="p">),</span>
 <a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="p">)</span>
 </code></pre></div>
 <h2 id="deduplication">Deduplication<a class="headerlink" href="#deduplication" title="Permanent link">&para;</a></h2>
@@ -2237,10 +2237,10 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace</span><span class="w"> </span><span class="kn">import</span> <span class="n">DeduplicationConfig</span>
 <a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
 <a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="s2">"gpt-4o-mini"</span><span class="p">,</span>
 <a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="n">dedup_config</span><span class="o">=</span><span class="n">DeduplicationConfig</span><span class="p">(</span>
 <a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>        <span class="n">enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>        <span class="n">embedding_model</span><span class="o">=</span><span class="s2">&quot;text-embedding-3-small&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>        <span class="n">embedding_model</span><span class="o">=</span><span class="s2">"text-embedding-3-small"</span><span class="p">,</span>
 <a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>        <span class="n">similarity_threshold</span><span class="o">=</span><span class="mf">0.85</span><span class="p">,</span>
 <a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>    <span class="p">),</span>
 <a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="p">)</span>
@@ -2248,30 +2248,30 @@
 <h2 id="supported-providers">Supported Providers<a class="headerlink" href="#supported-providers" title="Permanent link">&para;</a></h2>
 <p>Any model supported by <a href="https://docs.litellm.ai/">LiteLLM</a>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># OpenAI</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">)</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span><span class="s2">"gpt-4o-mini"</span><span class="p">)</span>
 <a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
 <a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="c1"># Anthropic</span>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span><span class="s2">&quot;claude-sonnet-4-5-20250929&quot;</span><span class="p">)</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span><span class="s2">"claude-sonnet-4-5-20250929"</span><span class="p">)</span>
 <a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>
 <a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="c1"># Google</span>
-<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span><span class="s2">&quot;gemini-pro&quot;</span><span class="p">)</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span><span class="s2">"gemini-pro"</span><span class="p">)</span>
 <a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>
 <a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="c1"># Local (Ollama)</span>
-<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span><span class="s2">&quot;ollama/llama2&quot;</span><span class="p">)</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span><span class="s2">"ollama/llama2"</span><span class="p">)</span>
 <a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>
 <a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="c1"># Custom endpoint</span>
-<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">,</span> <span class="n">base_url</span><span class="o">=</span><span class="s2">&quot;https://your-endpoint.com&quot;</span><span class="p">)</span>
+<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span><span class="s2">"gpt-4o-mini"</span><span class="p">,</span> <span class="n">base_url</span><span class="o">=</span><span class="s2">"https://your-endpoint.com"</span><span class="p">)</span>
 </code></pre></div>
 <h2 id="opik-observability">Opik Observability<a class="headerlink" href="#opik-observability" title="Permanent link">&para;</a></h2>
 <p>Enable tracing and cost tracking with a single flag:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">ace</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">,</span> <span class="n">opik</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">opik_project</span><span class="o">=</span><span class="s2">&quot;my-experiment&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">ace</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span><span class="s2">"gpt-4o-mini"</span><span class="p">,</span> <span class="n">opik</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">opik_project</span><span class="o">=</span><span class="s2">"my-experiment"</span><span class="p">)</span>
 <a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
 <a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="c1"># Both tracing modes are enabled:</span>
 <a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="c1"># 1. Pipeline traces (OpikStep) — one trace per sample with ACE context</span>
 <a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="c1"># 2. LiteLLM callback — per-LLM-call token/cost tracking</span>
 <a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>
 <a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="n">results</span> <span class="o">=</span> <span class="n">ace</span><span class="o">.</span><span class="n">learn</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="n">environment</span><span class="o">=</span><span class="n">SimpleEnvironment</span><span class="p">(),</span> <span class="n">epochs</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
-<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="c1"># View traces at http://localhost:5173 → project &quot;my-experiment&quot;</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="c1"># View traces at http://localhost:5173 → project "my-experiment"</span>
 </code></pre></div>
 <p>See <a href="../opik/">Opik Observability</a> for full details, environment variables, and manual setup.</p>
 <h2 id="what-to-read-next">What to Read Next<a class="headerlink" href="#what-to-read-next" title="Permanent link">&para;</a></h2>
@@ -2340,7 +2340,7 @@
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.highlight", "search.share", "content.code.copy", "content.tabs.link"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>

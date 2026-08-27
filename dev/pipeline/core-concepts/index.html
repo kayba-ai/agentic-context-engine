@@ -23,13 +23,13 @@
       
       
       <link rel="icon" href="../../assets/Kayba_logo_rounded.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
 <title>ACE Documentation</title>
 
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -2120,15 +2120,15 @@
 <p>Any object with <code>requires</code>, <code>provides</code>, and a <code>__call__</code> method is a valid step:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">Tokenize</span><span class="p">:</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">requires</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">()</span>                     <span class="c1"># no dependencies</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">provides</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;tokens&quot;</span><span class="p">,</span> <span class="s2">&quot;word_count&quot;</span><span class="p">})</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">provides</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">"tokens"</span><span class="p">,</span> <span class="s2">"word_count"</span><span class="p">})</span>
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">StepContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StepContext</span><span class="p">:</span>
 <a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>        <span class="n">tokens</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">sample</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
 <a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>        <span class="k">return</span> <span class="n">ctx</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span>
 <a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>            <span class="n">metadata</span><span class="o">=</span><span class="n">MappingProxyType</span><span class="p">({</span>
 <a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>                <span class="o">**</span><span class="n">ctx</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>                <span class="s2">&quot;tokens&quot;</span><span class="p">:</span> <span class="n">tokens</span><span class="p">,</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>                <span class="s2">&quot;word_count&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">tokens</span><span class="p">),</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>                <span class="s2">"tokens"</span><span class="p">:</span> <span class="n">tokens</span><span class="p">,</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>                <span class="s2">"word_count"</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">tokens</span><span class="p">),</span>
 <a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>            <span class="p">})</span>
 <a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>        <span class="p">)</span>
 </code></pre></div>
@@ -2151,7 +2151,7 @@
 <a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>        <span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="n">MappingProxyType</span><span class="p">({})</span>
 <a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="p">)</span>
 <a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">replace</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">changes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;StepContext&quot;</span><span class="p">:</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">replace</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">changes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"StepContext"</span><span class="p">:</span>
 <a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>        <span class="k">return</span> <span class="n">dataclasses</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">changes</span><span class="p">)</span>
 </code></pre></div>
 <p>The engine only reads <code>sample</code> and <code>metadata</code>. All domain-specific fields are added by subclassing.</p>
@@ -2160,15 +2160,15 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">StepContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StepContext</span><span class="p">:</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">result</span> <span class="o">=</span> <span class="n">process</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">sample</span><span class="p">)</span>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="k">return</span> <span class="n">ctx</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>        <span class="n">metadata</span><span class="o">=</span><span class="n">MappingProxyType</span><span class="p">({</span><span class="o">**</span><span class="n">ctx</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span> <span class="s2">&quot;result&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">})</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>        <span class="n">metadata</span><span class="o">=</span><span class="n">MappingProxyType</span><span class="p">({</span><span class="o">**</span><span class="n">ctx</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span> <span class="s2">"result"</span><span class="p">:</span> <span class="n">result</span><span class="p">})</span>
 <a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="p">)</span>
 </code></pre></div>
 <p>This is the only way to "modify" a context. <code>frozen=True</code> makes mutation a hard error at runtime rather than a subtle bug.</p>
 <h3 id="metadata-auto-coercion">Metadata auto-coercion<a class="headerlink" href="#metadata-auto-coercion" title="Permanent link">&para;</a></h3>
 <p>If a caller passes a plain <code>dict</code> as metadata, <code>StepContext.__post_init__</code> automatically wraps it in <code>MappingProxyType</code>, ensuring mutation is always a runtime error:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Both of these produce identical immutable metadata:</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">ctx</span> <span class="o">=</span> <span class="n">StepContext</span><span class="p">(</span><span class="n">sample</span><span class="o">=</span><span class="s2">&quot;hello&quot;</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="s2">&quot;value&quot;</span><span class="p">})</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">ctx</span> <span class="o">=</span> <span class="n">StepContext</span><span class="p">(</span><span class="n">sample</span><span class="o">=</span><span class="s2">&quot;hello&quot;</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="n">MappingProxyType</span><span class="p">({</span><span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="s2">&quot;value&quot;</span><span class="p">}))</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">ctx</span> <span class="o">=</span> <span class="n">StepContext</span><span class="p">(</span><span class="n">sample</span><span class="o">=</span><span class="s2">"hello"</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">"key"</span><span class="p">:</span> <span class="s2">"value"</span><span class="p">})</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">ctx</span> <span class="o">=</span> <span class="n">StepContext</span><span class="p">(</span><span class="n">sample</span><span class="o">=</span><span class="s2">"hello"</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="n">MappingProxyType</span><span class="p">({</span><span class="s2">"key"</span><span class="p">:</span> <span class="s2">"value"</span><span class="p">}))</span>
 </code></pre></div>
 <h3 id="subclassing-for-domain-fields">Subclassing for domain fields<a class="headerlink" href="#subclassing-for-domain-fields" title="Permanent link">&para;</a></h3>
 <p>Applications subclass <code>StepContext</code> to add named fields for concepts shared across their pipelines:</p>
@@ -2208,22 +2208,22 @@
 <p>When you build a pipeline with <code>.then()</code>, the engine checks step ordering immediately:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">pipe</span> <span class="o">=</span> <span class="p">(</span>
 <a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="n">Pipeline</span><span class="p">()</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">Tokenize</span><span class="p">())</span>      <span class="c1"># provides: {&quot;tokens&quot;, &quot;word_count&quot;}</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">Uppercase</span><span class="p">())</span>     <span class="c1"># requires: {&quot;tokens&quot;} ✓ — Tokenize provides it</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">Tokenize</span><span class="p">())</span>      <span class="c1"># provides: {"tokens", "word_count"}</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">Uppercase</span><span class="p">())</span>     <span class="c1"># requires: {"tokens"} ✓ — Tokenize provides it</span>
 <a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="p">)</span>
 </code></pre></div>
 <p>If a step requires a field that a <strong>later</strong> step provides, the pipeline raises <code>PipelineOrderError</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># This raises PipelineOrderError at construction time:</span>
 <a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">pipe</span> <span class="o">=</span> <span class="n">Pipeline</span><span class="p">()</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">Uppercase</span><span class="p">())</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">Tokenize</span><span class="p">())</span>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="c1"># ↑ Uppercase requires &quot;tokens&quot;, but Tokenize (which provides it) comes after</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="c1"># ↑ Uppercase requires "tokens", but Tokenize (which provides it) comes after</span>
 </code></pre></div>
 <h3 id="external-inputs-vs-internal-dependencies">External inputs vs internal dependencies<a class="headerlink" href="#external-inputs-vs-internal-dependencies" title="Permanent link">&para;</a></h3>
 <p>Fields not produced by any step in the pipeline are treated as <strong>external inputs</strong> — they must be present in the initial <code>StepContext</code> passed to <code>run()</code>. These do not trigger ordering errors:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">ScoreStep</span><span class="p">:</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    <span class="n">requires</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;predictions&quot;</span><span class="p">})</span>  <span class="c1"># external input</span>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="n">provides</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;scores&quot;</span><span class="p">})</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    <span class="n">requires</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">"predictions"</span><span class="p">})</span>  <span class="c1"># external input</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="n">provides</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">"scores"</span><span class="p">})</span>
 <a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="c1"># No error — &quot;predictions&quot; is expected to come from the initial context</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="c1"># No error — "predictions" is expected to come from the initial context</span>
 <a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="n">pipe</span> <span class="o">=</span> <span class="n">Pipeline</span><span class="p">()</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">ScoreStep</span><span class="p">())</span>
 </code></pre></div>
 <h3 id="contract-inference-for-nested-pipelines">Contract inference for nested pipelines<a class="headerlink" href="#contract-inference-for-nested-pipelines" title="Permanent link">&para;</a></h3>
@@ -2232,10 +2232,10 @@
 <a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
 <a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="c1"># Inferred automatically:</span>
 <a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="c1"># inner.requires = frozenset()              — Tokenize needs nothing external</span>
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="c1"># inner.provides = frozenset({&quot;tokens&quot;, &quot;word_count&quot;, &quot;upper_tokens&quot;})</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="c1"># inner.provides = frozenset({"tokens", "word_count", "upper_tokens"})</span>
 <a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>
 <a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="n">outer</span> <span class="o">=</span> <span class="n">Pipeline</span><span class="p">()</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">inner</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">Summarize</span><span class="p">())</span>
-<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="c1"># Summarize&#39;s requirements validated against inner.provides</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="c1"># Summarize's requirements validated against inner.provides</span>
 </code></pre></div>
 <p>The inference algorithm:</p>
 <ol>
@@ -2300,7 +2300,7 @@
 <p>A step receives one context and must return one context — but nothing prevents it from internally expanding to multiple sub-inputs:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">MultiSearchStep</span><span class="p">:</span>
 <a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>    <span class="n">requires</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">()</span>
-<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>    <span class="n">provides</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;search_results&quot;</span><span class="p">})</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>    <span class="n">provides</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">"search_results"</span><span class="p">})</span>
 <a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>
 <a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">StepContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StepContext</span><span class="p">:</span>
 <a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>        <span class="n">queries</span> <span class="o">=</span> <span class="n">generate_queries</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">sample</span><span class="p">)</span>
@@ -2309,7 +2309,7 @@
 <a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>        <span class="n">results</span> <span class="o">=</span> <span class="n">sub_pipe</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">sub_ctxs</span><span class="p">,</span> <span class="n">workers</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">queries</span><span class="p">))</span>
 <a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a>        <span class="n">merged</span> <span class="o">=</span> <span class="n">merge_results</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
 <a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a>        <span class="k">return</span> <span class="n">ctx</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span>
-<a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a>            <span class="n">metadata</span><span class="o">=</span><span class="n">MappingProxyType</span><span class="p">({</span><span class="o">**</span><span class="n">ctx</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span> <span class="s2">&quot;search_results&quot;</span><span class="p">:</span> <span class="n">merged</span><span class="p">})</span>
+<a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a>            <span class="n">metadata</span><span class="o">=</span><span class="n">MappingProxyType</span><span class="p">({</span><span class="o">**</span><span class="n">ctx</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span> <span class="s2">"search_results"</span><span class="p">:</span> <span class="n">merged</span><span class="p">})</span>
 <a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a>        <span class="p">)</span>
 </code></pre></div>
 <p>From the outer pipeline's perspective, <code>MultiSearchStep</code> is a single step. The fan-out is an internal implementation detail.</p>
@@ -2374,7 +2374,7 @@
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.highlight", "search.share", "content.code.copy", "content.tabs.link"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>

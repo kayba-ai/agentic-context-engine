@@ -19,13 +19,13 @@
       
       
       <link rel="icon" href="../../assets/Kayba_logo_rounded.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
 <title>ACE Documentation</title>
 
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -1930,7 +1930,7 @@ contract that declares what context fields it reads and writes:</p>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  provides:        provides:           provides:          provides:
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>  agent_output     trace                reflections        skill_manager_output
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>                                                          (also mutates skillbook
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>                                                           via the SM&#39;s tools)
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>                                                           via the SM's tools)
 </code></pre></div>
 <p>The pipeline validates these contracts at construction time — if a step requires
 a field that no earlier step provides, you'll get an error immediately.</p>
@@ -1952,9 +1952,9 @@ a field that no earlier step provides, you'll get an error immediately.</p>
 <a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="n">skillbook</span> <span class="o">=</span> <span class="n">Skillbook</span><span class="p">()</span>
 <a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>
 <a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="n">pipe</span> <span class="o">=</span> <span class="n">Pipeline</span><span class="p">([</span>
-<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>    <span class="n">AgentStep</span><span class="p">(</span><span class="n">Agent</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">),</span> <span class="n">skillbook</span><span class="p">),</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>    <span class="n">AgentStep</span><span class="p">(</span><span class="n">Agent</span><span class="p">(</span><span class="s2">"gpt-4o-mini"</span><span class="p">),</span> <span class="n">skillbook</span><span class="p">),</span>
 <a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>    <span class="n">EvaluateStep</span><span class="p">(</span><span class="n">SimpleEnvironment</span><span class="p">()),</span>
-<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>    <span class="o">*</span><span class="n">learning_tail</span><span class="p">(</span><span class="n">Reflector</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">),</span> <span class="n">SkillManager</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">),</span> <span class="n">skillbook</span><span class="p">),</span>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>    <span class="o">*</span><span class="n">learning_tail</span><span class="p">(</span><span class="n">Reflector</span><span class="p">(</span><span class="s2">"gpt-4o-mini"</span><span class="p">),</span> <span class="n">SkillManager</span><span class="p">(</span><span class="s2">"gpt-4o-mini"</span><span class="p">),</span> <span class="n">skillbook</span><span class="p">),</span>
 <a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="p">])</span>
 </code></pre></div>
 <h2 id="using-learning_tail">Using <code>learning_tail()</code><a class="headerlink" href="#using-learning_tail" title="Permanent link">&para;</a></h2>
@@ -1966,7 +1966,7 @@ a field that no earlier step provides, you'll get an error immediately.</p>
 <a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">SkillManager</span><span class="p">(</span><span class="n">llm</span><span class="p">),</span>
 <a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">Skillbook</span><span class="p">(),</span>
 <a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="n">dedup_manager</span><span class="o">=</span><span class="n">my_dedup_manager</span><span class="p">,</span>      <span class="c1"># optional</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="n">checkpoint_dir</span><span class="o">=</span><span class="s2">&quot;/tmp/checkpoints&quot;</span><span class="p">,</span>    <span class="c1"># optional</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="n">checkpoint_dir</span><span class="o">=</span><span class="s2">"/tmp/checkpoints"</span><span class="p">,</span>    <span class="c1"># optional</span>
 <a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="p">)</span>
 <a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="c1"># Returns: [ReflectStep, UpdateStep,</span>
 <a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="c1">#           DeduplicateStep, CheckpointStep]</span>
@@ -2002,11 +2002,11 @@ would use internally. This lets you inspect, modify, and recompose:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace</span><span class="w"> </span><span class="kn">import</span> <span class="n">ACEStepContext</span>
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyLoggingStep</span><span class="p">:</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">requires</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;agent_output&quot;</span><span class="p">})</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">requires</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">"agent_output"</span><span class="p">})</span>
 <a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">provides</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">()</span>
 <a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
 <a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">ACEStepContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ACEStepContext</span><span class="p">:</span>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Agent answered: </span><span class="si">{</span><span class="n">ctx</span><span class="o">.</span><span class="n">agent_output</span><span class="o">.</span><span class="n">final_answer</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Agent answered: </span><span class="si">{</span><span class="n">ctx</span><span class="o">.</span><span class="n">agent_output</span><span class="o">.</span><span class="n">final_answer</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 <a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>        <span class="k">return</span> <span class="n">ctx</span>
 </code></pre></div>
 <p>Key rules:</p>
@@ -2039,7 +2039,7 @@ framework-specific dependencies.</p>
 <a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
 <a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">runner</span> <span class="o">=</span> <span class="n">ACERunner</span><span class="p">(</span><span class="n">pipeline</span><span class="o">=</span><span class="n">pipe</span><span class="p">,</span> <span class="n">skillbook</span><span class="o">=</span><span class="n">skillbook</span><span class="p">)</span>
 <a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">results</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="p">[</span><span class="n">Sample</span><span class="p">(</span><span class="n">question</span><span class="o">=</span><span class="s2">&quot;What is 2+2?&quot;</span><span class="p">,</span> <span class="n">ground_truth</span><span class="o">=</span><span class="s2">&quot;4&quot;</span><span class="p">)],</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="p">[</span><span class="n">Sample</span><span class="p">(</span><span class="n">question</span><span class="o">=</span><span class="s2">"What is 2+2?"</span><span class="p">,</span> <span class="n">ground_truth</span><span class="o">=</span><span class="s2">"4"</span><span class="p">)],</span>
 <a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="n">epochs</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
 <a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="p">)</span>
 </code></pre></div>
@@ -2048,7 +2048,7 @@ framework-specific dependencies.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pipeline</span><span class="p">,</span> <span class="n">ACEStepContext</span><span class="p">,</span> <span class="n">SkillbookView</span><span class="p">,</span> <span class="n">Sample</span><span class="p">,</span> <span class="n">Skillbook</span>
 <a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
 <a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">ctx</span> <span class="o">=</span> <span class="n">ACEStepContext</span><span class="p">(</span>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="n">sample</span><span class="o">=</span><span class="n">Sample</span><span class="p">(</span><span class="n">question</span><span class="o">=</span><span class="s2">&quot;What is 2+2?&quot;</span><span class="p">,</span> <span class="n">ground_truth</span><span class="o">=</span><span class="s2">&quot;4&quot;</span><span class="p">),</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="n">sample</span><span class="o">=</span><span class="n">Sample</span><span class="p">(</span><span class="n">question</span><span class="o">=</span><span class="s2">"What is 2+2?"</span><span class="p">,</span> <span class="n">ground_truth</span><span class="o">=</span><span class="s2">"4"</span><span class="p">),</span>
 <a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="n">skillbook</span><span class="o">=</span><span class="n">SkillbookView</span><span class="p">(</span><span class="n">skillbook</span><span class="p">),</span>
 <a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="p">)</span>
 <a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>
@@ -2079,7 +2079,7 @@ in two ways:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace</span><span class="w"> </span><span class="kn">import</span> <span class="n">ACELiteLLM</span>
 <a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace.rr</span><span class="w"> </span><span class="kn">import</span> <span class="n">RRStep</span><span class="p">,</span> <span class="n">RRConfig</span>
 <a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="n">ace</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">,</span> <span class="n">reflector</span><span class="o">=</span><span class="n">RRStep</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">RRConfig</span><span class="p">(</span><span class="n">max_requests</span><span class="o">=</span><span class="mi">10</span><span class="p">)))</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="n">ace</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_model</span><span class="p">(</span><span class="s2">"gpt-4o-mini"</span><span class="p">,</span> <span class="n">reflector</span><span class="o">=</span><span class="n">RRStep</span><span class="p">(</span><span class="s2">"gpt-4o-mini"</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">RRConfig</span><span class="p">(</span><span class="n">max_requests</span><span class="o">=</span><span class="mi">10</span><span class="p">)))</span>
 </code></pre></div>
 <h3 id="as-a-pipeline-step">As a pipeline step<a class="headerlink" href="#as-a-pipeline-step" title="Permanent link">&para;</a></h3>
 <p>Place it directly in a pipeline (it provides <code>reflections</code>):</p>
@@ -2087,13 +2087,13 @@ in two ways:</p>
 <a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace.rr</span><span class="w"> </span><span class="kn">import</span> <span class="n">RRStep</span><span class="p">,</span> <span class="n">RRConfig</span>
 <a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
 <a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="n">skillbook</span> <span class="o">=</span> <span class="n">Skillbook</span><span class="p">()</span>
-<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="n">rr</span> <span class="o">=</span> <span class="n">RRStep</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">RRConfig</span><span class="p">(</span><span class="n">max_requests</span><span class="o">=</span><span class="mi">15</span><span class="p">))</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="n">rr</span> <span class="o">=</span> <span class="n">RRStep</span><span class="p">(</span><span class="s2">"gpt-4o-mini"</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">RRConfig</span><span class="p">(</span><span class="n">max_requests</span><span class="o">=</span><span class="mi">15</span><span class="p">))</span>
 <a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>
 <a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="n">pipe</span> <span class="o">=</span> <span class="n">Pipeline</span><span class="p">([</span>
 <a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>    <span class="n">MyExecuteStep</span><span class="p">(),</span>
 <a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>    <span class="n">MyToTrace</span><span class="p">(),</span>
-<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>    <span class="n">rr</span><span class="p">,</span>  <span class="c1"># replaces ReflectStep — provides &quot;reflections&quot;</span>
-<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>    <span class="o">*</span><span class="n">learning_tail</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">SkillManager</span><span class="p">(</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="p">),</span> <span class="n">skillbook</span><span class="p">)[</span><span class="mi">1</span><span class="p">:],</span>  <span class="c1"># skip ReflectStep</span>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>    <span class="n">rr</span><span class="p">,</span>  <span class="c1"># replaces ReflectStep — provides "reflections"</span>
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>    <span class="o">*</span><span class="n">learning_tail</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">SkillManager</span><span class="p">(</span><span class="s2">"gpt-4o-mini"</span><span class="p">),</span> <span class="n">skillbook</span><span class="p">)[</span><span class="mi">1</span><span class="p">:],</span>  <span class="c1"># skip ReflectStep</span>
 <a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="p">])</span>
 </code></pre></div>
 <h3 id="with-recursion-enabled">With recursion enabled<a class="headerlink" href="#with-recursion-enabled" title="Permanent link">&para;</a></h3>
@@ -2101,7 +2101,7 @@ in two ways:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">ace.rr</span><span class="w"> </span><span class="kn">import</span> <span class="n">RRStep</span><span class="p">,</span> <span class="n">RRConfig</span>
 <a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>
 <a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="n">rr</span> <span class="o">=</span> <span class="n">RRStep</span><span class="p">(</span>
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>    <span class="s2">&quot;gpt-4o&quot;</span><span class="p">,</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>    <span class="s2">"gpt-4o"</span><span class="p">,</span>
 <a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>    <span class="n">config</span><span class="o">=</span><span class="n">RRConfig</span><span class="p">(</span><span class="n">max_requests</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span> <span class="n">max_depth</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>  <span class="c1"># depth=1 allows one level of recursion</span>
 <a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="p">)</span>
 </code></pre></div>
@@ -2256,7 +2256,7 @@ in two ways:</p>
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.highlight", "search.share", "content.code.copy", "content.tabs.link"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>

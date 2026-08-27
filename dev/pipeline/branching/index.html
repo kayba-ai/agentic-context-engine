@@ -23,13 +23,13 @@
       
       
       <link rel="icon" href="../../assets/Kayba_logo_rounded.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
 <title>ACE Documentation</title>
 
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -2068,14 +2068,14 @@
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="n">Pipeline</span><span class="p">()</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">Tokenize</span><span class="p">())</span>
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="o">.</span><span class="n">branch</span><span class="p">(</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>        <span class="n">Pipeline</span><span class="p">()</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">Uppercase</span><span class="p">()),</span>    <span class="c1"># provides: {&quot;upper_tokens&quot;}</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>        <span class="n">Pipeline</span><span class="p">()</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">Reverse</span><span class="p">()),</span>      <span class="c1"># provides: {&quot;reversed_tokens&quot;}</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>        <span class="n">Pipeline</span><span class="p">()</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">Uppercase</span><span class="p">()),</span>    <span class="c1"># provides: {"upper_tokens"}</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>        <span class="n">Pipeline</span><span class="p">()</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">Reverse</span><span class="p">()),</span>      <span class="c1"># provides: {"reversed_tokens"}</span>
 <a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>        <span class="n">merge</span><span class="o">=</span><span class="n">MergeStrategy</span><span class="o">.</span><span class="n">RAISE_ON_CONFLICT</span><span class="p">,</span>
 <a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="p">)</span>
 <a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="p">)</span>
 <a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>
 <a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="c1"># Works — branches write to different fields</span>
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="n">results</span> <span class="o">=</span> <span class="n">pipe</span><span class="o">.</span><span class="n">run</span><span class="p">([</span><span class="n">StepContext</span><span class="p">(</span><span class="n">sample</span><span class="o">=</span><span class="s2">&quot;hello world&quot;</span><span class="p">)])</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="n">results</span> <span class="o">=</span> <span class="n">pipe</span><span class="o">.</span><span class="n">run</span><span class="p">([</span><span class="n">StepContext</span><span class="p">(</span><span class="n">sample</span><span class="o">=</span><span class="s2">"hello world"</span><span class="p">)])</span>
 </code></pre></div>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
@@ -2097,15 +2097,15 @@
 <a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">merge</span><span class="o">=</span><span class="n">MergeStrategy</span><span class="o">.</span><span class="n">NAMESPACED</span><span class="p">,</span>
 <a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="p">)</span>
 <a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="n">results</span> <span class="o">=</span> <span class="n">pipe</span><span class="o">.</span><span class="n">run</span><span class="p">([</span><span class="n">StepContext</span><span class="p">(</span><span class="n">sample</span><span class="o">=</span><span class="s2">&quot;hello world&quot;</span><span class="p">)])</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="n">results</span> <span class="o">=</span> <span class="n">pipe</span><span class="o">.</span><span class="n">run</span><span class="p">([</span><span class="n">StepContext</span><span class="p">(</span><span class="n">sample</span><span class="o">=</span><span class="s2">"hello world"</span><span class="p">)])</span>
 <a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="n">meta</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">output</span><span class="o">.</span><span class="n">metadata</span>
-<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="nb">print</span><span class="p">(</span><span class="n">meta</span><span class="p">[</span><span class="s2">&quot;branch_0&quot;</span><span class="p">])</span>  <span class="c1"># context from Uppercase branch</span>
-<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="nb">print</span><span class="p">(</span><span class="n">meta</span><span class="p">[</span><span class="s2">&quot;branch_1&quot;</span><span class="p">])</span>  <span class="c1"># context from Reverse branch</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="nb">print</span><span class="p">(</span><span class="n">meta</span><span class="p">[</span><span class="s2">"branch_0"</span><span class="p">])</span>  <span class="c1"># context from Uppercase branch</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="nb">print</span><span class="p">(</span><span class="n">meta</span><span class="p">[</span><span class="s2">"branch_1"</span><span class="p">])</span>  <span class="c1"># context from Reverse branch</span>
 </code></pre></div>
 <h3 id="custom-merge-function">Custom merge function<a class="headerlink" href="#custom-merge-function" title="Permanent link">&para;</a></h3>
 <p>For full control, pass a callable:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">priority_merge</span><span class="p">(</span><span class="n">ctxs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">StepContext</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">StepContext</span><span class="p">:</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;First branch wins for all fields.&quot;&quot;&quot;</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">    </span><span class="sd">"""First branch wins for all fields."""</span>
 <a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="n">base</span> <span class="o">=</span> <span class="n">ctxs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 <a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="n">merged_meta</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">base</span><span class="o">.</span><span class="n">metadata</span><span class="p">)</span>
 <a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="k">for</span> <span class="n">ctx</span> <span class="ow">in</span> <span class="n">ctxs</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
@@ -2161,9 +2161,9 @@
 <a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="k">try</span><span class="p">:</span>
 <a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="n">results</span> <span class="o">=</span> <span class="n">pipe</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">contexts</span><span class="p">)</span>
 <a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="k">except</span> <span class="n">BranchError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">failures</span><span class="p">)</span><span class="si">}</span><span class="s2"> branch(es) failed&quot;</span><span class="p">)</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">failures</span><span class="p">)</span><span class="si">}</span><span class="s2"> branch(es) failed"</span><span class="p">)</span>
 <a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>    <span class="k">for</span> <span class="n">failure</span> <span class="ow">in</span> <span class="n">e</span><span class="o">.</span><span class="n">failures</span><span class="p">:</span>
-<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  - </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">failure</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">failure</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  - </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">failure</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">failure</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </code></pre></div>
 <ul>
 <li><code>BranchError.failures</code> contains one exception per failed branch</li>
@@ -2175,13 +2175,13 @@
 <h2 id="contract-inference">Contract inference<a class="headerlink" href="#contract-inference" title="Permanent link">&para;</a></h2>
 <p>A <code>Branch</code> computes its own <code>requires</code> and <code>provides</code> from the union of its children:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">branch</span> <span class="o">=</span> <span class="n">Branch</span><span class="p">(</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>    <span class="n">Pipeline</span><span class="p">()</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">Uppercase</span><span class="p">()),</span>    <span class="c1"># requires: {&quot;tokens&quot;}, provides: {&quot;upper_tokens&quot;}</span>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    <span class="n">Pipeline</span><span class="p">()</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">Reverse</span><span class="p">()),</span>      <span class="c1"># requires: {&quot;tokens&quot;}, provides: {&quot;reversed_tokens&quot;}</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>    <span class="n">Pipeline</span><span class="p">()</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">Uppercase</span><span class="p">()),</span>    <span class="c1"># requires: {"tokens"}, provides: {"upper_tokens"}</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    <span class="n">Pipeline</span><span class="p">()</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">Reverse</span><span class="p">()),</span>      <span class="c1"># requires: {"tokens"}, provides: {"reversed_tokens"}</span>
 <a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="p">)</span>
 <a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>
 <a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="c1"># Inferred:</span>
-<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="c1"># branch.requires = {&quot;tokens&quot;}</span>
-<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="c1"># branch.provides = {&quot;upper_tokens&quot;, &quot;reversed_tokens&quot;}</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="c1"># branch.requires = {"tokens"}</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="c1"># branch.provides = {"upper_tokens", "reversed_tokens"}</span>
 </code></pre></div>
 <p>The outer pipeline validates against these aggregated contracts at construction time, so nesting branches inside pipelines works seamlessly.</p>
 
@@ -2244,7 +2244,7 @@
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.highlight", "search.share", "content.code.copy", "content.tabs.link"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>
