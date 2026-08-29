@@ -95,7 +95,7 @@ class BrowserExecuteStep:
         try:
             agent = Agent(**agent_params)
             history = await agent.run()
-            success = True
+            success = history.is_successful() is True
         except Exception as exc:
             error = str(exc)
 

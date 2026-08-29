@@ -68,7 +68,7 @@ The extracted trace includes:
 - Agent reasoning at each step
 - Browser actions taken (click, type, navigate)
 - Page observations
-- Success/failure of each action
+- Success/failure of each action and the final browser task
 
 ## Running Multiple Tasks
 

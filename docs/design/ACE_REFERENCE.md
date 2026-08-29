@@ -772,7 +772,8 @@ class BrowserExecuteStep:
         history = await agent.run()
 
         result = BrowserResult(
-            task=task, success=True, output=history.final_result(),
+            task=task, success=history.is_successful() is True,
+            output=history.final_result(),
             steps_count=history.number_of_steps(),
             chronological_steps=..., raw_history=history,
         )
