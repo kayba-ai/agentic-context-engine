@@ -84,6 +84,7 @@ Three steps: **INJECT** skillbook context, **EXECUTE** with external agent, **LE
 
 ```python
 from ace import BrowserUse
+from browser_use import ChatOpenAI
 
 runner = BrowserUse.from_model(
     browser_llm=ChatOpenAI(model="gpt-4o"),

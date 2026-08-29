@@ -772,7 +772,8 @@ class BrowserExecuteStep:
         history = await agent.run()
 
         result = BrowserResult(
-            task=task, success=True, output=history.final_result(),
+            task=task, success=history.is_successful() is True,
+            output=history.final_result(),
             steps_count=history.number_of_steps(),
             chronological_steps=..., raw_history=history,
         )
@@ -982,7 +983,7 @@ results = ace.run(samples, epochs=3)
 
 ```python
 from ace import BrowserUse, Reflector, SkillManager
-from langchain_openai import ChatOpenAI
+from browser_use import ChatOpenAI
 
 browser_llm = ChatOpenAI(model="gpt-4o")
 
