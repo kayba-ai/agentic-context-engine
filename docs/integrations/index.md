@@ -55,7 +55,7 @@ from ace.integrations import ClaudeSDKExecuteStep, ClaudeSDKToTrace
 
 skillbook = Skillbook()
 pipe = Pipeline([
-    ClaudeSDKExecuteStep(model="claude-sonnet-4-20250514"),
+    ClaudeSDKExecuteStep(model="claude-sonnet-5"),
     ClaudeSDKToTrace(),
     *learning_tail(Reflector("gpt-4o-mini"), SkillManager("gpt-4o-mini"), skillbook),
 ])

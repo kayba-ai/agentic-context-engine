@@ -13,7 +13,7 @@ from ace.integrations import ClaudeSDKExecuteStep, ClaudeSDKToTrace
 
 skillbook = Skillbook()
 pipe = Pipeline([
-    ClaudeSDKExecuteStep(model="claude-sonnet-4-20250514"),
+    ClaudeSDKExecuteStep(model="claude-sonnet-5"),
     ClaudeSDKToTrace(),
     *learning_tail(Reflector("gpt-4o-mini"), SkillManager("gpt-4o-mini"), skillbook),
 ])
@@ -53,10 +53,10 @@ configure_logfire()
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `model` | `str` | `"claude-sonnet-4-20250514"` | Claude model ID |
+| `model` | `str` | `"claude-sonnet-5"` | Claude model ID |
 | `system_prompt` | `str \| None` | `None` | Base system prompt |
 | `max_tokens` | `int` | `4096` | Maximum output tokens |
-| `temperature` | `float` | `0.0` | Sampling temperature |
+| `temperature` | `float \| None` | `None` | Sampling temperature. Left unset it is omitted from the request, so the API default applies. Sonnet 5 and Opus 5 reject any other value |
 | `tools` | `list[dict] \| None` | `None` | Anthropic tool definitions |
 | `api_key` | `str \| None` | `None` | Optional API key override |
 | `base_url` | `str \| None` | `None` | Optional API base URL |
@@ -98,7 +98,7 @@ tools = [
 ]
 
 execute = ClaudeSDKExecuteStep(
-    model="claude-sonnet-4-20250514",
+    model="claude-sonnet-5",
     tools=tools,
 )
 ```

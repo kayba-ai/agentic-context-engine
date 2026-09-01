@@ -301,7 +301,7 @@ def run_setup(directory: str | Path = ".") -> ACEModelConfig:
     # Step 1: Default model
     print(f"{BOLD}Step 1: Choose your model{RESET}")
     print()
-    _info("Examples: gpt-4o-mini, claude-sonnet-4-20250514, ollama/llama2")
+    _info("Examples: gpt-4o-mini, claude-sonnet-5, ollama/llama2")
     _info(f"Search models: {CYAN}ace models <query>{RESET}")
     print()
 
