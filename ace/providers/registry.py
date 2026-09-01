@@ -36,7 +36,7 @@ def _litellm():
 # Example model strings per provider (for user guidance in the CLI)
 PROVIDER_MODEL_EXAMPLES: dict[str, str] = {
     "openai": "gpt-4o-mini",
-    "anthropic": "claude-sonnet-4-20250514",
+    "anthropic": "claude-sonnet-5",
     "gemini": "gemini/gemini-2.0-flash",
     "deepseek": "deepseek/deepseek-chat",
     "groq": "groq/llama-3.1-70b",
@@ -144,7 +144,6 @@ def validate_connection(model: str, api_key: str | None = None) -> ValidationRes
         "model": model,
         "messages": [{"role": "user", "content": "Say 'ok'"}],
         "max_tokens": 3,
-        "temperature": 0.0,
         "timeout": 15,
     }
     if api_key:
