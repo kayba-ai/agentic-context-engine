@@ -15,7 +15,7 @@ ACE Setup
 
 Step 1: Choose your model
 
-  Examples: gpt-4o-mini, claude-sonnet-4-20250514, ollama/llama2
+  Examples: gpt-4o-mini, claude-sonnet-5, ollama/llama2
   Search models: ace models <query>
 
   Default model: gpt-4o-mini
@@ -29,10 +29,10 @@ Step 2: Role assignment
 
   Use this model for all roles? [Y/n]: n
 
-  Agent (executes tasks) [gpt-4o-mini]: claude-sonnet-4-20250514
+  Agent (executes tasks) [gpt-4o-mini]: claude-sonnet-5
   ! No credentials found for anthropic
   ANTHROPIC_API_KEY: sk-ant-...
-  v Connected! (claude-sonnet-4-20250514 via anthropic, 347ms)
+  v Connected! (claude-sonnet-5 via anthropic, 347ms)
   v Saved credentials to .env
 
   Reflector (analyses results) [gpt-4o-mini]:
@@ -42,7 +42,7 @@ v Saved model config to ace.toml
 
   Configuration summary:
     default:        gpt-4o-mini
-    agent:          claude-sonnet-4-20250514
+    agent:          claude-sonnet-5
 ```
 
 The wizard tries the connection immediately — if your credentials are already in the environment (via `.env`, exported variables, or cloud auth like AWS), it just works. It only prompts for keys when the connection actually fails.
@@ -99,7 +99,7 @@ from ace import ACELiteLLM, ACEModelConfig, ModelConfig
 # Different models per role
 ace = ACELiteLLM.from_config(ACEModelConfig(
     default=ModelConfig(model="gpt-4o-mini"),
-    agent=ModelConfig(model="claude-sonnet-4-20250514"),
+    agent=ModelConfig(model="claude-sonnet-5"),
 ))
 ```
 
@@ -120,7 +120,7 @@ Example `ace.toml`:
 model = "gpt-4o-mini"
 
 [agent]
-model = "claude-sonnet-4-20250514"
+model = "claude-sonnet-5"
 max_tokens = 4096
 
 [reflector]
@@ -168,7 +168,7 @@ ACE uses [LiteLLM](https://docs.litellm.ai/) for model access. Any model string 
 | Provider | Model Example | Env Variable |
 |----------|--------------|--------------|
 | OpenAI | `gpt-4o-mini` | `OPENAI_API_KEY` |
-| Anthropic | `claude-sonnet-4-20250514` | `ANTHROPIC_API_KEY` |
+| Anthropic | `claude-sonnet-5` | `ANTHROPIC_API_KEY` |
 | AWS Bedrock | `us.anthropic.claude-haiku-4-5-20251001-v1:0` | `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` + `AWS_REGION_NAME` |
 | Google Gemini | `gemini/gemini-2.0-flash` | `GEMINI_API_KEY` |
 | DeepSeek | `deepseek/deepseek-chat` | `DEEPSEEK_API_KEY` |
@@ -203,8 +203,8 @@ The model string may have a typo. `ace validate` and `ace setup` suggest alterna
 ace validate claud-sonnet
 # x Model 'claud-sonnet' not found at the provider.
 # Did you mean:
-#   - claude-sonnet-4-20250514
-#   - claude-3-5-sonnet-20241022
+#   - claude-sonnet-5
+#   - claude-sonnet-4-5-20250929
 ```
 
 ### "Could not detect a provider"

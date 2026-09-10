@@ -203,7 +203,7 @@ class ACELiteLLM:
 
             config = ACEModelConfig(
                 default=ModelConfig(model="gpt-4o-mini"),
-                agent=ModelConfig(model="claude-sonnet-4-20250514"),
+                agent=ModelConfig(model="claude-sonnet-5"),
             )
             ace = ACELiteLLM.from_config(config)
         """

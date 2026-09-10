@@ -10,7 +10,7 @@ Usage::
     from ace.steps import learning_tail
 
     steps = [
-        ClaudeSDKExecuteStep(model="claude-sonnet-4-20250514"),
+        ClaudeSDKExecuteStep(model="claude-sonnet-5"),
         ClaudeSDKToTrace(),
         *learning_tail(reflector, skill_manager, skillbook),
     ]
@@ -103,10 +103,10 @@ class _ClaudeSDKConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    model: str = Field(default="claude-sonnet-4-20250514", min_length=1)
+    model: str = Field(default="claude-sonnet-5", min_length=1)
     system_prompt: Optional[str] = None
     max_tokens: int = Field(default=4096, gt=0)
-    temperature: float = Field(default=0.0, ge=0.0, le=1.0)
+    temperature: Optional[float] = Field(default=None, ge=0.0, le=1.0)
     tools: Optional[List[Dict[str, Any]]] = None
     api_key: Optional[str] = None
     base_url: Optional[str] = None
@@ -192,7 +192,7 @@ class ClaudeSDKExecuteStep:
     Compose with the learning tail::
 
         steps = [
-            ClaudeSDKExecuteStep(model="claude-sonnet-4-20250514"),
+            ClaudeSDKExecuteStep(model="claude-sonnet-5"),
             ClaudeSDKToTrace(),
             *learning_tail(reflector, skill_manager, skillbook),
         ]
@@ -203,11 +203,11 @@ class ClaudeSDKExecuteStep:
 
     def __init__(
         self,
-        model: str = "claude-sonnet-4-20250514",
+        model: str = "claude-sonnet-5",
         *,
         system_prompt: Optional[str] = None,
         max_tokens: int = 4096,
-        temperature: float = 0.0,
+        temperature: Optional[float] = None,
         tools: Optional[List[Dict[str, Any]]] = None,
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
@@ -346,9 +346,10 @@ class ClaudeSDKExecuteStep:
         api_kwargs: Dict[str, Any] = {
             "model": self.model,
             "max_tokens": self.max_tokens,
-            "temperature": self.temperature,
             "messages": messages,
         }
+        if self.temperature is not None:
+            api_kwargs["temperature"] = self.temperature
         if system is not None:
             api_kwargs["system"] = system
         if self.tools:

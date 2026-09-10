@@ -480,7 +480,7 @@ class TestClaudeSDKObservability:
         mock_logfire.span.assert_called_once()
         call_kwargs = mock_logfire.span.call_args
         assert call_kwargs[0][0] == "ClaudeSDKExecuteStep"
-        assert call_kwargs[1]["model"] == "claude-sonnet-4-20250514"
+        assert call_kwargs[1]["model"] == "claude-sonnet-5"
 
         # Attributes were set on the span
         attr_calls = {c[0][0]: c[0][1] for c in mock_span.set_attribute.call_args_list}
