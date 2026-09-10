@@ -32,7 +32,7 @@ runner.save("browser_expert.json")
 | `browser_llm` | `Any` | — | LLM for browser-use execution |
 | `ace_model` | `str` | `"gpt-4o-mini"` | Model for Reflector + SkillManager |
 | `ace_max_tokens` | `int` | `2048` | Max tokens for ACE LLM responses |
-| `ace_temperature` | `float` | `0.0` | Sampling temperature for ACE roles |
+| `ace_temperature` | `float \| None` | `None` | Sampling temperature for ACE roles. Unset by default; Sonnet 5 / Opus 5 reject explicit values |
 
 ### from_roles()
 

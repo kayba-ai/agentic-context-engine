@@ -85,7 +85,6 @@ class RRStep(RecursiveAgent):
             from pydantic_ai.models.bedrock import BedrockModelSettings
 
             effective_model_settings = BedrockModelSettings(
-                temperature=0.0,
                 bedrock_cache_instructions=True,
                 bedrock_cache_tool_definitions=True,
                 bedrock_cache_messages=True,

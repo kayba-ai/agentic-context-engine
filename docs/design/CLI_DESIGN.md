@@ -81,7 +81,7 @@ model = "gpt-4o-mini"
 temperature = 0.2
 ```
 
-Roles without an explicit section inherit from `[default]`. Only non-default values are written (e.g. `temperature` is omitted when it equals `0.0`).
+Roles without an explicit section inherit from `[default]`. Only non-default values are written (e.g. `temperature` is omitted when unset).
 
 ### Config discovery
 
@@ -116,7 +116,7 @@ ace = ACELiteLLM.from_config(ACEModelConfig(
 @dataclass
 class ModelConfig:
     model: str                              # LiteLLM model string
-    temperature: float = 0.0
+    temperature: float | None = None        # None = not sent
     max_tokens: int = 2048
     extra_params: dict[str, Any] | None = None
 ```

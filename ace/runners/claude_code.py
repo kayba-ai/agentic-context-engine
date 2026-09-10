@@ -6,7 +6,7 @@ from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any, Optional
 
-from pydantic_ai.settings import ModelSettings
+from ..providers.pydantic_ai import build_model_settings
 
 from pipeline import Pipeline
 from pipeline.protocol import SampleResult, StepProtocol
@@ -187,7 +187,7 @@ class ClaudeCode(ACERunner):
         working_dir: Optional[str] = None,
         ace_model: str = "gpt-4o-mini",
         ace_max_tokens: int = 2048,
-        ace_temperature: float = 0.0,
+        ace_temperature: float | None = None,
         **kwargs: Any,
     ) -> ClaudeCode:
         """Build ACE roles from a model string.
@@ -196,14 +196,14 @@ class ClaudeCode(ACERunner):
             working_dir: Directory where Claude Code executes.
             ace_model: Model identifier for ACE roles.
             ace_max_tokens: Max tokens for ACE LLM responses.
-            ace_temperature: Sampling temperature for ACE roles.
+            ace_temperature: Sampling temperature for ACE roles. ``None``
+                (default) leaves it unset so the provider default applies.
             **kwargs: Forwarded to :meth:`from_roles`.
         """
         from ..implementations import Reflector, SkillManager
 
-        model_settings = ModelSettings(
-            temperature=ace_temperature,
-            max_tokens=ace_max_tokens,
+        model_settings = build_model_settings(
+            max_tokens=ace_max_tokens, temperature=ace_temperature
         )
 
         return cls.from_roles(

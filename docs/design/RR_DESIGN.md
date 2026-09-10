@@ -100,8 +100,8 @@ RR uses one tool-capable structured-output agent. It may call `execute_code`,
 returns `ReflectorOutput` directly. There is no second conversion agent.
 RR specializes the generic `execute_code` tool description for this step so the
 model sees it as an evidence workbench rather than a prose-reporting channel.
-RR also defaults to `temperature=0.0` for deterministic evidence analysis unless
-the caller passes explicit `model_settings`.
+RR leaves `temperature` unset (provider default) unless the caller passes
+explicit `model_settings`.
 For small traces, the generated data summary tells RR to use only a few focused
 code checks and avoid transcript walkthroughs.
 
