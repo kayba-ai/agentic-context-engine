@@ -297,11 +297,11 @@ class TestMeteredModel:
         assert rr._agent._output_schema.mode == "prompted"
         assert rr._agent._output_schema.allows_text is True
 
-    def test_rrstep_defaults_to_deterministic_temperature(self):
-        """RR defaults to deterministic evidence analysis unless overridden."""
+    def test_rrstep_omits_temperature_by_default(self):
+        """RR leaves temperature unset unless overridden."""
         rr = RRStep("test-model", config=RRConfig())
 
-        assert rr._agent.model_settings["temperature"] == 0.0
+        assert "temperature" not in rr._agent.model_settings
 
     def test_rrstep_preserves_explicit_model_settings(self):
         """Callers can still override RR model settings explicitly."""

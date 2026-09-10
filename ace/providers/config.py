@@ -34,14 +34,17 @@ class ModelConfig:
     """Configuration for a single LLM role. No secrets."""
 
     model: str
-    temperature: float = 0.0
+    # None = not sent, so the provider default applies. Set 0.0 for
+    # deterministic output on models that allow it; Claude Sonnet 5 / Opus 5
+    # reject any explicit value.
+    temperature: float | None = None
     max_tokens: int = 2048
     extra_params: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Serialise to a dict, omitting None/default values."""
         d: dict[str, Any] = {"model": self.model}
-        if self.temperature != 0.0:
+        if self.temperature is not None:
             d["temperature"] = self.temperature
         if self.max_tokens != 2048:
             d["max_tokens"] = self.max_tokens

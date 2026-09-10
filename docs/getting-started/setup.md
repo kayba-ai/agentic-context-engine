@@ -125,9 +125,11 @@ max_tokens = 4096
 
 [reflector]
 model = "gpt-4o-mini"
+# temperature = 0.0  # unset by default; Sonnet 5 / Opus 5 reject explicit values
 ```
 
-Roles without an explicit section use `[default]`.
+Roles without an explicit section use `[default]`. `temperature` is not sent
+unless you set it, so the provider default applies.
 
 ## Discovering Models
 

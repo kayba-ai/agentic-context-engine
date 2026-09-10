@@ -207,19 +207,33 @@ def _create_bedrock_model(model: str, api_key: str) -> Any:
     return BedrockConverseModel(model_name=model_id, provider=provider)
 
 
+def build_model_settings(
+    *, max_tokens: int, temperature: float | None = None
+) -> ModelSettings:
+    """Create ``ModelSettings``; ``temperature`` is only sent when set.
+
+    Leaving ``temperature`` as ``None`` omits it from every request so the
+    provider default applies. Claude Sonnet 5 / Opus 5 reject any explicit
+    value, so this is the safe default across providers.
+    """
+    settings = ModelSettings(max_tokens=max_tokens)
+    if temperature is not None:
+        settings["temperature"] = temperature
+    return settings
+
+
 def settings_from_config(config: ModelConfig) -> ModelSettings:
     """Create ``ModelSettings`` from a ``ModelConfig``.
 
     Maps ACE configuration (temperature, max_tokens) to PydanticAI's
-    model settings.
+    model settings. ``temperature`` is omitted when unset.
 
     Args:
         config: ACE model configuration.
 
     Returns:
-        PydanticAI ``ModelSettings`` with temperature and max_tokens.
+        PydanticAI ``ModelSettings`` with max_tokens and, if set, temperature.
     """
-    return ModelSettings(
-        temperature=config.temperature,
-        max_tokens=config.max_tokens,
+    return build_model_settings(
+        max_tokens=config.max_tokens, temperature=config.temperature
     )

@@ -24,7 +24,7 @@ agent.save("learned.json")
 |-----------|------|---------|-------------|
 | `model` | `str` | `"gpt-4o-mini"` | LiteLLM model identifier |
 | `max_tokens` | `int` | `2048` | Max tokens for responses |
-| `temperature` | `float` | `0.0` | Sampling temperature |
+| `temperature` | `float \| None` | `None` | Sampling temperature. Unset by default so the provider default applies; Sonnet 5 / Opus 5 reject explicit values |
 | `api_key` | `str` | `None` | API key (or use env variable) |
 | `base_url` | `str` | `None` | Custom API endpoint |
 | `skillbook_path` | `str` | `None` | Path to load saved skillbook |

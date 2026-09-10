@@ -591,7 +591,7 @@ class BrowserUse(ACERunner):
 
     @classmethod
     def from_model(cls, browser_llm, *, ace_model="gpt-4o-mini",
-                   ace_max_tokens=2048, ace_temperature=0.0, **kwargs) -> BrowserUse:
+                   ace_max_tokens=2048, ace_temperature=None, **kwargs) -> BrowserUse:
         return cls.from_roles(
             browser_llm=browser_llm,
             reflector=Reflector(ace_model),
@@ -629,7 +629,7 @@ class ACELiteLLM:
 
     @classmethod
     def from_model(cls, model="gpt-4o-mini", *, max_tokens=2048,
-                   temperature=0.0, **kwargs) -> ACELiteLLM:
+                   temperature=None, **kwargs) -> ACELiteLLM:
         return cls(model, **kwargs)
 
     def ask(self, question, context="") -> str:
@@ -862,7 +862,7 @@ uv add "pydantic-ai-slim[anthropic,openai,bedrock]"  # multiple
 class ModelConfig:
     """Which model to use for a role. No secrets."""
     model: str
-    temperature: float = 0.0
+    temperature: float | None = None   # None = not sent (provider default)
     max_tokens: int = 2048
     extra_params: dict[str, Any] | None = None
 

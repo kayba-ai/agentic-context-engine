@@ -361,6 +361,7 @@ def run_setup(directory: str | Path = ".") -> ACEModelConfig:
         cfg = getattr(config, role)
         if cfg:
             _info(f"  {role + ':':<16}{cfg.model}")
+    _info("  temperature:    unset (provider default; add per role in ace.toml)")
     print()
     print(f"  {BOLD}Ready!{RESET} Use in code:")
     print()

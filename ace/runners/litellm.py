@@ -24,7 +24,11 @@ from ..protocols import (
     ReflectorLike,
     SkillManagerLike,
 )
-from ..providers.pydantic_ai import resolve_model, settings_from_config
+from ..providers.pydantic_ai import (
+    build_model_settings,
+    resolve_model,
+    settings_from_config,
+)
 from ..steps import learning_tail
 from .ace import ACE
 from .trace_analyser import TraceAnalyser
@@ -255,7 +259,7 @@ class ACELiteLLM:
         model: str = "gpt-4o-mini",
         *,
         max_tokens: int = 2048,
-        temperature: float = 0.0,
+        temperature: float | None = None,
         skillbook: Skillbook | None = None,
         skillbook_path: Optional[str] = None,
         environment: Optional[TaskEnvironment] = None,
@@ -271,7 +275,8 @@ class ACELiteLLM:
         Args:
             model: LiteLLM model identifier (e.g. ``"gpt-4o-mini"``).
             max_tokens: Max tokens for LLM responses.
-            temperature: Sampling temperature.
+            temperature: Sampling temperature. ``None`` (default) leaves it
+                unset so the provider default applies.
             skillbook: Starting skillbook.
             skillbook_path: Path to load skillbook from.
             environment: Task environment for evaluation.
@@ -282,9 +287,8 @@ class ACELiteLLM:
             is_learning: Whether learning is enabled.
             logfire: Enable Logfire observability (auto-instruments PydanticAI).
         """
-        model_settings = ModelSettings(
-            temperature=temperature,
-            max_tokens=max_tokens,
+        model_settings = build_model_settings(
+            max_tokens=max_tokens, temperature=temperature
         )
         return cls(
             model,
