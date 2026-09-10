@@ -1979,7 +1979,7 @@ prebuilt runner.</p>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">skillbook</span> <span class="o">=</span> <span class="n">Skillbook</span><span class="p">()</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">pipe</span> <span class="o">=</span> <span class="n">Pipeline</span><span class="p">([</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">ClaudeSDKExecuteStep</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">"claude-sonnet-4-20250514"</span><span class="p">),</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">ClaudeSDKExecuteStep</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">"claude-sonnet-5"</span><span class="p">),</span>
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">ClaudeSDKToTrace</span><span class="p">(),</span>
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="o">*</span><span class="n">learning_tail</span><span class="p">(</span><span class="n">Reflector</span><span class="p">(</span><span class="s2">"gpt-4o-mini"</span><span class="p">),</span> <span class="n">SkillManager</span><span class="p">(</span><span class="s2">"gpt-4o-mini"</span><span class="p">),</span> <span class="n">skillbook</span><span class="p">),</span>
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="p">])</span>
@@ -2019,7 +2019,7 @@ prebuilt runner.</p>
 <tr>
 <td><code>model</code></td>
 <td><code>str</code></td>
-<td><code>"claude-sonnet-4-20250514"</code></td>
+<td><code>"claude-sonnet-5"</code></td>
 <td>Claude model ID</td>
 </tr>
 <tr>
@@ -2036,9 +2036,9 @@ prebuilt runner.</p>
 </tr>
 <tr>
 <td><code>temperature</code></td>
-<td><code>float</code></td>
-<td><code>0.0</code></td>
-<td>Sampling temperature</td>
+<td><code>float \| None</code></td>
+<td><code>None</code></td>
+<td>Sampling temperature. Left unset it is omitted from the request, so the API default applies. Sonnet 5 and Opus 5 reject any other value</td>
 </tr>
 <tr>
 <td><code>tools</code></td>
@@ -2104,7 +2104,7 @@ prebuilt runner.</p>
 <a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="p">]</span>
 <a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>
 <a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="n">execute</span> <span class="o">=</span> <span class="n">ClaudeSDKExecuteStep</span><span class="p">(</span>
-<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"claude-sonnet-4-20250514"</span><span class="p">,</span>
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"claude-sonnet-5"</span><span class="p">,</span>
 <a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>    <span class="n">tools</span><span class="o">=</span><span class="n">tools</span><span class="p">,</span>
 <a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="p">)</span>
 </code></pre></div>

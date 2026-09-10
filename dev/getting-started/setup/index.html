@@ -2134,7 +2134,7 @@
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>Step 1: Choose your model
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  Examples: gpt-4o-mini, claude-sonnet-4-20250514, ollama/llama2
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  Examples: gpt-4o-mini, claude-sonnet-5, ollama/llama2
 <a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>  Search models: ace models &lt;query&gt;
 <a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>
 <a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>  Default model: gpt-4o-mini
@@ -2148,10 +2148,10 @@
 <a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>
 <a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>  Use this model for all roles? [Y/n]: n
 <a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>
-<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>  Agent (executes tasks) [gpt-4o-mini]: claude-sonnet-4-20250514
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>  Agent (executes tasks) [gpt-4o-mini]: claude-sonnet-5
 <a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>  ! No credentials found for anthropic
 <a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>  ANTHROPIC_API_KEY: sk-ant-...
-<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>  v Connected! (claude-sonnet-4-20250514 via anthropic, 347ms)
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>  v Connected! (claude-sonnet-5 via anthropic, 347ms)
 <a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>  v Saved credentials to .env
 <a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>
 <a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>  Reflector (analyses results) [gpt-4o-mini]:
@@ -2161,7 +2161,7 @@
 <a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a>
 <a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a>  Configuration summary:
 <a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a>    default:        gpt-4o-mini
-<a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a>    agent:          claude-sonnet-4-20250514
+<a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a>    agent:          claude-sonnet-5
 </code></pre></div>
 <p>The wizard tries the connection immediately — if your credentials are already in the environment (via <code>.env</code>, exported variables, or cloud auth like AWS), it just works. It only prompts for keys when the connection actually fails.</p>
 <p>This creates two files:</p>
@@ -2221,7 +2221,7 @@
 <a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="c1"># Different models per role</span>
 <a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">ace</span> <span class="o">=</span> <span class="n">ACELiteLLM</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="n">ACEModelConfig</span><span class="p">(</span>
 <a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="n">default</span><span class="o">=</span><span class="n">ModelConfig</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">"gpt-4o-mini"</span><span class="p">),</span>
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="n">agent</span><span class="o">=</span><span class="n">ModelConfig</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">"claude-sonnet-4-20250514"</span><span class="p">),</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="n">agent</span><span class="o">=</span><span class="n">ModelConfig</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">"claude-sonnet-5"</span><span class="p">),</span>
 <a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="p">))</span>
 </code></pre></div>
 <h2 id="per-role-model-selection">Per-Role Model Selection<a class="headerlink" href="#per-role-model-selection" title="Permanent link">&para;</a></h2>
@@ -2257,7 +2257,7 @@
 <a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">model</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"gpt-4o-mini"</span>
 <a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
 <a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="k">[agent]</span>
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="n">model</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"claude-sonnet-4-20250514"</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="n">model</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"claude-sonnet-5"</span>
 <a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="n">max_tokens</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4096</span>
 <a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>
 <a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="k">[reflector]</span>
@@ -2302,7 +2302,7 @@
 </tr>
 <tr>
 <td>Anthropic</td>
-<td><code>claude-sonnet-4-20250514</code></td>
+<td><code>claude-sonnet-5</code></td>
 <td><code>ANTHROPIC_API_KEY</code></td>
 </tr>
 <tr>
@@ -2358,8 +2358,8 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>ace<span class="w"> </span>validate<span class="w"> </span>claud-sonnet
 <a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="c1"># x Model 'claud-sonnet' not found at the provider.</span>
 <a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="c1"># Did you mean:</span>
-<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="c1">#   - claude-sonnet-4-20250514</span>
-<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="c1">#   - claude-3-5-sonnet-20241022</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="c1">#   - claude-sonnet-5</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="c1">#   - claude-sonnet-4-5-20250929</span>
 </code></pre></div>
 <h3 id="could-not-detect-a-provider">"Could not detect a provider"<a class="headerlink" href="#could-not-detect-a-provider" title="Permanent link">&para;</a></h3>
 <p>Use the <code>provider/model-name</code> format:</p>
