@@ -2129,9 +2129,9 @@
 </tr>
 <tr>
 <td><code>temperature</code></td>
-<td><code>float</code></td>
-<td><code>0.0</code></td>
-<td>Sampling temperature</td>
+<td><code>float \| None</code></td>
+<td><code>None</code></td>
+<td>Sampling temperature. Unset by default so the provider default applies; Sonnet 5 / Opus 5 reject explicit values</td>
 </tr>
 <tr>
 <td><code>api_key</code></td>

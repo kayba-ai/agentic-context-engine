@@ -2262,8 +2262,10 @@
 <a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>
 <a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="k">[reflector]</span>
 <a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="n">model</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"gpt-4o-mini"</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="c1"># temperature = 0.0  # unset by default; Sonnet 5 / Opus 5 reject explicit values</span>
 </code></pre></div>
-<p>Roles without an explicit section use <code>[default]</code>.</p>
+<p>Roles without an explicit section use <code>[default]</code>. <code>temperature</code> is not sent
+unless you set it, so the provider default applies.</p>
 <h2 id="discovering-models">Discovering Models<a class="headerlink" href="#discovering-models" title="Permanent link">&para;</a></h2>
 <h3 id="search-available-models">Search available models<a class="headerlink" href="#search-available-models" title="Permanent link">&para;</a></h3>
 <p>Use multiple terms to narrow results — all terms must match:</p>

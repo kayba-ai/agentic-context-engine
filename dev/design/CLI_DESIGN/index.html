@@ -2284,7 +2284,7 @@
 <a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="n">model</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"gpt-4o-mini"</span>
 <a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="n">temperature</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.2</span>
 </code></pre></div>
-<p>Roles without an explicit section inherit from <code>[default]</code>. Only non-default values are written (e.g. <code>temperature</code> is omitted when it equals <code>0.0</code>).</p>
+<p>Roles without an explicit section inherit from <code>[default]</code>. Only non-default values are written (e.g. <code>temperature</code> is omitted when unset).</p>
 <h3 id="config-discovery">Config discovery<a class="headerlink" href="#config-discovery" title="Permanent link">&para;</a></h3>
 <p><code>find_config(start)</code> walks up from <code>start</code> to the filesystem root looking for <code>ace.toml</code>. This supports monorepos where the config lives at the project root but commands run from subdirectories.</p>
 <h3 id="loading-in-code">Loading in code<a class="headerlink" href="#loading-in-code" title="Permanent link">&para;</a></h3>
@@ -2309,7 +2309,7 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nd">@dataclass</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">ModelConfig</span><span class="p">:</span>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">model</span><span class="p">:</span> <span class="nb">str</span>                              <span class="c1"># LiteLLM model string</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">temperature</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">temperature</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>        <span class="c1"># None = not sent</span>
 <a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">max_tokens</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span>
 <a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">extra_params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 </code></pre></div>

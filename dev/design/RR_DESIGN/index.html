@@ -2144,8 +2144,8 @@
 returns <code>ReflectorOutput</code> directly. There is no second conversion agent.
 RR specializes the generic <code>execute_code</code> tool description for this step so the
 model sees it as an evidence workbench rather than a prose-reporting channel.
-RR also defaults to <code>temperature=0.0</code> for deterministic evidence analysis unless
-the caller passes explicit <code>model_settings</code>.
+RR leaves <code>temperature</code> unset (provider default) unless the caller passes
+explicit <code>model_settings</code>.
 For small traces, the generated data summary tells RR to use only a few focused
 code checks and avoid transcript walkthroughs.</p>
 <h3 id="dual-protocol-support">Dual Protocol Support<a class="headerlink" href="#dual-protocol-support" title="Permanent link">&para;</a></h3>
