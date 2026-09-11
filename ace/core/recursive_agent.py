@@ -30,8 +30,9 @@ import asyncio
 import concurrent.futures
 import copy
 import logging
+import re
 from contextlib import nullcontext
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Awaitable, Callable, Sequence, Type
 
 from pydantic_ai import Agent as PydanticAgent
@@ -220,18 +221,7 @@ def register_recurse(agent: PydanticAgent[AgenticDeps, Any]) -> None:
         child_token_budget = max(10_000, int(remaining * cfg.child_budget_fraction))
 
         # Build child deps (same type as parent)
-        child_deps = deps.__class__(
-            **{
-                **{
-                    f.name: getattr(deps, f.name)
-                    for f in deps.__dataclass_fields__.values()
-                },
-                "sandbox": child_sandbox,
-                "depth": deps.depth + 1,
-                "iteration": 0,
-                "parent_usage_tokens": 0,
-            }
-        )
+        child_deps = deps.for_child(sandbox=child_sandbox)
 
         try:
             output, _ = await deps.run_session_fn(
@@ -239,13 +229,24 @@ def register_recurse(agent: PydanticAgent[AgenticDeps, Any]) -> None:
                 prompt=prompt,
                 depth=deps.depth + 1,
             )
-
-            # Serialize child output to text
             if hasattr(output, "model_dump"):
                 d = output.model_dump(exclude={"raw"}, exclude_defaults=True)
                 parts = [f"{k}: {v}" for k, v in d.items() if v]
-                return "\n".join(parts) if parts else "(empty output)"
-            return str(output) if output else "(empty output)"
+                text = "\n".join(parts) if parts else "(empty output)"
+            else:
+                text = str(output) if output else "(empty output)"
+
+            id_map = deps.commit_child(child_deps)
+
+            if id_map:
+                pattern = re.compile(
+                    "|".join(
+                        re.escape(child_id)
+                        for child_id in sorted(id_map, key=len, reverse=True)
+                    )
+                )
+                text = pattern.sub(lambda m: id_map[m.group(0)], text)
+            return text
 
         except Exception as e:
             return f"(child session failed: {e})"
@@ -319,6 +320,29 @@ class AgenticDeps:
     iteration: int = 0
     run_session_fn: Callable[..., Awaitable[tuple[Any, Any]]] | None = None
     parent_usage_tokens: int = 0
+
+    def for_child(self, *, sandbox: Any) -> "AgenticDeps":
+        """Build dependency state for a child session."""
+        return replace(
+            self,
+            sandbox=sandbox,
+            depth=self.depth + 1,
+            iteration=0,
+            parent_usage_tokens=0,
+        )
+
+    def commit_child(self, child: "AgenticDeps") -> dict[str, str]:
+        """Merge a successful child session's mutations back into this state.
+
+        Returns:
+            A mapping of any child-local identifiers that were renamed
+            while committing (e.g. a temporary skill ID assigned inside
+            the child's isolated skillbook) to the identifier they now
+            have in this (parent) state. Empty when nothing was renamed.
+            ``recurse()`` uses this to rewrite the child's returned text
+            so any IDs it mentions refer to the parent's state.
+        """
+        return {}
 
 
 # ------------------------------------------------------------------

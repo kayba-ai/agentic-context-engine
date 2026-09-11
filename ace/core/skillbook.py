@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import re
 import threading
@@ -362,6 +363,28 @@ class Skillbook:
         if not self._skills:
             return "Skillbook(empty)"
         return self.as_prompt()
+
+    @property
+    def lock(self) -> threading.RLock:
+        """Reentrant lock guarding all mutations."""
+        return self._lock
+
+    def clone(self) -> "Skillbook":
+        """In-memory deep copy that preserves computed embeddings."""
+
+        with self._lock:
+            clone = Skillbook()
+            clone._skills = {
+                skill_id: copy.deepcopy(skill)
+                for skill_id, skill in self._skills.items()
+            }
+            clone._sections = {
+                section: list(skill_ids)
+                for section, skill_ids in self._sections.items()
+            }
+            clone._next_id = self._next_id
+            clone._similarity_decisions = dict(self._similarity_decisions)
+            return clone
 
     # ------------------------------------------------------------------ #
     # CRUD

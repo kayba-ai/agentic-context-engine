@@ -158,6 +158,8 @@ All three share the same constructor pattern: `__init__(self, model: str, *, pro
 
 `RRStep` is both a `StepProtocol[ACEStepContext]` (composable in any pipeline) and `ReflectorLike` (usable as a drop-in reflector). It is a subclass of `RecursiveAgent` with `execute_code` and `recurse` tools, plus two-tier compaction and depth-based recursion. See [RR_DESIGN.md](RR_DESIGN.md) for the full Recursive Reflector architecture.
 
+Every child gets its own sandbox and reset iteration/usage counters via `AgenticDeps.for_child()`/`commit_child()`, and a child that raises leaves parent state untouched — but isolating and re-committing *other* mutable state is up to each `AgenticDeps` subclass, not a guarantee the base class provides. The agentic SkillManager (`SMDeps`) is the concrete example: `for_child()` deep-copies the skillbook so the child mutates an isolated copy, and `commit_child()` stages the child's recorded operations against a fresh snapshot of the parent skillbook, validates them, and atomically commits them back under the parent skillbook's lock — returning a map of any child-local skill IDs that were renamed in the process, which `recurse()` uses to rewrite the child's returned text. A subclass (e.g. `RRDeps`) that doesn't override these methods gets no such isolation: any mutable field it adds is shared by reference with the child.
+
 ---
 
 ## Steps

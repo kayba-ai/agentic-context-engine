@@ -261,6 +261,63 @@ class TestSkillbookSerialization:
 
 
 # ------------------------------------------------------------------ #
+# Skillbook.clone()
+# ------------------------------------------------------------------ #
+
+
+class TestSkillbookClone:
+    def test_clone_preserves_embeddings(self):
+        """Unlike loads(dumps()), clone() must not drop computed embeddings."""
+        sb = Skillbook()
+        skill = sb.add_skill("math", "issue", skill_id="math-001")
+        skill.embedding = [0.1, 0.2, 0.3]
+
+        cloned = sb.clone()
+
+        cloned_skill = cloned.get_skill("math-001")
+        assert cloned_skill is not None
+        assert cloned_skill.embedding == [0.1, 0.2, 0.3]
+
+    def test_clone_is_independent_copy(self):
+        """Mutating the clone (or its skills) must not affect the source."""
+        sb = Skillbook()
+        skill = sb.add_skill("math", "issue", skill_id="math-001")
+        skill.embedding = [1.0, 2.0]
+
+        cloned = sb.clone()
+        cloned.add_skill("math", "cloned-only")
+        cloned_skill = cloned.get_skill("math-001")
+        cloned_skill.embedding[0] = 999.0
+        cloned.update_skill("math-001", insight="mutated on clone")
+
+        assert len(sb.skills()) == 1
+        assert sb.get_skill("math-001").embedding == [1.0, 2.0]
+        assert sb.get_skill("math-001").insight == "issue"
+
+    def test_clone_preserves_next_id_and_similarity_decisions(self):
+        from ace.core.skillbook import SimilarityDecision
+
+        sb = Skillbook()
+        sb.add_skill("math", "a")
+        sb.set_similarity_decision(
+            "a",
+            "b",
+            SimilarityDecision(
+                decision="KEEP",
+                reasoning="distinct",
+                decided_at="2025-01-01T00:00:00",
+                similarity_at_decision=0.5,
+            ),
+        )
+
+        cloned = sb.clone()
+        next_skill = cloned.add_skill("math", "b")
+
+        assert not next_skill.id.endswith("00001")
+        assert cloned.has_keep_decision("a", "b")
+
+
+# ------------------------------------------------------------------ #
 # Skillbook update operations
 # ------------------------------------------------------------------ #
 
@@ -396,6 +453,16 @@ class TestSkillbookThreadSafety:
         )
         sb.apply_update(batch)
         assert len(sb.skills()) == 2
+
+    def test_lock_property_is_shared_reentrant_lock(self):
+        """External callers (e.g. a child-commit transaction) must be able
+        to hold the same lock instance that internal mutations use."""
+        sb = Skillbook()
+        with sb.lock:
+            # Reentrant: an internal method acquiring the same lock while
+            # the caller already holds it must not deadlock.
+            sb.add_skill("math", "a")
+        assert len(sb.skills()) == 1
 
 
 # ------------------------------------------------------------------ #

@@ -2,10 +2,14 @@
 
 The agentic SkillManager operates on the real :class:`Skillbook` via
 atomic mutation tools (ADD / UPDATE / REMOVE / TAG) and read-only
-inspection tools (search / read). Tools apply changes directly; there
-is no staging. Each mutation appends an ``UpdateOperation`` to
-``deps.operations`` so the caller can recover an audit trail after the
-run.
+inspection tools (search / read). At the top level, tools apply changes
+to the real skillbook immediately. A recursive child instead runs
+against an isolated copy (see :meth:`SMDeps.for_child`); its mutations
+are staged against a fresh snapshot of the parent skillbook, validated,
+and atomically committed back under the parent skillbook's lock (see
+:meth:`SMDeps.commit_child`). Each mutation appends an
+``UpdateOperation`` to ``deps.operations`` so the caller can recover an
+audit trail after the run.
 
 Generic tools (``execute_code``, ``recurse``) are provided by
 :mod:`ace.core.recursive_agent`.
@@ -13,14 +17,14 @@ Generic tools (``execute_code``, ``recurse``) are provided by
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Iterable, Literal, Optional
+from dataclasses import dataclass, field, replace
+from typing import TYPE_CHECKING, Any, Iterable, Literal, Optional, cast
 
 from pydantic_ai import RunContext
 
 from ace.core.insight_source import InsightSource
 from ace.core.recursive_agent import AgenticDeps
-from ace.core.skillbook import Skillbook, UpdateOperation
+from ace.core.skillbook import Skillbook, UpdateBatch, UpdateOperation
 
 if TYPE_CHECKING:
     from pydantic_ai import Agent as PydanticAgent
@@ -38,6 +42,89 @@ class SMDeps(AgenticDeps):
     skillbook: Optional[Skillbook] = None
     operations: list[UpdateOperation] = field(default_factory=list)
     current_source: Optional[InsightSource] = None
+
+    def for_child(self, *, sandbox: Any) -> "SMDeps":
+        child = cast(SMDeps, super().for_child(sandbox=sandbox))
+
+        if self.skillbook is not None:
+            child.skillbook = self.skillbook.clone()
+
+        child.operations = []
+        return child
+
+    def commit_child(self, child: AgenticDeps) -> dict[str, str]:
+        """Atomically merge a successful child's skillbook mutations.
+
+        Returns:
+            Mapping of the child's temporary skill IDs (assigned inside
+            its isolated copy) to the IDs they were committed under in
+            the parent skillbook.
+        """
+        child = cast(SMDeps, child)
+
+        if self.skillbook is None or child.skillbook is None:
+            return {}
+
+        with self.skillbook.lock:
+            staged_skillbook = self.skillbook.clone()
+
+            id_map: dict[str, str] = {}
+            committed_operations: list[UpdateOperation] = []
+            apply_operations: list[UpdateOperation] = []
+
+            for operation in child.operations:
+                skill_id = operation.skill_id
+
+                if skill_id is not None:
+                    skill_id = id_map.get(skill_id, skill_id)
+
+                if operation.type == "ADD":
+                    child_skill_id = operation.skill_id
+
+                    skill = staged_skillbook.add_skill(
+                        section=operation.section,
+                        issue=operation.issue,
+                        keywords=operation.keywords,
+                        insight=operation.insight,
+                        insight_source=operation.insight_source,
+                    )
+
+                    if child_skill_id is not None:
+                        id_map[child_skill_id] = skill.id
+
+                    committed_operation = replace(
+                        operation,
+                        skill_id=skill.id,
+                    )
+                    committed_operations.append(committed_operation)
+
+                    apply_operations.append(replace(committed_operation, skill_id=None))
+                    continue
+
+                committed_operation = replace(
+                    operation,
+                    skill_id=skill_id,
+                )
+
+                staged_skillbook.apply_update(
+                    UpdateBatch(
+                        reasoning="",
+                        operations=[committed_operation],
+                    )
+                )
+
+                committed_operations.append(committed_operation)
+                apply_operations.append(committed_operation)
+
+            self.skillbook.apply_update(
+                UpdateBatch(
+                    reasoning="",
+                    operations=apply_operations,
+                )
+            )
+            self.operations.extend(committed_operations)
+
+        return id_map
 
 
 def _normalize_keywords(keywords: Iterable[str]) -> list[str]:

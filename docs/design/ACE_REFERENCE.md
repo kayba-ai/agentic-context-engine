@@ -692,8 +692,10 @@ reflection = reflector.reflect(
 
 ### SkillManager (agentic)
 
-A `RecursiveAgent` subclass with atomic mutation tools. Tools operate on the real
-`Skillbook` directly; there is no staging and no downstream `ApplyStep`.
+A `RecursiveAgent` subclass with atomic mutation tools. At the top level, tools
+operate on the real `Skillbook` directly and there is no downstream `ApplyStep`.
+Recursive child sessions work on an isolated clone and are committed back
+atomically via `SMDeps.commit_child()`.
 
 ```python
 from ace import SkillManager
