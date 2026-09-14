@@ -71,7 +71,6 @@ _TOOL_DISPATCH: dict[str, tuple[type, str]] = {
 def register_tools(server: Any, handlers: MCPHandlers) -> None:
     types = _load_mcp_types()
 
-    @server.list_tools()
     async def handle_list_tools():
         return [
             types.Tool(
@@ -106,7 +105,6 @@ def register_tools(server: Any, handlers: MCPHandlers) -> None:
             ),
         ]
 
-    @server.call_tool()
     async def handle_call_tool(name: str, arguments: dict | None):
         args = arguments or {}
         try:
@@ -127,3 +125,22 @@ def register_tools(server: Any, handlers: MCPHandlers) -> None:
                 isError=True,
                 content=[types.TextContent(type="text", text=json.dumps(mcp_err))],
             )
+
+    if hasattr(server, "add_request_handler"):
+        # mcp>=2 dropped the decorators; handlers take (ctx, params) and must
+        # return full result objects.
+        async def on_list_tools(ctx: Any, params: Any):
+            return types.ListToolsResult(tools=await handle_list_tools())
+
+        async def on_call_tool(ctx: Any, params: Any):
+            return await handle_call_tool(params.name, params.arguments)
+
+        server.add_request_handler(
+            "tools/list", types.PaginatedRequestParams, on_list_tools
+        )
+        server.add_request_handler(
+            "tools/call", types.CallToolRequestParams, on_call_tool
+        )
+    else:
+        server.list_tools()(handle_list_tools)
+        server.call_tool()(handle_call_tool)
