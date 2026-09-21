@@ -110,7 +110,7 @@ cloud = [
     "questionary>=2.0.0",
 ]
 mcp = [
-    "mcp>=1.22.0",
+    "mcp>=1.22.0,<3",
     "pydantic-settings>=2.0.0",
     "tenacity>=8.0.0",
 ]

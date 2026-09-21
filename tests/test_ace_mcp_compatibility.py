@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import json
 import re
+from contextlib import asynccontextmanager
 from unittest.mock import MagicMock, patch
 
+import anyio
 import pytest
 
 from ace.integrations.mcp.adapters import _MCP_INSTALL_HINT as ADAPTERS_INSTALL_HINT
@@ -33,9 +35,34 @@ def _require_mcp():
     pytest.importorskip("mcp.types")
 
     from mcp.server import Server
-    from mcp.types import CallToolRequest, ListToolsRequest
 
-    return Server, CallToolRequest, ListToolsRequest
+    return Server
+
+
+@asynccontextmanager
+async def _client_session(server):
+    """Connect an in-memory MCP client session to ``server``."""
+    from mcp.client.session import ClientSession
+    from mcp.shared.memory import create_client_server_memory_streams
+
+    async with create_client_server_memory_streams() as (
+        client_streams,
+        server_streams,
+    ):
+        async with anyio.create_task_group() as tg:
+            tg.start_soon(
+                lambda: server.run(
+                    *server_streams, server.create_initialization_options()
+                )
+            )
+            async with ClientSession(*client_streams) as session:
+                await session.initialize()
+                yield session
+            tg.cancel_scope.cancel()
+
+
+def _is_error(result) -> bool:
+    return result.model_dump(by_alias=True)["isError"]
 
 
 def test_ask_request_schema_is_inlined():
@@ -75,7 +102,7 @@ def test_error_messages_are_client_agnostic():
 
 @pytest.fixture
 def wired_server():
-    Server, _, _ = _require_mcp()
+    Server = _require_mcp()
 
     config = MCPServerConfig(safe_mode=False)
     registry = SessionRegistry(config)
@@ -88,14 +115,13 @@ def wired_server():
 @pytest.mark.asyncio
 async def test_published_tool_schemas_are_inlined(wired_server):
     server, _ = wired_server
-    _, _, ListToolsRequest = _require_mcp()
 
-    handler = server.request_handlers.get(ListToolsRequest)
-    assert handler is not None
+    async with _client_session(server) as session:
+        result = await session.list_tools()
 
-    result = await handler(MagicMock())
-    for tool in result.root.tools:
-        schema_str = json.dumps(tool.inputSchema)
+    assert result.tools
+    for tool in result.tools:
+        schema_str = json.dumps(tool.model_dump(by_alias=True)["inputSchema"])
         assert "$ref" not in schema_str
         assert "$defs" not in schema_str
         assert not _CLIENT_PATTERN.search(tool.description or "")
@@ -104,7 +130,6 @@ async def test_published_tool_schemas_are_inlined(wired_server):
 @pytest.mark.asyncio
 async def test_call_tool_ace_ask_returns_json_payload(wired_server):
     server, _ = wired_server
-    _, CallToolRequest, _ = _require_mcp()
 
     with patch("ace.integrations.mcp.registry.ACELiteLLM") as mock_runner_cls:
         runner = MagicMock()
@@ -112,20 +137,17 @@ async def test_call_tool_ace_ask_returns_json_payload(wired_server):
         runner.skillbook.skills.return_value = []
         mock_runner_cls.from_model.return_value = runner
 
-        handler = server.request_handlers.get(CallToolRequest)
-        assert handler is not None
+        async with _client_session(server) as session:
+            result = await session.call_tool(
+                "ace.ask",
+                {
+                    "session_id": "generic-client-1",
+                    "question": "What is the meaning of life?",
+                },
+            )
+        assert not _is_error(result)
 
-        req = MagicMock()
-        req.params.name = "ace.ask"
-        req.params.arguments = {
-            "session_id": "generic-client-1",
-            "question": "What is the meaning of life?",
-        }
-
-        result = await handler(req)
-        assert not result.root.isError
-
-        payload = json.loads(result.root.content[0].text)
+        payload = json.loads(result.content[0].text)
         assert payload["answer"] == "The answer is 42."
         assert payload["session_id"] == "generic-client-1"
 
@@ -133,19 +155,12 @@ async def test_call_tool_ace_ask_returns_json_payload(wired_server):
 @pytest.mark.asyncio
 async def test_call_tool_unknown_tool_returns_structured_error(wired_server):
     server, _ = wired_server
-    _, CallToolRequest, _ = _require_mcp()
 
-    handler = server.request_handlers.get(CallToolRequest)
-    assert handler is not None
+    async with _client_session(server) as session:
+        result = await session.call_tool("nonexistent.tool", {})
+    assert _is_error(result)
 
-    req = MagicMock()
-    req.params.name = "nonexistent.tool"
-    req.params.arguments = {}
-
-    result = await handler(req)
-    assert result.root.isError
-
-    payload = json.loads(result.root.content[0].text)
+    payload = json.loads(result.content[0].text)
     assert payload["code"] == "ACE_MCP_INTERNAL_ERROR"
     assert "Unknown tool" in payload["message"]
 

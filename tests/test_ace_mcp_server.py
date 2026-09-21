@@ -1,12 +1,13 @@
+import anyio
 import pytest
-from unittest.mock import MagicMock
 
 pytest.importorskip("mcp.server")
 pytest.importorskip("mcp.types")
 
 from ace.integrations.mcp.server import create_server
+from mcp.client.session import ClientSession
 from mcp.server import Server
-from mcp.types import ListToolsRequest
+from mcp.shared.memory import create_client_server_memory_streams
 
 EXPECTED_TOOL_NAMES = {
     "ace.ask",
@@ -29,9 +30,20 @@ async def test_tool_registration():
     """All 6 MVP tools must be registered (FR-002)."""
     server = create_server()
 
-    handler = server.request_handlers.get(ListToolsRequest)
-    assert handler is not None, "tools/list handler not registered"
+    async with create_client_server_memory_streams() as (
+        client_streams,
+        server_streams,
+    ):
+        async with anyio.create_task_group() as tg:
+            tg.start_soon(
+                lambda: server.run(
+                    *server_streams, server.create_initialization_options()
+                )
+            )
+            async with ClientSession(*client_streams) as session:
+                await session.initialize()
+                result = await session.list_tools()
+            tg.cancel_scope.cancel()
 
-    result = await handler(MagicMock())
-    registered_names = {t.name for t in result.root.tools}
+    registered_names = {t.name for t in result.tools}
     assert registered_names == EXPECTED_TOOL_NAMES
