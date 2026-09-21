@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-09-21
+
+### Fixed
+- Default Claude model is now `claude-sonnet-5`. The previous default `claude-sonnet-4-20250514` was retired by Anthropic on 2026-06-15. (#141)
+- `temperature` is sent only when set. Claude 4.7 and later models return a 400 error for non-default sampling values. Applies to `ClaudeSDKExecuteStep`, `ModelConfig`, `ACELiteLLM.from_model`, the `ace_temperature` runner kwarg and the `RRStep` Bedrock settings. (#141, #144)
+- `ace-mcp` starts on MCP Python SDK 2.x. The `mcp` extra now requires `mcp>=1.22.0,<3`. (#145)
+- Recursive SkillManager children work on an isolated Skillbook clone and commit back atomically under the skillbook lock. A failed child leaves the parent untouched. (#143, fixes #134)
+- Browser Use integration derives `BrowserResult.success` from the semantic run outcome instead of reporting every returned history as a success. (#140)
+
+### Changed
+- Non-Anthropic models use the provider's default sampling unless `temperature` is set per role. (#144)
+- Recursive Reflector: cost-equivalent token accounting for the budget (cache reads at 0.10, cache writes at 1.25, fresh tokens at 1.0), Bedrock prompt caching on by default for `RRStep` and `SkillManager`, recursive children return free-form text, prompts rewritten for fewer turns. (#131)
+- License changed from MIT to Apache-2.0. The kayba-tracing SDK under `sdk/python/` stays MIT. (#132, 3111e8b)
+
+### Docs
+- Browser Use guide uses the installed model adapter. (#139)
+- README banner and Kayba positioning updated.
+
 ## [0.12.0] - 2026-05-06
 
 ### Added
