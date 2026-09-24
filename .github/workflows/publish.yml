@@ -200,6 +200,8 @@ jobs:
 
     - name: Publish to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        skip-existing: true
 
   publish-kayba-tracing-to-pypi:
     name: Publish kayba-tracing to PyPI
@@ -220,6 +222,8 @@ jobs:
 
     - name: Publish to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        skip-existing: true
 
   # ── Publish to npm ─────────────────────────────────────────────────
 
@@ -251,7 +255,14 @@ jobs:
       working-directory: sdk/typescript
 
     - name: Publish to npm
-      run: npm publish --access public
+      run: |
+        name=$(node -p "require('./package.json').name")
+        version=$(node -p "require('./package.json').version")
+        if [ -n "$(npm view "$name@$version" version 2>/dev/null)" ]; then
+          echo "::notice::$name@$version is already on npm, skipping"
+        else
+          npm publish --access public
+        fi
       working-directory: sdk/typescript
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -284,7 +295,14 @@ jobs:
       working-directory: sdk/openclaw
 
     - name: Publish to npm
-      run: npm publish --access public
+      run: |
+        name=$(node -p "require('./package.json').name")
+        version=$(node -p "require('./package.json').version")
+        if [ -n "$(npm view "$name@$version" version 2>/dev/null)" ]; then
+          echo "::notice::$name@$version is already on npm, skipping"
+        else
+          npm publish --access public
+        fi
       working-directory: sdk/openclaw
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
