@@ -162,6 +162,43 @@ class TestSkillbookSerialization:
         assert skill.active is True
         assert skill.occurrences == []
 
+    def test_from_dict_drops_dangling_section_ids(self):
+        """A section id with no matching skill must not survive from_dict().
+
+        A stale/hand-edited/truncated file can reference a skill id that is no
+        longer present. Left in ``_sections`` it later crashes ``as_prompt()``
+        (and other section iterators) with a KeyError, so it is filtered out on
+        load and the surviving real skill is still rendered.
+        """
+        sb = Skillbook()
+        sb.add_skill(
+            "context", "real issue", insight="real insight", skill_id="context-1"
+        )
+        payload = sb.to_dict()
+        payload["sections"]["context"].append("context-ghost")
+
+        restored = Skillbook.from_dict(payload)
+
+        assert restored._sections["context"] == ["context-1"]
+        assert "context-ghost" not in restored._sections["context"]
+        # The core prompt path must not raise on the restored book.
+        assert "context-1" in restored.as_prompt()
+
+    def test_from_dict_drops_entirely_dangling_section(self):
+        """A section whose every id is dangling is dropped, not kept empty."""
+        sb = Skillbook()
+        sb.add_skill(
+            "context", "real issue", insight="real insight", skill_id="context-1"
+        )
+        payload = sb.to_dict()
+        payload["sections"]["ghost"] = ["nope-1", "nope-2"]
+
+        restored = Skillbook.from_dict(payload)
+
+        assert "ghost" not in restored._sections
+        assert restored._sections["context"] == ["context-1"]
+        assert restored.as_prompt()  # still renders the real skill
+
     def test_sources_round_trip(self):
         sb = Skillbook()
         sb.add_skill(

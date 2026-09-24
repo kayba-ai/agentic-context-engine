@@ -645,7 +645,13 @@ class Skillbook:
             for section, ids in sections_payload.items():
                 if not isinstance(ids, Iterable) or isinstance(ids, (str, bytes)):
                     continue
-                normalized_sections[str(section)] = [str(item) for item in ids]
+                # Drop dangling ids that no longer resolve to a stored skill.
+                # A stale section reference (older format, hand-edited or
+                # truncated file) would otherwise survive here and later crash
+                # as_prompt() and other section iterators with a KeyError.
+                resolved = [str(item) for item in ids if str(item) in instance._skills]
+                if resolved:
+                    normalized_sections[str(section)] = resolved
             instance._sections = normalized_sections
         next_id_value = payload.get("next_id", 0)
         instance._next_id = (

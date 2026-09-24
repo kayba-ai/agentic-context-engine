@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- `Skillbook.from_dict()` now drops section references whose skill id is not present in the loaded skills, and drops a section left with no valid ids. A stale/hand-edited/truncated skillbook file previously kept the dangling id in `_sections`, which then crashed `as_prompt()` (and other section iterators) with a `KeyError`.
+
 ## [0.13.0] - 2026-09-21
 
 ### Fixed
