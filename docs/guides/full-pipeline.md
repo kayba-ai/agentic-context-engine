@@ -153,6 +153,7 @@ dedup = DeduplicationManager(DeduplicationConfig(
     enabled=True,
     embedding_model="text-embedding-3-small",
     similarity_threshold=0.85,
+    consolidation_model="gpt-4o-mini",  # decides merge / delete / keep / update
 ))
 
 runner = ACE.from_roles(
@@ -161,6 +162,8 @@ runner = ACE.from_roles(
     dedup_interval=10,
 )
 ```
+
+Without `consolidation_model`, deduplication only logs a similarity report and does not change the skillbook. `ACELiteLLM` uses its own model when you pass a `dedup_config` without one.
 
 ## Custom Prompts
 

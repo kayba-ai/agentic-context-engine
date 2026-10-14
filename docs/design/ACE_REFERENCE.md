@@ -309,12 +309,21 @@ class DeduplicateStep:
     def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
         if ctx.global_sample_index % self.interval != 0:
             return ctx
+        consolidate = getattr(self.manager, "consolidate", None)
+        if callable(consolidate):
+            consolidate(self.skillbook)  # detect, ask the model, apply
+            return ctx
         report = self.manager.get_similarity_report(self.skillbook)
         if report:
             logger.info("DeduplicateStep: similarity report at sample %d:\n%s",
                         ctx.global_sample_index, report)
         return ctx
 ```
+
+`DeduplicationManager.consolidate()` sends the similarity report to
+`DeduplicationConfig.consolidation_model`, parses the returned
+`consolidation_operations` and applies them (`MERGE`, `DELETE`, `KEEP`,
+`UPDATE`). With no `consolidation_model` it only logs the report.
 
 ### CheckpointStep
 
@@ -973,7 +982,9 @@ ace = ACE.from_roles(
     reflector=Reflector("gpt-4o-mini"),
     skill_manager=SkillManager("gpt-4o-mini"),
     environment=SimpleEnvironment(),
-    dedup_manager=DeduplicationManager(DeduplicationConfig(similarity_threshold=0.85)),
+    dedup_manager=DeduplicationManager(
+        DeduplicationConfig(similarity_threshold=0.85, consolidation_model="gpt-4o-mini")
+    ),
     checkpoint_dir="./checkpoints",
     checkpoint_interval=10,
 )

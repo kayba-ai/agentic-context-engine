@@ -332,3 +332,119 @@ class TestLearningTail:
             checkpoint_interval=5,
         )
         assert len(steps) == 4  # 2 + DeduplicateStep + CheckpointStep
+
+
+# ---------------------------------------------------------------------------
+# DeduplicateStep
+# ---------------------------------------------------------------------------
+
+
+def _skillbook_with_duplicate_pair() -> tuple[Skillbook, str, str]:
+    sb = Skillbook()
+    keep = sb.add_skill("math", "Check units before dividing")
+    dup = sb.add_skill("math", "Always check the units before a division")
+    # Pre-computed embeddings so the detector makes no embedding API call.
+    keep.embedding = [1.0, 0.0]
+    dup.embedding = [0.99, 0.01]
+    return sb, keep.id, dup.id
+
+
+def _consolidation_model(operations: list[dict[str, Any]]):
+    from pydantic_ai.messages import ModelResponse, ToolCallPart
+    from pydantic_ai.models.function import FunctionModel
+
+    def respond(messages, info):
+        tool = info.output_tools[0].name
+        return ModelResponse(
+            parts=[
+                ToolCallPart(
+                    tool_name=tool, args={"consolidation_operations": operations}
+                )
+            ]
+        )
+
+    return FunctionModel(respond)
+
+
+class TestDeduplicateStep:
+    def test_applies_consolidation_to_skillbook(self):
+        """Regression for kayba-ai/agentic-context-engine#135."""
+        from ace.deduplication import DeduplicationManager
+        from ace.protocols.deduplication import DeduplicationConfig
+        from ace.steps import DeduplicateStep
+
+        sb, keep_id, dup_id = _skillbook_with_duplicate_pair()
+        model = _consolidation_model(
+            [
+                {
+                    "type": "MERGE",
+                    "source_ids": [keep_id, dup_id],
+                    "keep_id": keep_id,
+                    "merged_content": "Check units before any division",
+                    "reasoning": "same advice",
+                }
+            ]
+        )
+        manager = DeduplicationManager(DeduplicationConfig(consolidation_model=model))
+        step = DeduplicateStep(manager, sb, interval=10)
+
+        step(ACEStepContext(global_sample_index=10))
+
+        assert [s.id for s in sb.skills()] == [keep_id]
+        assert sb.get_skill(keep_id).insight == "Check units before any division"
+
+    def test_keep_decision_stops_pair_being_reported_again(self):
+        from ace.deduplication import DeduplicationManager
+        from ace.protocols.deduplication import DeduplicationConfig
+
+        sb, keep_id, dup_id = _skillbook_with_duplicate_pair()
+        model = _consolidation_model(
+            [{"type": "KEEP", "skill_ids": [keep_id, dup_id], "reasoning": "x"}]
+        )
+        manager = DeduplicationManager(DeduplicationConfig(consolidation_model=model))
+
+        manager.consolidate(sb)
+
+        assert len(sb.skills()) == 2
+        assert manager.get_similarity_report(sb) is None
+
+    def test_model_error_leaves_skillbook_unchanged(self):
+        from pydantic_ai.models.function import FunctionModel
+
+        from ace.deduplication import DeduplicationManager
+        from ace.protocols.deduplication import DeduplicationConfig
+
+        def fail(messages, info):
+            raise RuntimeError("provider down")
+
+        sb, keep_id, dup_id = _skillbook_with_duplicate_pair()
+        manager = DeduplicationManager(
+            DeduplicationConfig(consolidation_model=FunctionModel(fail))
+        )
+
+        assert manager.consolidate(sb) == []
+        assert {s.id for s in sb.skills()} == {keep_id, dup_id}
+
+    def test_without_consolidation_model_only_reports(self, caplog):
+        from ace.deduplication import DeduplicationManager
+        from ace.steps import DeduplicateStep
+
+        sb, keep_id, dup_id = _skillbook_with_duplicate_pair()
+        step = DeduplicateStep(DeduplicationManager(), sb, interval=10)
+
+        with caplog.at_level(logging.INFO):
+            step(ACEStepContext(global_sample_index=10))
+
+        assert {s.id for s in sb.skills()} == {keep_id, dup_id}
+        assert "Similar Skills Detected" in caplog.text
+
+    def test_skips_samples_off_interval(self):
+        from ace.steps import DeduplicateStep
+
+        manager = MagicMock()
+        step = DeduplicateStep(manager, Skillbook(), interval=10)
+
+        step(ACEStepContext(global_sample_index=7))
+
+        manager.consolidate.assert_not_called()
+        manager.get_similarity_report.assert_not_called()

@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional
+
+from pydantic import BaseModel
 
 from ..protocols.deduplication import DeduplicationConfig
 from .detector import SimilarityDetector
@@ -24,6 +26,22 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+class _ConsolidationOperationModel(BaseModel):
+    type: Literal["MERGE", "DELETE", "KEEP", "UPDATE"]
+    source_ids: List[str] = []
+    keep_id: str = ""
+    merged_content: str = ""
+    skill_id: str = ""
+    skill_ids: List[str] = []
+    differentiation: str = ""
+    new_content: str = ""
+    reasoning: str = ""
+
+
+class _ConsolidationPlan(BaseModel):
+    consolidation_operations: List[_ConsolidationOperationModel] = []
+
+
 class DeduplicationManager:
     """Manages similarity detection and feeds info to SkillManager.
 
@@ -39,6 +57,18 @@ class DeduplicationManager:
     def __init__(self, config: DeduplicationConfig | None = None) -> None:
         self.config = config or DeduplicationConfig()
         self.detector = SimilarityDetector(self.config)
+        self._consolidator: Any = None
+        if self.config.consolidation_model is not None:
+            from pydantic_ai import Agent as PydanticAgent
+
+            from ..providers.pydantic_ai import resolve_model
+
+            model = self.config.consolidation_model
+            self._consolidator = PydanticAgent(
+                resolve_model(model) if isinstance(model, str) else model,
+                output_type=_ConsolidationPlan,
+                defer_model_check=True,
+            )
 
     # ------------------------------------------------------------------
     # DeduplicationManagerLike interface
@@ -73,6 +103,31 @@ class DeduplicationManager:
             logger.debug(format_pair_for_logging(skill_a, skill_b, similarity))
 
         return generate_similarity_report(similar_pairs)
+
+    def consolidate(self, skillbook: "Skillbook") -> List[ConsolidationOperation]:
+        """Detect similar skills and apply the consolidation the model picks.
+
+        Without ``config.consolidation_model`` this only logs the
+        similarity report and returns an empty list.
+        """
+        report = self.get_similarity_report(skillbook)
+        if not report:
+            return []
+        if self._consolidator is None:
+            logger.info(
+                "No consolidation_model configured; similarity report only:\n%s",
+                report,
+            )
+            return []
+
+        try:
+            plan = self._consolidator.run_sync(report).output
+        except Exception as e:
+            logger.warning("Skill consolidation failed, skillbook unchanged: %s", e)
+            return []
+        return self.apply_operations_from_response(
+            plan.model_dump(exclude_defaults=True), skillbook
+        )
 
     # ------------------------------------------------------------------
     # Consolidation operation parsing / application

@@ -118,9 +118,12 @@ config = DeduplicationConfig(
     embedding_model="text-embedding-3-small",
     similarity_threshold=0.85,
     within_section_only=True,
+    consolidation_model="gpt-4o-mini",
 )
 dedup = DeduplicationManager(config)
 ```
+
+`consolidation_model` decides, for each similar pair, whether to merge, delete, keep or update. Without it, deduplication only logs a similarity report and leaves the skillbook unchanged.
 
 When used with a runner, deduplication runs automatically at a configurable interval:
 
