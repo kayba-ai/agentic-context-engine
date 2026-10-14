@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- `DeduplicateStep` now applies consolidation to the skillbook. It used to log the similarity report and never call the merge, delete, keep or update code. Set `DeduplicationConfig.consolidation_model` to choose the model that decides; `ACELiteLLM` uses its own model by default. (#135)
+
 ## [0.13.0] - 2026-09-21
 
 ### Fixed

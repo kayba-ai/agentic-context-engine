@@ -277,6 +277,7 @@ config = DeduplicationConfig(
     enabled=True,
     embedding_model="text-embedding-3-small",
     similarity_threshold=0.85,
+    consolidation_model="gpt-4o-mini",  # optional; without it dedup only logs a report
 )
 ```
 

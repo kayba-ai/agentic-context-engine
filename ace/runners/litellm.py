@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import logging
 from collections.abc import Sequence
 from pathlib import Path
@@ -103,6 +104,10 @@ class ACELiteLLM:
         elif dedup_config is not None:
             from ..deduplication import DeduplicationManager
 
+            if dedup_config.consolidation_model is None:
+                dedup_config = dataclasses.replace(
+                    dedup_config, consolidation_model=model
+                )
             self._dedup_manager = DeduplicationManager(dedup_config)
         else:
             self._dedup_manager = None

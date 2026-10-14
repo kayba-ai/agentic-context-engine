@@ -119,6 +119,8 @@ agent = ACELiteLLM.from_model(
 )
 ```
 
+Similar pairs are consolidated by the same model unless you set `consolidation_model` on the config.
+
 ## Supported Providers
 
 Any model supported by [LiteLLM](https://docs.litellm.ai/):

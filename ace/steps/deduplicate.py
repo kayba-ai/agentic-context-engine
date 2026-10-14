@@ -17,6 +17,11 @@ class DeduplicateStep:
     Optional side-effect step — appended to the pipeline by factory methods
     when ``dedup_config`` is provided.
 
+    If the manager has a ``consolidate(skillbook)`` method (the built-in
+    ``DeduplicationManager`` does), the step calls it so similar skills are
+    actually merged, deleted, kept or updated. Managers that only implement
+    ``get_similarity_report`` get their report logged.
+
     Stateless — uses ``ctx.global_sample_index`` with ``self.interval`` to
     skip most invocations.  Deduplication involves O(n^2) similarity
     comparisons, so running on every sample would be expensive.
@@ -40,6 +45,17 @@ class DeduplicateStep:
 
     def __call__(self, ctx: ACEStepContext) -> ACEStepContext:
         if ctx.global_sample_index % self.interval != 0:
+            return ctx
+
+        consolidate = getattr(self.manager, "consolidate", None)
+        if callable(consolidate):
+            operations = consolidate(self.skillbook)
+            if operations:
+                logger.info(
+                    "DeduplicateStep: applied %d consolidation operations at sample %d",
+                    len(operations),
+                    ctx.global_sample_index,
+                )
             return ctx
 
         report = self.manager.get_similarity_report(self.skillbook)

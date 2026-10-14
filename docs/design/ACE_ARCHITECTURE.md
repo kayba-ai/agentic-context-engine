@@ -448,7 +448,7 @@ Skill deduplication subsystem in `ace/deduplication/` — fully self-contained.
 | `KeepOp` | Store a similarity decision so the pair is not flagged again |
 | `UpdateOp` | Refine content to differentiate, clear embedding |
 
-**Pipeline integration:** Deduplication runs as a separate `DeduplicateStep` at a configurable interval, not inside the SkillManager. Appended by factory methods when a `DeduplicationManagerLike` is provided.
+**Pipeline integration:** Deduplication runs as a separate `DeduplicateStep` at a configurable interval, not inside the SkillManager. Appended by factory methods when a `DeduplicationManagerLike` is provided. On each run the step calls `DeduplicationManager.consolidate()`, which sends the similarity report to `DeduplicationConfig.consolidation_model` and applies the returned operations to the skillbook. Without a `consolidation_model` the report is only logged. `ACELiteLLM` fills in its own model when `dedup_config` has none.
 
 ---
 
